@@ -3,11 +3,26 @@
  * No three.js, so it can be tested on its own.
  */
 import { ATTRS, ATTR_MAX, ATTR_POINTS_PER_LEVEL, type Attrs, attrsFrom, baseAttrs, finalDamage, throughFraction } from '../attributes';
-import type { CombatData, Database, WeaponClass } from '../../world/types';
+import type { BattleMode, CombatData, Database, TurnOrder, WeaponClass } from '../../world/types';
 
 export interface ClassTuning { speed: number; reach: number; damage: number }
 
+export interface TurnBasedConfig {
+  order: TurnOrder;
+  flee: number;
+  joinRadius: number;
+  maxEnemies: number;
+  partyDamage: number;
+  enemyDamage: number;
+  grace: number;
+}
+
+export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 4, partyDamage: 1, enemyDamage: 1, grace: 3 };
+
 export interface CombatConfig {
+  /** Action combat on the map, or turn-based battles. */
+  mode: BattleMode;
+  turnBased: TurnBasedConfig;
   unarmedDamage: number;
   classes: Record<WeaponClass | 'unarmed', ClassTuning>;
   bow: { drawTime: number; arrowSpeed: number; lockRange: number };
@@ -32,6 +47,8 @@ export interface CombatConfig {
 }
 
 export const DEFAULT_COMBAT: CombatConfig = {
+  mode: 'action',
+  turnBased: DEFAULT_TURN_BASED,
   unarmedDamage: 3,
   classes: {
     unarmed: { speed: 1.3, reach: 0.85, damage: 1 },
@@ -62,7 +79,14 @@ export function combatConfig(data?: CombatData): CombatConfig {
   const d = DEFAULT_COMBAT, s = data ?? {};
   const classes = { ...d.classes };
   for (const k of ['light', 'medium', 'heavy'] as WeaponClass[]) classes[k] = { ...d.classes[k], ...s.classes?.[k] };
+  const tb = { ...d.turnBased, ...s.turnBased };
   return {
+    mode: s.mode === 'turnBased' ? 'turnBased' : 'action',
+    turnBased: {
+      ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
+      flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(8, Math.round(tb.maxEnemies))),
+      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace),
+    },
     unarmedDamage: s.unarmedDamage ?? d.unarmedDamage,
     classes,
     bow: { ...d.bow, ...s.bow },

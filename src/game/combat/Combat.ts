@@ -91,6 +91,12 @@ export interface CombatHost {
   broken(b: Breakable): void;
   /** A line in the adventure log. */
   log(text: string, kind: LogKind): void;
+  /**
+   * Turn-based battles: a fight broke out with `e` on the map (the hero or a friend hit it first: preemptive; it hit
+   * first: normal, or from behind: ambush). True when the game took it over (a battle starts, or one just ended and
+   * the hit is ignored); the hit itself then doesn't happen.
+   */
+  encounter?(e: Enemy, opening: 'preemptive' | 'normal' | 'ambush'): boolean;
 }
 
 /** An event the combat system can turn into an enemy. */
@@ -592,6 +598,8 @@ export class Combat {
   private damageEnemy(e: Enemy, base: number, knock: number, ranged: boolean, range = 0, magic = false, element: Element = 'neutral', inflicts?: Inflict[], by?: AllyFighter): void {
     const h = this.host, sneak = !by && e.unaware, sk = h.skills, top0 = e.y + e.height;
     const fromX = by ? by.x : h.player.position.x, fromZ = by ? by.z : h.player.position.z;
+    // Turn-based: the first blow starts a battle instead (catching it unawares gives the party the first turns).
+    if (h.encounter?.(e, 'preemptive')) return;
     // Blind: half the hero's attacks miss.
     if (!by && this.heroStatus.blind && Math.random() < BLIND_MISS) {
       h.overlay.float('Miss', e.x, top0, e.z, 'info');
@@ -1077,11 +1085,13 @@ export class Combat {
       safe: h.safeZones?.() ?? [],
       blockedAt: (x, z) => h.solidEventAt(x, z),
       hurtPlayer: (d, x, z, from) => {
+        if (from && h.encounter?.(from, this.behind(x, z) ? 'ambush' : 'normal')) return;
         if (from?.status.blind && Math.random() < BLIND_MISS) { h.overlay.float('Miss', p.x, p.y + 1.3, p.z, 'info'); return; }
         this.hurtPlayer(d, x, z, from);
       },
       hurtEnemy: (t, d, from) => this.confusedHit(t, d, from),
       shoot: (e, tx, ty, tz) => {
+        if (h.encounter?.(e, 'normal')) return;
         const dx = tx - e.x, dz = tz - e.z, d = Math.hypot(dx, dz) || 1;
         // Casters throw firebolts (stopped by Magic Defence); the rest shoot arrows.
         const magic = e.def.attackType === 'magic';
@@ -1099,6 +1109,7 @@ export class Combat {
         const a = best;
         world.px = a.x; world.py = a.y; world.pz = a.z;
         world.hurtPlayer = (d, _x, _z, from) => {
+          if (from && h.encounter?.(from, 'normal')) return;
           if (from?.status.blind && Math.random() < BLIND_MISS) { h.overlay.float('Miss', a.x, a.y + 1.3, a.z, 'info'); return; }
           a.hurt(d, from, from?.def.attackType === 'magic', from ? enemyElement(from.def) : 'neutral');
         };
@@ -1234,6 +1245,19 @@ export class Combat {
   }
 
   /** Stop everything at once (death, a cutscene starting is fine to leave). */
+  /** Did a hit from (x, z) come from behind the hero? */
+  private behind(x: number, z: number): boolean {
+    const p = this.host.player.position, [fx, fz] = DIR_VECTOR[this.host.player.dir], [ax, az] = norm(x - p.x, z - p.z);
+    return ax * fx + az * fz < -0.4;
+  }
+
+  /** Turn-based: beaten in a battle. It falls and fades on the map and stays beaten until the hero comes back. */
+  beatenInBattle(e: Enemy): void {
+    e.defeat();
+    this.beaten.add(e.key as EnemyEvent);
+    if (this.lock === e) this.lock = null;
+  }
+
   reset(): void {
     this.swing = null; this.draw = null; this.cast = 0; this.lock = null; this.invulnerable = 0; this.hurtFlash = 0; this.guard = null; this.bowHands = 0;
     if (this.guardMesh) this.guardMesh.pivot.visible = false;

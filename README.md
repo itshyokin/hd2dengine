@@ -470,6 +470,38 @@ drops the hand-set numbers. Database → Combat sets points per level and all th
 on the plateau to the north-east (two bandits and an archer), with the ramp as the way up. The hero starts with a
 Short Sword, a Hunting Bow and Iron Arrows; bandits drop Steel Arrows.
 
+### Turn-based battles (optional battle system)
+
+**Database → Combat → Battle system** chooses how the game fights: **Action** (everything above, the default) or
+**Turn-based**, in the style of Final Fantasy X and the Game Boy Advance Pokémon games. Heroes, stats, gear, spell
+shards, items, enemies, EXP, gold and drops are the same in both, so a game can switch at any time.
+
+- **Starting a battle**: an enemy on the map that reaches the hero (its strike or its arrow) starts a battle with it
+  and the enemies near it (*Enemies who join*, up to *Most enemies in a battle*). Hitting it first on the map, with a
+  sword, an arrow or a spell, gives the party the first turns (*You caught … off guard!*); being hit from behind is an
+  **ambush** (the enemies go first). Stealth still matters: sneak up on an enemy to strike first.
+- **Random encounters**: a map's settings → **Random encounters** lists enemies (with how often each appears), about
+  how many tiles are walked between battles, how many enemies come at once, and optionally which terrain characters
+  they happen on (tall grass, say). Works alongside enemies placed on the map.
+- **Turn order**: *Conditional turns (FFX)*: fast fighters (Dexterity for heroes, **Agility** for enemies in
+  Database → Enemies) act more often, and light actions (Guard, Items, a failed Run) bring the next turn round
+  sooner. The bar on the right shows who's coming up, and changes as you move through the commands, like FFX.
+  *Rounds (classic)*: everyone acts once a round, fastest first.
+- **Commands**: **Attack** (the equipped weapon; a bow if there's no melee weapon), **Magic** (the spell shard in the
+  magic slot; healers also have *Heal*), **Items** (consumables from the bag, on anyone in the party), **Guard**
+  (half damage until your next turn) and **Run** (more likely when the party is faster; never from a boss).
+  Elements, weaknesses, immunities, absorbing, critical hits and Defence / Magic Defence work as on the map.
+- **Winning** gives EXP to everyone standing, gold and drops straight into the bag (a full bag leaves them on the
+  ground) and runs the beaten enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
+  **Losing** sends the party back to the respawn point, as dying does in action mode. Running away leaves the enemies
+  on the map; they lose track of the hero for a moment.
+- **Tuning**: *Party damage ×* and *Enemy damage ×* scale each side's hits; *Safe after a battle* stops a new
+  battle starting straight away. The map's **battle music** plays during battles (the built-in battle theme if the map
+  has none).
+- Controls: arrows / D-pad move, OK picks, Cancel goes back; on a tablet, tap a command, then tap the target.
+- Not in turn-based battles yet: ailments and buffs given or ticking during a battle, enemy spells and skills,
+  multi-target spells, and a *Start battle* event command for scripted (boss) fights.
+
 ### EXP orbs and loot on the ground
 
 Defeated enemies don't hand over their rewards at once: they spill them onto the ground around them.
@@ -855,7 +887,8 @@ public/assets/audio/      Imported music and sounds
 public/assets/characters/ Imported character sheets (Database → Characters)
 src/
   main.ts                 Entry point
-  game/                   Game loop, player, input, stats, skills, inventory, saves, settings; combat/ (enemies, fighting)
+  game/                   Game loop, player, input, stats, skills, inventory, saves, settings; combat/ (enemies, fighting);
+                          battle/ (turn-based battles: rules.ts for turn order and damage, TurnBattle.ts runs a battle)
   audio/                  Sound: the Web Audio player and the built-in sounds, music and ambience made in code
   events/                 Map events (pages, triggers) and the command interpreter
   render/                 Sprite system, textures, post-processing
@@ -887,6 +920,8 @@ tools/character-builder/    Character Builder source (build.py makes Character B
   "overhang"?, "windows"?, "doors"?: [{ "side": "front" | "back" | "left" | "right", "at" }], "name"? }`. `x, z` is
   the top-left tile, `w × d` the footprint; `at` counts tiles from the wall's left (front / back) or top (left / right)
   end. Left-out settings use the defaults (2.5 tall, plaster, shingle gable, a few windows).
+- **encounters** (optional, turn-based battles): `{ "enemies": [{ "enemy": "slime", "weight": 3 }], "steps": 30,
+  "min": 1, "max": 3, "terrain": "." }` (random battles while walking; `terrain` limits them to those characters).
 - **events**: `{ "id", "name", "x", "z", "w"?, "h"?, "pages": [...] }`; `x, z` is the top-left tile and
   `w × h` the size in tiles (1 × 1 when left out).
 - **props**: `{ "type": "oak", "x": 3.6, "z": 1.5, "s": 1.1 }`. Positions are in tiles (x, z is where the prop
@@ -977,7 +1012,8 @@ In text, `\v[name]` shows a variable's value and `\s[name]` shows a switch as ON
 11. ~~Respawn points, save / load~~, ~~title screen, pause menu, settings~~
 12. ~~Items, bag, equipment, light items, chests and shops~~, ~~magic rings~~
 13. Battle system: ~~stage 1 (action combat, enemies, stealth, levels)~~, ~~stage 2 (skill tree, block / parry)~~,
-    stage 3 (party: AI companions with their own stats and gear, swapping, wait / follow orders)
+    stage 3 (party: AI companions with their own stats and gear, swapping, wait / follow orders),
+    ~~turn-based battles as an option (FFX-style turn order or rounds, random encounters)~~
 14. ~~Sound, rebindable controls, Xbox controller~~, ~~quest log~~; plugins
 15. ~~LPC characters with full animation sets, Credits screen~~, ~~Buildings~~, ~~fading buildings~~, ~~LPC weapons~~,
     ~~LPC library (tiles and props)~~, ~~adventure / combat log~~, ~~weapon builder~~,

@@ -181,6 +181,26 @@ export class Enemy {
     return false;
   }
 
+  /** Beaten in a turn-based battle: down at once (it falls, then fades). */
+  defeat(): void {
+    if (this.dead) return;
+    this.hp = 0; this.dead = true; this.deadT = 0; this.held?.hide();
+    this.sprite.play('hurt', 0.5, 0, () => this.sprite.hold('hurt', 5));
+  }
+
+  /** The hero got away (turn-based): it loses track of them for now and wanders back. */
+  calm(): void {
+    if (this.dead) return;
+    this.alert = false;
+    this.awareness = 0.3;
+    this.state = 'idle';
+    this.t = 0;
+    this.cooldown = Math.max(this.cooldown, 2);
+  }
+
+  /** Remembered between battles: the health it has left (turn-based battles that were run from). */
+  setHp(hp: number): void { if (!this.dead) this.hp = Math.max(1, Math.min(this.maxHp, hp)); }
+
   /** Knocked off balance (a parry): no attacking for a moment. */
   stagger(seconds: number): void {
     if (this.dead) return;

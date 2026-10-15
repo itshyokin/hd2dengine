@@ -225,6 +225,50 @@ export class SpriteLibrary {
     return this.character(def?.palette ?? DEFAULT_PALETTE);
   }
 
+  private readonly standing = new Map<string, HTMLCanvasElement>();
+
+  /**
+   * A character's whole standing frame facing `dir` (for turn-based battles), trimmed to what's drawn and scaled
+   * up `scale` times with sharp pixels. `key` caches it.
+   */
+  standingFrame(key: string, def: CharacterDef | undefined, dir: 'down' | 'left' | 'right' | 'up', scale = 3): HTMLCanvasElement {
+    const k = `${key}|${dir}|${scale}`;
+    const hit = this.standing.get(k);
+    if (hit) return hit;
+    const sheet = (def?.sheet ? this.sheets.get(def.sheet) : undefined) ?? characterSheet(def?.palette ?? DEFAULT_PALETTE);
+    let fx: number, fy: number, fw: number, fh: number;
+    if (def?.sheet && def.anim && this.sheets.has(def.sheet)) {
+      const L = def.anim, a = L.anims.idle ?? L.anims.walk ?? Object.values(L.anims)[0];
+      fw = fh = L.frame; fx = 0;
+      fy = ((a?.row ?? 0) + (a?.dirs === 4 ? Math.max(0, L.dirs.indexOf(dir)) : 0)) * L.frame;
+    } else {
+      // RPG Maker layout: 3 across (the middle one stands), rows down, left, right, up.
+      fw = Math.floor(sheet.width / 3); fh = Math.floor(sheet.height / 4); fx = fw;
+      fy = ['down', 'left', 'right', 'up'].indexOf(dir) * fh;
+    }
+    // 0: about 110 pixels for a frame (people come out roughly the same size whatever their sheet's resolution).
+    const out = SpriteLibrary.trimmed(sheet, fx, fy, fw, fh, scale || Math.max(1, Math.round(110 / fh)));
+    this.standing.set(k, out);
+    return out;
+  }
+
+  /** A sheet's frame (or a picture) cut to what's drawn, scaled `scale` times with sharp pixels. */
+  static trimmed(src: HTMLCanvasElement, fx: number, fy: number, fw: number, fh: number, scale: number): HTMLCanvasElement {
+    const g = src.getContext('2d', { willReadFrequently: true })!, px = g.getImageData(fx, fy, fw, fh).data;
+    let x0 = fw, y0 = fh, x1 = -1, y1 = -1;
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px[(y * fw + x) * 4 + 3] > 10) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    if (x1 < 0) { x0 = 0; y0 = 0; x1 = fw - 1; y1 = fh - 1; }
+    const w = x1 - x0 + 1, h = y1 - y0 + 1, out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(w * scale)); out.height = Math.max(1, Math.round(h * scale));
+    const o = out.getContext('2d')!;
+    o.imageSmoothingEnabled = scale < 1;
+    o.drawImage(src, fx + x0, fy + y0, w, h, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  /** A flat enemy picture as loaded (null when it didn't load). */
+  flatImage(path: string): HTMLCanvasElement | null { return this.flats.get(path)?.image ?? null; }
+
   private readonly portraits = new Map<string, HTMLCanvasElement>();
 
   /**

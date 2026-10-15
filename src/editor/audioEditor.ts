@@ -78,7 +78,7 @@ export function mapAudioFields(store: EditorStore, m: MapData, edit: (fn: () => 
   };
   return [
     row('Music', 'music', 'music'),
-    row('Battle music', 'music', 'battleMusic', 'Takes over while an enemy is hunting the hero.'),
+    row('Battle music', 'music', 'battleMusic', 'Takes over while an enemy is hunting the hero (turn-based battles: during each battle).'),
     row('Background sound', 'ambience', 'ambience'),
     row('At night', 'ambience', 'ambienceNight', 'Outdoor maps switch to this after dark (crickets, say). None: the same as by day.'),
     row('In autumn & winter', 'ambience', 'ambienceCold', 'Outdoors by day in the cold seasons. None: a forest’s birdsong gives way to cold wind; anything else stays.'),

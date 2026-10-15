@@ -41,6 +41,12 @@ import { Combat, type CombatHost } from './combat/Combat';
 import { type CombatConfig, Progression, SWING_TIME, combatFromDb, xpToNext } from './combat/config';
 import type { Enemy } from './combat/Enemy';
 import { CombatOverlay } from '../ui/CombatOverlay';
+import { BattleScreen, type FighterView } from '../ui/BattleScreen';
+import { type BattleEntry, type BattleHost, TurnBattle } from './battle/TurnBattle';
+import { type BattleSpell, type Battler, type Opening, enemyAgility, weighted } from './battle/rules';
+import { HEAL_MP } from './party';
+import { MONSTERS } from '../art/placeholderArt';
+import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
 import { Skills, skillsData } from './skills';
 import { playerConfig } from './stats';
@@ -65,6 +71,7 @@ import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attrs, type HeroTotals, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
 import { BUFF_INFO, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
+import type { EnemyDef } from '../world/types';
 import { statusIconUrl } from '../art/statusIcons';
 import { creation, heroBase, mainHero } from '../world/heroes';
 import { CreationScreen } from '../ui/CreationScreen';
@@ -190,6 +197,19 @@ export class Game {
   private readonly bursts = new Bursts();
   private readonly combat = new Combat();
   private overlay!: CombatOverlay;
+  /** Turn-based battles (Database → Combat → Battle system: Turn-based). */
+  private battleScreen!: BattleScreen;
+  private battle!: TurnBattle;
+  /** Frames since the battle screen opened (the world behind stops being redrawn after a few). */
+  private battleFrames = 0;
+  /** Seconds before another battle can start (just won or ran from one). */
+  private battleGrace = 0;
+  /** Random encounters: tiles walked since the last battle, and how far until the next. */
+  private encounterWalked = 0;
+  private encounterAt = 0;
+  private encounterFrom: { x: number; z: number } | null = null;
+  /** Page commands of enemies beaten in a battle, run once its screen closes. */
+  private battleCommands: GameEvent[] = [];
   private combatCfg!: CombatConfig;
   /** The hero's level, experience and skill points. */
   private progress!: Progression;
@@ -383,6 +403,8 @@ export class Game {
     this.ripples = new Ripples(this.scene);
     this.overlay = new CombatOverlay(this.ui);
     this.overlay.setProjector(this.projector);
+    this.battleScreen = new BattleScreen(this.ui, this.input);
+    this.battle = new TurnBattle(this.battleScreen, this.battleHost());
     this.combatCfg = combatFromDb(this.db);
     this.progress = new Progression(this.combatCfg);
     this.syncSkills();
@@ -883,6 +905,7 @@ export class Game {
         this.refreshEvents();
       },
       log: (t, k) => this.log.add(t, k),
+      encounter: (e, how) => this.encounter(e, how),
     };
   }
 
@@ -1167,6 +1190,8 @@ export class Game {
   }
 
   private resize(): void {
+    // A resize clears the picture: draw the world behind a battle again.
+    this.battleFrames = 0;
     const pr = Math.min(window.devicePixelRatio || 1, this.pixelCap);
     this.renderer.setPixelRatio(pr);
     const w = this.canvas.clientWidth || innerWidth, h = this.canvas.clientHeight || innerHeight;
@@ -1302,9 +1327,13 @@ export class Game {
     this.elapsed += dt;
     const paused = this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen;
     // The controller's buttons mean different things in menus and on the field.
-    this.input.mode = paused || this.message.isOpen || this.interpreter.running || this.onTitle || !!this.transfer || this.dying ? 'menu' : 'field';
+    // A turn-based battle holds the field still (the world stays on screen behind it).
+    const fighting = this.battle.active && !paused;
+    this.input.mode = paused || fighting || this.message.isOpen || this.interpreter.running || this.onTitle || !!this.transfer || this.dying ? 'menu' : 'field';
     this.input.pollGamepad(dt);
-    if (!paused) { this.time.update(dt); this.playTime += dt; }
+    if (!paused && !fighting) { this.time.update(dt); this.playTime += dt; }
+    if (!paused && !fighting && this.battleGrace > 0) this.battleGrace = Math.max(0, this.battleGrace - dt);
+    document.body.classList.toggle('in-battle', this.battle.active);
 
     this.message.update(dt);
     // Arrived after respawning: fade back in (the player can already move).
@@ -1327,6 +1356,7 @@ export class Game {
       else if (this.shop.isOpen) this.shop.update(); else if (this.bag.isOpen) this.bag.update(); else this.menu.update();
       this.player.animate(dt, false);
     }
+    else if (fighting) { this.battle.update(dt); this.player.animate(dt, false); }
     else if (this.updateDying(dt) || this.updateTransfer()) this.player.animate(dt, false);
     else if (this.interpreter.running) {
       this.interpreter.update(dt);
@@ -1338,6 +1368,7 @@ export class Game {
         for (let k = 0; k < QUICK_SLOTS; k++) if (this.input.consume(`quick${k + 1}` as Action)) this.useQuick(k);
         this.updatePlayer(dt);
         this.updateParty(dt);
+        this.updateEncounters();
       }
       this.updateFootsteps(dt);
       this.updateRipples(dt);
@@ -1348,7 +1379,7 @@ export class Game {
     if (!paused && !this.onTitle) this.quests.itemsChanged();
     this.tracker.update(this.quests);
     // Orbs, gold and items on the ground: frozen while paused; picked up only while the hero is free to move.
-    if (!paused && this.pickups) {
+    if (!paused && !fighting && this.pickups) {
       const p = this.player.position;
       this.pickups.update(dt, p.x, p.y, p.z, !this.onTitle && !this.interpreter.running && !this.dying && !this.transfer && this.player.mesh.visible);
     }
@@ -1357,7 +1388,7 @@ export class Game {
     this.updateFade(dt);
     this.updateCamera(dt);
     this.updateEnvironment(dt);
-    if (!this.onTitle) this.combat.updateBack();
+    if (!this.onTitle && !fighting) this.combat.updateBack();
     if (this.buildings.length) { const p = this.player.position; fadeBuildings(this.buildings, p.x, p.y, p.z, dt); }
 
     // Performance quality: shadows are redrawn every other frame (half the shadow work; moving shadows lag a frame).
@@ -1365,8 +1396,13 @@ export class Game {
     if (this.settings.quality === 'performance') { sm.autoUpdate = false; if ((this.shadowTick++ & 1) === 0) sm.needsUpdate = true; }
     else sm.autoUpdate = true;
     if (this.warmup) { this.warmup = false; try { this.renderer.compile(this.scene, this.camera); } catch { /* best effort */ } }
-    this.ssao.render(this.scene, this.camera);
-    this.post.render(this.scene, this.camera);
+    // In a turn-based battle the world behind is frozen: draw it a few times as the battle opens, then leave the
+    // last picture on screen (the battle screen draws over it), which keeps tablets cool.
+    this.battleFrames = this.battle.active ? this.battleFrames + 1 : 0;
+    if (this.battleFrames < 4) {
+      this.ssao.render(this.scene, this.camera);
+      this.post.render(this.scene, this.camera);
+    }
     this.message.position();
     if (!this.onTitle) this.updateAudio(dt);
     this.hud.setRingActive(this.rings.active);
@@ -1617,6 +1653,7 @@ export class Game {
 
   /** Load a save: fade out, rebuild its map with everything as it was, fade in. */
   private loadSave(d: SaveData): void {
+    this.battle.abort();
     // Loading from the title (Continue or Load Game) leaves the title: hero, status bars and camera come back.
     if (this.onTitle) { this.onTitle = false; this.setTitleLook(false); }
     this.menu.close();
@@ -2875,11 +2912,14 @@ export class Game {
     a.listener.x = this.player.position.x; a.listener.z = this.player.position.z;
     // Battle music while an enemy is hunting the hero nearby (and a moment after).
     const p = this.player.position;
-    const hunted = this.combat.enemies.some((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 16);
+    const turnBased = this.combatCfg.mode === 'turnBased';
+    // Turn-based: the battle music plays during battles (the built-in theme when the map has none), not while hunted.
+    const hunted = turnBased ? this.battle.active : this.combat.enemies.some((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 16);
     this.calmFor = hunted ? 0 : this.calmFor + dt;
-    const battle = d.battleMusic && this.calmFor < 4 ? d.battleMusic : undefined;
+    const fightMusic = d.battleMusic ?? (turnBased ? 'builtin:battle' : undefined);
+    const battle = fightMusic && (turnBased ? this.battle.active : this.calmFor < 4) ? fightMusic : undefined;
     // Build the battle music while things are calm, so it doesn't stall the moment a fight starts.
-    if (d.battleMusic && this.calmFor > 1) a.prepare(d.battleMusic);
+    if (fightMusic && this.calmFor > 1) a.prepare(fightMusic);
     a.music(battle ?? this.musicOverride ?? d.music ?? '', battle ? 0.6 : fade);
     const night = this.time.environment === 'outdoor' && this.time.night > 0.5 && d.ambienceNight;
     // Rain brings its own sound (unless an event chose one).
@@ -2984,6 +3024,247 @@ export class Game {
         row('Fires fed', 'firesFed'),
       ]), empty: 'Nothing yet.' },
     ];
+  }
+
+  /* ------------------------------------------------------------------ turn-based battles */
+
+  /**
+   * A fight broke out on the map (turn-based mode): a battle with that enemy and its friends nearby. True when it's
+   * taken over (so the hit on the map doesn't happen); just after a battle, hits are ignored for a moment.
+   */
+  private encounter(e: Enemy, opening: Opening): boolean {
+    if (this.combatCfg.mode !== 'turnBased') return false;
+    if (this.battle.active || this.battleGrace > 0 || this.dying || this.onTitle || this.transfer || this.interpreter.running) return true;
+    const tb = this.combatCfg.turnBased;
+    const near = this.combat.enemies
+      .filter((o) => o !== e && !o.dead && Math.hypot(o.x - e.x, o.z - e.z) <= tb.joinRadius && (o.alert || Math.hypot(o.x - e.x, o.z - e.z) < 3))
+      .sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z));
+    const group = [e, ...near].slice(0, tb.maxEnemies);
+    this.startBattle(group.map((en) => ({ def: en.def, hp: en.hp, enemy: en })), opening);
+    return true;
+  }
+
+  /** Random encounters (the map's table, turn-based mode): count the tiles walked, and now and then a battle. */
+  private updateEncounters(): void {
+    const t = this.mapData?.encounters, p = this.player.position;
+    if (this.combatCfg.mode !== 'turnBased' || !t?.enemies.length || this.onTitle || this.transfer || this.dying || this.battle.active || this.interpreter.running) { this.encounterFrom = null; return; }
+    const from = this.encounterFrom;
+    this.encounterFrom = { x: p.x, z: p.z };
+    if (!from || this.motion.swimming || this.motion.airborne) return;
+    const d = Math.hypot(p.x - from.x, p.z - from.z);
+    if (d <= 0 || d > 2) return;
+    // Only on the chosen ground (tall grass, say).
+    if (t.terrain) {
+      const row = this.mapData.terrain[Math.floor(p.z)], ch = row?.[Math.floor(p.x)];
+      if (!ch || !t.terrain.includes(ch)) return;
+    }
+    if (this.battleGrace > 0) return;
+    const steps = Math.max(4, t.steps ?? 30);
+    if (!this.encounterAt) this.encounterAt = steps * (0.5 + Math.random());
+    this.encounterWalked += d;
+    if (this.encounterWalked < this.encounterAt) return;
+    this.encounterWalked = 0;
+    this.encounterAt = steps * (0.5 + Math.random());
+    const defs = new Map((this.db.enemies ?? []).map((x) => [x.id, x]));
+    const table = t.enemies.filter((x) => defs.has(x.enemy));
+    if (!table.length) return;
+    const lo = Math.max(1, Math.min(8, Math.round(t.min ?? 1))), hi = Math.max(lo, Math.min(8, Math.round(t.max ?? 3)));
+    const n = lo + Math.floor(Math.random() * (hi - lo + 1));
+    const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
+    for (let k = 0; k < n; k++) { const pick = weighted(table)!, def = defs.get(pick.enemy)!; list.push({ def, hp: def.hp, enemy: null }); }
+    this.startBattle(list, Math.random() < 0.08 ? 'ambush' : Math.random() < 0.08 ? 'preemptive' : 'normal');
+  }
+
+  private readonly battlePictures = new Map<string, { picture: HTMLCanvasElement; icon: string; flip: boolean }>();
+
+  /** An enemy's battle picture, facing the party (right), and a small copy for the turn order. */
+  private enemyPicture(def: EnemyDef): { picture: HTMLCanvasElement; icon: string; flip: boolean } {
+    const key = `${def.id}|${def.look.character ?? ''}|${def.look.monster ?? ''}|${def.look.image ?? ''}`;
+    const hit = this.battlePictures.get(key);
+    if (hit) return hit;
+    let picture: HTMLCanvasElement, flip = false;
+    const img = def.look.image ? this.sprites.flatImage(def.look.image) : null;
+    if (img) {
+      const h = Math.max(0.25, def.look.flat?.height ?? 1);
+      picture = SpriteLibrary.trimmed(img, 0, 0, img.width, img.height, Math.min(4, (110 * h / 1.5) / img.height));
+      flip = def.look.flat?.faces === 'left';
+    } else if (def.look.character && this.db.characters[def.look.character]) {
+      picture = this.sprites.standingFrame(`enemy:${def.look.character}`, this.db.characters[def.look.character], 'right', 0);
+    } else {
+      const sheet = (MONSTERS[def.look.monster ?? 'slime'] ?? MONSTERS.slime).draw(), fw = Math.floor(sheet.width / 3), fh = Math.floor(sheet.height / 4);
+      picture = SpriteLibrary.trimmed(sheet, fw, fh * 2, fw, fh, Math.max(1, Math.round(64 / fh)));
+    }
+    const out = { picture, icon: picture.toDataURL(), flip };
+    this.battlePictures.set(key, out);
+    return out;
+  }
+
+  /** The hero's or a party member's numbers for a battle: attack, spells, defences, agility. */
+  private partyBattler(who: number): { battler: Battler; view: FighterView } | null {
+    const pct = (sk: Skills, k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
+    if (who === 0) {
+      const t = this.heroTotals(), sk = this.skills, gear = this.inventory.equip, cfg = this.combatCfg, hero = mainHero(this.db);
+      const w = gear.weapon ? this.items.get(gear.weapon) : undefined, cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
+      const classPct = cls === 'unarmed' ? 1 : pct(sk, `${cls}Damage` as 'lightDamage');
+      const melee = (cls === 'unarmed' ? cfg.unarmedDamage : w!.weapon!.damage) * cfg.classes[cls].damage * powerMultiplier(t.attrs.str) * pct(sk, 'meleeDamage') * classPct;
+      const bowDef = gear.ranged ? this.items.get(gear.ranged) : undefined, ammo = this.inventory.arrow() ? this.items.get(this.inventory.arrow()!) : undefined;
+      const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.str) * pct(sk, 'bowDamage') : 0;
+      const useBow = !w && bow > melee;
+      const shard = gear.magic ? this.items.get(gear.magic) : undefined, spells: BattleSpell[] = [];
+      if (shard?.spell && !shard.spell.power && shard.spell.damage > 0 && !this.combat.heroStatus.silenced)
+        spells.push({ id: shard.id, name: shard.name, mp: Math.round((shard.spell.mp ?? cfg.fire.mp) * this.spellThrift), power: shard.spell.damage * powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), kind: 'bolt', element: shard.element ?? 'neutral', color: shard.spell.color });
+      const look = this.db.characters[this.db.player];
+      this.portraitUrl ??= this.sprites.portrait('hero', look, 48).toDataURL();
+      return {
+        battler: {
+          key: 'p0', side: 'party', name: hero.name, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp,
+          attack: useBow ? bow : melee, attackElement: (useBow ? bowDef?.element : w?.element) ?? 'neutral', attackMagic: false,
+          armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.dex, crit: t.crit,
+          defence: { ...hero, halve: this.wornGear().flatMap((g) => g?.wards ?? []) }, spells, ct: 0, guarding: false,
+          undead: this.combat.heroStatus.zombie,
+        },
+        view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0) },
+      };
+    }
+    const m = this.members()[who - 1];
+    if (!m) return null;
+    const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.wornGear(m.data.equip), (k) => this.memberSkills(m.data).get(k));
+    const style = fightingStyle(m.def, m.data, n), spells: BattleSpell[] = [];
+    const shard = m.data.equip.magic ? this.items.get(m.data.equip.magic) : undefined;
+    if (n.spell > 0) spells.push({ id: shard?.id ?? 'spell', name: shard?.name ?? 'Spell', mp: n.spellMp, power: n.spell, kind: 'bolt', element: n.spellElement, color: n.spellColor });
+    if (style === 'healer' || m.def.ai === 'healer') spells.unshift({ id: 'heal', name: 'Heal', mp: HEAL_MP, power: n.heal, kind: 'heal', element: 'neutral', color: '#9dffb0' });
+    const useBow = !m.data.equip.weapon && n.bow > n.melee;
+    const look = this.db.characters[m.def.look ?? ''] ?? this.db.characters[this.db.player];
+    const key = `p${who}`;
+    return {
+      battler: {
+        key, side: 'party', name: m.def.name, hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp,
+        attack: useBow ? n.bow : n.melee, attackElement: useBow ? n.bowElement : n.meleeElement, attackMagic: false,
+        armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.dex, crit: n.crit,
+        defence: { elements: m.def.elements, immune: m.def.immune, absorb: m.def.absorb, halve: this.wornGear(m.data.equip).flatMap((g) => g?.wards ?? []) },
+        spells, ct: 0, guarding: false,
+      },
+      view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who) },
+    };
+  }
+
+  /** Start a turn-based battle against these enemies (ones from the map carry their `enemy`, random ones don't). */
+  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening): void {
+    if (!list.length || this.battle.active) return;
+    this.combat.reset();
+    this.endFishing();
+    this.moveTarget = null;
+    const entries: BattleEntry[] = [];
+    for (let who = 0; who <= this.members().length; who++) { const b = this.partyBattler(who); if (b) entries.push({ ...b, who }); }
+    // Several of a kind are told apart: Slime A, Slime B…
+    const counts = new Map<string, number>(), seen = new Map<string, number>();
+    for (const x of list) counts.set(x.def.id, (counts.get(x.def.id) ?? 0) + 1);
+    list.forEach((x, i) => {
+      const d = x.def, pic = this.enemyPicture(d), k = seen.get(d.id) ?? 0;
+      seen.set(d.id, k + 1);
+      const name = (counts.get(d.id) ?? 0) > 1 ? `${d.name} ${String.fromCharCode(65 + k)}` : d.name;
+      const battler: Battler = {
+        key: `e${i}`, side: 'enemy', name, hp: Math.max(1, x.hp), maxHp: Math.max(1, d.hp), mp: 0, maxMp: 0,
+        attack: d.damage, attackElement: enemyElement(d), attackMagic: d.attackType === 'magic',
+        armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), crit: 5,
+        defence: d, spells: [], ct: 0, guarding: false, boss: d.boss, undead: d.undead,
+      };
+      entries.push({ battler, view: { key: battler.key, side: 'enemy', name, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale }, ref: { def: d, enemy: x.enemy, battler } });
+    });
+    this.audio.play('crit');
+    this.battle.start(entries, this.combatCfg.turnBased, opening);
+  }
+
+  private battleHost(): BattleHost {
+    type Ref = { def: EnemyDef; enemy: Enemy | null; battler: Battler };
+    return {
+      sound: (n) => this.audio.play(n),
+      items: () => this.inventory.slots.flatMap((s, i) => {
+        const d = s && this.items.get(s.id);
+        if (!s || !d || d.kind !== 'consumable' || !(d.restore || d.cures?.length || d.buffs?.length)) return [];
+        const r = d.restore, bits = r ? (['hp', 'mp', 'sp'] as const).filter((g) => r[g]).map((g) => `+${r[g]}${d.restorePercent ? '%' : ''} ${g.toUpperCase()}`) : [];
+        return [{ slot: i, name: d.name, count: s.n, detail: bits.join(' · ') || d.description }];
+      }),
+      useItem: (slot, who) => {
+        const s0 = this.inventory.slots[slot], id = s0?.id, before = id ? this.inventory.count(id) : 0;
+        const text = this.useItem(slot, who);
+        return text === null ? null : { text, used: !!id && this.inventory.count(id) < before };
+      },
+      readVitals: (who) => {
+        if (!who) return { hp: this.stats.hp, mp: this.stats.mp };
+        const m = this.members()[who - 1];
+        return m ? { hp: m.data.down ? 0 : m.data.hp, mp: m.data.mp } : { hp: 0, mp: 0 };
+      },
+      writeVitals: (who, hp, mp) => {
+        if (!who) { this.stats.change('hp', 'set', hp); this.stats.change('mp', 'set', mp); return; }
+        const m = this.members()[who - 1];
+        if (!m) return;
+        m.data.hp = Math.max(0, hp); m.data.mp = Math.max(0, mp); m.data.down = hp <= 0;
+        const a = this.allies.find((x) => x.data === m.data);
+        if (a && !m.data.down) { a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
+      },
+      victory: (beaten) => this.battleRewards(beaten as Ref[]),
+      finished: (outcome, beaten) => {
+        this.battleGrace = this.combatCfg.turnBased.grace;
+        this.encounterWalked = 0;
+        if (outcome === 'defeat') { this.die(); return; }
+        // Knocked out but the battle was won: back on their feet with a little health.
+        if (this.stats.hp <= 0) this.stats.change('hp', 'set', 1);
+        if (outcome === 'fled') {
+          for (const e of this.combat.enemies) if (!e.dead && e.alert) e.calm();
+          return;
+        }
+        void beaten;
+        this.refreshEvents();
+        const evs = this.battleCommands;
+        this.battleCommands = [];
+        const cmds = evs.flatMap((ev) => ev.page?.commands ?? []);
+        if (cmds.length && !this.interpreter.running) this.interpreter.start(cmds);
+      },
+      log: (t) => this.log.add(t, 'hit'),
+    };
+  }
+
+  /** Won: EXP for everyone standing, gold and items into the bag, and what each beaten enemy's page does. */
+  private battleRewards(beaten: { def: EnemyDef; enemy: Enemy | null; battler: Battler }[]): string[] {
+    let xp = 0, gold = 0;
+    const got = new Map<string, number>();
+    this.battleCommands = [];
+    for (const b of beaten) {
+      const d = b.def;
+      this.state.tally('kills'); this.state.tally(`kill:${d.id}`);
+      this.quests.enemyDefeated(d.id);
+      xp += Math.max(0, d.xp);
+      gold += d.gold ? Math.round(d.gold[0] + Math.random() * Math.max(0, d.gold[1] - d.gold[0])) : 0;
+      for (const drop of d.drops ?? []) if (Math.random() < drop.chance && this.items.has(drop.item)) got.set(drop.item, (got.get(drop.item) ?? 0) + Math.max(1, drop.count ?? 1));
+      if (b.enemy) {
+        this.combat.beatenInBattle(b.enemy);
+        const ev = b.enemy.key as GameEvent;
+        if (ev.page?.commands.length) this.battleCommands.push(ev);
+      }
+    }
+    const lines: string[] = [];
+    if (xp > 0) lines.push(`${xp} EXP`);
+    if (gold > 0) { this.inventory.gold += gold; this.state.tally('goldFound', gold); lines.push(`${gold} G`); this.log.add(`Received ${gold} G`, 'loot'); }
+    for (const [id, n] of got) {
+      const name = this.items.get(id)!.name, left = this.inventory.add(id, n);
+      if (n - left > 0) { lines.push(`${n - left > 1 ? `${n - left} × ` : ''}${name}`); this.log.add(`Received ${n - left > 1 ? `${n - left} × ` : ''}${name}`, 'loot'); }
+      // No room: it's left on the ground at the hero's feet.
+      if (left > 0) { const p = this.player.position; this.pickups?.place(id, left, p.x, p.y, p.z); lines.push(`Bag full: ${name} left on the ground`); }
+    }
+    if (xp > 0) {
+      const before = this.progress.level;
+      this.gainXp(xp);
+      if (this.progress.level > before) lines.push(`${mainHero(this.db).name} reached level ${this.progress.level}!`);
+      const per = this.combatCfg.statPointsPerLevel, sk = this.combatCfg.pointsPerLevel;
+      for (const m of this.members()) {
+        if (m.data.down) continue;
+        const ups = memberGainXp(m.data, xp, this.combatCfg, per, sk);
+        if (ups) { lines.push(`${m.def.name} reached level ${m.data.level}!`); this.log.add(`${m.def.name} reached level ${m.data.level}!`, 'level'); }
+      }
+    }
+    if (!lines.length) lines.push('Nothing else to show for it.');
+    return lines;
   }
 
   /* ------------------------------------------------------------------ party */
@@ -3346,6 +3627,7 @@ export class Game {
   }
 
   private quitToTitle(): void {
+    this.battle.abort();
     this.menu.close();
     this.interpreter.stop();
     // Back to the start map behind the title, everything reset (New Game or Load picks up from here).

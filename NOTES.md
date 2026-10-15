@@ -20,6 +20,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       Default: white with black text. Text colour, bold, italic options.
 
 ## Abilities and combat
+- [ ] Turn-based battles, next steps: a "Start battle" event command (boss fights from events), ailments and buffs in
+      battle, enemy skills and spells (Database → Enemies), multi-target spells, Limit / Overdrive-style specials,
+      swapping party members mid-battle (FFX), a battle backdrop image per map.
 
 ## Gathering
 - [ ] Fishing, next steps: cooking fish at a campfire; a reeling mini-game for big fish.
@@ -49,3 +52,4 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Worn gear and shards stay in the bag (in use, who / where); shards readied or set in gear from the bag (no anvil enchanting); party fighting styles with weapon fallback (update 34).
 - [x] Status page (About, ailments, fighting style); Gear tab as Weapons | Armor with per-hero comparison; hero colours; party beside the bag (update 35).
 - [x] River currents push swimmers; drowning sinks; seasons (recolouring, snow, bare or snowy trees, ice and sliding, cold-season ambience) (update 36).
+- [x] Turn-based battles as an option (Database → Combat → Battle system): FFX-style turn order or rounds, map enemies and random encounters start battles, Attack / Magic / Items / Guard / Run (update 38).

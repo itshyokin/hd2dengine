@@ -11,6 +11,7 @@ import { ITEM_ICONS } from '../art/itemIcons';
 import { enemyWeaponSprites } from '../game/combat/weaponSprites';
 import { weaponSpriteField } from './weaponPicker';
 import { DEFAULT_COMBAT, combatConfig } from '../game/combat/config';
+import { enemyAgility } from '../game/battle/rules';
 import type { CombatData, EnemyBehaviour, EnemyDef, FlatLook, WeaponClass } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { enemyImage, setFlatImage } from './editorArt';
@@ -25,7 +26,25 @@ const num = (v: number, set: (n: number) => void, step = 1, min = 0, label = '')
 export function combatTab(data: CombatData): HTMLElement[] {
   const c = combatConfig(data), D = DEFAULT_COMBAT;
   const setClass = (k: WeaponClass, f: 'speed' | 'reach' | 'damage', v: number) => { ((data.classes ??= {})[k] ??= {})[f] = v; };
+  const tb = (data.turnBased ??= {}), T = c.turnBased;
   return [
+    h('section', { class: 'db-section' }, h('h3', {}, 'Battle system'),
+      field('Battles are', select([['action', 'Action: fought on the map in real time (Zelda / Fable style)'], ['turnBased', 'Turn-based: a battle screen with commands (Final Fantasy X / Pokémon style)']],
+        c.mode, (v) => { if (v === 'turnBased') data.mode = 'turnBased'; else delete data.mode; }),
+        'Turn-based: touching or being hit by an enemy on the map starts a battle with it and its friends nearby. Hitting it first (best of all from behind, unseen) gives the party the first turns. Maps can also have random encounters (map settings → Random encounters).'),
+      h('div', { class: 'field-row' },
+        field('Turn order', select([['ctb', 'Conditional turns (FFX)'], ['rounds', 'Rounds (classic)']],
+          T.order, (v) => { tb.order = v === 'rounds' ? 'rounds' : undefined; }),
+          'Conditional turns: fast fighters act more often, and Guard or an item brings the next turn sooner. Rounds: everyone acts once a round, fastest first.'),
+        field('Run away chance %', num(T.flee, (v) => (tb.flee = Math.min(100, Math.round(v))), 5, 0, 'Run away chance'), 'When both sides are as fast. Each point of Dexterity / Agility the party has over the enemies adds 2%. Never from a boss.')),
+      h('div', { class: 'field-row' },
+        field('Enemies who join (tiles)', num(T.joinRadius, (v) => (tb.joinRadius = v), 0.5, 0, 'Join radius'), 'Enemies this close to the one that started it join the battle.'),
+        field('Most enemies in a battle', num(T.maxEnemies, (v) => (tb.maxEnemies = Math.max(1, Math.min(8, Math.round(v)))), 1, 1, 'Max enemies')),
+        field('Safe after a battle (s)', num(T.grace, (v) => (tb.grace = v), 0.5, 0, 'Grace after battle'), 'No new battle starts for this long after one is won or run from.')),
+      h('div', { class: 'field-row' },
+        field('Party damage ×', num(T.partyDamage, (v) => (tb.partyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Party damage')),
+        field('Enemy damage ×', num(T.enemyDamage, (v) => (tb.enemyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Enemy damage'), 'Scale either side to make battles quicker or harder. Both start at 1 (the same numbers as on the map).')),
+      h('p', { class: 'note' }, 'The same heroes, stats, gear, spell shards, items, enemies and rewards work in both systems, so a game can switch at any time. The rest of this page tunes the action system (EXP and skill points count in both).')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Melee (key 1)'),
       h('div', { class: 'db-table classes' },
         h('span', { class: 'db-head' }, 'Class'), h('span', { class: 'db-head' }, 'Swing speed'), h('span', { class: 'db-head' }, 'Reach (tiles)'), h('span', { class: 'db-head' }, 'Damage ×'),
@@ -232,7 +251,9 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
         field('Damage', n(d.damage, (v) => (d.damage = Math.round(v)))),
         field('Defence', n(d.defense ?? 0, (v) => (d.defense = Math.round(v) || undefined)), 'Against swords and arrows. 50 halves the damage.'),
         field('Magic defence', n(d.magicDefense ?? d.defense ?? 0, (v) => (d.magicDefense = Math.round(v) === (d.defense ?? 0) ? undefined : Math.round(v))), 'Against spells (the same as Defence unless changed).'),
-        field('Speed', n(d.speed, (v) => (d.speed = v), 0.1, 0.2), 'Tiles per second (the hero walks 3.4).')),
+        field('Speed', n(d.speed, (v) => (d.speed = v), 0.1, 0.2), 'Tiles per second (the hero walks 3.4).'),
+        field('Agility', n(enemyAgility(d), (v) => (d.agility = Math.max(1, Math.round(v)) === enemyAgility({ speed: d.speed }) ? undefined : Math.max(1, Math.round(v))), 1, 1),
+          'Turn-based battles: how often its turns come round, like a hero’s Dexterity (10 is normal). Unset, it follows its speed.')),
       field('Its attacks are', select([['physical', 'Physical: the hero’s Defence and armour count'], ['magic', d.behaviour === 'ranged' ? 'Magic: it casts firebolts; the hero’s Magic Defence counts' : 'Magic: the hero’s Magic Defence counts']], d.attackType ?? 'physical',
         (v) => { d.attackType = v === 'magic' ? 'magic' : undefined; })),
       field('Light', select([['', 'Makes no difference (only easier to see)'], ['avoid', 'Avoids light: won’t come near a hero by a fire or using a light ring'], ['drawn', 'Drawn to light: spots a lit-up hero much sooner (bandits)']],

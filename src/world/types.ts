@@ -434,6 +434,19 @@ export interface BuildingData {
   name?: string;
 }
 
+/** Random encounters on a map: which enemies, how often, how many at once, and where. */
+export interface EncounterTable {
+  /** Enemy ids with weights (higher: more often). */
+  enemies: { enemy: string; weight?: number }[];
+  /** About this many tiles walked between battles (default 30). */
+  steps?: number;
+  /** Enemies in each battle (default 1 – 3). */
+  min?: number;
+  max?: number;
+  /** Only on these terrain characters (tall grass, say). Empty: anywhere on the map. */
+  terrain?: string;
+}
+
 export interface MapData {
   name: string;
   width: number;
@@ -487,6 +500,8 @@ export interface MapData {
   /** Sound: music, music while fighting, and the background sound by day and at night (sources: "builtin:field" or a file path; '' = none). */
   music?: string;
   battleMusic?: string;
+  /** Turn-based battles: random encounters while walking (Pokémon tall grass, classic JRPG overworlds). */
+  encounters?: EncounterTable;
   ambience?: string;
   ambienceNight?: string;
   /** Background sound in autumn and winter (outdoors, by day). Unset: the forest's birds give way to cold wind. */
@@ -952,6 +967,8 @@ export interface EnemyDef {
   boss?: boolean;
   /** Sprite size (1 = normal). */
   scale?: number;
+  /** Turn-based battles: how quickly its turns come round (like the heroes' Dexterity; default from its speed). */
+  agility?: number;
 }
 
 /** A kind of water on a map: how it looks and flows, and what standing in it does. */
@@ -988,7 +1005,30 @@ export interface FlatLook {
 }
 
 /** Combat tuning, all optional (see game/combat/config.ts for the defaults). */
+/** Which battle system the game uses: action combat on the map, or turn-based battles (FFX / classic JRPG style). */
+export type BattleMode = 'action' | 'turnBased';
+/** Turn-based battles: who acts next. ctb: FFX-style (fast fighters act more often; actions have weight); rounds: everyone once a round, fastest first. */
+export type TurnOrder = 'ctb' | 'rounds';
+
+/** Database → Combat → Battle system: turn-based settings (only what differs from the defaults is kept). */
+export interface TurnBasedData {
+  order?: TurnOrder;
+  /** Chance to run away (%) when both sides are equally fast; each point of Dexterity / Agility between them moves it 2%. */
+  flee?: number;
+  /** Enemies this many tiles from the one that started the fight join it (up to `maxEnemies`). */
+  joinRadius?: number;
+  maxEnemies?: number;
+  /** Damage multipliers: the party's hits and the enemies' hits (enemies attack only on their turns, so they hit harder). */
+  partyDamage?: number;
+  enemyDamage?: number;
+  /** Seconds after a battle (won or fled) before another can start. */
+  grace?: number;
+}
+
 export interface CombatData {
+  /** Battle system (default action). */
+  mode?: BattleMode;
+  turnBased?: TurnBasedData;
   /** Forges: how many times one item can be upgraded, and the percent of damage or defence each upgrade adds. */
   forge?: { maxLevel?: number; percent?: number; enchantPercent?: number };
   unarmedDamage?: number;

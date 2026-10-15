@@ -73,6 +73,33 @@ export class Inspector {
     if (rebuild) this.store.changed('structure'); else this.store.changed();
   }
 
+  /** Map settings → Random encounters (turn-based battles): which enemies, how often, how many, and where. */
+  private encounterFields(): HTMLElement[] {
+    const s = this.store, m = s.map, enemies = s.db.enemies ?? [];
+    const turnBased = s.db.combat?.mode === 'turnBased';
+    const t = m.encounters;
+    const note = h('p', { class: 'hint' }, turnBased
+      ? 'While walking here, now and then a battle starts with enemies from this list (like tall grass in Pokémon). Enemies placed on the map still start battles when they reach the hero.'
+      : 'Random encounters need turn-based battles: Database → Combat → Battle system.');
+    if (!enemies.length) return [note, h('p', { class: 'hint' }, 'Add enemy types in Database → Enemies first.')];
+    if (!t) return [note, h('button', { type: 'button', class: 'btn small', onclick: () => { this.edit(() => (m.encounters = { enemies: [{ enemy: enemies[0].id }] })); this.render(); } }, '+ Add random encounters')];
+    const opts = enemies.map((e) => [e.id, e.name] as [string, string]);
+    return [
+      note,
+      ...t.enemies.map((row, k) => h('div', { class: 'field-row' },
+        select(opts, row.enemy, (v) => this.edit(() => (row.enemy = v)), { 'aria-label': `Encounter ${k + 1} enemy` }),
+        field('How often', numberInput(row.weight ?? 1, (v) => this.edit(() => { const w = Math.max(0, Math.round(v)); if (w === 1) delete row.weight; else row.weight = w; }), { min: 0, step: 1, 'aria-label': `Encounter ${k + 1} weight` })),
+        h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove encounter ${k + 1}`, onclick: () => { this.edit(() => { t.enemies.splice(k, 1); if (!t.enemies.length) delete m.encounters; }); this.render(); } }, '✕'))),
+      h('button', { type: 'button', class: 'btn small', onclick: () => { this.edit(() => t.enemies.push({ enemy: enemies[0].id })); this.render(); } }, '+ Add enemy'),
+      h('div', { class: 'field-row' },
+        field('Tiles between battles', numberInput(t.steps ?? 30, (v) => this.edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) delete t.steps; else t.steps = n; }), { min: 4, step: 1 }), 'About this far on average (it varies).'),
+        field('Enemies: at least', numberInput(t.min ?? 1, (v) => this.edit(() => { const n = Math.max(1, Math.min(8, Math.round(v))); if (n === 1) delete t.min; else t.min = n; }), { min: 1, max: 8, step: 1 })),
+        field('at most', numberInput(t.max ?? 3, (v) => this.edit(() => { const n = Math.max(1, Math.min(8, Math.round(v))); if (n === 3) delete t.max; else t.max = n; }), { min: 1, max: 8, step: 1 }))),
+      field('Only on terrain', textInput(t.terrain ?? '', (v) => this.edit(() => { const c = [...new Set(v.replace(/\s+/g, ''))].join(''); if (c) t.terrain = c; else delete t.terrain; }), { 'aria-label': 'Encounter terrain', placeholder: 'Anywhere' }),
+        'Terrain characters, e.g. . for grass (the Terrain palette shows each tile’s character). Empty: anywhere on this map.'),
+    ];
+  }
+
   private header(title: string, sub?: string, onDelete?: () => void): HTMLElement {
     return h('header', { class: 'insp-head' },
       h('div', {}, h('h2', {}, title), sub ? h('div', { class: 'insp-sub' }, sub) : null),
@@ -131,6 +158,8 @@ export class Inspector {
       ...this.weatherFields(),
       h('div', { class: 'section-label' }, 'Sound'),
       ...mapAudioFields(s, m, (fn) => this.edit(fn)),
+      h('div', { class: 'section-label' }, 'Random encounters'),
+      ...this.encounterFields(),
       h('div', { class: 'section-label' }, 'Game start'),
       field('Starting hour', numberInput(s.db.startHour, (v) => { s.checkpoint(); s.db.startHour = Math.min(23.75, Math.max(0, v)); s.changedDb(); }, { min: 0, max: 23.75, step: 0.25 }), 'Time of day when a new game begins (0 – 23.75; 18.5 is 6:30 PM). Clock speed and night darkness are in Database → Time.'),
       h('p', { class: 'hint' }, s.startHere ? 'The player starts on this map. Select it in the Events layer to move it.' : `The player starts on “${s.db.startMap}”. To start here, select a tile in the Events layer and choose “Move player start here”.`),
