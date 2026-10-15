@@ -507,6 +507,16 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
 - **Random encounters**: a map's settings → **Random encounters** lists enemies (with how often each appears), about
   how many tiles are walked between battles, how many enemies come at once, and optionally which terrain characters
   they happen on (tall grass, say). Works alongside enemies placed on the map.
+- **Battle maps** (FFX / Legend of Dragoon style): a battle can be fought on a map you've made (a forest clearing,
+  plains, a city street). Make a map and tick **Battles → This is a battle map** in its settings (or choose *Battle
+  map* when making a new map); battle maps are listed apart in the map list. On the **Spawns** layer (key 9) of a
+  battle map, place **party markers** (P1 is the hero, then the party in order) and **enemy markers** (E1, E2…). The
+  camera stands behind the party looking at the enemies, so put the party near the bottom of the map and the enemies
+  above them. *Camera back / up / side* and *View angle* fine-tune it. Then choose where battles are fought: a field
+  map's **Battles → Battle map**, a zone's **Battle map** (Spawns layer), or the **Start battle** command's *Battle
+  map* (boss arenas). Without one, battles use the flat battle screen. On the stage, attackers dash to their target,
+  Additions keep the hero at the foe for the whole string, spells flare in their colour, and the fallen sink away
+  (enemies) or fall (heroes). `battle_forest` is a sample.
 - **Troops and encounter zones**: **Database → Troops** are groups of enemies that fight together (each enemy with
   *at least* / *at most* how many, their own battle music, and *can't run*). On a map, the **Spawns** layer (key 9)
   paints zone letters A, B, C… on tiles, like the Height layer paints numbers. Pick a letter and, below it, set the
@@ -1002,8 +1012,11 @@ tools/character-builder/    Character Builder source (build.py makes Character B
   end. Left-out settings use the defaults (2.5 tall, plaster, shingle gable, a few windows).
 - **encounters** (optional, turn-based battles): `{ "enemies": [{ "enemy": "slime", "weight": 3 }], "steps": 30,
   "min": 1, "max": 3, "terrain": "." }` (random battles while walking; `terrain` limits them to those characters).
+- **kind** (optional): `"battle"` for a battle map. Battle maps have **markers** (`[{ "side": "party" | "enemy",
+  "x", "z" }]`, tiles, in order) and optionally **battleCamera** (`{ "distance", "height", "side", "fov" }`).
+- **battleMap** (optional, field maps): the battle map turn-based battles here are fought on (a file name).
 - **zoneGrid** (optional): one string per row, `.` for no zone or a letter `A`–`Z`.
-- **zones** (optional): `{ "A": { "name"?, "steps"?, "troops": [{ "troop": "slimes", "weight"?, "time"?: "day" |
+- **zones** (optional): `{ "A": { "name"?, "steps"?, "battleMap"?, "troops": [{ "troop": "slimes", "weight"?, "time"?: "day" |
   "night", "days"?: [5, 6], "switch"? }] } }` (`days`: 0 = Sunday … 6 = Saturday).
 - **events**: `{ "id", "name", "x", "z", "w"?, "h"?, "pages": [...] }`; `x, z` is the top-left tile and
   `w × h` the size in tiles (1 × 1 when left out).

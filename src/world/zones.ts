@@ -58,4 +58,7 @@ export function pickTroop(zone: EncounterZone, c: ZoneContext, rng: () => number
   return ok[ok.length - 1];
 }
 
+/** Battle map markers in the editor: the party's and the enemies'. */
+export const MARKER_COLORS = { party: '#6fb6ff', enemy: '#ff7a6b' } as const;
+
 export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

@@ -1,11 +1,11 @@
 {
   "kind": "hd2d-settings",
   "version": 1,
-  "game": "2.5D Engine Test",
-  "saved": "2026-10-13T17:32:25.881Z",
+  "game": "Titamas",
+  "saved": "2026-10-15T22:09:25.785Z",
   "settings": {
-    "quality": "performance",
-    "showFps": true,
+    "quality": "auto",
+    "showFps": false,
     "bloom": true,
     "depthOfField": true,
     "shadows": true,
@@ -13,12 +13,12 @@
     "lightShadows": true,
     "detailedLighting": true,
     "brightness": 1,
-    "musicVolume": 80,
+    "musicVolume": 70,
     "soundVolume": 80,
     "ambienceVolume": 70,
-    "textSpeed": "fast",
+    "textSpeed": "normal",
     "alwaysRun": false,
-    "clock12": true,
+    "clock12": false,
     "crouch": "toggle",
     "sprint": "hold",
     "stickRun": false,
@@ -90,32 +90,47 @@
         "targetPrev": [],
         "sneak": [
           "KeyC"
+        ],
+        "quick1": [
+          "Digit5",
+          "Numpad5"
+        ],
+        "quick2": [
+          "Digit6",
+          "Numpad6"
+        ],
+        "quick3": [
+          "Digit7",
+          "Numpad7"
         ]
       },
       "pad": {
+        "ok": [
+          0
+        ],
         "jump": [
           0
         ],
         "ring": [
           1
         ],
-        "ok": [
-          0
+        "run": [
+          2
         ],
         "switchWeapon": [
           3
         ],
-        "lock": [
-          13
+        "targetPrev": [
+          4
         ],
         "target": [
           5
         ],
-        "block": [
-          6
-        ],
         "attack": [
           7
+        ],
+        "block": [
+          6
         ],
         "cancel": [
           9
@@ -123,55 +138,20 @@
         "sneak": [
           11
         ],
-        "run": [
-          2
+        "lock": [
+          13
         ],
-        "targetPrev": [
-          4
+        "quick1": [
+          14
+        ],
+        "quick2": [
+          12
+        ],
+        "quick3": [
+          15
         ]
       }
     },
-    "bindingsVersion": 2,
-    "hud": {
-      "xp": {
-        "x": 0.4984375,
-        "y": 0.02907185850052589,
-        "scale": 1.15
-      },
-      "log": {
-        "x": 0.10402500000000003,
-        "y": 0.656574498416049,
-        "bg": "none"
-      },
-      "quick": {
-        "x": 0.06917916666666463,
-        "y": 0.8583112750431032,
-        "scale": 1.15
-      },
-      "weapons": {
-        "scale": 1.15,
-        "x": 0.9099093742052714,
-        "y": 0.11510031678986272
-      },
-      "party": {
-        "x": 0.08593749999999994,
-        "y": 0.19778247418348238,
-        "face": true,
-        "scale": 1.3
-      },
-      "clock": {
-        "x": 0.0875,
-        "y": 0.07420802695446559
-      },
-      "quest": {
-        "x": 0.9166666666666666,
-        "y": 0.27085533262935585
-      },
-      "stats": {
-        "face": true,
-        "x": 0.49947916666666664,
-        "y": 0.09767687434002112
-      }
-    }
+    "bindingsVersion": 2
   }
 }

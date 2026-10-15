@@ -13,7 +13,7 @@ import type { EditorStore } from './store';
 import { PASSAGE_FLAGS } from '../world/passage';
 import { eventH, eventW } from '../world/eventArea';
 import { drawPassageIcon } from './passageIcons';
-import { zoneColor } from '../world/zones';
+import { MARKER_COLORS, zoneColor } from '../world/zones';
 import { drawBuildingTop, presetBuilding, presetById } from './buildingPresets';
 import { doorstep } from '../world/buildingShape';
 
@@ -277,7 +277,9 @@ export class MapView {
       case 'zones':
         s.checkpoint();
         this.stroke = { kind: 'zones', changed: false, last: t };
-        this.applyZone(t);
+        // Battle maps: one marker per click (no painting).
+        if (s.isBattleMap()) { if (s.setMarker(t.x, t.z)) { this.stroke.changed = true; s.changed(); s.emit('ui'); } }
+        else this.applyZone(t);
         break;
       case 'props':
         if (s.propTool === 'place') { s.checkpoint(); this.stroke = { kind: 'place', last: null, placed: 0 }; this.placeProp(w); }
@@ -389,6 +391,7 @@ export class MapView {
         if (t.x !== st.last.x || t.z !== st.last.z) { for (const p of line(st.last, t)) this.applyPassage(p); st.last = t; }
         break;
       case 'zones':
+        if (this.store.isBattleMap()) break;
         if (t.x !== st.last.x || t.z !== st.last.z) { for (const p of line(st.last, t)) this.applyZone(p); st.last = t; }
         break;
       case 'area': st.to = t; break;
@@ -1056,6 +1059,7 @@ export class MapView {
     ctx.globalAlpha = 1;
     this.drawPassage(ctx);
     this.drawZones(ctx);
+    this.drawMarkers(ctx);
     this.drawLightIcons(ctx);
 
     this.drawOverlays(ctx);
@@ -1158,6 +1162,8 @@ export class MapView {
     } else if (s.mode === 'passage') {
       const n = s.brushSize, o = Math.floor((n - 1) / 2);
       tileRect(t.x - o, t.z - o, n, n, s.passageFlag === '.' ? '#ff9a9a' : '#ffffff');
+    } else if (s.mode === 'zones' && s.isBattleMap()) {
+      tileRect(t.x, t.z, 1, 1, s.markerTool === 'erase' ? '#ff9a9a' : s.markerTool === 'party' ? MARKER_COLORS.party : MARKER_COLORS.enemy);
     } else if (s.mode === 'zones') {
       const n = s.brushSize, o = Math.floor((n - 1) / 2);
       tileRect(t.x - o, t.z - o, n, n, s.zoneLetter === '.' ? '#ff9a9a' : zoneColor(s.zoneLetter));
@@ -1262,6 +1268,39 @@ export class MapView {
         if (f !== '.') drawPassageIcon(ctx, f, x * TS, z * TS, TS);
       }
     ctx.globalAlpha = 1;
+  }
+
+  /** Battle maps: party markers (P1, P2…) and enemy markers (E1, E2…), numbered in the order they're used. */
+  private drawMarkers(ctx: CanvasRenderingContext2D): void {
+    const s = this.store, list = s.map.markers ?? [];
+    if (!list.length || !s.isBattleMap()) return;
+    const on = s.mode === 'zones', count = { party: 0, enemy: 0 };
+    ctx.save();
+    ctx.globalAlpha = on ? 1 : 0.6;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.round(TS * 0.34)}px ui-monospace, monospace`;
+    for (const mk of list) {
+      const n = ++count[mk.side], cx = mk.x * TS + TS / 2, cz = mk.z * TS + TS / 2;
+      ctx.beginPath();
+      ctx.arc(cx, cz, TS * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = MARKER_COLORS[mk.side];
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#10131c';
+      ctx.stroke();
+      // Which way they face: party up the map (towards the enemies), enemies down.
+      ctx.beginPath();
+      const dy = mk.side === 'party' ? -1 : 1;
+      ctx.moveTo(cx - TS * 0.14, cz + dy * TS * 0.38);
+      ctx.lineTo(cx + TS * 0.14, cz + dy * TS * 0.38);
+      ctx.lineTo(cx, cz + dy * TS * 0.56);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#10131c';
+      ctx.fillText(`${mk.side === 'party' ? 'P' : 'E'}${n}`, cx, cz + 1);
+    }
+    ctx.restore();
   }
 
   /** Encounter zones: each letter's cells tinted in its colour with the letter on them (faint on other layers). */

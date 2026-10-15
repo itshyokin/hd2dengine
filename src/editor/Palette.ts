@@ -19,7 +19,7 @@ import { WATER_PRESETS, WATER_SYMBOLS, waterStyles } from '../world/waterStyles'
 import { defaultZone } from '../world/fishing';
 import { PASSAGE_FLAGS, type PassageFlag } from '../world/passage';
 import { passageThumb } from './passageIcons';
-import { WEEKDAY_SHORT, ZONE_LETTERS, zoneColor } from '../world/zones';
+import { MARKER_COLORS, WEEKDAY_SHORT, ZONE_LETTERS, zoneColor } from '../world/zones';
 import { ABILITIES } from '../world/types';
 import { ABILITY_NAMES } from './CommandEditor';
 import { MAX_HEIGHT, MIN_HEIGHT } from '../world/heights';
@@ -50,6 +50,7 @@ export const MODE_HINTS: Record<string, string> = {
   'height:ramp': 'Click a cell for a ramp or stairs. It rises toward the neighbour one step higher. Click an existing one to select it. E erases.',
   'passage:paint': 'Click or drag to paint the chosen flag; Erase clears it. Red crosses show what already blocks (tiles, props, deep water).',
   'zones:paint': 'Click or drag to paint the chosen encounter zone; Erase clears it. Each zone has its own troops (below the letters).',
+  'zones:markers': 'Battle map: click a tile to place a party (P) or enemy (E) marker; Remove takes one away.',
   'props:place': 'Click or drag to place, one prop per tile (placing on a taken tile replaces its prop). Turn off “Snap to tiles” for free placement.',
   'props:scatter': 'Drag to scatter props naturally, with varied sizes.',
   'props:select': 'Click a prop to select it, drag to move. Delete removes it.',
@@ -479,7 +480,28 @@ export class Palette {
   }
 
   /** The Spawns layer: zone letters to paint, and the chosen zone's troops, conditions and frequency. */
+  /** Battle maps: where the party and the enemies stand. */
+  private markersPanel(): HTMLElement[] {
+    const s = this.store, list = s.map.markers ?? [];
+    const n = (side: 'party' | 'enemy') => list.filter((mk) => mk.side === side).length;
+    const tool = (key: 'party' | 'enemy' | 'erase', name: string, note: string) =>
+      h('button', { type: 'button', class: 'swatch zone-swatch', 'aria-pressed': String(s.markerTool === key), onclick: () => { s.markerTool = key; s.emit('ui'); } },
+        h('span', { class: 'zone-chip', style: key === 'erase' ? '' : `background:${MARKER_COLORS[key]}` }, key === 'erase' ? '✕' : key === 'party' ? 'P' : 'E'),
+        h('span', { class: 'swatch-name' }, name), h('span', { class: 'swatch-note' }, note));
+    return [
+      h('div', { class: 'section-label' }, 'Place'),
+      h('div', { class: 'swatches' },
+        tool('party', 'Party marker', `${n('party')} placed · P1 is the hero, then the party in order`),
+        tool('enemy', 'Enemy marker', `${n('enemy')} placed · E1 is the first enemy, and so on`),
+        tool('erase', 'Remove', 'Click a marker to take it away.')),
+      h('p', { class: 'note' }, 'Click a tile to put a marker there. The camera stands behind the party, looking at the enemies, so put the party near the bottom of the map and the enemies above them (like FFX and Legend of Dragoon).'),
+      h('p', { class: 'note' }, 'More fighters than markers: the extra ones stand just behind the others. No markers at all: the party and the enemies line up either side of the middle.'),
+      list.length ? h('button', { type: 'button', class: 'btn small', onclick: () => { s.checkpoint(); delete s.map.markers; s.changed(); s.emit('ui'); } }, 'Clear all markers') : h('span'),
+    ];
+  }
+
   private zonesPanel(): HTMLElement[] {
+    if (this.store.isBattleMap()) return this.markersPanel();
     const s = this.store, m = s.map, grid = s.zoneGrid();
     const used = new Set(grid.filter((c) => c !== '.'));
     for (const k of Object.keys(m.zones ?? {})) used.add(k);
@@ -501,6 +523,9 @@ export class Palette {
     const ensure = () => ((m.zones ??= {})[l] ??= { troops: [] });
     out.push(h('div', { class: 'section-label' }, `Zone ${l}`),
       h('div', { class: 'field' }, h('label', {}, 'Name'), h('input', { type: 'text', value: zone?.name ?? '', placeholder: `Zone ${l}`, onchange: (e: Event) => edit(() => { const v = (e.target as HTMLInputElement).value.trim(); if (v) ensure().name = v; else if (m.zones?.[l]) delete m.zones[l].name; }) })),
+      h('div', { class: 'field' }, h('label', {}, 'Battle map'), select([['', s.map.battleMap ? `The map’s (${s.map.battleMap})` : 'The map’s (flat battle screen)'], ...s.battleMapNames().map((n) => [n, n] as [string, string])], zone?.battleMap ?? '',
+        (v) => edit(() => { if (v) ensure().battleMap = v; else if (m.zones?.[l]) delete m.zones[l].battleMap; }), { 'aria-label': `Zone ${l} battle map` }),
+        h('div', { class: 'hint' }, 'Where battles in this zone are fought (a forest clearing, a beach…).')),
       h('div', { class: 'field' }, h('label', {}, 'Tiles between battles'), numberInput(zone?.steps ?? 30, (v) => edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) { if (m.zones?.[l]) delete m.zones[l].steps; } else ensure().steps = n; }), { min: 4, step: 1 }), h('div', { class: 'hint' }, 'About this far on average (it varies).')));
     if (!troops.length) { out.push(h('p', { class: 'note' }, 'Add troops (groups of enemies) in Database → Troops first, then choose which come in this zone.')); return out; }
     const tOpts = troops.map((t) => [t.id, t.name] as [string, string]);

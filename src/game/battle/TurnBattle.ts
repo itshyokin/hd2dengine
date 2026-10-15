@@ -255,7 +255,7 @@ export class TurnBattle {
   /* ------------------------------------------------------------------ actions */
 
   private doAttack(b: Battler, t: Battler): void {
-    this.screen.animate(b.key, 'lunge');
+    this.screen.animate(b.key, 'lunge', undefined, t.key);
     this.host.sound('swing');
     this.later(0.28, () => {
       this.hit(b, t, b.attack, b.attackElement, b.attackMagic, b.inflicts);
@@ -335,7 +335,7 @@ export class TurnBattle {
    */
   private doAddition(b: Battler, a: BattleAddition, t: Battler): void {
     this.screen.message(a.name);
-    this.screen.animate(b.key, 'lunge');
+    this.screen.animate(b.key, 'approach', undefined, t.key);
     this.later(0.35, () => {
       let landed = 0;
       const hitOnce = (power: number, last: boolean) => {
@@ -353,10 +353,11 @@ export class TurnBattle {
           }
           landed++;
           if (r === 'perfect') this.screen.popup(t.key, 'Perfect!', 'info');
-          this.screen.animate(b.key, 'lunge');
+          this.screen.animate(b.key, 'strike');
           hitOnce(b.attack * st.power * a.damage * (r === 'perfect' ? 1.1 : 1), i === a.strikes.length - 1);
         },
         () => {
+          this.screen.animate(b.key, 'back');
           const complete = landed === a.strikes.length;
           if (complete) {
             this.screen.popup(b.key, a.strikes.length > 1 ? `${a.name}!` : 'Complete!', 'info');
@@ -430,7 +431,7 @@ export class TurnBattle {
     this.screen.message(`${b.name} is confused!`);
     if (!t) { this.endTurn(b, RANK.attack, 0.8); return; }
     this.later(0.5, () => {
-      this.screen.animate(b.key, 'lunge');
+      this.screen.animate(b.key, 'lunge', undefined, t.key);
       this.host.sound('swing');
       this.later(0.28, () => { this.hit(b, t, b.attack, b.attackElement, b.attackMagic, b.inflicts); this.endTurn(b, RANK.attack, 0.75); });
     });
@@ -443,7 +444,7 @@ export class TurnBattle {
     if (!a) {
       const t = move.targets[0];
       this.screen.message(`${e.name} attacks!`);
-      this.screen.animate(e.key, 'lunge');
+      this.screen.animate(e.key, 'lunge', undefined, t.key);
       this.host.sound('swing');
       this.later(0.3, () => { this.hit(e, t, e.attack, e.attackElement, e.attackMagic, e.inflicts, undefined, !!e.counterspell); this.endTurn(e, RANK.attack, 0.8); });
       return;
@@ -459,7 +460,7 @@ export class TurnBattle {
     }
     const magic = a.kind === 'spell';
     const element: Element = a.element ?? e.attackElement;
-    this.screen.animate(e.key, magic ? 'cast' : 'lunge', magic ? ELEMENT_COLORS[element] : undefined);
+    this.screen.animate(e.key, magic ? 'cast' : 'lunge', magic ? ELEMENT_COLORS[element] : undefined, move.targets.length === 1 ? move.targets[0].key : undefined);
     this.host.sound(magic ? 'fire' : 'swing');
     this.later(magic ? 0.45 : 0.3, () => {
       for (const t of move.targets) if (isUp(t)) this.hit(e, t, e.attack * (a.power ?? 1), element, magic, a.inflicts ?? (magic ? undefined : e.inflicts), undefined, !!a.counterspell);
@@ -528,7 +529,7 @@ export class TurnBattle {
   private damage(t: Battler, n: number, crit: boolean, color?: string): void {
     t.hp = Math.max(0, t.hp - n);
     this.screen.popup(t.key, String(n), crit ? 'crit' : 'dmg', color);
-    this.screen.animate(t.key, 'hit');
+    this.screen.animate(t.key, 'hit', color);
     this.host.sound(t.side === 'party' ? 'hurt' : crit ? 'crit' : 'hit');
     // A hit wakes the sleeping.
     if (t.hp > 0 && t.status.hurt()) this.screen.popup(t.key, 'Woke up', 'info');

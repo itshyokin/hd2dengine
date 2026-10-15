@@ -55,6 +55,16 @@ async function boot(): Promise<void> {
   buildUI();
   store.open(first, map);
   view.fit();
+  void scanMapKinds();
+}
+
+/** Read which maps are battle maps (for the map list and the Battle map choices). */
+async function scanMapKinds(): Promise<void> {
+  for (const n of [...store.maps]) {
+    if (n === store.mapName) continue;
+    try { const m = await store.project.readMap(n); store.mapKinds.set(n, m.kind === 'battle' ? 'battle' : 'field'); } catch { /* unreadable: a field map */ }
+  }
+  store.emit('meta');
 }
 
 /** Dev server if it's running; the project folder when opened as a file; otherwise read-only preview. */
@@ -172,7 +182,7 @@ function buildUI(): void {
   updateBudget();
   view.onHover = (info) => { statusPos.textContent = info ? `${info.x}, ${info.z} · ${info.terrain ? tileName(info.terrain) : ''} · height ${info.height}${store.rampAt(info.x, info.z) ? ` (${store.rampAt(info.x, info.z)!.style})` : ''}${info.water ? ` · ${info.water}` : ''}${info.passage ? ` · ${info.passage}` : ''}${info.zone ? ` · zone ${info.zone}` : ''}` : '—'; };
   const updateStatus = () => {
-    const tool = store.mode === 'terrain' ? store.terrainTool : store.mode === 'water' ? store.waterMode : store.mode === 'height' ? store.heightTool : store.mode === 'props' ? store.propTool : store.mode === 'lights' ? store.lightTool : store.mode === 'buildings' ? store.buildingTool : store.mode === 'passage' || store.mode === 'zones' ? 'paint' : 'select';
+    const tool = store.mode === 'terrain' ? store.terrainTool : store.mode === 'water' ? store.waterMode : store.mode === 'height' ? store.heightTool : store.mode === 'props' ? store.propTool : store.mode === 'lights' ? store.lightTool : store.mode === 'buildings' ? store.buildingTool : store.mode === 'zones' && store.isBattleMap() ? 'markers' : store.mode === 'passage' || store.mode === 'zones' ? 'paint' : 'select';
     statusHint.textContent = MODE_HINTS[`${store.mode}:${tool}`] ?? '';
     statusZoom.textContent = `${view.zoomPercent}%`;
   };
@@ -181,7 +191,12 @@ function buildUI(): void {
 
   const updateMeta = () => {
     const names = store.maps.includes(store.mapName) ? store.maps : [...store.maps, store.mapName];
-    mapSelect.replaceChildren(...names.map((n) => h('option', { value: n }, n + (n === store.mapName && (store.dirty || store.dbDirty) ? ' •' : ''))));
+    const opt = (n: string) => h('option', { value: n }, n + (n === store.mapName && (store.dirty || store.dbDirty) ? ' •' : ''));
+    // Battle maps are listed apart, like a folder of their own.
+    const fieldMaps = names.filter((n) => !store.isBattleMap(n)), battleMaps = names.filter((n) => store.isBattleMap(n));
+    mapSelect.replaceChildren(...(battleMaps.length
+      ? [h('optgroup', { label: 'Maps' }, ...fieldMaps.map(opt)), h('optgroup', { label: 'Battle maps' }, ...battleMaps.map(opt))]
+      : names.map(opt)));
     mapSelect.value = store.mapName;
     const unsaved = store.dirty || store.dbDirty;
     saveState.textContent = !store.project.canSave ? 'Save exports JSON' : unsaved ? 'Unsaved changes' : 'All changes saved';
@@ -287,11 +302,13 @@ async function switchMap(name: string): Promise<void> {
 function newMapDialog(): void {
   let n = store.maps.length + 1;
   while (store.maps.includes(`map${String(n).padStart(3, '0')}`)) n++;
-  const data = { file: `map${String(n).padStart(3, '0')}`, name: 'New Map', width: 24, height: 18, base: '.' };
+  const data = { file: `map${String(n).padStart(3, '0')}`, name: 'New Map', width: 24, height: 18, base: '.', kind: 'field' as 'field' | 'battle' };
   const err = h('p', { class: 'form-error', role: 'alert' });
   const body = h('div', { class: 'form' },
     field('File name', textInput(data.file, (v) => (data.file = v.trim())), 'Letters, numbers, - and _ only. Saved as public/data/maps/<name>.json'),
     field('Display name', textInput(data.name, (v) => (data.name = v))),
+    field('Kind', select([['field', 'Map (to walk around)'], ['battle', 'Battle map (a stage for turn-based battles)']], data.kind, (v) => (data.kind = v as 'field' | 'battle')),
+      'Battle maps are listed apart and start with party and enemy markers.'),
     h('div', { class: 'field-row' },
       field('Width', numberInput(data.width, (v) => (data.width = Math.round(Math.min(128, Math.max(8, v)))), { min: 8, max: 128 })),
       field('Height', numberInput(data.height, (v) => (data.height = Math.round(Math.min(128, Math.max(8, v)))), { min: 8, max: 128 }))),
@@ -308,6 +325,16 @@ function newMapDialog(): void {
           terrain: Array.from({ length: data.height }, () => data.base.repeat(data.width)),
           props: [], lights: [], events: [], border: { kind: 'forest', seed: Math.floor(Math.random() * 1000) },
         };
+        if (data.kind === 'battle') {
+          // Three party markers near the bottom middle, three enemies above them.
+          const cx = Math.floor(data.width / 2), cz = Math.floor(data.height / 2);
+          map.kind = 'battle';
+          map.markers = [
+            ...[0, -2, 2].map((dx) => ({ side: 'party' as const, x: cx + dx, z: Math.min(data.height - 2, cz + 3) })),
+            ...[0, -2, 2].map((dx) => ({ side: 'enemy' as const, x: cx + dx, z: Math.max(1, cz - 2 - (dx ? 1 : 0)) })),
+          ];
+        }
+        store.mapKinds.set(data.file, data.kind);
         store.open(data.file, map, true);
         view.fit();
         toast(`Created ${data.file}. Save to write it to your project.`);

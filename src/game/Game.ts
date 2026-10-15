@@ -40,6 +40,10 @@ import { Bursts } from '../render/Bursts';
 import { Combat, type CombatHost } from './combat/Combat';
 import { type CombatConfig, Progression, SWING_TIME, combatFromDb, xpToNext } from './combat/config';
 import type { Enemy } from './combat/Enemy';
+import { BattleStage, type StageFighterSpec } from './battle/BattleStage';
+import { FlatSprite } from './FlatSprite';
+import type { CarriedWeapon } from './CharacterSprite';
+import { enemyWeaponSprites } from './combat/weaponSprites';
 import { CombatOverlay } from '../ui/CombatOverlay';
 import { BattleScreen, type FighterView } from '../ui/BattleScreen';
 import { pickTroop, zoneAt } from '../world/zones';
@@ -78,7 +82,7 @@ import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attrs, type HeroTotals, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
 import { BUFF_INFO, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
-import type { EnemyDef } from '../world/types';
+import type { CharacterDef, EnemyDef } from '../world/types';
 import { statusIconUrl } from '../art/statusIcons';
 import { elementIconUrl } from '../art/elementIcons';
 import { creation, heroBase, mainHero } from '../world/heroes';
@@ -210,6 +214,13 @@ export class Game {
   private battle!: TurnBattle;
   /** Frames since the battle screen opened (the world behind stops being redrawn after a few). */
   private battleFrames = 0;
+  /** A battle on a battle map: its 3D stage (its own scene), the map's lights and water, and the field's lighting to go back to. */
+  private stage: { stage: BattleStage; lights: Lights; built: BuiltWorld; env: TimeOfDay['environment'] } | null = null;
+  /** Battle maps loaded so far (by file name). */
+  private readonly battleMaps = new Map<string, MapData>();
+  /** A battle map is loading for a battle about to start. */
+  private battlePending = false;
+  private hemi!: THREE.HemisphereLight;
   /** Seconds before another battle can start (just won or ran from one). */
   private battleGrace = 0;
   /** Random encounters: tiles walked since the last battle, and how far until the next. */
@@ -375,7 +386,7 @@ export class Game {
 
   /** Everything that lasts the whole game: sun and sky, the player, stats, UI, the event interpreter. */
   private setup(): void {
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
+    const hemi = (this.hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5));
     this.scene.add(hemi);
     this.sun = new THREE.DirectionalLight(0xffffff, 1.5);
     this.sun.castShadow = true;
@@ -668,9 +679,9 @@ export class Game {
         const defs = new Map((this.db.enemies ?? []).map((x) => [x.id, x]));
         const list = c.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).map((def) => ({ def, hp: def.hp, enemy: null }));
         if (!list.length) return;
-        this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true });
+        this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined });
       },
-      busy: () => this.battle.active,
+      busy: () => this.battle.active || this.battlePending,
       learn: (c) => this.eventLearn(c),
       heroClass: (c) => this.eventClass(c),
       skillPoints: (n) => { this.progress.points = Math.max(0, this.progress.points + n); if (n > 0) { this.menu.notice(`+${n} skill point${n === 1 ? '' : 's'}`); this.audio.play('skill'); } },
@@ -751,6 +762,7 @@ export class Game {
     this.refreshEvents();
     // Reaching a map counts for "visit" objectives.
     if (!this.onTitle) this.quests.mapEntered(name);
+    this.preloadBattleMaps(data);
 
     const s = start ?? this.findOpenTile(data);
     this.motion = new PlayerMotion({
@@ -790,9 +802,17 @@ export class Game {
     this.endFishing();
     if (!this.level) return;
     this.bankPickups('leave');
+    this.disposeTree(this.level);
+    this.scene.remove(this.level);
+    this.level = null;
+    this.events = [];
+  }
+
+  /** Free the GPU memory of a built map (shared sprite art and tile textures stay). */
+  private disposeTree(root: THREE.Object3D): void {
     const keep = this.sprites.shared();
     for (const t of this.tileTextures.values()) { keep.add(t.map); keep.add(t.normal); }
-    this.level.traverse((o) => {
+    root.traverse((o) => {
       const m = o as THREE.Mesh & { isLight?: boolean; shadow?: { map?: { dispose(): void } | null } };
       if (m.isLight && m.shadow?.map) m.shadow.map.dispose();
       const geo = m.geometry as THREE.BufferGeometry | undefined;
@@ -811,9 +831,6 @@ export class Game {
         mat.dispose();
       }
     });
-    this.scene.remove(this.level);
-    this.level = null;
-    this.events = [];
   }
 
   /**
@@ -1230,8 +1247,7 @@ export class Game {
     const w = this.canvas.clientWidth || innerWidth, h = this.canvas.clientHeight || innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    this.camera.fov = this.camera.aspect < 1 ? 44 : 30; // portrait phones need a wider view
-    this.camera.updateProjectionMatrix();
+    this.applyFov();
     this.post.resize(pr);
     this.resizeAO();
   }
@@ -1389,7 +1405,7 @@ export class Game {
       else if (this.shop.isOpen) this.shop.update(); else if (this.bag.isOpen) this.bag.update(); else this.menu.update();
       this.player.animate(dt, false);
     }
-    else if (fighting) { this.battle.update(dt); this.player.animate(dt, false); }
+    else if (fighting) { this.battle.update(dt); this.stage?.stage.update(dt); this.player.animate(dt, false); }
     else if (this.updateDying(dt) || this.updateTransfer()) this.player.animate(dt, false);
     else if (this.interpreter.running) {
       this.interpreter.update(dt);
@@ -1428,13 +1444,15 @@ export class Game {
     const sm = this.renderer.shadowMap;
     if (this.settings.quality === 'performance') { sm.autoUpdate = false; if ((this.shadowTick++ & 1) === 0) sm.needsUpdate = true; }
     else sm.autoUpdate = true;
-    if (this.warmup) { this.warmup = false; try { this.renderer.compile(this.scene, this.camera); } catch { /* best effort */ } }
+    if (this.warmup) { this.warmup = false; try { this.renderer.compile(this.stage?.stage.scene ?? this.scene, this.camera); } catch { /* best effort */ } }
     // In a turn-based battle the world behind is frozen: draw it a few times as the battle opens, then leave the
     // last picture on screen (the battle screen draws over it), which keeps tablets cool.
     this.battleFrames = this.battle.active ? this.battleFrames + 1 : 0;
-    if (this.battleFrames < 4) {
-      this.ssao.render(this.scene, this.camera);
-      this.post.render(this.scene, this.camera);
+    // On a battle map the stage is drawn instead (every frame: its fighters move).
+    if (this.stage || this.battleFrames < 4) {
+      const scene = this.stage?.stage.scene ?? this.scene;
+      this.ssao.render(scene, this.camera);
+      this.post.render(scene, this.camera);
     }
     this.message.position();
     if (!this.onTitle) this.updateAudio(dt);
@@ -3200,7 +3218,7 @@ export class Game {
    */
   private encounter(e: Enemy, opening: Opening): boolean {
     if (this.combatCfg.mode !== 'turnBased') return false;
-    if (this.battle.active || this.battleGrace > 0 || this.dying || this.onTitle || this.transfer || this.interpreter.running) return true;
+    if (this.battle.active || this.battlePending || this.battleGrace > 0 || this.dying || this.onTitle || this.transfer || this.interpreter.running) return true;
     const tb = this.combatCfg.turnBased;
     const near = this.combat.enemies
       .filter((o) => o !== e && !o.dead && Math.hypot(o.x - e.x, o.z - e.z) <= tb.joinRadius && (o.alert || Math.hypot(o.x - e.x, o.z - e.z) < 3))
@@ -3214,7 +3232,7 @@ export class Game {
   private updateEncounters(): void {
     const m = this.mapData, t = m?.encounters, p = this.player.position;
     const hasZones = !!m?.zoneGrid && !!m.zones && Object.values(m.zones).some((z) => z.troops.length);
-    if (this.combatCfg.mode !== 'turnBased' || (!t?.enemies.length && !hasZones) || this.onTitle || this.transfer || this.dying || this.battle.active || this.interpreter.running) { this.encounterFrom = null; return; }
+    if (this.combatCfg.mode !== 'turnBased' || (!t?.enemies.length && !hasZones) || this.onTitle || this.transfer || this.dying || this.battle.active || this.battlePending || this.interpreter.running) { this.encounterFrom = null; return; }
     const from = this.encounterFrom;
     this.encounterFrom = { x: p.x, z: p.z };
     if (!from || this.motion.swimming || this.motion.airborne) return;
@@ -3252,7 +3270,7 @@ export class Game {
         const n = lo + Math.floor(Math.random() * (hi - lo + 1));
         for (let k = 0; k < n && list.length < 8; k++) list.push({ def, hp: def.hp, enemy: null });
       }
-      if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music });
+      if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music, stage: zone.battleMap || undefined });
       return;
     }
     const table = t!.enemies.filter((x) => defs.has(x.enemy));
@@ -3331,7 +3349,7 @@ export class Game {
   }
 
   /** The hero's or a party member's numbers for a battle: attack, spells, defences, agility. */
-  private partyBattler(who: number): { battler: Battler; view: FighterView } | null {
+  private partyBattler(who: number): { battler: Battler; view: FighterView; fig: { look: CharacterDef | undefined; equip: Partial<Record<EquipSlot, string>>; bow: boolean } } | null {
     const pct = (sk: Skills, k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
     if (who === 0) {
       const t = this.heroTotals(), sk = this.skills, gear = this.inventory.equip, cfg = this.combatCfg, hero = mainHero(this.db);
@@ -3355,6 +3373,7 @@ export class Game {
           additions: this.battleAdditions(a), addition: a.addition,
         },
         view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0) },
+        fig: { look, equip: gear, bow: useBow },
       };
     }
     const m = this.members()[who - 1];
@@ -3380,21 +3399,45 @@ export class Game {
         additions: this.battleAdditions(ab), addition: ab.addition,
       },
       view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who) },
+      fig: { look, equip: m.data.equip, bow: useBow },
     };
   }
 
   /** Start a turn-based battle against these enemies (ones from the map carry their `enemy`, random ones don't). */
   /** A scripted battle's rules (the Start battle event command): running away, losing, the result, its music. */
-  private battleRules: { canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean } = {};
+  private battleRules: { canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean; stage?: string } = {};
 
-  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening, rules: TurnBattle['rules'] & { lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean } = {}): void {
-    if (!list.length || this.battle.active) return;
+  /**
+   * `rules.stage`: the battle map to fight on (unset: this map's Battle map; '' or none: the flat battle screen).
+   * A battle map not loaded yet loads first (battles wait for it).
+   */
+  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening, rules: TurnBattle['rules'] & { lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean; stage?: string } = {}): void {
+    if (!list.length || this.battle.active || this.battlePending) return;
+    const stageName = rules.stage ?? this.mapData?.battleMap ?? '';
+    if (stageName && !this.battleMaps.has(stageName)) {
+      this.battlePending = true;
+      void this.loadMapData(stageName)
+        .then((d) => { this.battleMaps.set(stageName, d); })
+        .catch((err: Error) => console.warn(`Battle map “${stageName}” couldn’t be loaded: ${err.message}`))
+        .finally(() => {
+          this.battlePending = false;
+          this.startBattle(list, opening, { ...rules, stage: this.battleMaps.has(stageName) ? stageName : '' });
+        });
+      return;
+    }
+    const stageData = stageName ? this.battleMaps.get(stageName) : undefined;
+    const specs: StageFighterSpec[] = [];
     this.battleRules = rules;
     this.combat.reset();
     this.endFishing();
     this.moveTarget = null;
     const entries: BattleEntry[] = [];
-    for (let who = 0; who <= this.members().length; who++) { const b = this.partyBattler(who); if (b) entries.push({ ...b, who }); }
+    for (let who = 0; who <= this.members().length; who++) {
+      const b = this.partyBattler(who);
+      if (!b) continue;
+      entries.push({ battler: b.battler, view: b.view, who });
+      if (stageData) specs.push(this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow));
+    }
     // Several of a kind are told apart: Slime A, Slime B…
     const counts = new Map<string, number>(), seen = new Map<string, number>();
     for (const x of list) counts.set(x.def.id, (counts.get(x.def.id) ?? 0) + 1);
@@ -3411,9 +3454,108 @@ export class Game {
         actions: d.actions, attackWeight: d.attackWeight, counterspell: d.counterspell,
       };
       entries.push({ battler, view: { key: battler.key, side: 'enemy', name, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale }, ref: { def: d, enemy: x.enemy, battler } });
+      if (stageData) specs.push(this.enemyFigure(battler.key, d));
     });
+    if (stageData) this.openStage(stageData, specs);
     this.audio.play('crit');
     this.battle.start(entries, this.combatCfg.turnBased, opening, { canRun: rules.canRun });
+  }
+
+  /* ------------------------------------------------------------------ battle maps (the 3D stage) */
+
+  /** A hero on the stage: their sprite (back to the camera), holding their weapon, and how they attack. */
+  private heroFigure(key: string, look: CharacterDef | undefined, equip: Partial<Record<EquipSlot, string>>, bow: boolean): StageFighterSpec {
+    const sprite = new CharacterSprite(this.sprites, this.sprites.forCharacter(look), 'up');
+    const weapons: CarriedWeapon[] = [];
+    const add = (slot: EquipSlot) => {
+      const item = equip[slot] ? this.items.get(equip[slot]!) : undefined, id = itemWeaponSprite(item), w = this.sprites.weapon(id);
+      if (!w) return;
+      const fx = item?.glow || item?.trail;
+      weapons.push({ ...w, glow: item?.glow, trail: item?.trail, mask: fx ? this.sprites.weaponMask(id) : null });
+    };
+    if (sprite.animated) { if (bow) add('ranged'); else { add('shield'); add('weapon'); } }
+    const held = weapons.length ? weapons[weapons.length - 1].def : null;
+    const attackAnim = bow ? 'shoot' : held ? (['slash', 'slash_reverse', 'thrust'].find((a) => held.anims.includes(a)) ?? 'slash') : 'slash';
+    return { key, side: 'party', sprite, weapons, attackAnim };
+  }
+
+  /** An enemy on the stage, drawn as it is on the field (a picture, a monster sheet or a person), facing the camera. */
+  private enemyFigure(key: string, def: EnemyDef): StageFighterSpec {
+    const monster = def.look.monster && MONSTERS[def.look.monster];
+    const person = def.look.character ? this.db.characters[def.look.character] : undefined;
+    const picture = def.look.image ? this.sprites.flat(def.look.image, def.look.flat?.height ?? 1) : null;
+    const sprite = picture ? new FlatSprite(picture, def.look.flat ?? {}, def.look.flat?.height ?? 1)
+      : monster ? new CharacterSprite(this.sprites, this.sprites.sheet(monster.draw()), 'down')
+      : person ? new CharacterSprite(this.sprites, this.sprites.forCharacter(person), 'down')
+      : new CharacterSprite(this.sprites, this.sprites.sheet(MONSTERS.slime.draw()), 'down');
+    let weapons: CarriedWeapon[] = [], attackAnim = def.behaviour === 'ranged' ? 'shoot' : 'slash';
+    if (sprite instanceof CharacterSprite && sprite.animated && def.look.character) {
+      const w = def.weapon ?? (def.behaviour === 'ranged' ? 'bow' : 'sword');
+      weapons = enemyWeaponSprites(def, w).map((id) => this.sprites.weapon(id)).filter((x): x is NonNullable<typeof x> => !!x);
+      const held = weapons.length ? weapons[weapons.length - 1].def : null;
+      if (held && def.behaviour !== 'ranged') attackAnim = ['slash', 'slash_reverse', 'thrust'].find((a) => held.anims.includes(a)) ?? 'slash';
+    }
+    return { key, side: 'enemy', sprite, scale: def.scale ?? 1, weapons, attackAnim };
+  }
+
+  /** Build a battle map as the stage for the battle about to start, and switch the view to it. */
+  private openStage(data: MapData, specs: StageFighterSpec[]): void {
+    this.endStage();
+    const map = new TileMap(data, this.tiles);
+    const stage = new BattleStage(data, (x, z) => map.standY(x, z));
+    const built = buildWorld(stage.group, map, data, this.sprites, this.tileTextures);
+    tagAOMeshes(stage.group);
+    const lights = new Lights(stage.group, data, map, this.sprites);
+    stage.scene.fog = this.fog;
+    stage.scene.background = this.fog.color;
+    // The sun and sky light the stage while it's shown.
+    stage.scene.add(this.hemi, this.sun, this.sun.target);
+    this.stage = { stage, lights, built, env: this.time.environment };
+    this.time.environment = data.environment ?? 'outdoor';
+    this.time.update(0);
+    stage.addFighters(specs);
+    tagAOMeshes(stage.group);
+    this.applyFov();
+    this.battleScreen.setStage(stage);
+    this.battleScreen.onClosed = () => this.endStage();
+    this.warmup = true;
+  }
+
+  /** The battle is over: back to the field's view and lighting. */
+  private endStage(): void {
+    const s = this.stage;
+    if (!s) return;
+    this.stage = null;
+    this.scene.add(this.hemi, this.sun, this.sun.target);
+    s.stage.dispose((root) => this.disposeTree(root));
+    this.time.environment = s.env;
+    this.time.update(0);
+    this.applyFov();
+    this.battleFrames = 0;
+  }
+
+  /** The camera's field of view: the field's (wider on portrait screens), or the battle map's. */
+  private applyFov(): void {
+    const narrow = this.camera.aspect < 1;
+    this.camera.fov = this.stage ? this.stage.stage.fov * (narrow ? 1.4 : 1) : narrow ? 44 : 30; // portrait phones need a wider view
+    this.camera.updateProjectionMatrix();
+  }
+
+  private updateStageCamera(dt: number): void {
+    const st = this.stage!.stage;
+    const look = st.updateCamera(dt, this.camera);
+    this.sun.target.position.copy(look);
+    this.sun.position.copy(look).addScaledVector(this.time.sunDir, 30);
+    this.post.focus = st.focusHeight(this.camera);
+    this.camera.updateMatrixWorld();
+    const r = this.canvas.getBoundingClientRect();
+    st.project(this.camera, r.width, r.height, (k, x, y, w, h, shown) => this.battleScreen.place(k, x + r.left, y + r.top, w, h, shown));
+  }
+
+  /** Load the battle maps this map's battles use, so battles start without waiting. */
+  private preloadBattleMaps(data: MapData): void {
+    const names = new Set([data.battleMap, ...Object.values(data.zones ?? {}).map((z) => z.battleMap)].filter((n): n is string => !!n));
+    for (const n of names) if (!this.battleMaps.has(n)) void this.loadMapData(n).then((d) => this.battleMaps.set(n, d)).catch(() => { /* loaded (or reported) when a battle needs it */ });
   }
 
   private battleHost(): BattleHost {
@@ -3970,6 +4112,7 @@ export class Game {
   };
   private readonly titleFocus = new THREE.Vector3();
   private updateCamera(dt: number): void {
+    if (this.stage) { this.updateStageCamera(dt); return; }
     const t = this.camTarget;
     if (this.onTitle) {
       // Drift slowly across the map behind the title.
@@ -4056,6 +4199,14 @@ export class Game {
     this.updateWeather(dt);
     const night = this.time.night;
     this.lights.update(dt, this.elapsed, night, this.state);
+    if (this.stage) {
+      this.stage.lights.update(dt, this.elapsed, night, this.state);
+      for (const f of this.stage.built.waterFlows) {
+        const fd = THREE.MathUtils.degToRad(f.flowDir);
+        f.tex.offset.x += (0.03 - Math.cos(fd) * f.flow * 0.45) * dt;
+        f.tex.offset.y += (0.018 - Math.sin(fd) * f.flow * 0.45) * dt;
+      }
+    }
     // Outside, windows light up at night; inside they show daylight and go dark at night.
     const env = this.time.environment;
     setSpriteGlow(env === 'outdoor' ? scheduleFactor('night', this.time.glow) : this.time.glow);

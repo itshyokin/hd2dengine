@@ -48,6 +48,8 @@ export class EditorStore {
   mapName = '';
   map!: MapData;
   maps: string[] = [];
+  /** Which maps are battle maps (read as the project opens; the open map decides for itself). */
+  mapKinds = new Map<string, 'field' | 'battle'>();
   /** Where maps are read from and saved to. */
   project!: Project;
   dirty = false;
@@ -80,6 +82,8 @@ export class EditorStore {
   passageFlag: PassageFlag = 'c';
   /** Encounter zone letter the Encounters brush paints ("." erases). */
   zoneLetter = 'A';
+  /** Battle maps: what the Spawns layer places (a party or enemy marker) or removes. */
+  markerTool: 'party' | 'enemy' | 'erase' = 'party';
   propType = 'oak';
   propTool: ObjectTool = 'place';
   lightType: LightType = 'point';
@@ -119,8 +123,10 @@ export class EditorStore {
   /* ------------------------------------------------------------ loading */
 
   open(name: string, map: MapData, fresh = false): void {
+    if (this.map && this.mapName) this.mapKinds.set(this.mapName, this.map.kind === 'battle' ? 'battle' : 'field');
     this.mapName = name;
     this.map = map;
+    this.mapKinds.set(name, map.kind === 'battle' ? 'battle' : 'field');
     // Props that now have a footprint move from the middle of their tile to its front edge.
     this.dirty = alignFootProps(map, (t) => this.catalog.get(t)) || fresh;
     this.selection = null;
@@ -385,6 +391,34 @@ export class EditorStore {
   }
 
   private zCache: { src: string[] | undefined; w: number; h: number; grid: string[] } | null = null;
+
+  /** Is this map (the open one, or another by name) a battle map? */
+  isBattleMap(name = this.mapName): boolean {
+    return name === this.mapName ? this.map?.kind === 'battle' : this.mapKinds.get(name) === 'battle';
+  }
+
+  /** The project's battle maps, by file name. */
+  battleMapNames(): string[] {
+    const names = this.maps.includes(this.mapName) ? this.maps : [...this.maps, this.mapName];
+    return names.filter((n) => this.isBattleMap(n));
+  }
+
+  /** Battle maps: place the marker tool's kind of marker on a cell, or remove the one there. True if it changed. */
+  setMarker(x: number, z: number): boolean {
+    if (!this.inMap(x, z)) return false;
+    const list = (this.map.markers ??= []);
+    const i = list.findIndex((mk) => mk.x === x && mk.z === z);
+    if (this.markerTool === 'erase') {
+      if (i < 0) return false;
+      list.splice(i, 1);
+    } else {
+      if (i >= 0 && list[i].side === this.markerTool) return false;
+      if (i >= 0) list.splice(i, 1);
+      list.push({ side: this.markerTool, x, z });
+    }
+    if (!list.length) delete this.map.markers;
+    return true;
+  }
 
   /** The encounter zone grid (a letter or "." per cell), parsed from the map and cached. */
   zoneGrid(): string[] {

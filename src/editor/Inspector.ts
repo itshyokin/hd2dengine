@@ -35,6 +35,9 @@ export class Inspector {
     this.commands = new CommandEditor(store);
     store.on('selection', () => this.render());
     store.on('structure', () => this.render());
+    // The list of battle maps arrives once the project's maps are read.
+    let kinds = '';
+    store.on('meta', () => { const k = store.battleMapNames().join('|'); if (k !== kinds) { const first = !kinds && !k; kinds = k; if (!first) this.render(); } });
     // Keep the map summary current without rebuilding the form under the cursor.
     store.on('map', () => {
       const line = this.el.querySelector('.stats-line');
@@ -71,6 +74,41 @@ export class Inspector {
     this.store.checkpoint();
     fn();
     if (rebuild) this.store.changed('structure'); else this.store.changed();
+  }
+
+  /** Map settings → Battles: a battle map's camera, or the battle map a field map's battles are fought on. */
+  private battleFields(): HTMLElement[] {
+    const s = this.store, m = s.map, battle = m.kind === 'battle';
+    const setKind = (v: boolean) => {
+      this.edit(() => { if (v) m.kind = 'battle'; else delete m.kind; });
+      s.mapKinds.set(s.mapName, v ? 'battle' : 'field');
+      s.emit('meta'); s.emit('ui');
+      this.render();
+    };
+    const out: HTMLElement[] = [checkbox('This is a battle map', battle, setKind)];
+    if (!battle) {
+      const names = s.battleMapNames();
+      out.push(field('Battle map', select([['', 'None: the flat battle screen'], ...names.map((n) => [n, n] as [string, string])], m.battleMap ?? '', (v) => this.edit(() => { if (v) m.battleMap = v; else delete m.battleMap; })),
+        names.length ? 'Turn-based battles on this map are fought on this battle map (a zone in the Spawns layer can choose another).'
+          : 'No battle maps yet: make a new map, tick “This is a battle map”, and place party and enemy markers on it (Spawns layer, key 9).'));
+      return out;
+    }
+    const cam = m.battleCamera ?? {};
+    const setCam = (k: 'distance' | 'height' | 'side' | 'fov', v: number, def: number) => this.edit(() => {
+      const c = { ...m.battleCamera, [k]: v };
+      if (v === def) delete c[k];
+      m.battleCamera = Object.keys(c).length ? c : undefined;
+    });
+    out.push(
+      h('p', { class: 'hint' }, 'A stage for turn-based battles (a forest clearing, plains, a city street). Place where the party and the enemies stand in the Spawns layer (key 9). Field maps choose it under Battles → Battle map.'),
+      h('div', { class: 'field-row' },
+        field('Camera back', numberInput(cam.distance ?? 6, (v) => setCam('distance', Math.max(2, Math.min(30, v)), 6), { min: 2, max: 30, step: 0.5 }), 'Tiles behind the party.'),
+        field('Camera up', numberInput(cam.height ?? 3.2, (v) => setCam('height', Math.max(0.5, Math.min(20, v)), 3.2), { min: 0.5, max: 20, step: 0.25 }), 'Tiles above the ground.')),
+      h('div', { class: 'field-row' },
+        field('Camera side', numberInput(cam.side ?? 0, (v) => setCam('side', Math.max(-10, Math.min(10, v)), 0), { min: -10, max: 10, step: 0.5 }), 'Tiles to the right (+) or left (−) of the party.'),
+        field('View angle', numberInput(cam.fov ?? 40, (v) => setCam('fov', Math.max(20, Math.min(75, Math.round(v))), 40), { min: 20, max: 75, step: 1 }), 'Degrees: wider shows more.')),
+      h('p', { class: 'hint' }, 'The camera backs off further if a crowd wouldn’t fit. Turning the view far from straight up the map makes trees and props look flat, so it stays within about 35°.'));
+    return out;
   }
 
   /** Map settings → Random encounters (turn-based battles): which enemies, how often, how many, and where. */
@@ -162,8 +200,9 @@ export class Inspector {
       ...this.weatherFields(),
       h('div', { class: 'section-label' }, 'Sound'),
       ...mapAudioFields(s, m, (fn) => this.edit(fn)),
-      h('div', { class: 'section-label' }, 'Random encounters'),
-      ...this.encounterFields(),
+      h('div', { class: 'section-label' }, 'Battles'),
+      ...this.battleFields(),
+      ...(m.kind === 'battle' ? [] : [h('div', { class: 'section-label' }, 'Random encounters'), ...this.encounterFields()]),
       h('div', { class: 'section-label' }, 'Game start'),
       field('Starting hour', numberInput(s.db.startHour, (v) => { s.checkpoint(); s.db.startHour = Math.min(23.75, Math.max(0, v)); s.changedDb(); }, { min: 0, max: 23.75, step: 0.25 }), 'Time of day when a new game begins (0 – 23.75; 18.5 is 6:30 PM). Clock speed and night darkness are in Database → Time.'),
       h('p', { class: 'hint' }, s.startHere ? 'The player starts on this map. Select it in the Events layer to move it.' : `The player starts on “${s.db.startMap}”. To start here, select a tile in the Events layer and choose “Move player start here”.`),

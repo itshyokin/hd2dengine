@@ -575,6 +575,7 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 @media (max-width: 620px) { .db-table.add-strike { grid-template-columns: 1fr 1fr; } }
 
 /* Spawns layer */
+.zone-swatch .zone-chip { grid-row: span 2; }
 .zone-chip { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; font: 700 14px ui-monospace, monospace; color: #10131c; background: rgba(255,255,255,0.12); }
 .zone-troop { display: grid; gap: 6px; padding: 8px; margin: 6px 0; border: 1px solid var(--line, rgba(255,255,255,0.12)); border-radius: 8px; }
 .zone-days { display: flex; flex-wrap: wrap; gap: 4px; }

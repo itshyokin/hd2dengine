@@ -42,6 +42,17 @@ export interface FighterView {
   color?: string;
 }
 
+/** A 3D battle stage behind the screen (a battle map): it moves the sprites; the screen keeps the tags and numbers. */
+export interface StageHooks {
+  animate(key: string, how: Anim, color?: string, target?: string): void;
+  vitals(key: string, down: boolean, guarding: boolean): void;
+  active(key: string | null): void;
+  highlight(keys: string[]): void;
+}
+
+/** Fighter animations. approach / strike / back: an Addition (close in, strike per button, then run back). */
+export type Anim = 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back';
+
 export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Ailments on them: icon and a name for the tooltip. */ status?: { icon: string; name: string }[] }
 
 export interface ChoiceItem {
@@ -80,6 +91,10 @@ export class BattleScreen {
   private readonly qteEl = document.createElement('div');
   private readonly padsEl = document.createElement('div');
   private padWas: boolean[] = [];
+  /** The 3D stage (battle maps), or null for the flat screen. */
+  private stage: StageHooks | null = null;
+  /** Called once the screen closes (the battle ended or was abandoned). */
+  onClosed: (() => void) | null = null;
   private readonly onQteKey = (e: KeyboardEvent): void => {
     const b = QTE_KEYS[e.code];
     if (!this.qte || !b || e.repeat) return;
@@ -165,6 +180,28 @@ export class BattleScreen {
     this.mode = { kind: 'idle' };
     this.root.hidden = true;
     this.fighters.clear();
+    this.setStage(null);
+    const done = this.onClosed;
+    this.onClosed = null;
+    done?.();
+  }
+
+  /** Fight on a 3D stage (set before `open`), or the flat screen (null). */
+  setStage(stage: StageHooks | null): void {
+    this.stage = stage;
+    this.root.classList.toggle('staged', !!stage);
+    document.body.classList.toggle('staged-battle', !!stage);
+  }
+
+  /** Staged: where a fighter's sprite is on screen (its feet, its size), so its tag and numbers follow it. */
+  place(key: string, x: number, y: number, w: number, h: number, shown: boolean): void {
+    const f = this.fighters.get(key);
+    if (!f) return;
+    f.el.style.left = `${x.toFixed(1)}px`;
+    f.el.style.top = `${(y - h - 6).toFixed(1)}px`;
+    f.img.style.width = `${Math.max(8, w).toFixed(1)}px`;
+    f.img.style.height = `${h.toFixed(1)}px`;
+    f.el.style.visibility = shown ? '' : 'hidden';
   }
 
   private addFighter(v: FighterView, i: number, n: number): void {
@@ -218,6 +255,7 @@ export class BattleScreen {
     const f = this.fighters.get(key);
     if (!f) return;
     const down = v.hp <= 0;
+    this.stage?.vitals(key, down, !!v.guarding);
     f.el.classList.toggle('down', down);
     f.el.classList.toggle('guarding', !!v.guarding);
     // Ailment icons over the fighter (and beside a party member's name).
@@ -255,6 +293,7 @@ export class BattleScreen {
       chip.append(im, nm);
       return chip;
     }));
+    this.stage?.active(active);
     for (const [k, f] of this.fighters) {
       f.el.classList.toggle('active', k === active);
       f.row?.classList.toggle('active', k === active);
@@ -282,10 +321,16 @@ export class BattleScreen {
     setTimeout(() => el.remove(), 1300);
   }
 
-  /** Step forward and back (an attack), shake (hit), flash in a colour (a spell), or fall (knocked out). */
-  animate(key: string, how: 'lunge' | 'hit' | 'cast' | 'heal' | 'faint', color?: string): void {
+  /**
+   * Step forward and back (an attack, at `target` when given), shake (hit; a colour: a spell's impact), flash in a
+   * colour (a spell), or fall (knocked out).
+   */
+  animate(key: string, anim: Anim, color?: string, target?: string): void {
     const f = this.fighters.get(key);
     if (!f) return;
+    this.stage?.animate(key, anim, color, target);
+    if (anim === 'back') return;
+    const how = anim === 'approach' || anim === 'strike' ? 'lunge' : anim;
     f.el.classList.remove('lunge', 'hit', 'cast', 'heal', 'faint');
     if (color) f.el.style.setProperty('--fx', color);
     void f.el.offsetWidth;
@@ -370,11 +415,12 @@ export class BattleScreen {
     this.clearTargets();
     if (m.kind !== 'target') return;
     m.keys.forEach((k, i) => this.fighters.get(k)?.el.classList.toggle('targeted', m.all || i === m.index));
+    this.stage?.highlight(m.all ? m.keys : [m.keys[m.index]]);
     const f = this.fighters.get(m.keys[m.index]);
     this.message(f ? f.view.name : '', true);
   }
 
-  private clearTargets(): void { for (const f of this.fighters.values()) f.el.classList.remove('targeted'); }
+  private clearTargets(): void { for (const f of this.fighters.values()) f.el.classList.remove('targeted'); this.stage?.highlight([]); }
 
   private tapFighter(key: string): void {
     const m = this.mode;

@@ -280,7 +280,7 @@ export type Command =
    * party may run away (default false); `lose: 'continue'`: losing doesn't send the party back (the event goes
    * on, with the party on 1 health); `resultVar`: a variable set to 1 (won), 2 (ran away) or 0 (lost).
    */
-  | { cmd: 'battle'; enemies: string[]; canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string }
+  | { cmd: 'battle'; enemies: string[]; canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; /** The battle map to fight on (unset: the map's). */ map?: string }
   /** Teach a spell (at a rank) or an Addition: to the hero you play (''), a party hero by id, or everyone ('@party'). */
   | { cmd: 'learn'; who: string; spell?: string; rank?: number; addition?: string; silent?: boolean }
   /** Change a hero's class, or let them change to it later (unlock). */
@@ -458,6 +458,9 @@ export interface EncounterTable {
 }
 
 /** A troop: a group of enemies that fight together (Database → Troops). */
+export interface BattleMarker { side: 'party' | 'enemy'; x: number; z: number }
+export interface BattleCamera { distance?: number; height?: number; side?: number; fov?: number }
+
 export interface TroopDef {
   id: string;
   name: string;
@@ -486,6 +489,8 @@ export interface EncounterZone {
   name?: string;
   steps?: number;
   troops: ZoneTroop[];
+  /** The battle map for battles in this zone (unset: the map's). */
+  battleMap?: string;
 }
 
 export interface MapData {
@@ -549,6 +554,17 @@ export interface MapData {
    */
   zoneGrid?: string[];
   zones?: Record<string, EncounterZone>;
+  /**
+   * 'battle': a battle map (a stage for turn-based battles: forest clearing, plains, city street…), listed apart in
+   * the editor and never walked on. Its `markers` say where the party and the enemies stand.
+   */
+  kind?: 'field' | 'battle';
+  /** Battle maps: where each party member (in party order) and each enemy (in order) stands. */
+  markers?: BattleMarker[];
+  /** Battle maps: the camera behind the party (tiles back, tiles up, tiles to the side; field of view in degrees). */
+  battleCamera?: BattleCamera;
+  /** Field maps: the battle map turn-based battles here are fought on (its file name); unset: the flat battle screen. */
+  battleMap?: string;
   ambience?: string;
   ambienceNight?: string;
   /** Background sound in autumn and winter (outdoors, by day). Unset: the forest's birds give way to cold wind. */

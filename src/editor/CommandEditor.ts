@@ -163,7 +163,7 @@ function summary(c: Command): string {
     case 'skillPoints': return `+${c.value} skill point${c.value === 1 ? '' : 's'}`;
     case 'battle': {
       const names = c.enemies.map((id) => (dbNow?.().enemies ?? []).find((e) => e.id === id)?.name ?? id);
-      return `Battle: ${names.join(', ') || '(no enemies)'}${c.canRun ? '' : ' · no running'}${c.lose === 'continue' ? ' · may lose' : ''}${c.resultVar ? ` → ${c.resultVar}` : ''}`;
+      return `Battle: ${names.join(', ') || '(no enemies)'}${c.map ? ` on ${c.map}` : ''}${c.canRun ? '' : ' · no running'}${c.lose === 'continue' ? ' · may lose' : ''}${c.resultVar ? ` → ${c.resultVar}` : ''}`;
     }
     case 'learn': {
       const db = dbNow?.(), sp = db ? findSpell(db, c.spell) : undefined, ad = db ? findAddition(db, c.addition) : undefined;
@@ -597,6 +597,7 @@ export class CommandEditor {
           field('If the party loses', select([['respawn', 'Back to the respawn point (as dying does); the event stops'], ['continue', 'The event goes on (a story battle meant to be lost)']], d.lose ?? 'respawn', (v) => { if (v === 'continue') d.lose = 'continue'; else delete d.lose; })),
           field('Result into variable', textInput(d.resultVar ?? '', (v) => (d.resultVar = v.trim() || undefined), { placeholder: 'Optional, e.g. boss_result' }), '1 if won, 2 if the party ran away, 0 if lost. Branch on it afterwards.'),
           field('Battle music', select([['', 'The map’s battle music'], ...loopChoices('music', audioFiles()).filter(([v]) => v)], d.music ?? '', (v) => (d.music = v || undefined))),
+          field('Battle map', select([['', 'The map’s battle map'], ...this.store.battleMapNames().map((n) => [n, n] as [string, string])], d.map ?? '', (v) => (d.map = v || undefined)), 'Where it’s fought: a boss arena, a throne room…'),
           h('p', { class: 'hint' }, 'A turn-based battle (in either battle system), for bosses and set-piece fights. The event waits for it to end. Beating these enemies gives EXP, gold and drops as usual.')];
       }
       case 'learn': {
