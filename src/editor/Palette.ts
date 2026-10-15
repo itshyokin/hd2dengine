@@ -19,6 +19,7 @@ import { WATER_PRESETS, WATER_SYMBOLS, waterStyles } from '../world/waterStyles'
 import { defaultZone } from '../world/fishing';
 import { PASSAGE_FLAGS, type PassageFlag } from '../world/passage';
 import { passageThumb } from './passageIcons';
+import { WEEKDAY_SHORT, ZONE_LETTERS, zoneColor } from '../world/zones';
 import { ABILITIES } from '../world/types';
 import { ABILITY_NAMES } from './CommandEditor';
 import { MAX_HEIGHT, MIN_HEIGHT } from '../world/heights';
@@ -26,7 +27,7 @@ import { BUILDING_PRESETS, drawBuildingTop } from './buildingPresets';
 import { TS } from './editorArt';
 
 const MODES: [Mode, string, string][] = [
-  ['terrain', 'Terrain', '1'], ['height', 'Height', '2'], ['passage', 'Passage', '3'], ['props', 'Props', '4'], ['lights', 'Lights', '5'], ['events', 'Events', '6'], ['buildings', 'Buildings', '7'], ['water', 'Water', '8'],
+  ['terrain', 'Terrain', '1'], ['height', 'Height', '2'], ['passage', 'Passage', '3'], ['props', 'Props', '4'], ['lights', 'Lights', '5'], ['events', 'Events', '6'], ['buildings', 'Buildings', '7'], ['water', 'Water', '8'], ['zones', 'Spawns', '9'],
 ];
 const TERRAIN_TOOLS: [TerrainTool, string, string][] = [['pencil', 'Pencil', 'B'], ['rect', 'Rectangle', 'R'], ['fill', 'Fill', 'G']];
 const PROP_TOOLS: [ObjectTool, string, string][] = [['place', 'Place', 'P'], ['scatter', 'Scatter', 'S'], ['select', 'Select', 'V'], ['erase', 'Erase', 'E']];
@@ -48,6 +49,7 @@ export const MODE_HINTS: Record<string, string> = {
   'water:fish': 'Paint fishing spots over water (Erase removes them). Each spot has its own list of catches.',
   'height:ramp': 'Click a cell for a ramp or stairs. It rises toward the neighbour one step higher. Click an existing one to select it. E erases.',
   'passage:paint': 'Click or drag to paint the chosen flag; Erase clears it. Red crosses show what already blocks (tiles, props, deep water).',
+  'zones:paint': 'Click or drag to paint the chosen encounter zone; Erase clears it. Each zone has its own troops (below the letters).',
   'props:place': 'Click or drag to place, one prop per tile (placing on a taken tile replaces its prop). Turn off “Snap to tiles” for free placement.',
   'props:scatter': 'Drag to scatter props naturally, with varied sizes.',
   'props:select': 'Click a prop to select it, drag to move. Delete removes it.',
@@ -197,6 +199,8 @@ export class Palette {
         } }, `Remove ${broken.length} broken ramp${broken.length === 1 ? '' : 's'} (red ✕)`));
       }
       body.push(h('p', { class: 'note' }, 'Heights go from −10 to 10; one step is half a tile. Cliff walls appear wherever neighbouring cells differ. The player can’t walk up or down a cliff, only ramps and stairs, but can jump up one step, and climb walls marked Climbable on the Passage layer.'));
+    } else if (s.mode === 'zones') {
+      body.push(...this.zonesPanel());
     } else if (s.mode === 'passage') {
       const flagBtn = (key: PassageFlag, name: string, note: string, shortcut: string) =>
         h('button', { type: 'button', class: 'swatch passage-swatch', 'aria-pressed': String(s.passageFlag === key), title: `${name} (${shortcut})`, onclick: () => { s.passageFlag = key; s.emit('ui'); } },
@@ -472,6 +476,50 @@ export class Palette {
   private tools<T extends string>(list: [T, string, string][], current: T, set: (t: T) => void): HTMLElement {
     return h('div', { class: 'toolrow', role: 'group', 'aria-label': 'Tool' }, ...list.map(([t, label, key]) =>
       h('button', { type: 'button', class: 'tool', 'aria-pressed': String(current === t), title: `${label} (${key})`, onclick: () => { set(t); this.store.emit('ui'); } }, label)));
+  }
+
+  /** The Spawns layer: zone letters to paint, and the chosen zone's troops, conditions and frequency. */
+  private zonesPanel(): HTMLElement[] {
+    const s = this.store, m = s.map, grid = s.zoneGrid();
+    const used = new Set(grid.filter((c) => c !== '.'));
+    for (const k of Object.keys(m.zones ?? {})) used.add(k);
+    // The letters in use, plus the next free one.
+    const letters = ZONE_LETTERS.filter((l) => used.has(l));
+    const next = ZONE_LETTERS.find((l) => !used.has(l));
+    if (next) letters.push(next);
+    const edit = (fn: () => void) => { s.checkpoint(); fn(); s.changed(); s.emit('ui'); };
+    const btn = (l: string) => h('button', { type: 'button', class: 'swatch zone-swatch', 'aria-pressed': String(s.zoneLetter === l), title: l === '.' ? 'Erase' : `Zone ${l}`,
+      onclick: () => { s.zoneLetter = l; s.emit('ui'); } },
+      h('span', { class: 'zone-chip', style: l === '.' ? '' : `background:${zoneColor(l)}` }, l === '.' ? '✕' : l),
+      h('span', { class: 'swatch-name' }, l === '.' ? 'Erase' : m.zones?.[l]?.name || `Zone ${l}`),
+      h('span', { class: 'swatch-note' }, l === '.' ? 'No random battles here.' : `${grid.filter((c) => c === l).length} tiles · ${m.zones?.[l]?.troops.length ?? 0} troop${(m.zones?.[l]?.troops.length ?? 0) === 1 ? '' : 's'}`));
+    const out: HTMLElement[] = [this.brush(), h('div', { class: 'section-label' }, 'Paint'), h('div', { class: 'swatches' }, ...letters.map(btn), btn('.'))];
+    const l = s.zoneLetter;
+    if (l === '.') { out.push(h('p', { class: 'note' }, 'Erase: tiles with no zone have no random battles (unless the map has its own random encounters, in map settings).')); return out; }
+    const troops = s.db.troops ?? [];
+    const zone = m.zones?.[l];
+    const ensure = () => ((m.zones ??= {})[l] ??= { troops: [] });
+    out.push(h('div', { class: 'section-label' }, `Zone ${l}`),
+      h('div', { class: 'field' }, h('label', {}, 'Name'), h('input', { type: 'text', value: zone?.name ?? '', placeholder: `Zone ${l}`, onchange: (e: Event) => edit(() => { const v = (e.target as HTMLInputElement).value.trim(); if (v) ensure().name = v; else if (m.zones?.[l]) delete m.zones[l].name; }) })),
+      h('div', { class: 'field' }, h('label', {}, 'Tiles between battles'), numberInput(zone?.steps ?? 30, (v) => edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) { if (m.zones?.[l]) delete m.zones[l].steps; } else ensure().steps = n; }), { min: 4, step: 1 }), h('div', { class: 'hint' }, 'About this far on average (it varies).')));
+    if (!troops.length) { out.push(h('p', { class: 'note' }, 'Add troops (groups of enemies) in Database → Troops first, then choose which come in this zone.')); return out; }
+    const tOpts = troops.map((t) => [t.id, t.name] as [string, string]);
+    (zone?.troops ?? []).forEach((zt, k) => {
+      const days = new Set(zt.days ?? []);
+      out.push(h('div', { class: 'zone-troop' },
+        h('div', { class: 'field-row' },
+          select(tOpts, zt.troop, (v) => edit(() => (zt.troop = v)), { 'aria-label': `Troop ${k + 1}` }),
+          h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove troop ${k + 1}`, onclick: () => edit(() => { zone!.troops.splice(k, 1); if (!zone!.troops.length && !zone!.name && !zone!.steps) delete m.zones![l]; }) }, '✕')),
+        h('div', { class: 'field-row' },
+          h('div', { class: 'field' }, h('label', {}, 'How often'), numberInput(zt.weight ?? 1, (v) => edit(() => { const w = Math.max(0, Math.round(v)); if (w === 1) delete zt.weight; else zt.weight = w; }), { min: 0, step: 1, 'aria-label': `Troop ${k + 1} weight` })),
+          h('div', { class: 'field' }, h('label', {}, 'When'), select([['', 'Any time'], ['day', 'By day'], ['night', 'At night']], zt.time ?? '', (v) => edit(() => { if (v) zt.time = v as 'day' | 'night'; else delete zt.time; }), { 'aria-label': `Troop ${k + 1} time` }))),
+        h('div', { class: 'zone-days', role: 'group', 'aria-label': 'Real-world days' }, ...WEEKDAY_SHORT.map((name, d) => h('button', { type: 'button', class: 'day-chip', 'aria-pressed': String(days.has(d)), title: 'Only on these real-world days (none: every day)',
+          onclick: () => edit(() => { if (days.has(d)) days.delete(d); else days.add(d); const list = [...days].sort(); if (list.length) zt.days = list; else delete zt.days; }) }, name))),
+        h('div', { class: 'field' }, h('label', {}, 'Only while switch is ON'), h('input', { type: 'text', value: zt.switch ?? '', placeholder: 'Any (optional)', onchange: (e: Event) => edit(() => { const v = (e.target as HTMLInputElement).value.trim(); if (v) zt.switch = v; else delete zt.switch; }) }))));
+    });
+    out.push(h('button', { type: 'button', class: 'btn small', onclick: () => edit(() => ensure().troops.push({ troop: tOpts[0][0] })) }, '+ Add troop'),
+      h('p', { class: 'note' }, 'Walking in this zone brings a battle now and then (turn-based battles), with one of these troops by how often each is set, among those allowed right then: by day or at night (game time), on the chosen real-world days of the week, or while a switch is on.'));
+    return out;
   }
 
   private brush(): HTMLElement {

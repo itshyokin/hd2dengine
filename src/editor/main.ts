@@ -170,9 +170,9 @@ function buildUI(): void {
   const updateBudget = () => meter.setCounts(countLights(store));
   store.on('map', updateBudget);
   updateBudget();
-  view.onHover = (info) => { statusPos.textContent = info ? `${info.x}, ${info.z} · ${info.terrain ? tileName(info.terrain) : ''} · height ${info.height}${store.rampAt(info.x, info.z) ? ` (${store.rampAt(info.x, info.z)!.style})` : ''}${info.water ? ` · ${info.water}` : ''}${info.passage ? ` · ${info.passage}` : ''}` : '—'; };
+  view.onHover = (info) => { statusPos.textContent = info ? `${info.x}, ${info.z} · ${info.terrain ? tileName(info.terrain) : ''} · height ${info.height}${store.rampAt(info.x, info.z) ? ` (${store.rampAt(info.x, info.z)!.style})` : ''}${info.water ? ` · ${info.water}` : ''}${info.passage ? ` · ${info.passage}` : ''}${info.zone ? ` · zone ${info.zone}` : ''}` : '—'; };
   const updateStatus = () => {
-    const tool = store.mode === 'terrain' ? store.terrainTool : store.mode === 'water' ? store.waterMode : store.mode === 'height' ? store.heightTool : store.mode === 'props' ? store.propTool : store.mode === 'lights' ? store.lightTool : store.mode === 'buildings' ? store.buildingTool : store.mode === 'passage' ? 'paint' : 'select';
+    const tool = store.mode === 'terrain' ? store.terrainTool : store.mode === 'water' ? store.waterMode : store.mode === 'height' ? store.heightTool : store.mode === 'props' ? store.propTool : store.mode === 'lights' ? store.lightTool : store.mode === 'buildings' ? store.buildingTool : store.mode === 'passage' || store.mode === 'zones' ? 'paint' : 'select';
     statusHint.textContent = MODE_HINTS[`${store.mode}:${tool}`] ?? '';
     statusZoom.textContent = `${view.zoomPercent}%`;
   };
@@ -346,7 +346,7 @@ function bindShortcuts(updateStatus: () => void): void {
     }
     if (mod || e.altKey) return;
     const k = e.key.toLowerCase();
-    const modes: Record<string, Mode> = { '1': 'terrain', '2': 'height', '3': 'passage', '4': 'props', '5': 'lights', '6': 'events', '7': 'buildings', '8': 'water' };
+    const modes: Record<string, Mode> = { '1': 'terrain', '2': 'height', '3': 'passage', '4': 'props', '5': 'lights', '6': 'events', '7': 'buildings', '8': 'water', '9': 'zones' };
     if (modes[k]) { store.mode = modes[k]; store.select(null); store.emit('ui'); return; }
     if (store.mode === 'height' && k === 'e') { store.heightTool = 'ramp'; store.rampTool = 'erase'; store.emit('ui'); return; }
     if (store.mode === 'water' && 'fpxrg'.includes(k) && k.length === 1) { store.waterMode = ({ f: 'fill', p: 'paint', x: 'remove', r: 'style', g: 'fish' } as const)[k as 'f' | 'p' | 'x' | 'r' | 'g']; store.emit('ui'); return; }

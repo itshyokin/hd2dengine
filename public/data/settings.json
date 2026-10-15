@@ -1,0 +1,177 @@
+{
+  "kind": "hd2d-settings",
+  "version": 1,
+  "game": "2.5D Engine Test",
+  "saved": "2026-10-13T17:32:25.881Z",
+  "settings": {
+    "quality": "performance",
+    "showFps": true,
+    "bloom": true,
+    "depthOfField": true,
+    "shadows": true,
+    "ambientOcclusion": true,
+    "lightShadows": true,
+    "detailedLighting": true,
+    "brightness": 1,
+    "musicVolume": 80,
+    "soundVolume": 80,
+    "ambienceVolume": 70,
+    "textSpeed": "fast",
+    "alwaysRun": false,
+    "clock12": true,
+    "crouch": "toggle",
+    "sprint": "hold",
+    "stickRun": false,
+    "textBox": "above",
+    "adventureLog": "all",
+    "footsteps": true,
+    "bindings": {
+      "keys": {
+        "up": [
+          "KeyW",
+          "ArrowUp"
+        ],
+        "down": [
+          "KeyS",
+          "ArrowDown"
+        ],
+        "left": [
+          "KeyA",
+          "ArrowLeft"
+        ],
+        "right": [
+          "KeyD",
+          "ArrowRight"
+        ],
+        "ok": [
+          "Enter",
+          "NumpadEnter"
+        ],
+        "jump": [
+          "Space"
+        ],
+        "cancel": [
+          "Escape",
+          "KeyX"
+        ],
+        "run": [
+          "ShiftLeft",
+          "ShiftRight"
+        ],
+        "melee": [
+          "Digit1",
+          "Numpad1"
+        ],
+        "bow": [
+          "Digit2",
+          "Numpad2"
+        ],
+        "magic": [
+          "Digit3",
+          "Numpad3"
+        ],
+        "ring": [
+          "Digit4",
+          "KeyF"
+        ],
+        "attack": [],
+        "switchWeapon": [
+          "KeyR"
+        ],
+        "block": [
+          "KeyE"
+        ],
+        "target": [
+          "Tab"
+        ],
+        "lock": [
+          "KeyQ"
+        ],
+        "targetPrev": [],
+        "sneak": [
+          "KeyC"
+        ]
+      },
+      "pad": {
+        "jump": [
+          0
+        ],
+        "ring": [
+          1
+        ],
+        "ok": [
+          0
+        ],
+        "switchWeapon": [
+          3
+        ],
+        "lock": [
+          13
+        ],
+        "target": [
+          5
+        ],
+        "block": [
+          6
+        ],
+        "attack": [
+          7
+        ],
+        "cancel": [
+          9
+        ],
+        "sneak": [
+          11
+        ],
+        "run": [
+          2
+        ],
+        "targetPrev": [
+          4
+        ]
+      }
+    },
+    "bindingsVersion": 2,
+    "hud": {
+      "xp": {
+        "x": 0.4984375,
+        "y": 0.02907185850052589,
+        "scale": 1.15
+      },
+      "log": {
+        "x": 0.10402500000000003,
+        "y": 0.656574498416049,
+        "bg": "none"
+      },
+      "quick": {
+        "x": 0.06917916666666463,
+        "y": 0.8583112750431032,
+        "scale": 1.15
+      },
+      "weapons": {
+        "scale": 1.15,
+        "x": 0.9099093742052714,
+        "y": 0.11510031678986272
+      },
+      "party": {
+        "x": 0.08593749999999994,
+        "y": 0.19778247418348238,
+        "face": true,
+        "scale": 1.3
+      },
+      "clock": {
+        "x": 0.0875,
+        "y": 0.07420802695446559
+      },
+      "quest": {
+        "x": 0.9166666666666666,
+        "y": 0.27085533262935585
+      },
+      "stats": {
+        "face": true,
+        "x": 0.49947916666666664,
+        "y": 0.09767687434002112
+      }
+    }
+  }
+}

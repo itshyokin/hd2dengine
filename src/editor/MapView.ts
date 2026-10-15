@@ -13,6 +13,7 @@ import type { EditorStore } from './store';
 import { PASSAGE_FLAGS } from '../world/passage';
 import { eventH, eventW } from '../world/eventArea';
 import { drawPassageIcon } from './passageIcons';
+import { zoneColor } from '../world/zones';
 import { drawBuildingTop, presetBuilding, presetById } from './buildingPresets';
 import { doorstep } from '../world/buildingShape';
 
@@ -31,6 +32,7 @@ type Stroke =
   | { kind: 'height'; visited: Set<number>; changed: boolean; last: Pt }
   | { kind: 'water'; changed: boolean; last: Pt }
   | { kind: 'passage'; changed: boolean; last: Pt }
+  | { kind: 'zones'; changed: boolean; last: Pt }
   | { kind: 'select-area'; from: Pt; to: Pt }
   | { kind: 'resize'; index: number; moved: boolean }
   | { kind: 'none' };
@@ -38,7 +40,7 @@ type Stroke =
 const MIN_ZOOM = 0.5, MAX_ZOOM = 8;
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
-export interface HoverInfo { x: number; z: number; terrain: string | null; height: number; water: string | null; passage: string | null }
+export interface HoverInfo { x: number; z: number; terrain: string | null; height: number; water: string | null; passage: string | null; zone?: string | null }
 
 export class MapView {
   readonly el: HTMLDivElement;
@@ -224,7 +226,8 @@ export class MapView {
     const wtr = s.inMap(x, z) ? s.waterAt(x, z) : null;
     this.onHover(s.inMap(x, z) ? { x, z, terrain: s.terrainAt(x, z), height: s.heightAt(x, z),
       water: wtr ? `${{ shallow: 'shallow', swim: 'swimmable', deep: 'deep' }[wtr.kind]} water, level ${Math.round(wtr.surface / 0.5)}` : null,
-      passage: s.inMap(x, z) ? PASSAGE_FLAGS.find((f) => f.key === s.passageAt(x, z))?.name ?? null : null } : null);
+      passage: s.inMap(x, z) ? PASSAGE_FLAGS.find((f) => f.key === s.passageAt(x, z))?.name ?? null : null,
+      zone: s.inMap(x, z) && s.zoneAt(x, z) !== '.' ? s.zoneAt(x, z) : null } : null);
   }
 
   /* ------------------------------------------------------------ tools */
@@ -270,6 +273,11 @@ export class MapView {
         s.checkpoint();
         this.stroke = { kind: 'passage', changed: false, last: t };
         this.applyPassage(t);
+        break;
+      case 'zones':
+        s.checkpoint();
+        this.stroke = { kind: 'zones', changed: false, last: t };
+        this.applyZone(t);
         break;
       case 'props':
         if (s.propTool === 'place') { s.checkpoint(); this.stroke = { kind: 'place', last: null, placed: 0 }; this.placeProp(w); }
@@ -380,6 +388,9 @@ export class MapView {
       case 'passage':
         if (t.x !== st.last.x || t.z !== st.last.z) { for (const p of line(st.last, t)) this.applyPassage(p); st.last = t; }
         break;
+      case 'zones':
+        if (t.x !== st.last.x || t.z !== st.last.z) { for (const p of line(st.last, t)) this.applyZone(p); st.last = t; }
+        break;
       case 'area': st.to = t; break;
       case 'build': {
         const m = this.store.map;
@@ -411,7 +422,7 @@ export class MapView {
     if (!st) return;
     if (st.kind === 'paint' && !st.changed) s.dropCheckpoint();
     if (st.kind === 'rampErase' && !st.removed) s.dropCheckpoint();
-    if ((st.kind === 'height' || st.kind === 'water' || st.kind === 'passage') && !st.changed) s.dropCheckpoint();
+    if ((st.kind === 'height' || st.kind === 'water' || st.kind === 'passage' || st.kind === 'zones') && !st.changed) s.dropCheckpoint();
     if (st.kind === 'rect') {
       s.checkpoint();
       let any = false;
@@ -464,7 +475,7 @@ export class MapView {
     const st = this.stroke;
     this.stroke = null;
     if (!st) return;
-    const changedSomething = (st.kind === 'paint') || st.kind === 'height' || st.kind === 'water' || st.kind === 'passage' || (st.kind === 'place' || st.kind === 'scatter') || st.kind === 'erase' ||
+    const changedSomething = (st.kind === 'paint') || st.kind === 'height' || st.kind === 'water' || st.kind === 'passage' || st.kind === 'zones' || (st.kind === 'place' || st.kind === 'scatter') || st.kind === 'erase' ||
       ((st.kind === 'drag' || st.kind === 'resize' || st.kind === 'bresize') && st.moved);
     if (changedSomething) this.store.revertCheckpoint();
   }
@@ -588,6 +599,24 @@ export class MapView {
         if (cur && cur.level === s.waterLevel && cur.kind === s.waterKind && (cur.style ?? 0) === s.waterStyle) continue;
         grid[i] = { level: s.waterLevel, kind: s.waterKind, ...(s.waterStyle ? { style: s.waterStyle } : {}) };
         any = true;
+      }
+      return any;
+    });
+    if (changed) { st.changed = true; s.changed(); }
+  }
+
+  /** Paint (or erase) the encounter zone letter under the brush. */
+  private applyZone(t: Pt): void {
+    const s = this.store, st = this.stroke;
+    if (!st || st.kind !== 'zones') return;
+    const n = s.brushSize, o = Math.floor((n - 1) / 2);
+    const changed = s.editZones((grid, w) => {
+      let any = false;
+      for (let dz = 0; dz < n; dz++) for (let dx = 0; dx < n; dx++) {
+        const x = t.x - o + dx, z = t.z - o + dz;
+        if (!s.inMap(x, z)) continue;
+        const i = z * w + x;
+        if (grid[i] !== s.zoneLetter) { grid[i] = s.zoneLetter; any = true; }
       }
       return any;
     });
@@ -1026,6 +1055,7 @@ export class MapView {
     items.sort((a, b) => a.z - b.z).forEach((it) => it.draw());
     ctx.globalAlpha = 1;
     this.drawPassage(ctx);
+    this.drawZones(ctx);
     this.drawLightIcons(ctx);
 
     this.drawOverlays(ctx);
@@ -1128,6 +1158,9 @@ export class MapView {
     } else if (s.mode === 'passage') {
       const n = s.brushSize, o = Math.floor((n - 1) / 2);
       tileRect(t.x - o, t.z - o, n, n, s.passageFlag === '.' ? '#ff9a9a' : '#ffffff');
+    } else if (s.mode === 'zones') {
+      const n = s.brushSize, o = Math.floor((n - 1) / 2);
+      tileRect(t.x - o, t.z - o, n, n, s.zoneLetter === '.' ? '#ff9a9a' : zoneColor(s.zoneLetter));
     } else if (s.mode === 'water') {
       const n = s.waterMode === 'fill' || s.waterMode === 'style' ? 1 : s.brushSize, o = Math.floor((n - 1) / 2);
       tileRect(t.x - o, t.z - o, n, n, s.waterMode === 'remove' || (s.waterMode === 'fish' && s.fishErase) ? '#ff9a9a' : s.waterMode === 'fish' ? (s.map.fishZones?.[s.fishZone]?.color ?? '#7fd0ff') : '#9fdcff');
@@ -1229,6 +1262,34 @@ export class MapView {
         if (f !== '.') drawPassageIcon(ctx, f, x * TS, z * TS, TS);
       }
     ctx.globalAlpha = 1;
+  }
+
+  /** Encounter zones: each letter's cells tinted in its colour with the letter on them (faint on other layers). */
+  private drawZones(ctx: CanvasRenderingContext2D): void {
+    const s = this.store, m = s.map, grid = s.zoneGrid(), on = s.mode === 'zones';
+    if (grid.every((c) => c === '.')) return;
+    ctx.save();
+    ctx.globalAlpha = on ? 0.38 : 0.12;
+    for (let z = 0; z < m.height; z++)
+      for (let x = 0; x < m.width; x++) {
+        const c = grid[z * m.width + x];
+        if (c === '.') continue;
+        ctx.fillStyle = zoneColor(c);
+        ctx.fillRect(x * TS, z * TS, TS, TS);
+      }
+    if (on) {
+      ctx.globalAlpha = 0.95;
+      ctx.font = `bold ${Math.round(TS * 0.5)}px ui-monospace, monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#10131c';
+      for (let z = 0; z < m.height; z++)
+        for (let x = 0; x < m.width; x++) {
+          const c = grid[z * m.width + x];
+          if (c !== '.') ctx.fillText(c, x * TS + TS / 2, z * TS + TS / 2 + 1);
+        }
+    }
+    ctx.restore();
   }
 
   /** Area tints, plus the reach of point and spot lights (and lights carried by props) on the Lights layer. */

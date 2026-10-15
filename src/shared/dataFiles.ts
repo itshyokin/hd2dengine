@@ -42,10 +42,11 @@ export function formatMap(map: MapData): string {
   const { props, buildings, ...rest } = map;
   const ordered = {
     name: rest.name, width: rest.width, height: rest.height, environment: rest.environment, border: rest.border,
-    music: rest.music, battleMusic: rest.battleMusic, encounters: rest.encounters, ambience: rest.ambience, ambienceNight: rest.ambienceNight, wind: rest.wind, uniqueWeather: rest.uniqueWeather, weatherZone: rest.weatherZone, weather: rest.weather, atmosphere: rest.atmosphere,
+    music: rest.music, battleMusic: rest.battleMusic, encounters: rest.encounters, zones: rest.zones, ambience: rest.ambience, ambienceNight: rest.ambienceNight, wind: rest.wind, uniqueWeather: rest.uniqueWeather, weatherZone: rest.weatherZone, weather: rest.weather, atmosphere: rest.atmosphere,
     cliffTile: rest.cliffTile, terrain: rest.terrain, heights: rest.heights?.length ? rest.heights : undefined,
     water: rest.water?.length ? rest.water : undefined, ramps: rest.ramps?.length ? rest.ramps : undefined,
-    passage: rest.passage?.some((r) => /[^.]/.test(r)) ? rest.passage : undefined, lights: rest.lights, events: rest.events,
+    passage: rest.passage?.some((r) => /[^.]/.test(r)) ? rest.passage : undefined,
+    zoneGrid: rest.zoneGrid?.some((r) => /[^.]/.test(r)) ? rest.zoneGrid : undefined, lights: rest.lights, events: rest.events,
   };
   let head = JSON.stringify(ordered, null, 2).replace(/\n}$/, '');
   // Buildings and props: one per line.

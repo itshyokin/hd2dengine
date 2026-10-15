@@ -371,6 +371,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Save settings to a file** downloads them all (HUD layout, controls, everything) as a small `.json`, and **Load
   settings from a file…** brings them into another copy of the game: a newer version, the other browser, or the
   hosted game. Choosing the file needs a click or Enter (browsers don't open file pickers from a controller button).
+- **The game's default settings**: put a saved settings file at `public/data/settings.json` and it becomes the
+  starting settings for every player who hasn't changed theirs (controls, HUD layout, picture…). **Restore
+  defaults** goes back to it. A browser that already has settings saved keeps them until Restore defaults.
 - Exit closes the game where the browser allows it; in a normal tab it asks the player to close the tab.
 
 ### Saving, loading and respawn points
@@ -504,6 +507,13 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
 - **Random encounters**: a map's settings → **Random encounters** lists enemies (with how often each appears), about
   how many tiles are walked between battles, how many enemies come at once, and optionally which terrain characters
   they happen on (tall grass, say). Works alongside enemies placed on the map.
+- **Troops and encounter zones**: **Database → Troops** are groups of enemies that fight together (each enemy with
+  *at least* / *at most* how many, their own battle music, and *can't run*). On a map, the **Spawns** layer (key 9)
+  paints zone letters A, B, C… on tiles, like the Height layer paints numbers. Pick a letter and, below it, set the
+  zone's name, tiles between battles and its troops: each with *how often* (a weight) and optional conditions:
+  **day or night** (game clock), **real-world days of the week** (the player's computer clock: a Friday-only
+  troop, say) and a **switch** that must be ON. Unpainted tiles have no random battles (unless the map has its own
+  Random encounters list, which still applies outside zones).
 - **Turn order**: *Conditional turns (FFX)*: fast fighters (Dexterity for heroes, **Agility** for enemies in
   Database → Enemies) act more often, and light actions (Guard, Items, a failed Run) bring the next turn round
   sooner. The bar on the right shows who's coming up, and changes as you move through the commands, like FFX.
@@ -992,6 +1002,9 @@ tools/character-builder/    Character Builder source (build.py makes Character B
   end. Left-out settings use the defaults (2.5 tall, plaster, shingle gable, a few windows).
 - **encounters** (optional, turn-based battles): `{ "enemies": [{ "enemy": "slime", "weight": 3 }], "steps": 30,
   "min": 1, "max": 3, "terrain": "." }` (random battles while walking; `terrain` limits them to those characters).
+- **zoneGrid** (optional): one string per row, `.` for no zone or a letter `A`–`Z`.
+- **zones** (optional): `{ "A": { "name"?, "steps"?, "troops": [{ "troop": "slimes", "weight"?, "time"?: "day" |
+  "night", "days"?: [5, 6], "switch"? }] } }` (`days`: 0 = Sunday … 6 = Saturday).
 - **events**: `{ "id", "name", "x", "z", "w"?, "h"?, "pages": [...] }`; `x, z` is the top-left tile and
   `w × h` the size in tiles (1 × 1 when left out).
 - **props**: `{ "type": "oak", "x": 3.6, "z": 1.5, "s": 1.1 }`. Positions are in tiles (x, z is where the prop

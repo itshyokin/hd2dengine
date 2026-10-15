@@ -72,11 +72,20 @@ export class SettingsStore {
     this.key = `hd2d:${playtest ? 'playtest:' : ''}${id}:settings`;
   }
 
+  /**
+   * The game's own defaults (public/data/settings.json: a settings file exported from the game), used by a player
+   * who hasn't changed anything yet, and by Restore defaults.
+   */
+  projectDefaults: Settings | null = null;
+
+  /** The defaults for this game: its settings.json if it has one, else the engine's. */
+  defaults(): Settings { return this.projectDefaults ? normalizeSettings(JSON.parse(JSON.stringify(this.projectDefaults))) : { ...DEFAULT_SETTINGS }; }
+
   load(): Settings {
     try {
       const raw = localStorage.getItem(this.key);
-      return normalizeSettings(raw ? JSON.parse(raw) : {});
-    } catch { return { ...DEFAULT_SETTINGS }; }
+      return raw ? normalizeSettings(JSON.parse(raw)) : this.defaults();
+    } catch { return this.defaults(); }
   }
 
   save(s: Settings): void {
@@ -96,6 +105,17 @@ export function normalizeSettings(raw: unknown): Settings {
 }
 
 const FILE_KIND = 'hd2d-settings';
+
+/** A game's default settings file (data/settings.json, exported from Settings): its settings, or null. */
+export async function loadProjectSettings(): Promise<Settings | null> {
+  try {
+    const res = await fetch('data/settings.json', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { kind?: string; settings?: unknown };
+    const raw = data?.kind === FILE_KIND ? data.settings : data;
+    return raw && typeof raw === 'object' ? normalizeSettings(raw) : null;
+  } catch { return null; }
+}
 
 /** Download the settings as a small .json file (HUD layout, controls, picture, sound, gameplay). */
 export function exportSettings(s: Settings, gameTitle: string): void {

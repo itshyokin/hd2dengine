@@ -6,12 +6,13 @@ import { TileCatalog } from '../world/tiles';
 import { STEP, type WaterCell, type WaterKind, autoRampDir, formatHeights, formatWater, parseHeights, parseWater, resolveWater } from '../world/heights';
 import type { Dir, RampData } from '../world/types';
 import { type PassageFlag, formatPassage, parsePassage } from '../world/passage';
+import { formatZones, parseZones } from '../world/zones';
 import type { Project } from './project';
 import { eventCovers, eventH, eventW, eventsOverlap } from '../world/eventArea';
 import { setPropCatalog, setTileCatalog } from './editorArt';
 import { LIGHT_PRESETS, type LightPreset } from './lightPresets';
 
-export type Mode = 'terrain' | 'height' | 'passage' | 'props' | 'lights' | 'buildings' | 'events' | 'water';
+export type Mode = 'terrain' | 'height' | 'passage' | 'props' | 'lights' | 'buildings' | 'events' | 'water' | 'zones';
 export type BuildingTool = 'select' | 'draw';
 export type HeightTool = 'raise' | 'lower' | 'set' | 'fill' | 'ramp' | 'water';
 export type WaterMode = 'fill' | 'paint' | 'remove' | 'style' | 'fish';
@@ -77,6 +78,8 @@ export class EditorStore {
   fishErase = false;
   /** Flag the passage brush paints ("." erases). */
   passageFlag: PassageFlag = 'c';
+  /** Encounter zone letter the Encounters brush paints ("." erases). */
+  zoneLetter = 'A';
   propType = 'oak';
   propTool: ObjectTool = 'place';
   lightType: LightType = 'point';
@@ -378,6 +381,29 @@ export class EditorStore {
     if (!fn(grid, this.map.width)) return false;
     this.map.fishing = formatFishing(grid, this.map.width, this.map.height) ?? undefined;
     this.fCache = { src: this.map.fishing, w: this.map.width, h: this.map.height, grid };
+    return true;
+  }
+
+  private zCache: { src: string[] | undefined; w: number; h: number; grid: string[] } | null = null;
+
+  /** The encounter zone grid (a letter or "." per cell), parsed from the map and cached. */
+  zoneGrid(): string[] {
+    const m = this.map, c = this.zCache;
+    if (c && c.src === m.zoneGrid && c.w === m.width && c.h === m.height) return c.grid;
+    const grid = parseZones(m.zoneGrid, m.width, m.height);
+    this.zCache = { src: m.zoneGrid, w: m.width, h: m.height, grid };
+    return grid;
+  }
+
+  zoneAt(x: number, z: number): string {
+    return this.inMap(x, z) ? this.zoneGrid()[z * this.map.width + x] : '.';
+  }
+
+  editZones(fn: (grid: string[], w: number) => boolean): boolean {
+    const grid = this.zoneGrid();
+    if (!fn(grid, this.map.width)) return false;
+    this.map.zoneGrid = formatZones(grid, this.map.width, this.map.height) ?? undefined;
+    this.zCache = { src: this.map.zoneGrid, w: this.map.width, h: this.map.height, grid };
     return true;
   }
 

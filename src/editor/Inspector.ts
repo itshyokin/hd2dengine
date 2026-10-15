@@ -131,6 +131,10 @@ export class Inspector {
           const rows = Array.from({ length: hgt }, (_, z) => (m.passage![z] ?? '').padEnd(w, '.').slice(0, w));
           m.passage = rows.some((r) => /[^.]/.test(r)) ? rows : undefined;
         }
+        if (m.zoneGrid) {
+          const rows = Array.from({ length: hgt }, (_, z) => (m.zoneGrid![z] ?? '').padEnd(w, '.').slice(0, w));
+          m.zoneGrid = rows.some((r) => /[^.]/.test(r)) ? rows : undefined;
+        }
         m.width = w; m.height = hgt;
         m.props = m.props.filter((p) => p.x < w && p.z < hgt);
         m.lights = m.lights.filter((l) => l.x < w && l.z < hgt);

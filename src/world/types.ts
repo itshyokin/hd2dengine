@@ -457,6 +457,37 @@ export interface EncounterTable {
   terrain?: string;
 }
 
+/** A troop: a group of enemies that fight together (Database → Troops). */
+export interface TroopDef {
+  id: string;
+  name: string;
+  /** Each kind of enemy and how many of it (a range: 1–3 slimes). */
+  members: { enemy: string; min?: number; max?: number }[];
+  /** Its own battle music (else the map's), and whether the party may run (default yes). */
+  music?: string;
+  noRun?: boolean;
+}
+
+/** One troop in a zone: how often it comes, and when it can. */
+export interface ZoneTroop {
+  troop: string;
+  /** How often, against the zone's other troops (default 1). */
+  weight?: number;
+  /** Only by day or only at night (game time). */
+  time?: 'day' | 'night';
+  /** Only on these real-world days of the week (0 Sunday … 6 Saturday). */
+  days?: number[];
+  /** Only while this switch is ON (story progress). */
+  switch?: string;
+}
+
+/** A painted zone on a map: its troops and about how many tiles are walked between battles. */
+export interface EncounterZone {
+  name?: string;
+  steps?: number;
+  troops: ZoneTroop[];
+}
+
 export interface MapData {
   name: string;
   width: number;
@@ -512,6 +543,12 @@ export interface MapData {
   battleMusic?: string;
   /** Turn-based battles: random encounters while walking (Pokémon tall grass, classic JRPG overworlds). */
   encounters?: EncounterTable;
+  /**
+   * Encounter zones painted on the map (the editor's Spawns layer): one character per cell, A–Z for a zone, "."
+   * for none. Each zone's troops and how often battles come are in `zones`.
+   */
+  zoneGrid?: string[];
+  zones?: Record<string, EncounterZone>;
   ambience?: string;
   ambienceNight?: string;
   /** Background sound in autumn and winter (outdoors, by day). Unset: the forest's birds give way to cold wind. */
@@ -684,6 +721,8 @@ export interface Database {
   audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string };
   /** The skill tree (Database → Skills). Without it, the built-in tree is used. */
   skills?: SkillsData;
+  /** Troops: groups of enemies for random encounters (encounter zones on maps). */
+  troops?: TroopDef[];
   /** Learned spells, Additions and classes (built-in ones when left out). */
   spells?: SpellEntry[];
   additions?: AdditionDef[];

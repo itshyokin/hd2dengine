@@ -42,6 +42,7 @@ import { type CombatConfig, Progression, SWING_TIME, combatFromDb, xpToNext } fr
 import type { Enemy } from './combat/Enemy';
 import { CombatOverlay } from '../ui/CombatOverlay';
 import { BattleScreen, type FighterView } from '../ui/BattleScreen';
+import { pickTroop, zoneAt } from '../world/zones';
 import { type BattleEntry, type BattleHost, TurnBattle } from './battle/TurnBattle';
 import { type BattleAddition, type BattleSpell, type Battler, type Opening, enemyAgility, weighted } from './battle/rules';
 import { type BattleAilment, BattleStatus, turnsFromSeconds } from './battle/status';
@@ -101,7 +102,7 @@ import { PlayerStats, configFromDb } from './stats';
 import { StatusBars } from '../ui/StatusBars';
 import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
 import { PAUSE_OPTIONS, pauseLabel, titleLabel } from './menus';
-import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings } from './settings';
+import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId } from './saves';
 import { alignFootProps, blockedTiles, footTiles, propCovers } from '../world/props';
 import { propKey } from './GameState';
@@ -350,6 +351,8 @@ export class Game {
     setUiSound((s) => this.audio.play(s));
     this.saves = new SaveStore(this.db.title || 'game', !!pt);
     this.settingsStore = new SettingsStore(this.db.title || 'game', !!pt);
+    // The game's own default settings (controls, HUD…), for players who haven't changed any yet.
+    this.settingsStore.projectDefaults = await loadProjectSettings();
     this.settings = this.settingsStore.load();
     this.setup();
     // A playtest that skips the title starts as a new game would: with the starting party.
@@ -3209,33 +3212,56 @@ export class Game {
 
   /** Random encounters (the map's table, turn-based mode): count the tiles walked, and now and then a battle. */
   private updateEncounters(): void {
-    const t = this.mapData?.encounters, p = this.player.position;
-    if (this.combatCfg.mode !== 'turnBased' || !t?.enemies.length || this.onTitle || this.transfer || this.dying || this.battle.active || this.interpreter.running) { this.encounterFrom = null; return; }
+    const m = this.mapData, t = m?.encounters, p = this.player.position;
+    const hasZones = !!m?.zoneGrid && !!m.zones && Object.values(m.zones).some((z) => z.troops.length);
+    if (this.combatCfg.mode !== 'turnBased' || (!t?.enemies.length && !hasZones) || this.onTitle || this.transfer || this.dying || this.battle.active || this.interpreter.running) { this.encounterFrom = null; return; }
     const from = this.encounterFrom;
     this.encounterFrom = { x: p.x, z: p.z };
     if (!from || this.motion.swimming || this.motion.airborne) return;
     const d = Math.hypot(p.x - from.x, p.z - from.z);
     if (d <= 0 || d > 2) return;
-    // Only on the chosen ground (tall grass, say).
-    if (t.terrain) {
-      const row = this.mapData.terrain[Math.floor(p.z)], ch = row?.[Math.floor(p.x)];
-      if (!ch || !t.terrain.includes(ch)) return;
+    // A painted encounter zone under the hero, if any; otherwise the map's own random encounters (if it has them).
+    const letter = hasZones ? zoneAt(m, p.x, p.z) : null, zone = letter ? m.zones?.[letter] : undefined;
+    if (!zone?.troops.length) {
+      if (!t?.enemies.length) return;
+      // Only on the chosen ground (tall grass, say).
+      if (t.terrain) {
+        const row = m.terrain[Math.floor(p.z)], ch = row?.[Math.floor(p.x)];
+        if (!ch || !t.terrain.includes(ch)) return;
+      }
     }
     if (this.battleGrace > 0) return;
-    const steps = Math.max(4, t.steps ?? 30);
+    const steps = Math.max(4, (zone ? zone.steps : t?.steps) ?? 30);
     if (!this.encounterAt) this.encounterAt = steps * (0.5 + Math.random());
     this.encounterWalked += d;
     if (this.encounterWalked < this.encounterAt) return;
     this.encounterWalked = 0;
     this.encounterAt = steps * (0.5 + Math.random());
     const defs = new Map((this.db.enemies ?? []).map((x) => [x.id, x]));
-    const table = t.enemies.filter((x) => defs.has(x.enemy));
+    const opening: Opening = Math.random() < 0.08 ? 'ambush' : Math.random() < 0.08 ? 'preemptive' : 'normal';
+    if (zone?.troops.length) {
+      // A troop for this zone, among those allowed now (day / night, the real-world day, a switch).
+      const pick = pickTroop(zone, { night: this.time.night > 0.5, weekday: new Date().getDay(), switchOn: (id) => this.state.getSwitch(id) });
+      const troop = pick ? (this.db.troops ?? []).find((x) => x.id === pick.troop) : undefined;
+      if (!troop) return;
+      const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
+      for (const mem of troop.members) {
+        const def = defs.get(mem.enemy);
+        if (!def) continue;
+        const lo = Math.max(0, Math.round(mem.min ?? 1)), hi = Math.max(lo, Math.round(mem.max ?? mem.min ?? 1));
+        const n = lo + Math.floor(Math.random() * (hi - lo + 1));
+        for (let k = 0; k < n && list.length < 8; k++) list.push({ def, hp: def.hp, enemy: null });
+      }
+      if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music });
+      return;
+    }
+    const table = t!.enemies.filter((x) => defs.has(x.enemy));
     if (!table.length) return;
-    const lo = Math.max(1, Math.min(8, Math.round(t.min ?? 1))), hi = Math.max(lo, Math.min(8, Math.round(t.max ?? 3)));
+    const lo = Math.max(1, Math.min(8, Math.round(t!.min ?? 1))), hi = Math.max(lo, Math.min(8, Math.round(t!.max ?? 3)));
     const n = lo + Math.floor(Math.random() * (hi - lo + 1));
     const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
     for (let k = 0; k < n; k++) { const pick = weighted(table)!, def = defs.get(pick.enemy)!; list.push({ def, hp: def.hp, enemy: null }); }
-    this.startBattle(list, Math.random() < 0.08 ? 'ambush' : Math.random() < 0.08 ? 'preemptive' : 'normal');
+    this.startBattle(list, opening);
   }
 
   private readonly battlePictures = new Map<string, { picture: HTMLCanvasElement; icon: string; flip: boolean }>();
@@ -3765,7 +3791,7 @@ export class Game {
           this.menu.notice('Settings loaded');
         }, (e: Error) => this.menu.notice(e.message));
       } },
-      { label: 'Restore defaults', detail: 'Everything, controls and HUD too', pick: () => { Object.assign(st, DEFAULT_SETTINGS); delete st.bindings; delete st.bindingsVersion; delete st.hud; this.applySettings(); this.settingsStore.save(st); this.menu.notice('Settings restored'); } },
+      { label: 'Restore defaults', detail: 'Everything, controls and HUD too', pick: () => { delete st.bindings; delete st.bindingsVersion; delete st.hud; Object.assign(st, this.settingsStore.defaults()); this.applySettings(); this.settingsStore.save(st); this.menu.notice('Settings restored'); } },
     ], { note: 'Settings are yours: they stay the same whichever save is loaded.' });
   }
 

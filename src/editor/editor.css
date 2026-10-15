@@ -573,3 +573,13 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .db-table.spell-ranks { display: grid; grid-template-columns: repeat(4, minmax(70px, 1fr)); gap: 4px 12px; margin: 6px 0; }
 .db-table.start-spells { display: grid; grid-template-columns: minmax(90px, 160px) minmax(120px, 200px); gap: 6px 12px; align-items: center; margin: 6px 0; }
 @media (max-width: 620px) { .db-table.add-strike { grid-template-columns: 1fr 1fr; } }
+
+/* Spawns layer */
+.zone-chip { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; font: 700 14px ui-monospace, monospace; color: #10131c; background: rgba(255,255,255,0.12); }
+.zone-troop { display: grid; gap: 6px; padding: 8px; margin: 6px 0; border: 1px solid var(--line, rgba(255,255,255,0.12)); border-radius: 8px; }
+.zone-days { display: flex; flex-wrap: wrap; gap: 4px; }
+.day-chip { font-size: 11px; padding: 3px 7px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: none; }
+.day-chip[aria-pressed="true"] { background: rgba(255, 176, 74, 0.25); border-color: rgba(255, 176, 74, 0.7); }
+.troop-row select { min-width: 140px; }
+.item-sub { display: block; font-size: 11px; opacity: 0.7; }
+.field-row.troop-row { display: grid; grid-template-columns: minmax(120px, 1fr) 90px 90px 30px; gap: 8px; align-items: end; }
