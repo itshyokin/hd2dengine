@@ -17,7 +17,7 @@ export async function save(store: EditorStore): Promise<void> {
       store.dbDirty = false;
       if (!store.maps.includes(store.mapName)) store.maps = [...store.maps, store.mapName].sort();
       store.emit('meta');
-      toast(`Saved ${files.map(([f]) => f).join(' and ')}`);
+      toast(store.project.kind === 'browser' ? 'Saved on this device (Project → Save changes as .zip to take it to your PC)' : `Saved ${files.map(([f]) => f).join(' and ')}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       toast(/permission|not allowed/i.test(msg) ? 'Couldn’t save: the browser no longer has permission for the project folder. Reload the editor and reopen it.' : `Couldn’t save: ${msg}`, 'error');

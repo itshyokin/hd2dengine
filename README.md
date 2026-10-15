@@ -19,6 +19,27 @@ Written in TypeScript on top of three.js, built with Vite.
    ```
    Open the address it prints (usually <http://localhost:5173>). Saving any file reloads the game instantly.
 
+### The editor and game online (GitHub Pages), and editing on a tablet
+
+Every push to the repository's `main` branch rebuilds the site (`.github/workflows/pages.yml`):
+
+- Map editor: <https://itshyokin.github.io/hd2dengine/editor.html>
+- Game: <https://itshyokin.github.io/hd2dengine/>
+
+The online editor works in any recent browser, Android tablets and phones included. It opens the project as it is
+on GitHub and keeps your changes **in that browser, on that device** (they're still there next time). The
+**Project** button in the toolbar:
+
+- **Save changes as .zip**: only the files you changed, laid out like the project folder (`public/data/…`,
+  `public/assets/…`). On the PC, unzip it into the project folder (replacing files), then commit and push with
+  GitHub Desktop.
+- **Open project .zip…**: a zip of the project folder (or its `public` folder, or a changes zip from another
+  device); its maps, database and imported files replace the ones on this device.
+- **Forget my changes…**: back to the project as it is on GitHub.
+
+Playtest works from the online editor too. Pick up fresh changes from GitHub by saving your own as a zip first,
+then forgetting them (or opening a newer project zip).
+
 ### Testing on an Android phone
 
 With `npm run dev` running, the terminal also prints a **Network** address such as `http://192.168.1.20:5173`.

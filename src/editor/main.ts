@@ -11,6 +11,8 @@ import { confirmModal, field, h, numberInput, openModal, select, textInput, toas
 import { tileName } from './editorArt';
 import { Inspector } from './Inspector';
 import { save } from './io';
+import { browserProject, canKeepProject } from './browserProject';
+import { projectMenu } from './projectMenu';
 import { loadProjectAssets } from './assets';
 import { loadCharacterSheets } from './CharactersEditor';
 import { loadItemIconFiles } from './ItemsEditor';
@@ -60,6 +62,8 @@ async function chooseProject(): Promise<Project> {
   const dev = await devServerProject();
   if (dev) return dev;
   if (location.protocol === 'file:' || new URLSearchParams(location.search).has('folder')) return welcome();
+  // Hosted (GitHub Pages): keep changes in the browser when it can (tablets and phones included).
+  if (await canKeepProject()) return browserProject();
   return staticProject();
 }
 
@@ -138,6 +142,7 @@ function buildUI(): void {
     h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, 'Map Editor')),
     h('div', { class: 'tb-group' },
       store.project.kind === 'folder' ? h('span', { class: 'project-chip', title: 'Project folder' }, store.project.label) : null,
+      store.project.kind === 'browser' ? h('button', { type: 'button', class: 'btn ghost', title: 'Your changes are kept in this browser. Save them as a zip for your PC, or open a project zip.', onclick: () => void projectMenu(store) }, 'Project') : null,
       mapSelect, h('button', { type: 'button', class: 'btn ghost', onclick: newMapDialog }, 'New map'),
       h('button', { type: 'button', class: 'btn ghost', title: 'Player stats, speeds and stamina costs', onclick: () => openDatabase(store) }, 'Database')),
     h('div', { class: 'tb-group' }, undoBtn, redoBtn),

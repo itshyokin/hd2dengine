@@ -560,3 +560,9 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .fish-pct { font-size: 12px; color: var(--muted); text-align: right; }
 .fish-rare { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 .fish-row input[type=number] { width: 100%; }
+
+/* Project menu (hosted editor: changes kept in the browser) */
+.project-menu { display: grid; gap: 10px; }
+.project-files { margin: 0; padding: 8px 12px; list-style: none; max-height: 180px; overflow: auto; background: rgba(255, 255, 255, 0.04); border-radius: 8px; display: grid; gap: 2px; }
+.project-files code { font-size: 12px; }
+.project-actions { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -9,7 +9,6 @@ Kept in the project so they travel with the code. Tick them off as they're built
       (every Saturday a certain enemy spawns in a certain place with rare items…).
 
 ## Menus and saving
-- [ ] Open / save a whole project as a zip in the Map Editor artifact (so it works on the Android tablet).
 - [ ] Journal: Achievements tab.
 - [ ] Journal: Story tab. Like the quest log but for the main storyline; each entry shows the game time and real-world
       date it was unlocked, with a screenshot of the moment (an event command "Story note" that takes it).
@@ -57,3 +56,4 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] River currents push swimmers; drowning sinks; seasons (recolouring, snow, bare or snowy trees, ice and sliding, cold-season ambience) (update 36).
 - [x] Turn-based battles as an option (Database → Combat → Battle system): FFX-style turn order or rounds, map enemies and random encounters start battles, Attack / Magic / Items / Guard / Run (update 38).
 - [x] Turn-based battles: ailments run on turns, Legend of Dragoon Guard (heals, wards off ailments), enemy actions (attack / spell / heal / guard, whole-party hits, health conditions, Counterspell flag) (update 39).
+- [x] Editor online (GitHub Pages) for the Android tablet: changes kept in the browser, Project → Save changes as .zip / Open project .zip / Forget my changes (update 40).

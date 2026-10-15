@@ -69,11 +69,24 @@ function editorApi(): Plugin {
   };
 }
 
+/** Built site: data/maps.json lists the maps, so the hosted editor (which can't list folders) can offer them all. */
+function mapsManifest(): Plugin {
+  return {
+    name: 'maps-manifest',
+    apply: 'build',
+    async closeBundle() {
+      const names = (await fs.readdir(path.join(DATA_DIR, 'maps'))).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
+      await fs.mkdir(path.resolve('dist/data'), { recursive: true });
+      await fs.writeFile(path.resolve('dist/data/maps.json'), JSON.stringify(names) + '\n', 'utf8');
+    },
+  };
+}
+
 export default defineConfig({
   // Relative paths so the built game runs from any folder,
   // and later inside Tauri (Windows) or Capacitor (Android).
   base: './',
-  plugins: [editorApi()],
+  plugins: [editorApi(), mapsManifest()],
   build: {
     target: 'es2020',
     rollupOptions: { input: { main: path.resolve('index.html'), editor: path.resolve('editor.html') } },

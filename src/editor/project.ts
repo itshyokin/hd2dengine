@@ -3,14 +3,15 @@
  *  - dev:    running under `npm run dev`; files go through the dev server
  *  - folder: the editor opened as a file (Map Editor.html) with a project folder picked
  *            through the browser's File System Access API (Chrome / Edge)
- *  - static: a hosted or preview copy; can read the bundled data, saving exports JSON
+ *  - browser: the hosted editor (GitHub Pages) on a tablet: changes kept in the browser (see browserProject.ts)
+ *  - static: a hosted or preview copy where the browser can't keep files; saving exports JSON
  */
 import { loadAssets, loadDatabase, loadMap, normalizeAssets } from '../shared/dataFiles';
 import { migrateMap } from '../world/props';
 import type { AssetRegistry, Database, MapData } from '../world/types';
 
 export interface Project {
-  kind: 'dev' | 'folder' | 'static';
+  kind: 'dev' | 'folder' | 'browser' | 'static';
   /** Shown in the toolbar, e.g. the folder name. */
   label: string;
   canSave: boolean;
