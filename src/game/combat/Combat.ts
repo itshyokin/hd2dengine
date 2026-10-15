@@ -97,6 +97,8 @@ export interface CombatHost {
    * the hit is ignored); the hit itself then doesn't happen.
    */
   encounter?(e: Enemy, opening: 'preemptive' | 'normal' | 'ambush'): boolean;
+  /** A learned spell readied for the magic button (it takes the place of the spell shard), as an item. */
+  learnedSpell?(): (ItemDef & { spell: NonNullable<ItemDef['spell']> }) | undefined;
 }
 
 /** An event the combat system can turn into an enemy. */
@@ -421,6 +423,8 @@ export class Combat {
 
   /** The spell shard in the magic slot (with its spell), if any. */
   spell(): (ItemDef & { spell: NonNullable<ItemDef['spell']> }) | undefined {
+    const learned = this.host?.learnedSpell?.();
+    if (learned) return learned;
     const d = this.equipped('magic');
     return d?.spell ? (d as ItemDef & { spell: NonNullable<ItemDef['spell']> }) : undefined;
   }

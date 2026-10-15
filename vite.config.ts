@@ -78,6 +78,8 @@ function mapsManifest(): Plugin {
       const names = (await fs.readdir(path.join(DATA_DIR, 'maps'))).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
       await fs.mkdir(path.resolve('dist/data'), { recursive: true });
       await fs.writeFile(path.resolve('dist/data/maps.json'), JSON.stringify(names) + '\n', 'utf8');
+      // The Character Builder (one self-contained page) comes along, for the online editor's toolbar link.
+      try { await fs.copyFile(path.resolve('Character Builder.html'), path.resolve('dist/character-builder.html')); } catch { /* not in this project */ }
     },
   };
 }

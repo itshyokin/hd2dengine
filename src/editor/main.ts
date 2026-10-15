@@ -143,6 +143,7 @@ function buildUI(): void {
     h('div', { class: 'tb-group' },
       store.project.kind === 'folder' ? h('span', { class: 'project-chip', title: 'Project folder' }, store.project.label) : null,
       store.project.kind === 'browser' ? h('button', { type: 'button', class: 'btn ghost', title: 'Your changes are kept in this browser. Save them as a zip for your PC, or open a project zip.', onclick: () => void projectMenu(store) }, 'Project') : null,
+      store.project.kind === 'browser' ? h('a', { class: 'btn ghost', href: 'character-builder.html', target: '_blank', rel: 'noopener', title: 'Make character sprite sheets, then import them in Database → Characters' }, 'Character Builder') : null,
       mapSelect, h('button', { type: 'button', class: 'btn ghost', onclick: newMapDialog }, 'New map'),
       h('button', { type: 'button', class: 'btn ghost', title: 'Player stats, speeds and stamina costs', onclick: () => openDatabase(store) }, 'Database')),
     h('div', { class: 'tb-group' }, undoBtn, redoBtn),

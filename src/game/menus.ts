@@ -9,6 +9,7 @@ export const PAUSE_OPTIONS: [PauseOption, string, boolean][] = [
   // [id, default name, works yet]
   ['items', 'Inventory', true],
   ['status', 'Party', true],
+  ['abilities', 'Abilities', true],
   ['journal', 'Journal', true],
   ['settings', 'Settings', true],
   ['saveLoad', 'Save / Load', true],

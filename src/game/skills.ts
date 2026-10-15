@@ -55,7 +55,7 @@ export const DEFAULT_SKILLS: SkillsData = {
   ],
   nodes: [
     // Might: swing speed, weapon damage, and mastery of light, medium or heavy weapons.
-    n('fighter', 'might', 'Fighter', 2, 0, [{ stat: 'meleeDamage', value: 5 }], { description: 'The basics of the blade. Opens the Might tree.' }),
+    n('fighter', 'might', 'Fighter', 2, 0, [{ stat: 'meleeDamage', value: 5 }], { description: 'The basics of the blade. Opens the Might tree.', teachesAddition: 'quick_strike' }),
     n('quick_hands', 'might', 'Quick Hands', 0, 1, [{ stat: 'swingSpeed', value: 8 }], { parents: ['fighter'], ranks: 3, description: 'Swing every weapon faster.' }),
     n('steady_guard', 'might', 'Steady Guard', 0, 2, [{ stat: 'blockStamina', value: 25 }], { parents: ['quick_hands'], ranks: 2, description: 'Blocking costs less stamina.' }),
     n('heavy_blows', 'might', 'Heavy Blows', 2, 1, [{ stat: 'meleeDamage', value: 10 }], { parents: ['fighter'], ranks: 3, description: 'Every melee hit does more damage.' }),
@@ -64,6 +64,10 @@ export const DEFAULT_SKILLS: SkillsData = {
     n('light_mastery', 'might', 'Light Mastery', 3, 2, [{ stat: 'lightDamage', value: 15 }, { stat: 'lightSpeed', value: 8 }], { parents: ['arms_training'], ranks: 2, description: 'Daggers and short swords: faster and deadlier.' }),
     n('medium_mastery', 'might', 'Medium Mastery', 4, 2.4, [{ stat: 'mediumDamage', value: 15 }, { stat: 'mediumSpeed', value: 5 }], { parents: ['arms_training'], ranks: 2, description: 'Longswords and rapiers: the balanced path.' }),
     n('heavy_mastery', 'might', 'Heavy Mastery', 5, 2, [{ stat: 'heavyDamage', value: 20 }], { parents: ['heavy_arms'], ranks: 2, description: 'Greatswords and great axes hit even harder.' }),
+    // Additions (turn-based battles): strings of timed strikes.
+    n('double_slash', 'might', 'Double Slash', 1, 2, [], { parents: ['quick_hands'], teachesAddition: 'double_slash', description: 'An Addition: two timed strikes.' }),
+    n('volley', 'might', 'Volley', 2, 3, [], { parents: ['heavy_blows'], level: 4, teachesAddition: 'volley', description: 'An Addition: four timed strikes with mixed buttons.' }),
+    n('crescent_storm', 'might', 'Crescent Storm', 2, 4, [], { parents: ['volley'], level: 10, cost: 2, teachesAddition: 'crescent_storm', description: 'An Addition: seven fast strikes.' }),
     // Dexterity: archery on the left, stealth on the right.
     n('archer', 'dexterity', 'Archer', 1, 0, [{ stat: 'bowDamage', value: 10 }], { description: 'Arrows fly true. Opens archery.' }),
     n('steady_draw', 'dexterity', 'Steady Draw', 0, 1, [{ stat: 'drawSpeed', value: 15 }], { parents: ['archer'], ranks: 2, description: 'Draw the bow faster.' }),
@@ -76,15 +80,18 @@ export const DEFAULT_SKILLS: SkillsData = {
     n('assassinate', 'dexterity', 'Assassinate', 5, 2, [{ stat: 'assassinate', value: 1 }], { parents: ['backstab'], level: 5, description: 'A sneak attack kills an ordinary enemy outright (not bosses).' }),
     // Magic: spells come as shards (equipped in the magic slot); this one gives the first.
     // Spell shards are found, bought or given as items; the Magic tree makes them better.
-    n('fire', 'magic', 'Arcana', 2, 0, [{ stat: 'spellDamage', value: 10 }], { description: 'Spell bolts hit harder. Opens the Magic tree.' }),
+    n('fire', 'magic', 'Arcana', 2, 0, [{ stat: 'spellDamage', value: 10 }], { description: 'Spell bolts hit harder, and learn Fire. Opens the Magic tree.', teachesSpell: 'fire' }),
     n('thrift', 'magic', 'Mana Thrift', 1, 1, [{ stat: 'spellCost', value: 10 }], { parents: ['fire'], ranks: 3, description: 'Every spell costs less magic: bolts, and Light and Water Walk to cast and to keep going.' }),
-    n('empower', 'magic', 'Empower', 3, 1, [{ stat: 'spellDamage', value: 10 }], { parents: ['fire'], ranks: 3, description: 'Spell bolts hit harder still.' }),
+    n('empower', 'magic', 'Empower', 3, 1, [{ stat: 'spellDamage', value: 10 }], { parents: ['fire'], ranks: 3, description: 'Spell bolts hit harder still, and Fire ranks up (Fire II, Fire III).', teachesSpell: 'fire', spellRankFrom: 2 }),
+    n('frost_lore', 'magic', 'Frost Lore', 0, 1, [], { parents: ['fire'], ranks: 3, teachesSpell: 'frost', description: 'Learn Frost; more ranks raise it.' }),
+    n('storm_lore', 'magic', 'Storm Lore', 4, 2, [], { parents: ['empower'], ranks: 3, level: 5, teachesSpell: 'spark', description: 'Learn Spark, lightning on every foe; more ranks raise it.' }),
     n('radiance', 'magic', 'Radiance', 1, 2, [{ stat: 'lightReach', value: 25 }], { parents: ['thrift'], ranks: 2, description: 'The Light spell shines further.' }),
     n('far_cast', 'magic', 'Far Cast', 3, 2, [{ stat: 'spellRange', value: 25 }], { parents: ['empower'], ranks: 2, description: 'Spell bolts fly further.' }),
     // Vitality: health, stamina and magic.
     n('toughness', 'vitality', 'Toughness', 0, 0, [{ stat: 'maxHp', value: 20 }], { ranks: 5, description: 'More health.' }),
     n('endurance', 'vitality', 'Endurance', 2, 0, [{ stat: 'maxSp', value: 20 }], { ranks: 5, description: 'More stamina.' }),
     n('focus', 'vitality', 'Focus', 4, 0, [{ stat: 'maxMp', value: 15 }], { ranks: 5, description: 'More magic.' }),
+    n('mending', 'vitality', 'Mending', 6, 0, [], { ranks: 3, teachesSpell: 'mend', description: 'Learn Mend, healing for one of the party; more ranks raise it.' }),
   ],
 };
 

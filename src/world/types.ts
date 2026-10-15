@@ -274,7 +274,17 @@ export type Command =
    * Quests: start one, tick off (or count up) an objective, complete it (gives the rewards), fail it, or forget it
    * (back to not started). `add` counts an objective up by that much instead of finishing it.
    */
-  | { cmd: 'quest'; quest: string; op: QuestOp; objective?: string; add?: number; silent?: boolean };
+  | { cmd: 'quest'; quest: string; op: QuestOp; objective?: string; add?: number; silent?: boolean }
+  /**
+   * A turn-based battle against these enemies (a boss, a set-piece fight). The event waits for it. `canRun`: the
+   * party may run away (default false); `lose: 'continue'`: losing doesn't send the party back (the event goes
+   * on, with the party on 1 health); `resultVar`: a variable set to 1 (won), 2 (ran away) or 0 (lost).
+   */
+  | { cmd: 'battle'; enemies: string[]; canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string }
+  /** Teach a spell (at a rank) or an Addition: to the hero you play (''), a party hero by id, or everyone ('@party'). */
+  | { cmd: 'learn'; who: string; spell?: string; rank?: number; addition?: string; silent?: boolean }
+  /** Change a hero's class, or let them change to it later (unlock). */
+  | { cmd: 'heroClass'; who: string; op: 'change' | 'unlock'; cls: string; silent?: boolean };
 
 export type QuestOp = 'start' | 'objective' | 'complete' | 'fail' | 'reset';
 /** inactive: not started; ready: every objective done, waiting to be handed in. */
@@ -640,6 +650,10 @@ export interface HeroDef {
   joinLevel?: number;
   /** Equipment they join with (item ids by slot): given to them, not taken from the bag. */
   gear?: Partial<Record<EquipSlot, string>>;
+  /** Class they start in, and spells (id → rank) and Additions they know from the start. */
+  cls?: string;
+  spells?: Record<string, number>;
+  additions?: string[];
 }
 
 /** Fighter: closes in with their weapon. Archer: keeps back and shoots. Caster: their spell shard. Healer: heals the hurt, else casts. */
@@ -670,6 +684,10 @@ export interface Database {
   audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string };
   /** The skill tree (Database → Skills). Without it, the built-in tree is used. */
   skills?: SkillsData;
+  /** Learned spells, Additions and classes (built-in ones when left out). */
+  spells?: SpellEntry[];
+  additions?: AdditionDef[];
+  classes?: ClassDef[];
   /** Enemy types (Database → Enemies), placed on maps as event pages. */
   enemies?: EnemyDef[];
   /** Items the game uses (see Database → Items). */
@@ -868,7 +886,7 @@ export interface MapBorder {
 }
 
 export type TitleOption = 'continue' | 'newGame' | 'load' | 'options' | 'credits' | 'exit';
-export type PauseOption = 'items' | 'equipment' | 'skills' | 'journal' | 'log' | 'status' | 'quests' | 'settings' | 'saveLoad' | 'quitToTitle';
+export type PauseOption = 'items' | 'equipment' | 'skills' | 'abilities' | 'journal' | 'log' | 'status' | 'quests' | 'settings' | 'saveLoad' | 'quitToTitle';
 
 export interface MenuConfig {
   /** Big text on the title screen (defaults to the game's title) and a line under it. */
@@ -1053,6 +1071,10 @@ export interface TurnBasedData {
   grace?: number;
   /** Guarding gives back this % of the guard's health (default 10). */
   guardHeal?: number;
+  /** Additions: one set per hero in the menu (Legend of Dragoon), or chosen from a list each Attack. */
+  additions?: 'set' | 'choose';
+  /** Additions' timing: pressed by the player, or automatic (every strike lands; for accessibility). */
+  additionTiming?: 'press' | 'auto';
 }
 
 export interface CombatData {
@@ -1126,6 +1148,91 @@ export interface SkillNode {
   effects: { stat: SkillStat; value: number }[];
   /** Older databases: a spell shard (item id) the skill gave. Shards are items now (moved to spell perks on load). */
   teaches?: string;
+  /** Teaches a spell (Database → Spells): rank r of this skill gives the spell's rank r + spellRankFrom − 1. */
+  teachesSpell?: string;
+  spellRankFrom?: number;
+  /** Teaches an Addition (Database → Additions). */
+  teachesAddition?: string;
+}
+
+/* ------------------------------------------------------------------ learned spells, Additions, classes */
+
+/** A spell heroes learn (Database → Spells), from skill-tree skills, events and trainers. */
+export interface SpellEntry {
+  id: string;
+  name: string;
+  description?: string;
+  /** bolt: a magic hit (in action mode, the bolt the magic button throws); heal: health back for the party. */
+  kind: 'bolt' | 'heal';
+  /** Rank 1's damage (bolts) or health given back (heals), before the caster's Magic. */
+  power: number;
+  /** Rank 1's magic cost. */
+  mp: number;
+  element?: Element;
+  inflicts?: Inflict[];
+  /** One target or all of them (turn-based). */
+  targets?: 'one' | 'all';
+  color?: string;
+  /** Highest rank (default 1). Each rank above the first: +rankPower % power, +rankMp % magic, one more turn to charge. */
+  maxRank?: number;
+  rankPower?: number;
+  rankMp?: number;
+  /** Turns rank 1 takes to charge (default 0: cast at once). */
+  charge?: number;
+  /** Action mode: bolt speed and range in tiles (0 / unset: Database → Combat's spell values). */
+  speed?: number;
+  range?: number;
+}
+
+export type FaceButton = 'A' | 'B' | 'X' | 'Y';
+
+/** One strike of an Addition: its damage and the button to press as the ring closes. */
+export interface AdditionStrike {
+  /** × the hero's attack. */
+  power: number;
+  /** The button to press ('any': any of them). Default A. */
+  button?: FaceButton | 'any';
+  /** Seconds the ring takes to close (default 0.7), and the timing window in seconds (default 0.24). */
+  time?: number;
+  window?: number;
+}
+
+/** A Legend of Dragoon-style Addition: a string of timed strikes, stronger as it's mastered by use. */
+export interface AdditionDef {
+  id: string;
+  name: string;
+  description?: string;
+  strikes: AdditionStrike[];
+  /** Highest rank (default 5), and completions needed for each rank (default 6; rank n needs n × this in all). */
+  maxRank?: number;
+  usesPerRank?: number;
+  /** Each rank above the first: +rankDamage % damage (default 12), +rankWindow % wider timing (default 6). */
+  rankDamage?: number;
+  rankWindow?: number;
+}
+
+/** A class: the skill trees its members learn from. Changing class keeps everything already learned. */
+export interface ClassDef {
+  id: string;
+  name: string;
+  description?: string;
+  /** Skill tree ids (Database → Skills). */
+  trees: string[];
+  color?: string;
+}
+
+/** What a hero has learned and chosen: spell ranks, Additions (with how often each was completed), class. */
+export interface AbilityData {
+  spells?: Record<string, number>;
+  additions?: Record<string, number>;
+  /** The Addition used by Attack (turn-based, "set per character"). */
+  addition?: string;
+  /** The learned bolt readied for the magic button in action mode (and its rank). */
+  fieldSpell?: string;
+  fieldRank?: number;
+  /** Their class, and every class they can change to (held before or unlocked). */
+  cls?: string;
+  classes?: string[];
 }
 
 export interface SkillsData { trees: SkillTreeDef[]; nodes: SkillNode[] }

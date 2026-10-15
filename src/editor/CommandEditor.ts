@@ -3,12 +3,13 @@
  * and a form dialog for each command type.
  */
 import { WEEKDAYS } from '../world/seasons';
-import { ABILITIES, WEATHER_KINDS, type WeatherKind, type Ailment, type Ability, type Command, type Condition, type Gauge, type QuestDef, type QuestOp, type QuestStatus } from '../world/types';
+import { ABILITIES, WEATHER_KINDS, type WeatherKind, type Ailment, type Ability, type Command, type Database, type Condition, type Gauge, type QuestDef, type QuestOp, type QuestStatus } from '../world/types';
 import { AILMENTS, AILMENT_INFO } from '../game/status';
 import { checkbox, field, h, numberInput, openModal, select, textInput } from './dom';
 import { transferFields, transferSummary } from './TransferPicker';
 import { AMBIENCE_NAMES, MUSIC_NAMES, SFX_LABELS, SFX_NAMES } from '../audio/synth';
 import { loopChoices } from '../audio/sfx';
+import { additionList, classList, findAddition, findClass, findSpell, rankName, spellList, spellMaxRank } from '../game/abilities';
 import type { EditorStore } from './store';
 
 type Cmd = Command['cmd'];
@@ -20,12 +21,14 @@ const COMMAND_TYPES: [Cmd, string][] = [
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['skillPoints', 'Give skill points'], ['party', 'Change party'],
   ['quest', 'Quest'],
+  ['battle', 'Start battle'], ['learn', 'Teach spell / Addition'], ['heroClass', 'Change class'],
 ];
 
 const CATEGORY: Record<Cmd, string> = {
   text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', ability: 'state', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', party: 'state', skillPoints: 'state', quest: 'quest',
+  battle: 'flow', learn: 'state', heroClass: 'state',
 };
 
 function defaultCommand(cmd: Cmd): Command {
@@ -57,8 +60,15 @@ function defaultCommand(cmd: Cmd): Command {
     case 'party': return { cmd, op: 'add', hero: heroList()[0]?.[0] ?? '' };
     case 'skillPoints': return { cmd, value: 1 };
     case 'quest': return { cmd, quest: questDefs()[0]?.id ?? '', op: 'start' };
+    case 'battle': return { cmd, enemies: dbNow ? (dbNow().enemies ?? []).slice(0, 1).map((e) => e.id) : [] };
+    case 'learn': return { cmd, who: '', spell: dbNow ? spellList(dbNow())[0]?.id : undefined, rank: 1 };
+    case 'heroClass': return { cmd, who: '', op: 'change', cls: dbNow ? classList(dbNow())[0]?.id ?? '' : '' };
   }
 }
+
+/** The database being edited (for names in summaries and lists of enemies, spells, Additions and classes). */
+let dbNow: (() => Database) | null = null;
+const whoName = (who: string): string => (!who ? 'The hero' : who === '@party' ? 'The whole party' : (dbNow?.().heroes ?? []).find((x) => x.id === who)?.name ?? who);
 
 /** Heroes who can join (all but the first), for the party command (set by the editor that owns the database). */
 let heroList: () => [string, string][] = () => [];
@@ -151,6 +161,18 @@ function summary(c: Command): string {
     case 'weather': return `${c.kind === 'none' ? 'Clear skies' : `${WEATHER_NAMES[c.kind]}${c.amount !== undefined && c.amount !== 1 ? ` × ${c.amount}` : ''}`}${c.wind !== undefined ? `, wind ${c.wind}` : ''}${c.scope === 'world' ? ' (shared outdoor weather)' : ''}`;
     case 'party': return `${heroList().find(([id]) => id === c.hero)?.[1] ?? (c.hero || '(no hero)')} ${c.op === 'add' ? 'joins' : 'leaves'}${c.quiet ? ' (quietly)' : ''}`;
     case 'skillPoints': return `+${c.value} skill point${c.value === 1 ? '' : 's'}`;
+    case 'battle': {
+      const names = c.enemies.map((id) => (dbNow?.().enemies ?? []).find((e) => e.id === id)?.name ?? id);
+      return `Battle: ${names.join(', ') || '(no enemies)'}${c.canRun ? '' : ' · no running'}${c.lose === 'continue' ? ' · may lose' : ''}${c.resultVar ? ` → ${c.resultVar}` : ''}`;
+    }
+    case 'learn': {
+      const db = dbNow?.(), sp = db ? findSpell(db, c.spell) : undefined, ad = db ? findAddition(db, c.addition) : undefined;
+      return `${whoName(c.who)} learns ${[sp ? rankName(sp.name, c.rank ?? 1) : '', ad ? ad.name : ''].filter(Boolean).join(' and ') || '(nothing)'}`;
+    }
+    case 'heroClass': {
+      const cl = dbNow ? findClass(dbNow(), c.cls) : undefined;
+      return `${whoName(c.who)}: ${c.op === 'change' ? 'becomes' : 'may become'} ${cl?.name ?? (c.cls || '(no class)')}`;
+    }
     case 'quest': {
       const q = questName(c.quest);
       if (c.op === 'objective') return `${q}: ${objectiveName(c.quest, c.objective)}${c.add !== undefined ? ` ${c.add < 0 ? '−' : '+'}${Math.abs(c.add)}` : ' done'}`;
@@ -172,6 +194,7 @@ export class CommandEditor {
     setConditionItems(() => (store.db.items ?? []).map((d) => [d.id, d.name] as [string, string]));
     setQuestLookup(() => store.db.quests ?? []);
     setHeroLookup(() => (store.db.heroes ?? []).slice(1).map((h) => [h.id, h.name] as [string, string]));
+    dbNow = () => store.db;
   }
 
   /** The highlighted command: the list it's in and where. */
@@ -561,6 +584,48 @@ export class CommandEditor {
       }
       case 'skillPoints':
         return [field('Skill points', numberInput(d.value, (v) => (d.value = Math.round(v)), { step: 1 }), 'A quest reward. Negative takes points away.')];
+      case 'battle': {
+        const enemies = (this.store.db.enemies ?? []).map((e) => [e.id, e.name] as [string, string]);
+        const list = h('div', { class: 'battle-foes' });
+        const render = () => list.replaceChildren(...d.enemies.map((id, k) => h('div', { class: 'field-row' },
+          select(enemies.length ? enemies : [['', '(add enemies in Database → Enemies)']], id, (v) => (d.enemies[k] = v), { 'aria-label': `Enemy ${k + 1}` }),
+          h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove enemy ${k + 1}`, onclick: () => { d.enemies.splice(k, 1); render(); } }, '✕'))),
+          d.enemies.length < 8 && enemies.length ? h('button', { type: 'button', class: 'btn', onclick: () => { d.enemies.push(d.enemies[d.enemies.length - 1] ?? enemies[0][0]); render(); } }, '+ Add enemy') : h('span'));
+        render();
+        return [list,
+          checkbox('The party may run away', !!d.canRun, (v) => (d.canRun = v || undefined)),
+          field('If the party loses', select([['respawn', 'Back to the respawn point (as dying does); the event stops'], ['continue', 'The event goes on (a story battle meant to be lost)']], d.lose ?? 'respawn', (v) => { if (v === 'continue') d.lose = 'continue'; else delete d.lose; })),
+          field('Result into variable', textInput(d.resultVar ?? '', (v) => (d.resultVar = v.trim() || undefined), { placeholder: 'Optional, e.g. boss_result' }), '1 if won, 2 if the party ran away, 0 if lost. Branch on it afterwards.'),
+          field('Battle music', select([['', 'The map’s battle music'], ...loopChoices('music', audioFiles()).filter(([v]) => v)], d.music ?? '', (v) => (d.music = v || undefined))),
+          h('p', { class: 'hint' }, 'A turn-based battle (in either battle system), for bosses and set-piece fights. The event waits for it to end. Beating these enemies gives EXP, gold and drops as usual.')];
+      }
+      case 'learn': {
+        const db = this.store.db;
+        const heroes: [string, string][] = [['', 'The hero you play'], ['@party', 'Everyone in the party'], ...(db.heroes ?? []).slice(1).map((x) => [x.id, x.name] as [string, string])];
+        const spells: [string, string][] = [['', '(no spell)'], ...spellList(db).map((x) => [x.id, x.name] as [string, string])];
+        const adds: [string, string][] = [['', '(no Addition)'], ...additionList(db).map((x) => [x.id, x.name] as [string, string])];
+        const rankWrap = h('div');
+        const renderRank = () => {
+          const sp = findSpell(db, d.spell);
+          rankWrap.replaceChildren(sp && spellMaxRank(sp) > 1 ? field('Rank', select(Array.from({ length: spellMaxRank(sp) }, (_, i) => [String(i + 1), rankName(sp.name, i + 1)] as [string, string]), String(d.rank ?? 1), (v) => (d.rank = Number(v) > 1 ? Number(v) : undefined)), 'Raises it to this rank if they know it lower.') : h('span'));
+        };
+        renderRank();
+        return [field('Who', select(heroes, d.who, (v) => (d.who = v))),
+          field('Spell', select(spells, d.spell ?? '', (v) => { d.spell = v || undefined; renderRank(); })), rankWrap,
+          field('Addition', select(adds, d.addition ?? '', (v) => (d.addition = v || undefined))),
+          checkbox('Quietly (no message)', !!d.silent, (v) => (d.silent = v || undefined)),
+          h('p', { class: 'hint' }, 'Trainers: put this after a choice and a gold check (Conditional branch → Gold, then Change gold). Party heroes named here must be in the party.')];
+      }
+      case 'heroClass': {
+        const db = this.store.db;
+        const heroes: [string, string][] = [['', 'The hero you play'], ['@party', 'Everyone in the party'], ...(db.heroes ?? []).slice(1).map((x) => [x.id, x.name] as [string, string])];
+        const classes = classList(db).map((x) => [x.id, x.name] as [string, string]);
+        return [field('Who', select(heroes, d.who, (v) => (d.who = v))),
+          field('Do', select([['change', 'Change to this class now'], ['unlock', 'Let them change to it (Menu → Abilities)']], d.op, (v) => (d.op = v as 'change' | 'unlock'))),
+          field('Class', select(classes.length ? classes : [['', '(add classes in Database → Classes)']], d.cls, (v) => (d.cls = v))),
+          checkbox('Quietly (no message)', !!d.silent, (v) => (d.silent = v || undefined)),
+          h('p', { class: 'hint' }, 'A class opens its skill trees. Changing class keeps every skill, spell and Addition already learned.')];
+      }
       case 'shop': {
         const goods = h('div', { class: 'shop-goods' });
         const renderGoods = () => {

@@ -23,7 +23,7 @@ Written in TypeScript on top of three.js, built with Vite.
 
 Every push to the repository's `main` branch rebuilds the site (`.github/workflows/pages.yml`):
 
-- Map editor: <https://itshyokin.github.io/hd2dengine/editor.html>
+- Map editor: <https://itshyokin.github.io/hd2dengine/editor.html> (with a link to the Character Builder)
 - Game: <https://itshyokin.github.io/hd2dengine/>
 
 The online editor works in any recent browser, Android tablets and phones included. It opens the project as it is
@@ -534,8 +534,43 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   them, with their own element and ailments), **Heal** (itself or a hurt friend, % of their health) and **Guard**
   (enemies only guard when given this). Each has *how often* and can be limited to *only below health %*.
   **Counterspell** (on an action or the plain attack) will break a spell being charged once spells can be charged.
-- Not in turn-based battles yet: learned spells with ranks and charge time (replacing spell shards for magic),
-  Additions, multi-target spells for the party, and a *Start battle* event command for scripted (boss) fights.
+- **Magic** (turn-based): the hero's **learned spells** (see below). Spells known at more than one rank ask which
+  rank to cast: a higher rank hits harder and costs more, and **charges** a turn longer for each rank (the caster
+  shows *Fire III · 2* and the turn bar keeps going; it goes off on their turn). Casting is quicker than attacking in
+  the turn order. A foe's **Counterspell** hit breaks a spell being charged (the magic is lost), and so does Silence.
+  Healing spells can heal one or the whole party; attack spells can hit one or every foe.
+- **Additions** (Legend of Dragoon): Attack performs the hero's Addition, a string of 1 to 7 timed strikes. For each
+  strike a ring closes on the target; press the button shown (A, B, X, Y, or ★ for any) as it meets the marker.
+  Keyboard: the letters A, B, X, Y (Space / Enter for A); controller: the face buttons; touch: the four buttons
+  that appear. A miss or the wrong button ends the string (a missed first strike still lands, weakly); perfect
+  timing adds 10%. Performing an Addition in full counts towards its next **rank** (more damage, a wider window).
+  Database → Combat → *Additions*: set per hero in Menu → Abilities (default), or chosen from a list with each Attack;
+  *Addition timing: Automatic* lands every strike by itself (accessibility).
+- **Start battle** (event command): a turn-based battle against chosen enemies (bosses, set pieces), in either battle
+  system. The event waits for it. Options: may the party run, what losing does (back to the respawn point, or the
+  event goes on: a story battle meant to be lost), a variable for the result (1 won, 2 ran, 0 lost), its music.
+
+### Learned spells, Additions and classes
+
+- **Database → Spells**: attack spells (bolts) and healing spells: power and magic cost at rank 1, element, ailments,
+  one target or all, the highest rank and what each rank adds (power %, magic %, one more charge turn), and for action
+  mode the bolt's speed and range. Built-in: Fire, Frost, Spark (every foe) and Mend.
+- **Database → Additions**: strikes (power × the hero's attack, button, how long the ring takes, the timing window)
+  and mastery (highest rank, completions per rank, damage and window per rank). Built-in: Quick Strike, Double Slash,
+  Volley and Crescent Storm (seven strikes).
+- **Learning**: a skill-tree skill can teach a spell or an Addition (Database → Skills → *Teaches*; each further rank
+  of the skill raises the spell a rank). The built-in trees teach them: Arcana (Fire), Empower (Fire II, III), Frost
+  Lore, Storm Lore (Spark), Mending (Mend), Fighter (Quick Strike), Double Slash, Volley and Crescent Storm. Events and
+  trainers use the event command **Teach spell / Addition** (to the hero, a party hero or everyone); heroes can start
+  with some (Database → Heroes → *Class, spells and Additions at the start*).
+- **Classes** (Database → Classes): each class opens skill trees. A hero learns from the trees of their class and of
+  every class they've had: changing class adds trees and never takes away what was learned. The event command
+  **Change class** changes a hero's class or unlocks it; unlocked classes can be chosen in **Menu → Abilities**.
+  Without classes, every hero sees every tree.
+- **Menu → Abilities** lists each hero's spells and Additions (with rank and progress), changes class, sets the
+  Addition Attack uses, and in action mode readies a learned attack spell for the spell button (it takes the place of
+  a spell shard there; shards still enchant gear at the forge, and an equipped shard still works when no spell is
+  readied).
 
 ### EXP orbs and loot on the ground
 
@@ -1015,6 +1050,9 @@ Events work like RPG Maker's. Each event has **pages**. The active page is the l
 | Change music | `{ "cmd": "music", "music": "builtin:night", "fade": 2 }` (`""` stops it; no `music`: back to the map's) |
 | Change background sound | `{ "cmd": "ambience", "ambience": "builtin:rain" }` |
 | Give skill points | `{ "cmd": "skillPoints", "value": 1 }` |
+| Start battle | `{ "cmd": "battle", "enemies": ["slime", "slime"], "canRun": false, "lose": "continue", "resultVar": "boss_result" }` |
+| Teach spell / Addition | `{ "cmd": "learn", "who": "", "spell": "fire", "rank": 2, "addition": "volley" }` (`who`: '' the hero, '@party' everyone, or a hero id) |
+| Change class | `{ "cmd": "heroClass", "who": "", "op": "change", "cls": "mage" }` (op `change` or `unlock`) |
 | Quest | `{ "cmd": "quest", "quest": "slime_trouble", "op": "start" }` (op `start`, `objective` with `"objective": "id"` and optional `"add": 1` to count up, `complete`, `fail`, `reset`; `silent: true` skips the banner) |
 | Give item | `{ "cmd": "giveItem", "item": "potion", "count": 2 }` (`silent: true` skips the "Received" message; a full bag stops the event) |
 | Take item | `{ "cmd": "takeItem", "item": "old_key", "count": 1 }` |

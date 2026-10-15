@@ -19,6 +19,10 @@ export interface SkillHost {
   learn(node: SkillNode): void;
   /** An item's name (and rarity colour), for skills that give a spell shard. */
   item?(id: string): { name: string; color: string | null } | undefined;
+  /** The trees this hero can learn from (their classes'); unset or null: all of them. */
+  trees?(): Set<string> | null;
+  /** What a skill teaches ("Teaches the spell Fire II"), if anything. */
+  teaches?(node: SkillNode): string | null;
 }
 
 const CELL = 96;
@@ -60,7 +64,7 @@ export class SkillTreeScreen {
     this.onClose();
   }
 
-  private get trees() { return this.host.skills().data.trees; }
+  private get trees() { const all = this.host.skills().data.trees, only = this.host.trees?.(); return only ? all.filter((t) => only.has(t.id)) : all; }
   private nodes(): SkillNode[] { const t = this.trees[this.tree]; return t ? this.host.skills().data.nodes.filter((n) => n.tree === t.id) : []; }
 
   /** Select something sensible in the current tree: the first skill that can be learned, else the root. */
@@ -154,7 +158,8 @@ export class SkillTreeScreen {
         <div class="sk-rank">Rank ${r} / ${max}${node.cost && node.cost > 1 ? ` · ${node.cost} points per rank` : ''}</div>
         ${node.description ? `<p class="sk-desc">${esc(node.description)}</p>` : ''}
         <ul class="sk-effects">${node.effects.map((e) => `<li>${esc(effectText(e))}${max > 1 && !SKILL_STATS[e.stat]?.flag ? ' per rank' : ''}</li>`).join('')}${
-          (() => { const it = node.teaches ? this.host.item?.(node.teaches) : undefined; return it ? `<li>Gives the spell shard <b${it.color ? ` style="color:${it.color}"` : ''}>${esc(it.name)}</b></li>` : ''; })()}</ul>
+          (() => { const it = node.teaches ? this.host.item?.(node.teaches) : undefined; return it ? `<li>Gives the spell shard <b${it.color ? ` style="color:${it.color}"` : ''}>${esc(it.name)}</b></li>` : ''; })()}${
+          (() => { const t = this.host.teaches?.(node); return t ? `<li><b>${esc(t)}</b></li>` : ''; })()}</ul>
         ${needs.length ? `<div class="sk-req">Needs: ${esc(needs.join(', '))}</div>` : ''}${node.level ? `<div class="sk-req">Level ${node.level}+</div>` : ''}
         <div class="sk-why" aria-live="polite">${chk.ok ? '' : esc(chk.why ?? '')}</div>
         ${chk.ok ? `<button type="button" class="menu-item sk-learn${this.confirming ? ' confirm' : ''}"><span class="menu-label">${this.confirming ? `Learn ${esc(node.name)}? Press again to confirm` : `Learn (${node.cost ?? 1} point${(node.cost ?? 1) > 1 ? 's' : ''})`}</span></button>` : ''}`;

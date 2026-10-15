@@ -50,6 +50,13 @@ export interface EventContext {
   skillPoints(n: number): void;
   /** Start, advance, complete, fail or forget a quest. */
   quest(c: Extract<Command, { cmd: 'quest' }>): void;
+  /** A turn-based battle (the event waits while busy() says so). */
+  battle(c: Extract<Command, { cmd: 'battle' }>): void;
+  /** Teach a spell or an Addition; change or unlock a class. Return a line to show (or null). */
+  learn(c: Extract<Command, { cmd: 'learn' }>): string | null;
+  heroClass(c: Extract<Command, { cmd: 'heroClass' }>): string | null;
+  /** Something the event must wait for (a battle). */
+  busy?(): boolean;
 }
 
 interface Frame { list: Command[]; i: number }
@@ -84,6 +91,7 @@ export class Interpreter {
     for (let guard = 0; guard < 1000 && this.stack.length; guard++) {
       if (this.waitTime > 0) { this.waitTime -= dt; if (this.waitTime > 0) return; this.waitTime = 0; }
       if (this.ctx.isFading()) return;
+      if (this.ctx.busy?.()) return;
       if (this.awaitingChoice) {
         const picked = this.ctx.message.takeChoice();
         if (picked === null) return;
@@ -189,6 +197,9 @@ export class Interpreter {
       case 'party': this.ctx.party(c.op, c.hero, c.quiet); break;
       case 'skillPoints': this.ctx.skillPoints(c.value); break;
       case 'quest': this.ctx.quest(c); this.ctx.refreshEvents(); break;
+      case 'battle': message.close(); this.ctx.battle(c); break;
+      case 'learn': { const t = this.ctx.learn(c); if (t && !c.silent) message.showText(t, undefined, next?.cmd === 'choice'); break; }
+      case 'heroClass': { const t = this.ctx.heroClass(c); if (t && !c.silent) message.showText(t, undefined, next?.cmd === 'choice'); this.ctx.refreshEvents(); break; }
       case 'transfer':
         // A transfer ends the event: its map is about to go away.
         this.stack = [];

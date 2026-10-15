@@ -6,7 +6,7 @@ import { ailmentChips } from './statusFields';
 import type { Ailment } from '../world/types';
 import { defenceSection } from './elementFields';
 import { ATTRS, ATTR_BASE, ATTR_INFO, ATTR_MAX, ATTR_MIN, ATTR_POINTS_PER_LEVEL, CREATION_METHODS, CREATION_NAMES, attrEffect, attrsFrom } from '../game/attributes';
-import type { AllyStyle, CombatData, CreationSettings, HeroDef, ItemDef } from '../world/types';
+import type { AdditionDef, AllyStyle, ClassDef, CombatData, CreationSettings, HeroDef, ItemDef, SpellEntry } from '../world/types';
 import type { CharactersWork } from './CharactersEditor';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 
@@ -33,6 +33,9 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     if (i > 0 && x.ai && x.ai !== 'fighter') c.ai = x.ai;
     if (i > 0 && x.startsInParty) c.startsInParty = true;
     if (i > 0 && x.joinLevel && x.joinLevel > 0) c.joinLevel = Math.round(x.joinLevel);
+    if (x.cls) c.cls = x.cls;
+    if (x.spells && Object.keys(x.spells).length) c.spells = { ...x.spells };
+    if (x.additions?.length) c.additions = [...x.additions];
     if (i > 0 && x.gear && Object.values(x.gear).some(Boolean)) c.gear = Object.fromEntries(Object.entries(x.gear).filter(([, v]) => v));
     if (i === 0 && x.creation) {
       const cr: CreationSettings = {};
@@ -44,11 +47,12 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     }
     return c;
   });
-  if (out.length === 1 && out[0].id === 'hero' && out[0].name === 'Hero' && !out[0].stats && !out[0].creation && !out[0].elements && !out[0].immune && !out[0].absorb && !out[0].resists) return undefined;
+  if (out.length === 1 && out[0].id === 'hero' && out[0].name === 'Hero' && !out[0].stats && !out[0].creation && !out[0].elements && !out[0].immune && !out[0].absorb && !out[0].resists && !out[0].cls && !out[0].spells && !out[0].additions) return undefined;
   return out;
 }
 
-export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatData, state: { sel: number }, rerender: () => void, items: ItemDef[] = []): HTMLElement[] {
+export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatData, state: { sel: number }, rerender: () => void, items: ItemDef[] = [],
+  learnable: { spells: SpellEntry[]; additions: AdditionDef[]; classes: ClassDef[] } = { spells: [], additions: [], classes: [] }): HTMLElement[] {
   state.sel = Math.min(state.sel, w.heroes.length - 1);
   const looks = Object.keys(people.chars).map((k) => [k, k] as [string, string]);
   const add = () => {
@@ -94,6 +98,22 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
         h('div', { class: 'field-row' }, ...(['weapon', 'ranged', 'magic', 'armor'] as const).map((slot) => field({ weapon: 'Joins with weapon', ranged: 'Bow', magic: 'Spell shard', armor: 'Armor' }[slot],
           select([['', 'Nothing'], ...items.filter((it) => it.kind === 'equipment' && it.slot === slot).map((it) => [it.id, it.name] as [string, string])], x.gear?.[slot] ?? '', (v) => { x.gear ??= {}; if (v) x.gear[slot] = v; else delete x.gear[slot]; })))),
         h('p', { class: 'note' }, 'Use the event command “Change party” to have them join or leave. Up to three travel with the hero you play: they follow, fight on their own and share the bag and gold. Each has their own level: they get EXP for the enemies beaten while they were standing, once the fight is over (only the hero you play picks up what enemies drop). Their gear can be changed in the game (Inventory → Equipment, ← → for each hero).'))]),
+      h('section', { class: 'db-section' }, h('h3', {}, 'Class, spells and Additions at the start'),
+        learnable.classes.length ? field('Class', select([['', 'None'], ...learnable.classes.map((c) => [c.id, c.name] as [string, string])], x.cls ?? '', (v) => { if (v) x.cls = v; else delete x.cls; }), 'Opens that class’s skill trees (Database → Classes).') : h('span'),
+        h('div', { class: 'db-table start-spells' }, ...learnable.spells.flatMap((sp) => [
+          h('span', { class: 'db-name' }, sp.name),
+          select([['0', 'Not known'], ...Array.from({ length: Math.max(1, sp.maxRank ?? 1) }, (_, k) => [String(k + 1), `Rank ${k + 1}`] as [string, string])], String(x.spells?.[sp.id] ?? 0), (v) => {
+            const r = Number(v);
+            if (r > 0) (x.spells ??= {})[sp.id] = r; else if (x.spells) { delete x.spells[sp.id]; if (!Object.keys(x.spells).length) delete x.spells; }
+          }, { 'aria-label': `${sp.name} at the start` }),
+        ])),
+        h('div', { class: 'db-abilities' }, ...learnable.additions.map((ad) => checkbox(ad.name, !!x.additions?.includes(ad.id), (on) => {
+          const set = new Set(x.additions ?? []);
+          if (on) set.add(ad.id); else set.delete(ad.id);
+          x.additions = learnable.additions.map((a) => a.id).filter((id) => set.has(id));
+          if (!x.additions.length) delete x.additions;
+        }))),
+        h('p', { class: 'note' }, 'More are learned in the game from skill-tree skills, events and trainers.')),
       defenceSection(x, rerender, 'They'),
       field('Can’t get', ailmentChips(() => x.resists, (v) => { if (v) x.resists = v as Ailment[]; else delete x.resists; }, rerender, 'Can’t get'), 'Ailments this hero never gets (equipment can ward off more).'),
       ...(cr ? [h('section', { class: 'db-section' }, h('h3', {}, 'Character creation (new game)'),

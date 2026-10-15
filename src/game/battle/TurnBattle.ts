@@ -11,8 +11,9 @@ import type { Ailment, Element, EnemyAction, Inflict } from '../../world/types';
 import type { TurnBasedConfig } from '../combat/config';
 import { ELEMENT_COLORS } from '../elements';
 import { statusIconUrl } from '../../art/statusIcons';
+import type { QteResult } from '../../ui/BattleScreen';
 import {
-  type Battler, type BattleSpell, type Opening, RANK, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
+  type BattleAddition, type Battler, type BattleSpell, type Opening, RANK, type SpellRank, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
   refreshAgility, roundOrder, spend, startCounters, strike, tickOf,
 } from './rules';
 import { AILMENT_WORD, BLIND_MISS_CHANCE, type BattleAilment, ailmentName, rollInflicts } from './status';
@@ -41,6 +42,8 @@ export interface BattleHost {
   victory(beaten: unknown[]): string[];
   /** The battle is over and its screen closed. */
   finished(outcome: BattleOutcome, beaten: unknown[]): void;
+  /** Party member `who` performed an Addition in full: count it towards its next rank (the new rank if it went up). */
+  mastered?(who: number, addition: string): number | null;
   log(text: string): void;
 }
 
@@ -63,7 +66,12 @@ export class TurnBattle {
 
   get active(): boolean { return this.phase !== 'off'; }
 
-  start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening): void {
+  /** This battle's own rules (a scripted battle): whether the party may run. */
+  rules: { canRun?: boolean } = {};
+
+  start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean } = {}): void {
+    this.rules = rules;
+    for (const e of entries) e.battler.charging = null;
     this.all = entries;
     this.cfg = cfg;
     this.opening = opening;
@@ -89,6 +97,8 @@ export class TurnBattle {
   private get party(): Battler[] { return this.all.filter((e) => e.battler.side === 'party').map((e) => e.battler); }
   private get foes(): Battler[] { return this.all.filter((e) => e.battler.side === 'enemy').map((e) => e.battler); }
   private entry(b: Battler): BattleEntry { return this.all.find((e) => e.battler === b)!; }
+  private sideOf(b: Battler): Battler[] { return b.side === 'party' ? this.party : this.foes; }
+  private otherSide(b: Battler): Battler[] { return b.side === 'party' ? this.foes : this.party; }
 
   update(dt: number): void {
     if (this.phase === 'off') return;
@@ -145,6 +155,7 @@ export class TurnBattle {
         this.endTurn(who!, RANK.attack, 0.9);
         return;
       }
+      if (who!.charging) { this.chargeTurn(who!); return; }
       if (start.confused) { this.confusedTurn(who!); return; }
       if (who!.side === 'party') this.commandMenu(who!);
       else this.later(0.45, () => this.enemyTurn(who!));
@@ -166,10 +177,10 @@ export class TurnBattle {
   private commandMenu(b: Battler): void {
     this.phase = 'command';
     const items = this.host.items();
-    const canFlee = !this.foes.some((f) => isUp(f) && f.boss);
+    const canFlee = this.rules.canRun !== false && !this.foes.some((f) => isUp(f) && f.boss);
     const silenced = b.status.silenced;
     const cmds: (ChoiceItem & { run: () => void })[] = [
-      { label: 'Attack', rank: RANK.attack, run: () => this.pickTarget(this.foes.filter(isUp), (t) => this.doAttack(b, t), () => this.commandMenu(b)) },
+      { label: 'Attack', rank: RANK.attack, right: this.attackLabel(b), run: () => this.attackMenu(b) },
       { label: 'Magic', rank: RANK.magic, disabled: !b.spells.length || silenced, right: silenced ? 'Silenced' : b.spells.length ? '' : '—', run: () => this.magicMenu(b) },
       { label: 'Items', rank: RANK.item, disabled: !items.length, run: () => this.itemMenu(b) },
       { label: 'Guard', rank: RANK.guard, detail: this.cfg.guardHeal > 0 ? `Half damage, +${this.cfg.guardHeal}% HP, no ailments` : 'Half damage, no ailments', run: () => this.doGuard(b) },
@@ -179,13 +190,50 @@ export class TurnBattle {
     this.screen.choose(b.name, cmds, (i) => { this.lastCommand = i; this.screen.message(''); cmds[i].run(); }, undefined, (i) => this.showOrder(cmds[i].rank), this.lastCommand);
   }
 
+  /** What Attack does: the set Addition's name (when Additions are set per hero). */
+  private attackLabel(b: Battler): string {
+    if (this.cfg.additions !== 'set' || !b.addition) return '';
+    return b.additions?.find((a) => a.id === b.addition)?.name ?? '';
+  }
+
+  private attackMenu(b: Battler): void {
+    const foes = this.foes.filter(isUp);
+    const adds = b.additions ?? [];
+    // Set per hero: Attack performs it (or a plain attack without one).
+    if (this.cfg.additions === 'set' || !adds.length) {
+      const a = adds.find((x) => x.id === b.addition);
+      this.pickTarget(foes, (t) => (a ? this.doAddition(b, a, t) : this.doAttack(b, t)), () => this.commandMenu(b));
+      return;
+    }
+    // Chosen each time: a plain attack or any Addition they know.
+    const list: ChoiceItem[] = [{ label: 'Attack', detail: 'A plain attack', rank: RANK.attack },
+      ...adds.map((a) => ({ label: a.name, right: `${a.strikes.length} hit${a.strikes.length === 1 ? '' : 's'} · Rank ${a.rank}`, detail: a.toNext === null ? 'Mastered' : `${a.toNext} more to rank ${a.rank + 1}`, rank: RANK.attack }))];
+    this.screen.choose('Attack', list, (i) => {
+      const a = i ? adds[i - 1] : undefined;
+      this.pickTarget(foes, (t) => (a ? this.doAddition(b, a, t) : this.doAttack(b, t)), () => this.attackMenu(b));
+    }, () => this.commandMenu(b), () => this.showOrder(RANK.attack));
+  }
+
   private magicMenu(b: Battler): void {
-    const list = b.spells.map((s) => ({ label: s.name, right: `${s.mp} MP`, disabled: s.mp > b.mp, rank: RANK.magic, detail: s.kind === 'heal' ? 'Heals one of the party' : undefined }));
-    this.screen.choose('Magic', list, (i) => {
-      const s = b.spells[i];
-      if (s.kind === 'heal') this.pickTarget(this.party.filter(isUp), (t) => this.doSpell(b, s, t), () => this.magicMenu(b));
-      else this.pickTarget(this.foes.filter(isUp), (t) => this.doSpell(b, s, t), () => this.magicMenu(b));
-    }, () => this.commandMenu(b), () => this.showOrder(RANK.magic));
+    const list = b.spells.map((s) => {
+      const top = s.ranks[s.ranks.length - 1], low = s.ranks[0];
+      return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
+        detail: [s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one of the party') : s.targets === 'all' ? 'Hits every foe' : '', low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') || undefined };
+    });
+    this.screen.choose('Magic', list, (i) => this.rankMenu(b, b.spells[i]), () => this.commandMenu(b), () => this.showOrder(RANK.magic));
+  }
+
+  /** Spells known at more than one rank: choose the rank (higher hits harder, costs more and charges longer). */
+  private rankMenu(b: Battler, s: BattleSpell): void {
+    const go = (r: SpellRank) => {
+      const back = () => (s.ranks.length > 1 ? this.rankMenu(b, s) : this.magicMenu(b));
+      if (s.targets === 'all') { this.phase = 'busy'; this.doSpell(b, s, r, (s.kind === 'heal' ? this.party : this.foes).filter(isUp)); return; }
+      this.pickTarget((s.kind === 'heal' ? this.party : this.foes).filter(isUp), (t) => this.doSpell(b, s, r, [t]), back);
+    };
+    if (s.ranks.length === 1) { go(s.ranks[0]); return; }
+    this.screen.choose(s.name, s.ranks.map((r) => ({ label: r.name, right: `${r.mp} MP`, disabled: r.mp > b.mp, rank: RANK.magic,
+      detail: r.charge ? `Charges ${r.charge} turn${r.charge === 1 ? '' : 's'} before it goes off` : 'Goes off at once' })),
+    (i) => go(s.ranks[i]), () => this.magicMenu(b), () => this.showOrder(RANK.magic), s.ranks.length - 1);
   }
 
   private itemMenu(b: Battler): void {
@@ -215,16 +263,108 @@ export class TurnBattle {
     });
   }
 
-  private doSpell(b: Battler, s: BattleSpell, t: Battler): void {
-    b.mp = Math.max(0, b.mp - s.mp);
+  /** Cast a spell: the magic is spent now; it goes off at once, or charges for its turns first. */
+  private doSpell(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[]): void {
+    b.mp = Math.max(0, b.mp - r.mp);
     this.refresh(b);
-    this.screen.message(s.name);
-    this.screen.animate(b.key, 'cast', s.color ?? ELEMENT_COLORS[s.element]);
+    const color = s.color ?? ELEMENT_COLORS[s.element];
+    if (r.charge > 0) {
+      b.charging = { spell: s, rank: r, targets, left: r.charge };
+      this.screen.setCharging(b.key, `${r.name} · ${r.charge}`, color);
+      this.screen.message(`${b.name} begins casting ${r.name}…`);
+      this.screen.animate(b.key, 'cast', color);
+      this.host.sound('ringOn');
+      this.host.log(`${b.name} begins casting ${r.name}`);
+      this.endTurn(b, RANK.magic, 0.8);
+      return;
+    }
+    this.release(b, s, r, targets);
+  }
+
+  /** A charging spell's turn: one turn closer, or it goes off now (at whoever is still standing). */
+  private chargeTurn(b: Battler): void {
+    const c = b.charging!;
+    if (b.status.silenced) { this.interrupt(b, 'Silenced'); this.endTurn(b, RANK.magic, 0.8); return; }
+    c.left--;
+    if (c.left > 0) {
+      this.screen.setCharging(b.key, `${c.rank.name} · ${c.left}`);
+      this.screen.message(`${b.name} keeps casting ${c.rank.name}…`);
+      this.endTurn(b, RANK.magic, 0.7);
+      return;
+    }
+    b.charging = null;
+    this.screen.setCharging(b.key, null);
+    const side = (c.spell.kind === 'heal' ? this.sideOf(b) : this.otherSide(b)).filter(isUp);
+    let targets = c.targets.filter(isUp);
+    if (!targets.length && side.length) targets = c.spell.targets === 'all' ? side : [side[0]];
+    if (!targets.length) { this.endTurn(b, RANK.magic, 0.3); return; }
+    this.release(b, c.spell, c.rank, targets);
+  }
+
+  /** A charging spell broken (a Counterspell, Silence): the magic spent is lost. */
+  private interrupt(b: Battler, why: string): void {
+    const c = b.charging;
+    if (!c) return;
+    b.charging = null;
+    this.screen.setCharging(b.key, null);
+    this.screen.popup(b.key, why === 'Silenced' ? 'Spell lost' : 'Interrupted!', 'info');
+    this.screen.message(`${b.name}’s ${c.rank.name} is ${why === 'Silenced' ? 'silenced' : 'broken'}!`);
+    this.host.sound('block');
+    this.host.log(`${b.name}’s ${c.rank.name} was interrupted`);
+  }
+
+  private release(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[]): void {
+    const color = s.color ?? ELEMENT_COLORS[s.element];
+    this.screen.message(r.name);
+    this.screen.animate(b.key, 'cast', color);
     this.host.sound(s.kind === 'heal' ? 'ringOn' : 'fire');
     this.later(0.4, () => {
-      if (s.kind === 'heal') this.heal(b, t, healAmount(s.power, t));
-      else this.hit(b, t, s.power, s.element, true, undefined, s.color);
+      for (const t of targets) {
+        if (!isUp(t)) continue;
+        if (s.kind === 'heal') this.heal(b, t, healAmount(r.power, t));
+        else this.hit(b, t, r.power, s.element, true, s.inflicts, color);
+      }
       this.endTurn(b, RANK.magic, 0.8);
+    });
+  }
+
+  /**
+   * An Addition: the hero closes in, and each strike lands if its button is pressed as the ring meets the marker.
+   * A miss ends the string (a first strike missed still lands, weakly). Performed in full, it counts towards the
+   * next rank.
+   */
+  private doAddition(b: Battler, a: BattleAddition, t: Battler): void {
+    this.screen.message(a.name);
+    this.screen.animate(b.key, 'lunge');
+    this.later(0.35, () => {
+      let landed = 0;
+      const hitOnce = (power: number, last: boolean) => {
+        if (!isUp(t)) return;
+        this.host.sound('swing');
+        this.hit(b, t, power, b.attackElement, b.attackMagic, last ? b.inflicts : undefined);
+      };
+      this.screen.startQte(t.key, a.strikes.map((x) => ({ button: x.button, time: x.time, window: x.window })), this.cfg.additionTiming === 'auto',
+        (i: number, r: QteResult) => {
+          const st = a.strikes[i];
+          if (r === 'miss') {
+            this.screen.popup(t.key, i === 0 ? 'Weak' : 'Missed', 'info');
+            if (i === 0) hitOnce(b.attack * st.power * a.damage * 0.5, true);
+            return;
+          }
+          landed++;
+          if (r === 'perfect') this.screen.popup(t.key, 'Perfect!', 'info');
+          this.screen.animate(b.key, 'lunge');
+          hitOnce(b.attack * st.power * a.damage * (r === 'perfect' ? 1.1 : 1), i === a.strikes.length - 1);
+        },
+        () => {
+          const complete = landed === a.strikes.length;
+          if (complete) {
+            this.screen.popup(b.key, a.strikes.length > 1 ? `${a.name}!` : 'Complete!', 'info');
+            const up = this.host.mastered?.(this.entry(b).who ?? 0, a.id) ?? null;
+            if (up) { this.screen.popup(b.key, `${a.name} rank ${up}!`, 'info'); this.host.log(`${b.name}’s ${a.name} reached rank ${up}`); this.host.sound('levelUp'); a.rank = up; }
+          }
+          this.endTurn(b, RANK.attack, 0.6);
+        });
     });
   }
 
@@ -305,7 +445,7 @@ export class TurnBattle {
       this.screen.message(`${e.name} attacks!`);
       this.screen.animate(e.key, 'lunge');
       this.host.sound('swing');
-      this.later(0.3, () => { this.hit(e, t, e.attack, e.attackElement, e.attackMagic, e.inflicts); this.endTurn(e, RANK.attack, 0.8); });
+      this.later(0.3, () => { this.hit(e, t, e.attack, e.attackElement, e.attackMagic, e.inflicts, undefined, !!e.counterspell); this.endTurn(e, RANK.attack, 0.8); });
       return;
     }
     this.screen.message(`${e.name}: ${a.name || this.actionWord(a)}`);
@@ -322,7 +462,7 @@ export class TurnBattle {
     this.screen.animate(e.key, magic ? 'cast' : 'lunge', magic ? ELEMENT_COLORS[element] : undefined);
     this.host.sound(magic ? 'fire' : 'swing');
     this.later(magic ? 0.45 : 0.3, () => {
-      for (const t of move.targets) if (isUp(t)) this.hit(e, t, e.attack * (a.power ?? 1), element, magic, a.inflicts ?? (magic ? undefined : e.inflicts));
+      for (const t of move.targets) if (isUp(t)) this.hit(e, t, e.attack * (a.power ?? 1), element, magic, a.inflicts ?? (magic ? undefined : e.inflicts), undefined, !!a.counterspell);
       this.endTurn(e, magic ? RANK.magic : RANK.attack, 0.85);
     });
   }
@@ -330,7 +470,7 @@ export class TurnBattle {
   private actionWord(a: EnemyAction): string { return { attack: 'Strike', spell: 'Spell', heal: 'Heal', guard: 'Guard' }[a.kind]; }
 
   /** One fighter hits another: blindness, elements, criticals, guarding and the side's damage scale, then ailments. */
-  private hit(by: Battler, t: Battler, power: number, element: Element, magic: boolean, inflicts?: Inflict[], color?: string): void {
+  private hit(by: Battler, t: Battler, power: number, element: Element, magic: boolean, inflicts?: Inflict[], color?: string, counter = false): void {
     // Blind: half of their weapon attacks miss (spells still land).
     if (!magic && by.status.blind && Math.random() < BLIND_MISS_CHANCE) {
       this.screen.popup(t.key, 'Miss', 'info');
@@ -355,6 +495,8 @@ export class TurnBattle {
     if (r.label === 'Weak!') this.host.sound('weak');
     this.damage(t, r.amount, r.crit, tint);
     this.host.log(`${by.name} hits ${t.name} for ${r.amount}${r.crit ? ' (critical)' : ''}${r.label === 'Weak!' ? ' (super effective)' : r.label === 'Resist' ? ' (resisted)' : ''}`);
+    // A Counterspell breaks a spell being charged.
+    if (counter && isUp(t) && t.charging) this.interrupt(t, 'Counterspell');
     if (isUp(t)) this.inflict(t, inflicts);
   }
 
@@ -397,6 +539,7 @@ export class TurnBattle {
   /** Knocked out: ailments go with it. */
   private fall(t: Battler): void {
     t.guarding = false;
+    if (t.charging) { t.charging = null; this.screen.setCharging(t.key, null); }
     for (const a of t.status.list) if (a !== 'zombie') t.status.turns.delete(a);
     t.status.chillStacks = 0;
     refreshAgility(t);

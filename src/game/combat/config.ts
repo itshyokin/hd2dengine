@@ -3,7 +3,8 @@
  * No three.js, so it can be tested on its own.
  */
 import { ATTRS, ATTR_MAX, ATTR_POINTS_PER_LEVEL, type Attrs, attrsFrom, baseAttrs, finalDamage, throughFraction } from '../attributes';
-import type { BattleMode, CombatData, Database, TurnOrder, WeaponClass } from '../../world/types';
+import type { AbilityData, BattleMode, CombatData, Database, TurnOrder, WeaponClass } from '../../world/types';
+import { abilityJSON } from '../abilities';
 
 export interface ClassTuning { speed: number; reach: number; damage: number }
 
@@ -16,9 +17,11 @@ export interface TurnBasedConfig {
   enemyDamage: number;
   grace: number;
   guardHeal: number;
+  additions: 'set' | 'choose';
+  additionTiming: 'press' | 'auto';
 }
 
-export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 4, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10 };
+export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 4, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press' };
 
 export interface CombatConfig {
   /** Action combat on the map, or turn-based battles. */
@@ -86,7 +89,7 @@ export function combatConfig(data?: CombatData): CombatConfig {
     turnBased: {
       ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
       flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(8, Math.round(tb.maxEnemies))),
-      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)),
+      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press',
     },
     unarmedDamage: s.unarmedDamage ?? d.unarmedDamage,
     classes,
@@ -152,6 +155,8 @@ export class Progression {
   ranks: Record<string, number> = {};
   /** Skills whose spell shard has been given (so it's given only once, even if it's sold or dropped later). */
   taught: string[] = [];
+  /** Learned spells and Additions, the readied ones, and class. */
+  abilities: AbilityData = {};
 
   constructor(private cfg: XpRules & Pick<CombatConfig, 'pointsPerLevel'> & Partial<Pick<CombatConfig, 'startPoints' | 'statPointsPerLevel'>>) {
     this.points = cfg.startPoints ?? 0;
@@ -179,7 +184,7 @@ export class Progression {
 
   toJSON(): ProgressData & { level: number; xp: number; points: number } {
     return { level: this.level, xp: this.xp, points: this.points, ranks: { ...this.ranks }, ...(this.taught.length ? { taught: [...this.taught] } : {}),
-      stats: { ...this.stats }, statPoints: this.statPoints };
+      stats: { ...this.stats }, statPoints: this.statPoints, ...(Object.keys(abilityJSON(this.abilities)).length ? { abilities: abilityJSON(this.abilities) } : {}) };
   }
   /**
    * Restore from a save, or start fresh (no argument) with `base` stats (the hero's, or what character creation
@@ -187,6 +192,7 @@ export class Progression {
    */
   load(d?: ProgressData, base: Attrs = baseAttrs()): void {
     this.taught = [...(d?.taught ?? [])];
+    this.abilities = abilityJSON(d?.abilities ?? {});
     this.level = Math.max(1, Math.min(this.cfg.maxLevel ?? MAX_LEVEL_LIMIT, d?.level ?? 1));
     this.xp = this.maxed ? 0 : Math.max(0, d?.xp ?? 0);
     this.points = Math.max(0, d?.points ?? (d ? 0 : this.cfg.startPoints ?? 0));
@@ -208,4 +214,5 @@ export class Progression {
 export interface ProgressData {
   level?: number; xp?: number; points?: number; ranks?: Record<string, number>; taught?: string[];
   stats?: Partial<Attrs>; statPoints?: number;
+  abilities?: AbilityData;
 }

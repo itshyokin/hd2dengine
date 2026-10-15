@@ -43,9 +43,14 @@ import type { Enemy } from './combat/Enemy';
 import { CombatOverlay } from '../ui/CombatOverlay';
 import { BattleScreen, type FighterView } from '../ui/BattleScreen';
 import { type BattleEntry, type BattleHost, TurnBattle } from './battle/TurnBattle';
-import { type BattleSpell, type Battler, type Opening, enemyAgility, weighted } from './battle/rules';
+import { type BattleAddition, type BattleSpell, type Battler, type Opening, enemyAgility, weighted } from './battle/rules';
 import { type BattleAilment, BattleStatus, turnsFromSeconds } from './battle/status';
 import { HEAL_MP } from './party';
+import {
+  additionBonus, additionList, additionRank, additionToNext, changeClass, classList, findAddition, findClass, findSpell, heroTrees, learnAddition,
+  learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
+} from './abilities';
+import type { AbilityData, Command } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
@@ -74,6 +79,7 @@ import { BUFF_INFO, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
 import type { EnemyDef } from '../world/types';
 import { statusIconUrl } from '../art/statusIcons';
+import { elementIconUrl } from '../art/elementIcons';
 import { creation, heroBase, mainHero } from '../world/heroes';
 import { CreationScreen } from '../ui/CreationScreen';
 import { StatusScreen } from '../ui/StatusScreen';
@@ -419,9 +425,22 @@ export class Game {
       learn: (n) => {
         const m = skMember();
         if (!m) { this.learnSkill(n); return; }
-        m.data.skillPoints = Math.max(0, (m.data.skillPoints ?? 0) - this.memberSkills(m.data).take(n));
+        const sk = this.memberSkills(m.data);
+        m.data.skillPoints = Math.max(0, (m.data.skillPoints ?? 0) - sk.take(n));
+        const got = teachFromSkills(this.db, (m.data.abilities ??= {}), sk.ranks, sk.data.nodes);
         this.audio.play('skill');
-        this.menu.notice(`${m.def.name} learned ${n.name}`);
+        this.menu.notice(`${m.def.name} learned ${n.name}${got.length ? `: ${got.join(', ')}` : ''}`);
+        for (const g of got) this.log.add(`${m.def.name} learned ${g}`, 'level');
+      },
+      trees: () => { const m = skMember(); return heroTrees(this.db, m ? m.data.abilities ?? {} : this.progress.abilities); },
+      teaches: (n) => {
+        const sp = findSpell(this.db, n.teachesSpell), ad = findAddition(this.db, n.teachesAddition), out: string[] = [];
+        if (sp) {
+          const from = Math.max(1, n.spellRankFrom ?? 1), to = Math.min(spellMaxRank(sp), from + Math.max(1, n.ranks ?? 1) - 1);
+          out.push(`Teaches the spell ${rankName(sp.name, from)}${to > from ? ` (up to ${rankName(sp.name, to)} with more ranks)` : ''}`);
+        }
+        if (ad) out.push(`Teaches the Addition ${ad.name} (${ad.strikes.length} strike${ad.strikes.length === 1 ? '' : 's'})`);
+        return out.length ? out.join('. ') : null;
       },
       item: (id) => { const d = this.items.get(id); return d ? { name: d.name, color: itemColor(d) } : undefined; },
     });
@@ -642,6 +661,15 @@ export class Game {
         this.weather.set(w.kind, w.amount, this.camTarget);
       },
       quest: (c) => { this.questQuiet = !!c.silent; try { this.quests.run(c.quest, c.op, c.objective, c.add); } finally { this.questQuiet = false; } },
+      battle: (c) => {
+        const defs = new Map((this.db.enemies ?? []).map((x) => [x.id, x]));
+        const list = c.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).map((def) => ({ def, hp: def.hp, enemy: null }));
+        if (!list.length) return;
+        this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true });
+      },
+      busy: () => this.battle.active,
+      learn: (c) => this.eventLearn(c),
+      heroClass: (c) => this.eventClass(c),
       skillPoints: (n) => { this.progress.points = Math.max(0, this.progress.points + n); if (n > 0) { this.menu.notice(`+${n} skill point${n === 1 ? '' : 's'}`); this.audio.play('skill'); } },
     };
     this.interpreter = new Interpreter(ctx);
@@ -907,6 +935,7 @@ export class Game {
       },
       log: (t, k) => this.log.add(t, k),
       encounter: (e, how) => this.encounter(e, how),
+      learnedSpell: () => this.readiedSpell(),
     };
   }
 
@@ -1459,7 +1488,9 @@ export class Game {
     if (i.consume('cancel') && !this.motion.airborne && !this.motion.climbing) { this.openPauseMenu(); return; }
     // B / F / 3: cast the readied shard — a field spell (Light, Water Walk) switches on or off; the rest fire a bolt.
     if (i.consume('ring') && !this.motion.climbing) {
-      if (this.rings.power) this.useRing();
+      // A learned spell readied in Menu → Abilities comes first; otherwise the shard in the magic slot.
+      if (this.readiedSpell()) this.combat.castShard();
+      else if (this.rings.power) this.useRing();
       else if (this.inventory.equip.magic) this.combat.castShard();
       else this.menu.notice('No spell readied: equip a shard in Menu → Bag → Shards');
     }
@@ -2097,9 +2128,10 @@ export class Game {
   private refreshRing(): void {
     const id = this.inventory.equip.magic, d = id ? this.items.get(id) : undefined;
     this.rings.wear(d?.spell?.power ? d : null, this.settings.lightShadows);
-    // The HUD shows whichever shard is readied (bolt or field spell): the spell button casts it.
-    this.hud.setRing(d ? { name: d.name, icon: this.itemIcon(d.id) } : null);
-    this.touch.setRing(!!d);
+    // The HUD shows whichever spell is readied (a learned spell, or the shard's bolt or field spell): the spell button casts it.
+    const learned = this.readiedSpell();
+    this.hud.setRing(learned ? { name: learned.name, icon: elementIconUrl(learned.element ?? 'neutral') } : d ? { name: d.name, icon: this.itemIcon(d.id) } : null);
+    this.touch.setRing(!!(learned || d));
   }
 
   /** Mana Thrift (Magic tree): spells cost this much of their magic. */
@@ -2840,6 +2872,79 @@ export class Game {
     this.applySkillStats();
     // Saves from before spell shards: skills already learned give their shard now.
     this.teachShards(true);
+    this.syncAbilities();
+  }
+
+  /**
+   * Starting spells, Additions and class from Database → Heroes, and what skills already taken teach (for new games,
+   * and saves from before learned spells). Never takes anything away.
+   */
+  private syncAbilities(): void {
+    if (!this.progress) return;
+    mergeStarting(this.db, this.progress.abilities, mainHero(this.db));
+    teachFromSkills(this.db, this.progress.abilities, this.progress.ranks, this.skills.data.nodes);
+    for (const m of this.members()) {
+      const a = (m.data.abilities ??= {});
+      mergeStarting(this.db, a, m.def);
+      const sk = this.memberSkills(m.data);
+      teachFromSkills(this.db, a, sk.ranks, sk.data.nodes);
+    }
+  }
+
+  /** Heroes an event names: '' the hero you play, '@party' everyone in the party, else a hero id (if in the party). */
+  private eventHeroes(who: string): { name: string; a: AbilityData }[] {
+    const out: { name: string; a: AbilityData }[] = [];
+    if (!who || who === '@party') out.push({ name: mainHero(this.db).name, a: this.progress.abilities });
+    for (const m of this.members()) if (who === '@party' || m.def.id === who) out.push({ name: m.def.name, a: (m.data.abilities ??= {}) });
+    if (who && who !== '@party' && mainHero(this.db).id === who) out.push({ name: mainHero(this.db).name, a: this.progress.abilities });
+    return out;
+  }
+
+  /** Event command: teach a spell (at a rank) or an Addition. The line to show, or null if nothing was new. */
+  private eventLearn(c: Extract<Command, { cmd: 'learn' }>): string | null {
+    const sp = findSpell(this.db, c.spell), ad = findAddition(this.db, c.addition), lines: string[] = [];
+    for (const h of this.eventHeroes(c.who)) {
+      if (sp && learnSpell(h.a, sp, c.rank ?? 1)) lines.push(`${h.name} learned ${rankName(sp.name, h.a.spells![sp.id])}!`);
+      if (ad && learnAddition(h.a, ad)) lines.push(`${h.name} learned the Addition ${ad.name}!`);
+    }
+    for (const l of lines) this.log.add(l, 'level');
+    if (lines.length) this.audio.play('skill');
+    return lines.length ? lines.join('\n') : null;
+  }
+
+  /** Event command: change a hero's class (its skill trees open; nothing learned is lost), or unlock it for later. */
+  private eventClass(c: Extract<Command, { cmd: 'heroClass' }>): string | null {
+    const cl = findClass(this.db, c.cls);
+    if (!cl) return null;
+    const lines: string[] = [];
+    for (const h of this.eventHeroes(c.who)) {
+      if (c.op === 'change') { if (h.a.cls !== cl.id) { changeClass(h.a, cl.id); lines.push(`${h.name} is now a ${cl.name}!`); } }
+      else if (unlockClass(h.a, cl.id)) lines.push(`${h.name} can now become a ${cl.name}.`);
+    }
+    for (const l of lines) this.log.add(l, 'level');
+    if (lines.length) this.audio.play('skill');
+    return lines.length ? lines.join('\n') : null;
+  }
+
+  /** A hero's learned abilities: 0 the hero, k the k-th party member. */
+  private abilitiesOf(who: number): AbilityData | null {
+    if (!who) return this.progress.abilities;
+    const m = this.members()[who - 1];
+    return m ? (m.data.abilities ??= {}) : null;
+  }
+
+  /**
+   * The learned spell readied for the magic button (action mode), as the item a spell shard would be, so the field
+   * combat casts it the same way. Undefined: none readied (an equipped shard is used, if any).
+   */
+  private readiedSpell(a: AbilityData = this.progress.abilities): (ItemDef & { spell: NonNullable<ItemDef['spell']> }) | undefined {
+    const s = findSpell(this.db, a.fieldSpell), known = s ? a.spells?.[s.id] ?? 0 : 0;
+    if (!s || !known || s.kind !== 'bolt') return undefined;
+    const rank = Math.max(1, Math.min(known, a.fieldRank ?? known)), at = spellAtRank(s, rank);
+    return {
+      id: `spell:${s.id}`, name: rankName(s.name, rank), kind: 'equipment', icon: 'builtin:fire', slot: 'magic', element: s.element, inflicts: s.inflicts,
+      spell: { damage: at.power, mp: at.mp, color: s.color ?? '#ffb04a', speed: s.speed, range: s.range },
+    } as ItemDef & { spell: NonNullable<ItemDef['spell']> };
   }
 
   /**
@@ -2903,8 +3008,11 @@ export class Game {
     this.progress.points -= this.skills.take(node);
     this.applySkillStats();
     const shards = this.teachShards();
+    const got = teachFromSkills(this.db, this.progress.abilities, this.skills.ranks, this.skills.data.nodes);
+    for (const g of got) this.log.add(`Learned ${g}`, 'level');
     this.audio.play('skill');
-    this.menu.notice(`Learned ${node.name}${this.skills.maxRank(node) > 1 ? ` (rank ${this.skills.rank(node.id)})` : ''}${shards.length ? `: received ${shards.join(', ')}` : ''}`);
+    const extra = [...shards.map((x) => `received ${x}`), ...got];
+    this.menu.notice(`Learned ${node.name}${this.skills.maxRank(node) > 1 ? ` (rank ${this.skills.rank(node.id)})` : ''}${extra.length ? `: ${extra.join(', ')}` : ''}`);
   }
 
   /** Music and background sound for where the hero is: the map's, an event's choice, night ambience, battle music. */
@@ -2915,10 +3023,10 @@ export class Game {
     const p = this.player.position;
     const turnBased = this.combatCfg.mode === 'turnBased';
     // Turn-based: the battle music plays during battles (the built-in theme when the map has none), not while hunted.
-    const hunted = turnBased ? this.battle.active : this.combat.enemies.some((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 16);
+    const hunted = turnBased || this.battle.active ? this.battle.active : this.combat.enemies.some((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 16);
     this.calmFor = hunted ? 0 : this.calmFor + dt;
-    const fightMusic = d.battleMusic ?? (turnBased ? 'builtin:battle' : undefined);
-    const battle = fightMusic && (turnBased ? this.battle.active : this.calmFor < 4) ? fightMusic : undefined;
+    const fightMusic = (this.battle.active ? this.battleRules.music : undefined) || d.battleMusic || (turnBased || this.battle.active ? 'builtin:battle' : undefined);
+    const battle = fightMusic && (turnBased || this.battle.active ? this.battle.active : this.calmFor < 4) ? fightMusic : undefined;
     // Build the battle music while things are calm, so it doesn't stall the moment a fight starts.
     if (fightMusic && this.calmFor > 1) a.prepare(fightMusic);
     a.music(battle ?? this.musicOverride ?? d.music ?? '', battle ? 0.6 : fade);
@@ -2939,6 +3047,7 @@ export class Game {
       journal: () => this.openJournal(0),
       skills: () => { this.skillHero = 0; this.skillScreen.show(() => {}); },
       status: () => this.partyScreen.show(() => {}),
+      abilities: () => this.openAbilities(),
       log: () => this.logScreen.show(pauseLabel(m, 'log'), this.log.history, () => {}),
       quests: () => this.questScreen.show(pauseLabel(m, 'quests'), this.quests, { item: (id) => this.items.get(id)?.name ?? id }, () => {}),
       settings: () => this.openSettings(),
@@ -2949,6 +3058,59 @@ export class Game {
       label: pauseLabel(m, o), disabled: !works, detail: works ? undefined : 'Coming soon', pick: act[o],
     }));
     this.menu.push('Menu', items);
+  }
+
+  /** Menu → Abilities: each hero's spells, Additions and class (and what's readied). */
+  private openAbilities(): void {
+    const ms = this.members();
+    if (!ms.length) { this.openHeroAbilities(0); return; }
+    this.menu.push(pauseLabel(this.db.menus, 'abilities'), [
+      { label: mainHero(this.db).name, detail: this.abilitySummary(this.progress.abilities), pick: () => this.openHeroAbilities(0) },
+      ...ms.map((m, k) => ({ label: m.def.name, detail: this.abilitySummary(m.data.abilities ?? {}), pick: () => this.openHeroAbilities(k + 1) })),
+    ]);
+  }
+
+  private abilitySummary(a: AbilityData): string {
+    const ns = Object.keys(a.spells ?? {}).length, na = Object.keys(a.additions ?? {}).length, cl = findClass(this.db, a.cls);
+    return [cl?.name, `${ns} spell${ns === 1 ? '' : 's'}`, `${na} Addition${na === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+  }
+
+  private openHeroAbilities(who: number): void {
+    const a = this.abilitiesOf(who);
+    if (!a) return;
+    const name = who ? this.members()[who - 1].def.name : mainHero(this.db).name;
+    const items: MenuItem[] = [];
+    // Class: change to any class they've held or unlocked (nothing learned is lost).
+    const classes = classList(this.db).filter((c) => c.id === a.cls || (a.classes ?? []).includes(c.id));
+    if (classes.length) {
+      const cur = findClass(this.db, a.cls);
+      items.push({ label: 'Class', detail: cur ? `${cur.description ?? ''}${cur.description ? ' · ' : ''}Skill trees: ${cur.trees.map((t) => skillsData(this.db.skills).trees.find((x) => x.id === t)?.name ?? t).join(', ')}` : 'None yet',
+        choice: { value: a.cls ?? '', options: [...(a.cls ? [] : [['', 'None'] as [string, string]]), ...classes.map((c) => [c.id, c.name] as [string, string])], set: (v) => { if (v && v !== a.cls) { changeClass(a, v); this.audio.play('skill'); this.menu.back(); this.openHeroAbilities(who); } } } });
+    }
+    const spells = spellList(this.db).filter((sp) => (a.spells?.[sp.id] ?? 0) > 0);
+    const adds = additionList(this.db).filter((d) => a.additions && d.id in a.additions);
+    // Action mode: the learned bolt the magic button throws (instead of a spell shard).
+    if (this.combatCfg.mode === 'action') {
+      const opts: [string, string][] = [['', 'Spell shard in the magic slot'], ...spells.filter((sp) => sp.kind === 'bolt').flatMap((sp) =>
+        Array.from({ length: Math.min(a.spells![sp.id], spellMaxRank(sp)) }, (_, i) => [`${sp.id}|${i + 1}`, rankName(sp.name, i + 1)] as [string, string]))];
+      items.push({ label: 'Spell on the magic button', detail: 'Cast on the field with the spell button. A higher rank hits harder and costs more.',
+        choice: { value: a.fieldSpell ? `${a.fieldSpell}|${Math.min(a.fieldRank ?? 99, a.spells?.[a.fieldSpell] ?? 1)}` : '', options: opts,
+          set: (v) => { if (!v) { delete a.fieldSpell; delete a.fieldRank; } else { const [id, r] = v.split('|'); a.fieldSpell = id; a.fieldRank = Number(r); } if (!who) this.refreshRing(); } } });
+    } else if (this.combatCfg.turnBased.additions === 'set' && adds.length) {
+      items.push({ label: 'Attack uses', detail: 'The Addition performed with Attack in battle.',
+        choice: { value: a.addition ?? '', options: [['', 'A plain attack'], ...adds.map((d) => [d.id, d.name] as [string, string])], set: (v) => { if (v) a.addition = v; else delete a.addition; } } });
+    }
+    for (const sp of spells) {
+      const r = Math.min(a.spells![sp.id], spellMaxRank(sp)), at = spellAtRank(sp, r);
+      items.push({ label: `${rankName(sp.name, r)}`, color: sp.color, detail: `${sp.kind === 'heal' ? 'Heal' : 'Spell'} · ${at.mp} MP${at.charge ? ` · charges ${at.charge} turn${at.charge === 1 ? '' : 's'}` : ''}${sp.targets === 'all' ? ' · all targets' : ''}${sp.description ? ` · ${sp.description}` : ''}` });
+    }
+    for (const d of adds) {
+      const uses = a.additions![d.id] ?? 0, rank = additionRank(d, uses), next = additionToNext(d, uses);
+      items.push({ label: `${d.name} · Rank ${rank}`, color: '#ffd38a',
+        detail: `Addition · ${d.strikes.map((x) => x.button === 'any' ? '★' : x.button ?? 'A').join(' ')}${next === null ? ' · Mastered' : ` · ${next} more to rank ${rank + 1}`}${d.description ? ` · ${d.description}` : ''}` });
+    }
+    if (!spells.length && !adds.length) items.push({ label: 'Nothing learned yet', detail: 'Spells and Additions are learned from the skill tree, from events and from trainers.', disabled: true });
+    this.menu.push(`${pauseLabel(this.db.menus, 'abilities')}: ${name}`, items, { note: 'Left / right change a setting.' });
   }
 
   /** The Inventory: the bag's tabs (all, by kind), then Equipment and Status. LB / RB move between them. */
@@ -3100,6 +3262,35 @@ export class Game {
     return out;
   }
 
+  /** A hero's learned spells for a battle, every rank they know, with their Magic (`power` ×) and thrift (magic ×). */
+  private battleSpells(a: AbilityData, power: number, thrift: number): BattleSpell[] {
+    const out: BattleSpell[] = [];
+    for (const s of spellList(this.db)) {
+      const known = Math.min(a.spells?.[s.id] ?? 0, spellMaxRank(s));
+      if (known < 1) continue;
+      const ranks = Array.from({ length: known }, (_, i) => {
+        const at = spellAtRank(s, i + 1);
+        return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
+      });
+      out.push({ id: s.id, name: s.name, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks });
+    }
+    return out;
+  }
+
+  /** A hero's Additions for a battle: strikes, rank and what it adds. */
+  private battleAdditions(a: AbilityData): BattleAddition[] {
+    const out: BattleAddition[] = [];
+    for (const d of additionList(this.db)) {
+      if (!a.additions || !(d.id in a.additions)) continue;
+      const uses = a.additions[d.id] ?? 0, rank = additionRank(d, uses), bonus = additionBonus(d, rank);
+      out.push({
+        id: d.id, name: d.name, rank, maxRank: d.maxRank ?? 5, toNext: additionToNext(d, uses), damage: bonus.damage,
+        strikes: d.strikes.map((x) => ({ power: x.power, button: x.button ?? 'A', time: Math.max(0.25, x.time ?? 0.7), window: Math.max(0.06, (x.window ?? 0.24) * bonus.window) })),
+      });
+    }
+    return out;
+  }
+
   /** The hero's ailments carried into a battle from the map (seconds become turns; buffs stay on the map). */
   private heroBattleStatus(): BattleStatus {
     const resists = [...(mainHero(this.db).resists ?? []), ...this.wornGear().flatMap((g) => g?.protects ?? [])];
@@ -3124,9 +3315,8 @@ export class Game {
       const bowDef = gear.ranged ? this.items.get(gear.ranged) : undefined, ammo = this.inventory.arrow() ? this.items.get(this.inventory.arrow()!) : undefined;
       const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.str) * pct(sk, 'bowDamage') : 0;
       const useBow = !w && bow > melee;
-      const shard = gear.magic ? this.items.get(gear.magic) : undefined, spells: BattleSpell[] = [];
-      if (shard?.spell && !shard.spell.power && shard.spell.damage > 0 && !this.combat.heroStatus.silenced)
-        spells.push({ id: shard.id, name: shard.name, mp: Math.round((shard.spell.mp ?? cfg.fire.mp) * this.spellThrift), power: shard.spell.damage * powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), kind: 'bolt', element: shard.element ?? 'neutral', color: shard.spell.color });
+      const a = this.progress.abilities;
+      const spells = this.battleSpells(a, powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), this.spellThrift);
       const look = this.db.characters[this.db.player];
       this.portraitUrl ??= this.sprites.portrait('hero', look, 48).toDataURL();
       return {
@@ -3136,6 +3326,7 @@ export class Game {
           armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.dex, baseAgility: t.attrs.dex, crit: t.crit,
           defence: { ...hero, halve: this.wornGear().flatMap((g) => g?.wards ?? []) }, spells, ct: 0, guarding: false,
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
+          additions: this.battleAdditions(a), addition: a.addition,
         },
         view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0) },
       };
@@ -3143,10 +3334,11 @@ export class Game {
     const m = this.members()[who - 1];
     if (!m) return null;
     const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.wornGear(m.data.equip), (k) => this.memberSkills(m.data).get(k));
-    const style = fightingStyle(m.def, m.data, n), spells: BattleSpell[] = [];
-    const shard = m.data.equip.magic ? this.items.get(m.data.equip.magic) : undefined;
-    if (n.spell > 0) spells.push({ id: shard?.id ?? 'spell', name: shard?.name ?? 'Spell', mp: n.spellMp, power: n.spell, kind: 'bolt', element: n.spellElement, color: n.spellColor });
-    if (style === 'healer' || m.def.ai === 'healer') spells.unshift({ id: 'heal', name: 'Heal', mp: HEAL_MP, power: n.heal, kind: 'heal', element: 'neutral', color: '#9dffb0' });
+    const style = fightingStyle(m.def, m.data, n), msk = this.memberSkills(m.data), ab = (m.data.abilities ??= {});
+    const spells = this.battleSpells(ab, powerMultiplier(t.attrs.mag) * (1 + msk.get('spellDamage') / 100), 1 - Math.min(75, msk.get('spellCost')) / 100);
+    // Healers who know no healing spell keep their own Heal.
+    if ((style === 'healer' || m.def.ai === 'healer') && !spells.some((x) => x.kind === 'heal'))
+      spells.unshift({ id: 'heal', name: 'Heal', kind: 'heal', element: 'neutral', color: '#9dffb0', targets: 'one', ranks: [{ rank: 1, name: 'Heal', power: n.heal, mp: HEAL_MP, charge: 0 }] });
     const useBow = !m.data.equip.weapon && n.bow > n.melee;
     const look = this.db.characters[m.def.look ?? ''] ?? this.db.characters[this.db.player];
     const key = `p${who}`;
@@ -3159,14 +3351,19 @@ export class Game {
         spells, ct: 0, guarding: false,
         status: new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]),
         inflicts: useBow ? undefined : n.meleeInflicts,
+        additions: this.battleAdditions(ab), addition: ab.addition,
       },
       view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who) },
     };
   }
 
   /** Start a turn-based battle against these enemies (ones from the map carry their `enemy`, random ones don't). */
-  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening): void {
+  /** A scripted battle's rules (the Start battle event command): running away, losing, the result, its music. */
+  private battleRules: { canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean } = {};
+
+  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening, rules: TurnBattle['rules'] & { lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean } = {}): void {
     if (!list.length || this.battle.active) return;
+    this.battleRules = rules;
     this.combat.reset();
     this.endFishing();
     this.moveTarget = null;
@@ -3190,7 +3387,7 @@ export class Game {
       entries.push({ battler, view: { key: battler.key, side: 'enemy', name, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale }, ref: { def: d, enemy: x.enemy, battler } });
     });
     this.audio.play('crit');
-    this.battle.start(entries, this.combatCfg.turnBased, opening);
+    this.battle.start(entries, this.combatCfg.turnBased, opening, { canRun: rules.canRun });
   }
 
   private battleHost(): BattleHost {
@@ -3236,7 +3433,20 @@ export class Game {
       finished: (outcome, beaten) => {
         this.battleGrace = this.combatCfg.turnBased.grace;
         this.encounterWalked = 0;
-        if (outcome === 'defeat') { this.die(); return; }
+        const rules = this.battleRules;
+        this.battleRules = {};
+        if (rules.resultVar) { this.state.setVar(rules.resultVar, outcome === 'victory' ? 1 : outcome === 'fled' ? 2 : 0); this.refreshEvents(); }
+        if (outcome === 'defeat') {
+          // A story battle the party may lose: everyone back on their feet with a little health; the event goes on.
+          if (rules.lose === 'continue') {
+            this.stats.change('hp', 'set', 1);
+            for (const m of this.members()) { m.data.down = false; m.data.hp = Math.max(1, m.data.hp); }
+            return;
+          }
+          this.interpreter.stop();
+          this.die();
+          return;
+        }
         // Knocked out but the battle was won: back on their feet with a little health.
         if (this.stats.hp <= 0) this.stats.change('hp', 'set', 1);
         if (outcome === 'fled') {
@@ -3251,6 +3461,10 @@ export class Game {
         if (cmds.length && !this.interpreter.running) this.interpreter.start(cmds);
       },
       log: (t) => this.log.add(t, 'hit'),
+      mastered: (who, id) => {
+        const a = this.abilitiesOf(who), d = findAddition(this.db, id);
+        return a && d ? masterAddition(a, d) : null;
+      },
     };
   }
 
@@ -3302,8 +3516,10 @@ export class Game {
   private newMember(def: HeroDef): MemberData {
     const per = this.combatCfg.statPointsPerLevel;
     const level = Math.max(1, Math.min(this.combatCfg.maxLevel ?? 99, def.joinLevel || this.progress.level));
+    const abilities: AbilityData = {};
+    mergeStarting(this.db, abilities, def);
     return { id: def.id, stats: heroBase(def), statPoints: (level - 1) * per, level, xp: 0, equip: { ...def.gear }, skills: {}, skillPoints: (level - 1) * this.combatCfg.pointsPerLevel,
-      hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, sp: this.stats.cfg.max.sp };
+      hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, sp: this.stats.cfg.max.sp, abilities };
   }
 
   /** New game: the heroes marked "in the party at the start". */
@@ -3439,7 +3655,8 @@ export class Game {
     const ct = this.combatCfg.classes[cls];
     const classPct = cls === 'light' ? pct('lightDamage') : cls === 'medium' ? pct('mediumDamage') : cls === 'heavy' ? pct('heavyDamage') : 1;
     const melee = (cls === 'unarmed' ? this.combatCfg.unarmedDamage : w!.weapon!.damage) * ct.damage * powerMultiplier(t.attrs.str) * pct('meleeDamage') * classPct;
-    const bowDef = g('ranged'), shard = g('magic');
+    // A learned spell readied for the field takes the place of a spell shard.
+    const bowDef = g('ranged'), shard = this.readiedSpell(m.abilities ?? {}) ?? g('magic');
     const base = playerConfig(this.db.stats).max;
     return {
       max: { hp: base.hp + sk.get('maxHp'), mp: base.mp + sk.get('maxMp'), sp: base.sp + sk.get('maxSp') },

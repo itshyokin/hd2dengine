@@ -9,7 +9,8 @@
  */
 import * as THREE from 'three';
 import type { TileMap } from '../world/TileMap';
-import type { AllyStyle, Dir, Element, EquipSlot, HeroDef, Inflict } from '../world/types';
+import type { AbilityData, AllyStyle, Dir, Element, EquipSlot, HeroDef, Inflict } from '../world/types';
+import { abilityJSON } from './abilities';
 import type { Attrs } from './attributes';
 import { ATTRS, ATTR_MAX, baseAttrs } from './attributes';
 import { CharacterSprite } from './CharacterSprite';
@@ -40,6 +41,8 @@ export interface MemberData {
   style?: AllyStyle;
   hp: number; mp: number; sp: number;
   down?: boolean;
+  /** Learned spells and Additions, the readied ones, and class. */
+  abilities?: AbilityData;
 }
 
 export class PartyState {
@@ -49,13 +52,14 @@ export class PartyState {
   get(id: string): MemberData | undefined { return this.members.find((m) => m.id === id); }
   get full(): boolean { return this.members.length >= MAX_PARTY; }
 
-  toJSON(): MemberData[] { return this.members.map((m) => ({ ...m, stats: { ...m.stats }, equip: { ...m.equip }, ...(m.skills ? { skills: { ...m.skills } } : {}) })); }
+  toJSON(): MemberData[] { return this.members.map((m) => ({ ...m, stats: { ...m.stats }, equip: { ...m.equip }, ...(m.skills ? { skills: { ...m.skills } } : {}), ...(m.abilities ? { abilities: abilityJSON(m.abilities) } : {}) })); }
   load(d: MemberData[] | undefined): void {
     this.members = (d ?? []).filter((m) => m && typeof m.id === 'string').slice(0, MAX_PARTY).map((m) => ({
       id: m.id, stats: { ...baseAttrs(), ...m.stats }, statPoints: Math.max(0, m.statPoints || 0), level: Math.max(1, Math.round(Number(m.level) || 1)), xp: Math.max(0, Number(m.xp) || 0),
       ...(m.pendingXp ? { pendingXp: m.pendingXp } : {}), equip: { ...m.equip },
       ...(m.skills ? { skills: { ...m.skills } } : {}), ...(m.style ? { style: m.style } : {}), ...(m.skillPoints !== undefined ? { skillPoints: Math.max(0, Math.round(Number(m.skillPoints) || 0)) } : {}),
       hp: Number(m.hp) || 0, mp: Number(m.mp) || 0, sp: Number(m.sp) || 0, ...(m.down ? { down: true } : {}),
+      ...(m.abilities ? { abilities: abilityJSON(m.abilities) } : {}),
     }));
   }
 }

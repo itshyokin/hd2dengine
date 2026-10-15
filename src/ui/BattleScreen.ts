@@ -5,6 +5,27 @@
  * It only shows things and asks questions: the battle itself is run by TurnBattle.
  */
 import type { Input } from '../game/Input';
+import type { FaceButton } from '../world/types';
+
+/** One timed strike of an Addition: the button, the seconds the ring takes to close, and the timing window. */
+export interface QteStrike { button: FaceButton | 'any'; time: number; window: number }
+export type QteResult = 'perfect' | 'good' | 'miss';
+
+interface Qte {
+  target: string;
+  strikes: QteStrike[];
+  auto: boolean;
+  i: number;
+  t: number;
+  onStrike: (i: number, r: QteResult) => void;
+  done: (landed: number) => void;
+  ring: HTMLElement;
+  pressed: (FaceButton | null)[];
+}
+
+/** Keys for the face buttons: the letters themselves, and Space / Enter for A. */
+const QTE_KEYS: Record<string, FaceButton> = { KeyA: 'A', KeyB: 'B', KeyX: 'X', KeyY: 'Y', Space: 'A', Enter: 'A', NumpadEnter: 'A' };
+const PAD_FACE: FaceButton[] = ['A', 'B', 'X', 'Y'];
 import { uiSound } from '../audio/sfx';
 
 export interface FighterView {
@@ -55,6 +76,16 @@ export class BattleScreen {
   private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string }>();
   private mode: Mode = { kind: 'idle' };
   private msgTimer = 0;
+  private qte: Qte | null = null;
+  private readonly qteEl = document.createElement('div');
+  private readonly padsEl = document.createElement('div');
+  private padWas: boolean[] = [];
+  private readonly onQteKey = (e: KeyboardEvent): void => {
+    const b = QTE_KEYS[e.code];
+    if (!this.qte || !b || e.repeat) return;
+    e.preventDefault(); e.stopPropagation();
+    this.qtePress(b);
+  };
 
   constructor(parent: HTMLElement, private readonly input: Input) {
     this.root.className = 'battle';
@@ -88,6 +119,21 @@ export class BattleScreen {
     this.root.addEventListener('pointerdown', (e) => {
       if (this.mode.kind === 'wait' && !(e.target as HTMLElement).closest('.battle-cmd')) { e.preventDefault(); this.finishWait(); }
     });
+    // Additions: the ring that closes on the target, the button to press, and touch buttons.
+    this.qteEl.className = 'qte';
+    this.qteEl.hidden = true;
+    this.padsEl.className = 'qte-pads';
+    this.padsEl.hidden = true;
+    for (const b of ['Y', 'X', 'B', 'A'] as FaceButton[]) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `qte-pad pad-${b}`;
+      btn.textContent = b;
+      btn.setAttribute('aria-label', `Button ${b}`);
+      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.qtePress(b); });
+      this.padsEl.append(btn);
+    }
+    this.root.append(this.qteEl, this.padsEl);
     parent.append(this.root);
   }
 
@@ -115,6 +161,7 @@ export class BattleScreen {
   }
 
   close(): void {
+    this.endQte();
     this.mode = { kind: 'idle' };
     this.root.hidden = true;
     this.fighters.clear();
@@ -350,6 +397,7 @@ export class BattleScreen {
   /** Keys and buttons, and the message timer. */
   update(dt: number): void {
     if (this.msgTimer !== Infinity && this.msgTimer > 0 && (this.msgTimer -= dt) <= 0) this.msgEl.classList.remove('on');
+    if (this.qte) { this.updateQte(dt); return; }
     const i = this.input, m = this.mode;
     if (m.kind === 'list') {
       const step = (d: number) => {
@@ -380,4 +428,113 @@ export class BattleScreen {
 
   /** The battle field's size, for laying out sprites (unused for now, kept for later camera work). */
   get bounds(): DOMRect { return this.field.getBoundingClientRect(); }
+
+  /* ------------------------------------------------------------------ Additions: timed button presses */
+
+  /** Fighters with a spell charging show it ("Fire II · 1"), or nothing. */
+  setCharging(key: string, text: string | null, color?: string): void {
+    const f = this.fighters.get(key);
+    if (!f) return;
+    f.el.classList.toggle('charging', !!text);
+    if (color) f.el.style.setProperty('--fx', color);
+    let tag = f.el.querySelector('.bf-charge') as HTMLElement | null;
+    if (!text) { tag?.remove(); return; }
+    if (!tag) { tag = document.createElement('span'); tag.className = 'bf-charge'; f.el.append(tag); }
+    tag.textContent = text;
+  }
+
+  /**
+   * Run an Addition's strikes on a target: for each, a ring closes on it and the shown button must be pressed as
+   * it meets the marker. `onStrike` hears each result as it happens; a miss ends the string. `auto`: every strike
+   * lands perfectly by itself (the accessibility setting).
+   */
+  startQte(target: string, strikes: QteStrike[], auto: boolean, onStrike: (i: number, r: QteResult) => void, done: (landed: number) => void): void {
+    const f = this.fighters.get(target);
+    if (!f || !strikes.length) { done(0); return; }
+    this.idle();
+    this.qteEl.replaceChildren();
+    const ring = document.createElement('div');
+    ring.className = 'qte-ring';
+    const mark = document.createElement('div');
+    mark.className = 'qte-mark';
+    const glyph = document.createElement('div');
+    glyph.className = 'qte-btn';
+    this.qteEl.append(mark, ring, glyph);
+    // Over the target's picture.
+    const r = f.img.getBoundingClientRect(), base = this.root.getBoundingClientRect();
+    this.qteEl.style.left = `${r.left - base.left + r.width / 2}px`;
+    this.qteEl.style.top = `${r.top - base.top + r.height / 2}px`;
+    this.qteEl.hidden = false;
+    this.padsEl.hidden = auto;
+    this.qte = { target, strikes, auto, i: 0, t: 0, onStrike, done, ring, pressed: [] };
+    this.showStrike();
+    window.addEventListener('keydown', this.onQteKey, true);
+    this.padWas = [];
+  }
+
+  private showStrike(): void {
+    const q = this.qte!, s = q.strikes[q.i];
+    const glyph = this.qteEl.querySelector('.qte-btn') as HTMLElement;
+    glyph.textContent = s.button === 'any' ? '★' : s.button;
+    glyph.className = `qte-btn pad-${s.button === 'any' ? 'any' : s.button}`;
+    glyph.title = s.button === 'any' ? 'Any button' : `Press ${s.button}`;
+    q.t = 0;
+  }
+
+  private qtePress(b: FaceButton): void {
+    const q = this.qte;
+    if (!q || q.auto) return;
+    const s = q.strikes[q.i], err = Math.abs(q.t - s.time);
+    const right = s.button === 'any' || s.button === b;
+    // Too early (before the window), or the wrong button: the string ends here.
+    const r: QteResult = !right || err > s.window / 2 ? 'miss' : err <= s.window * 0.18 ? 'perfect' : 'good';
+    this.judge(r);
+  }
+
+  private judge(r: QteResult): void {
+    const q = this.qte!;
+    const i = q.i;
+    this.qteEl.classList.remove('hit', 'miss', 'perfect');
+    void this.qteEl.offsetWidth;
+    this.qteEl.classList.add(r === 'miss' ? 'miss' : r === 'perfect' ? 'perfect' : 'hit');
+    q.onStrike(i, r);
+    if (r === 'miss' || i + 1 >= q.strikes.length) {
+      const landed = r === 'miss' ? i : i + 1;
+      const done = q.done;
+      setTimeout(() => { this.endQte(); done(landed); }, r === 'miss' ? 450 : 350);
+      q.i = q.strikes.length; // nothing more to judge
+      return;
+    }
+    q.i++;
+    this.showStrike();
+  }
+
+  private updateQte(dt: number): void {
+    const q = this.qte!;
+    if (q.i >= q.strikes.length) return;
+    const s = q.strikes[q.i];
+    q.t += dt;
+    // The ring shrinks from three times the marker's size onto it.
+    const k = Math.max(0, 1 - q.t / s.time);
+    q.ring.style.transform = `translate(-50%, -50%) scale(${1 + k * 2})`;
+    q.ring.style.opacity = String(Math.min(1, 0.35 + q.t / s.time));
+    if (q.auto) { if (q.t >= s.time) this.judge('perfect'); return; }
+    // Controllers: the face buttons (standard mapping: 0 A, 1 B, 2 X, 3 Y).
+    const pad = navigator.getGamepads?.().find((g) => g && g.connected);
+    if (pad) for (let k2 = 0; k2 < 4; k2++) {
+      const down = !!pad.buttons[k2]?.pressed;
+      if (down && !this.padWas[k2]) this.qtePress(PAD_FACE[k2]);
+      this.padWas[k2] = down;
+      if (!this.qte || this.qte.i >= this.qte.strikes.length) return;
+    }
+    // Too late.
+    if (q.t > s.time + s.window / 2) this.judge('miss');
+  }
+
+  private endQte(): void {
+    window.removeEventListener('keydown', this.onQteKey, true);
+    this.qte = null;
+    this.qteEl.hidden = true;
+    this.padsEl.hidden = true;
+  }
 }

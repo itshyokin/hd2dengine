@@ -19,12 +19,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       Default: white with black text. Text colour, bold, italic options.
 
 ## Abilities and combat
-- [ ] Turn-based battles, next steps: learned spells (Database → Spells; taught by skill tree nodes, events and
-      trainers; ranks add charge turns; Counterspell breaks a charge; a learned spell as the action mode's field
-      spell; shards stay for enchanting), Additions (timed strikes with button prompts, ranks gained by use, set per
-      character or chosen in battle), classes (a skill tree per class, class change keeps what's learned), a
-      "Start battle" event command, buffs in battle, swapping party members mid-battle (FFX), a battle backdrop
-      image per map.
+- [ ] Turn-based battles, next steps: buffs in battle, swapping party members mid-battle (FFX), a battle backdrop
+      image per map, enemy spells that charge (and the party's Counterspell), Limit / Overdrive-style specials.
+- [ ] Classes: a class change screen at a trainer (an event command opening Abilities), class stat bonuses.
 
 ## Gathering
 - [ ] Fishing, next steps: cooking fish at a campfire; a reeling mini-game for big fish.
@@ -57,3 +54,4 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Turn-based battles as an option (Database → Combat → Battle system): FFX-style turn order or rounds, map enemies and random encounters start battles, Attack / Magic / Items / Guard / Run (update 38).
 - [x] Turn-based battles: ailments run on turns, Legend of Dragoon Guard (heals, wards off ailments), enemy actions (attack / spell / heal / guard, whole-party hits, health conditions, Counterspell flag) (update 39).
 - [x] Editor online (GitHub Pages) for the Android tablet: changes kept in the browser, Project → Save changes as .zip / Open project .zip / Forget my changes (update 40).
+- [x] Learned spells with ranks and charge turns, Counterspell, Additions (timed strikes, button prompts, mastery), classes with their own skill trees, Menu → Abilities, Start battle / Teach / Change class event commands, Character Builder online (update 41).

@@ -9,17 +9,36 @@ import { CRIT_MULTIPLIER, finalDamage, throughFraction } from '../attributes';
 
 export type Side = 'party' | 'enemy';
 
-/** A spell a fighter can cast in battle. */
+/** One rank of a spell, as this fighter casts it: its name ("Fire II"), power (with their Magic), cost and charge turns. */
+export interface SpellRank { rank: number; name: string; power: number; mp: number; charge: number }
+
+/** A spell a fighter can cast in battle, at any rank they know. */
 export interface BattleSpell {
   id: string;
   name: string;
-  mp: number;
-  /** Damage before Magic Defence (bolts), or health given back (heals). */
-  power: number;
   kind: 'bolt' | 'heal';
   element: Element;
   color?: string;
+  targets: 'one' | 'all';
+  inflicts?: Inflict[];
+  /** Rank 1 up to the highest they know. */
+  ranks: SpellRank[];
 }
+
+/** An Addition a hero knows: its strikes (power × their attack), rank, and what the rank adds. */
+export interface BattleAddition {
+  id: string;
+  name: string;
+  strikes: { power: number; button: 'A' | 'B' | 'X' | 'Y' | 'any'; time: number; window: number }[];
+  rank: number;
+  maxRank: number;
+  /** Completions to the next rank (null at the top). */
+  toNext: number | null;
+  damage: number;
+}
+
+/** A spell being charged: what it is, at which rank, on whom, and the caster's turns until it goes off. */
+export interface Charging { spell: BattleSpell; rank: SpellRank; targets: Battler[]; left: number }
 
 /** Everyone in a battle, on either side. */
 export interface Battler {
@@ -56,6 +75,11 @@ export interface Battler {
   actions?: EnemyAction[];
   attackWeight?: number;
   counterspell?: boolean;
+  /** Heroes: their Additions and the one Attack uses (when set per hero). */
+  additions?: BattleAddition[];
+  addition?: string;
+  /** A spell they're charging. */
+  charging?: Charging | null;
 }
 
 /** Chill slows a fighter's turns; set their agility from what's on them. */
@@ -66,7 +90,8 @@ export const isUp = (b: Battler): boolean => b.hp > 0;
 /* ------------------------------------------------------------------ turn order */
 
 /** Rank: how heavy an action is. Light actions bring the next turn round sooner (FFX: Defend 2, Attack 3). */
-export const RANK = { attack: 3, magic: 3, item: 2, guard: 2, flee: 2 } as const;
+/** Casting is quicker than attacking; a spell that charges costs this each turn it charges too. */
+export const RANK = { attack: 3, magic: 2, item: 2, guard: 2, flee: 2 } as const;
 export type ActionKind = keyof typeof RANK;
 
 /** Ticks one rank of action costs at this agility (agility 10: 60; 30: 36; 50: 26). */

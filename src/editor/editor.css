@@ -566,3 +566,10 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .project-files { margin: 0; padding: 8px 12px; list-style: none; max-height: 180px; overflow: auto; background: rgba(255, 255, 255, 0.04); border-radius: 8px; display: grid; gap: 2px; }
 .project-files code { font-size: 12px; }
 .project-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Database → Spells, Additions, Heroes (starting abilities) */
+.db-table.add-strike { display: grid; grid-template-columns: 64px repeat(4, minmax(80px, 1fr)) 30px; gap: 8px; align-items: end; margin-bottom: 6px; }
+.db-table.add-strike .db-name { align-self: center; }
+.db-table.spell-ranks { display: grid; grid-template-columns: repeat(4, minmax(70px, 1fr)); gap: 4px 12px; margin: 6px 0; }
+.db-table.start-spells { display: grid; grid-template-columns: minmax(90px, 160px) minmax(120px, 200px); gap: 6px 12px; align-items: center; margin: 6px 0; }
+@media (max-width: 620px) { .db-table.add-strike { grid-template-columns: 1fr 1fr; } }
