@@ -1,0 +1,3 @@
+
+# Huge source textures (kept outside the repo; GitHub refuses files over 100 MB)
+images/materials/*_8K-*
