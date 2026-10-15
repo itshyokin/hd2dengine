@@ -1,0 +1,946 @@
+{
+  "props": [
+    {
+      "id": "boulder_cracked",
+      "name": "Cracked boulder (breakable)",
+      "w": 1.375,
+      "h": 1.125,
+      "block": [
+        -0.1875
+      ],
+      "filter": "point",
+      "image": "assets/props/boulder_cracked.png"
+    },
+    {
+      "id": "wall_brazier",
+      "name": "Wall brazier",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "wall": true,
+      "flame": {
+        "x": 0.03,
+        "y": 1.12,
+        "w": 0.8,
+        "h": 1,
+        "embers": true
+      },
+      "burns": 8,
+      "light": {
+        "x": 0,
+        "y": 0.7,
+        "color": "#ff9a45",
+        "intensity": 2.8,
+        "radius": 8.5,
+        "schedule": "nightBoost",
+        "flicker": "fire"
+      },
+      "image": "assets/props/wall_brazier.png"
+    },
+    {
+      "id": "chest",
+      "name": "Chest",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "image": "assets/props/chest.png"
+    },
+    {
+      "id": "chest_open",
+      "name": "Chest (open)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "image": "assets/props/chest_open.png"
+    },
+    {
+      "id": "cave_mouth",
+      "name": "Cave mouth (on wall)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "wall": true,
+      "image": "assets/props/cave_mouth.png"
+    },
+    {
+      "id": "wall_door",
+      "name": "Door (on wall)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "wall": true,
+      "image": "assets/props/wall_door.png"
+    },
+    {
+      "id": "lpcr_12_panel_door_b_21",
+      "name": "12 Panel Door B 21",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "credits": [
+        {
+          "item": "12-Panel Door, 15-Panel Door",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-animated-doors",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/props/lpcr_12_panel_door_b_21.png"
+    },
+    {
+      "id": "sparkle",
+      "name": "Item sparkle",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "image": "assets/props/sparkle.png"
+    },
+    {
+      "id": "square_hole",
+      "name": "Square opening (on wall)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "wall": true,
+      "image": "assets/props/square_hole.png"
+    },
+    {
+      "id": "wall_torch",
+      "name": "Wall torch",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "wall": true,
+      "flame": {
+        "x": 0.1,
+        "y": 1,
+        "w": 0.45,
+        "h": 0.65,
+        "embers": true
+      },
+      "burns": 1,
+      "startsOut": true,
+      "light": {
+        "x": 0.1,
+        "y": 1.2,
+        "color": "#ffb35c",
+        "intensity": 2.2,
+        "radius": 7,
+        "schedule": "nightBoost",
+        "flicker": "fire"
+      },
+      "image": "assets/props/wall_torch.png"
+    },
+    {
+      "id": "oak",
+      "name": "Oak tree",
+      "w": 2,
+      "h": 3,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "shape": "crossX",
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "sway": 1,
+      "image": "assets/props/oak.png"
+    },
+    {
+      "id": "pine",
+      "name": "Pine tree",
+      "w": 2,
+      "h": 3,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "shape": "crossX",
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "sway": 0.8,
+      "image": "assets/props/pine.png"
+    },
+    {
+      "id": "bush",
+      "name": "Bush",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "shape": "crossX",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 0.5,
+      "image": "assets/props/bush.png"
+    },
+    {
+      "id": "tuft",
+      "name": "Grass tuft",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "shape": "crossX",
+      "block": [],
+      "filter": "point",
+      "sway": 1.3,
+      "image": "assets/props/tuft.png"
+    },
+    {
+      "id": "sign",
+      "name": "Signpost",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "image": "assets/props/sign.png"
+    },
+    {
+      "id": "flowers",
+      "name": "Flowers",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "shape": "crossX",
+      "block": [],
+      "filter": "point",
+      "sway": 1.2,
+      "image": "assets/props/flowers.png"
+    },
+    {
+      "id": "torch",
+      "name": "Torch",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "flame": {
+        "x": 0,
+        "y": 1.2,
+        "w": 0.5,
+        "h": 0.75,
+        "embers": true
+      },
+      "burns": 1,
+      "light": {
+        "x": 0,
+        "y": 1.35,
+        "color": "#ffb35c",
+        "intensity": 2.2,
+        "radius": 7,
+        "schedule": "nightBoost",
+        "flicker": "fire"
+      },
+      "image": "assets/props/torch.png"
+    },
+    {
+      "id": "sapling",
+      "name": "Sapling (cuttable)",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 1.1,
+      "cuttable": true,
+      "stump": "stump",
+      "drops": [
+        {
+          "item": "firewood",
+          "count": 2
+        }
+      ],
+      "image": "assets/props/sapling.png"
+    },
+    {
+      "id": "stump",
+      "name": "Tree stump",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "shape": "crossX",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "castShadow": false,
+      "image": "assets/props/stump.png"
+    },
+    {
+      "id": "rock",
+      "name": "Rock",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "shape": "solid",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "image": "assets/props/rock.png"
+    },
+    {
+      "id": "ore_iron",
+      "name": "Iron vein (mineable)",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "mineable": true,
+      "hits": 4,
+      "regrows": true,
+      "stump": "rubble",
+      "drops": [
+        {
+          "item": "iron_ore",
+          "count": 2
+        },
+        {
+          "item": "stone",
+          "count": 1
+        },
+        {
+          "item": "iron_ore",
+          "count": 1,
+          "chance": 40
+        }
+      ],
+      "image": "assets/props/ore_iron.png"
+    },
+    {
+      "id": "anvil",
+      "name": "Anvil (forge)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "forge": true,
+      "image": "assets/props/anvil.png"
+    },
+    {
+      "id": "crate",
+      "name": "Crate (breakable)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "cuttable": true,
+      "stump": "logs",
+      "image": "assets/props/crate.png"
+    },
+    {
+      "id": "campfire",
+      "name": "Campfire",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "castShadow": false,
+      "respawn": true,
+      "flame": {
+        "x": 0,
+        "y": 0.5,
+        "w": 1,
+        "h": 1.5,
+        "embers": true
+      },
+      "light": {
+        "x": 0,
+        "y": 0.7,
+        "color": "#ff9a45",
+        "intensity": 3,
+        "radius": 9,
+        "schedule": "nightBoost",
+        "flicker": "fire",
+        "shadows": true
+      },
+      "image": "assets/props/campfire.png"
+    },
+    {
+      "id": "lpcr_ladder_1",
+      "name": "Ladder 1",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "collide": "flat",
+      "block": [],
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Ladder",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-modified-base-tiles",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "wall": true,
+      "image": "assets/props/lpcr_ladder_1.png"
+    },
+    {
+      "id": "wall_lantern",
+      "name": "Wall lantern",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "wall": true,
+      "flame": {
+        "x": 0.16,
+        "y": 0.72,
+        "w": 0.16,
+        "h": 0.28
+      },
+      "light": {
+        "x": 0.16,
+        "y": 0.9,
+        "color": "#ffcf7a",
+        "intensity": 1.8,
+        "radius": 6.5,
+        "schedule": "nightBoost",
+        "flicker": "candle"
+      },
+      "image": "assets/props/wall_lantern.png"
+    },
+    {
+      "id": "vines",
+      "name": "Vines (cuttable)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "castShadow": false,
+      "sway": 0.6,
+      "wall": true,
+      "cuttable": true,
+      "regrows": true,
+      "image": "assets/props/vines.png"
+    },
+    {
+      "id": "crystal",
+      "name": "Crystal switch",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "respawn": true,
+      "light": {
+        "x": 0,
+        "y": 1,
+        "color": "#88e1e1",
+        "intensity": 4,
+        "radius": 4,
+        "schedule": "nightBoost",
+        "flicker": "pulse"
+      },
+      "image": "assets/props/crystal.png"
+    }
+  ],
+  "tiles": [
+    {
+      "key": "a",
+      "id": "lpcr_wood_floor_a_2",
+      "name": "Wood Floor A 2",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Wood Floor A",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-modified-base-tiles",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_wood_floor_a_2.png"
+    },
+    {
+      "key": "b",
+      "id": "lpcr_adobe_brick_wall_2",
+      "name": "Adobe Brick Wall 2",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Adobe Brick Wall",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-adobe-building-set",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_adobe_brick_wall_2.png"
+    },
+    {
+      "key": "c",
+      "id": "lpcr_jagged_stone_walls_1",
+      "name": "Jagged Stone Walls 1",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Jagged Stone Walls",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-interior-castle-tiles",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_jagged_stone_walls_1.png"
+    },
+    {
+      "key": "d",
+      "id": "lpcr_brick_wall_b_6",
+      "name": "Brick Wall B 6",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Adobe Brick Wall",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-adobe-building-set",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_brick_wall_b_6.png"
+    },
+    {
+      "key": "e",
+      "id": "lpcr_floral_wallpaper_a_11",
+      "name": "Floral Wallpaper A 11",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Floral Wallpaper A",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-interior-castle-tiles",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_floral_wallpaper_a_11.png"
+    },
+    {
+      "key": "f",
+      "id": "lpcr_siding_plain_3",
+      "name": "Siding, Plain 3",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Siding, Plain",
+          "authors": [
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_siding_plain_3.png"
+    },
+    {
+      "key": "g",
+      "id": "lpcr_painted_walls_13",
+      "name": "Painted Walls 13",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Painted Walls",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-modified-base-tiles",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_painted_walls_13.png"
+    },
+    {
+      "key": "h",
+      "id": "lpcr_geometric_carpet_a_14",
+      "name": "Geometric Carpet A 14",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Geometric Carpet A",
+          "authors": [
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_geometric_carpet_a_14.png"
+    },
+    {
+      "key": "i",
+      "id": "lpcr_floral_carpet_a_11",
+      "name": "Floral Carpet A 11",
+      "span": 1,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Floral Carpet A",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/lpc-dungeon-elements",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_floral_carpet_a_11.png"
+    },
+    {
+      "key": "j",
+      "id": "ground037",
+      "name": "Ground037",
+      "span": 3,
+      "filter": "point",
+      "image": "assets/tiles/ground037.png"
+    },
+    {
+      "key": "k",
+      "id": "lpcr_grass_summer",
+      "name": "Grass (summer)",
+      "span": 2,
+      "filter": "point",
+      "credits": [
+        {
+          "item": "Terrain (all seasons)",
+          "authors": [
+            "Lanea Zimmerman (Sharm)",
+            "Eliza Wyatt (DeathsDarling)"
+          ],
+          "licenses": [
+            "OGA-BY 3.0"
+          ],
+          "urls": [
+            "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+            "https://github.com/ElizaWy/LPC"
+          ]
+        }
+      ],
+      "image": "assets/tiles/lpcr_grass_summer.png"
+    }
+  ],
+  "tileBlend": {
+    ".": {
+      "width": 0.44,
+      "roughness": 0.95
+    },
+    ":": {
+      "width": 0.35,
+      "roughness": 0.95
+    },
+    "j": {
+      "width": 0.43,
+      "roughness": 0.95
+    },
+    "k": {
+      "priority": 30,
+      "width": 0.5,
+      "roughness": 0.7,
+      "edge": "dither"
+    }
+  }
+}
