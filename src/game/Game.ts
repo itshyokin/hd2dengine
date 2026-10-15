@@ -44,6 +44,7 @@ import { CombatOverlay } from '../ui/CombatOverlay';
 import { BattleScreen, type FighterView } from '../ui/BattleScreen';
 import { type BattleEntry, type BattleHost, TurnBattle } from './battle/TurnBattle';
 import { type BattleSpell, type Battler, type Opening, enemyAgility, weighted } from './battle/rules';
+import { type BattleAilment, BattleStatus, turnsFromSeconds } from './battle/status';
 import { HEAL_MP } from './party';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
@@ -3099,6 +3100,19 @@ export class Game {
     return out;
   }
 
+  /** The hero's ailments carried into a battle from the map (seconds become turns; buffs stay on the map). */
+  private heroBattleStatus(): BattleStatus {
+    const resists = [...(mainHero(this.db).resists ?? []), ...this.wornGear().flatMap((g) => g?.protects ?? [])];
+    const st = new BattleStatus(resists);
+    for (const e of this.combat.heroStatus.list) {
+      if (e.id.startsWith('buff:')) continue;
+      const a = e.id as BattleAilment;
+      st.turns.set(a, turnsFromSeconds(a, e.left));
+      if (a === 'chill') st.chillStacks = e.stacks ?? 1;
+    }
+    return st;
+  }
+
   /** The hero's or a party member's numbers for a battle: attack, spells, defences, agility. */
   private partyBattler(who: number): { battler: Battler; view: FighterView } | null {
     const pct = (sk: Skills, k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
@@ -3119,9 +3133,9 @@ export class Game {
         battler: {
           key: 'p0', side: 'party', name: hero.name, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp,
           attack: useBow ? bow : melee, attackElement: (useBow ? bowDef?.element : w?.element) ?? 'neutral', attackMagic: false,
-          armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.dex, crit: t.crit,
+          armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.dex, baseAgility: t.attrs.dex, crit: t.crit,
           defence: { ...hero, halve: this.wornGear().flatMap((g) => g?.wards ?? []) }, spells, ct: 0, guarding: false,
-          undead: this.combat.heroStatus.zombie,
+          status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
         },
         view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0) },
       };
@@ -3140,9 +3154,11 @@ export class Game {
       battler: {
         key, side: 'party', name: m.def.name, hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp,
         attack: useBow ? n.bow : n.melee, attackElement: useBow ? n.bowElement : n.meleeElement, attackMagic: false,
-        armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.dex, crit: n.crit,
+        armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.dex, baseAgility: t.attrs.dex, crit: n.crit,
         defence: { elements: m.def.elements, immune: m.def.immune, absorb: m.def.absorb, halve: this.wornGear(m.data.equip).flatMap((g) => g?.wards ?? []) },
         spells, ct: 0, guarding: false,
+        status: new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]),
+        inflicts: useBow ? undefined : n.meleeInflicts,
       },
       view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who) },
     };
@@ -3166,8 +3182,10 @@ export class Game {
       const battler: Battler = {
         key: `e${i}`, side: 'enemy', name, hp: Math.max(1, x.hp), maxHp: Math.max(1, d.hp), mp: 0, maxMp: 0,
         attack: d.damage, attackElement: enemyElement(d), attackMagic: d.attackType === 'magic',
-        armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), crit: 5,
-        defence: d, spells: [], ct: 0, guarding: false, boss: d.boss, undead: d.undead,
+        armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), baseAgility: enemyAgility(d), crit: 5,
+        defence: d, spells: [], ct: 0, guarding: false, boss: d.boss,
+        status: new BattleStatus(d.resists ?? [], !!d.boss, !!d.undead), inflicts: d.inflicts,
+        actions: d.actions, attackWeight: d.attackWeight, counterspell: d.counterspell,
       };
       entries.push({ battler, view: { key: battler.key, side: 'enemy', name, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale }, ref: { def: d, enemy: x.enemy, battler } });
     });
@@ -3185,10 +3203,21 @@ export class Game {
         const r = d.restore, bits = r ? (['hp', 'mp', 'sp'] as const).filter((g) => r[g]).map((g) => `+${r[g]}${d.restorePercent ? '%' : ''} ${g.toUpperCase()}`) : [];
         return [{ slot: i, name: d.name, count: s.n, detail: bits.join(' · ') || d.description }];
       }),
-      useItem: (slot, who) => {
-        const s0 = this.inventory.slots[slot], id = s0?.id, before = id ? this.inventory.count(id) : 0;
-        const text = this.useItem(slot, who);
-        return text === null ? null : { text, used: !!id && this.inventory.count(id) < before };
+      useItem: (slot, who, ailments) => {
+        const s0 = this.inventory.slots[slot], id = s0?.id, d = id ? this.items.get(id) : undefined, before = id ? this.inventory.count(id) : 0;
+        // What it cures of the battle's ailments on the one it's used on.
+        const cures = d?.cures ?? [], all = cures.includes('all');
+        const cured = ailments.filter((a) => (a === 'zombie' ? cures.includes('zombie') : all || cures.includes(a as never) || (a === 'frozen' && cures.includes('chill'))));
+        let text = this.useItem(slot, who);
+        let used = !!id && this.inventory.count(id) < before;
+        if (!used && cured.length && d) {
+          // Only a cure (party members' items on the map don't cure): used up here.
+          this.inventory.removeAt(slot, 1);
+          this.state.tally('itemsUsed');
+          used = true;
+          text = `${who ? this.members()[who - 1]?.def.name ?? '' : mainHero(this.db).name} used ${d.name}.`;
+        }
+        return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [] };
       },
       readVitals: (who) => {
         if (!who) return { hp: this.stats.hp, mp: this.stats.mp };

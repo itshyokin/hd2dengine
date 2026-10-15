@@ -21,7 +21,7 @@ export interface FighterView {
   color?: string;
 }
 
-export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean }
+export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Ailments on them: icon and a name for the tooltip. */ status?: { icon: string; name: string }[] }
 
 export interface ChoiceItem {
   label: string;
@@ -52,7 +52,7 @@ export class BattleScreen {
   private readonly statusEl: HTMLElement;
   private readonly resultEl: HTMLElement;
   private readonly flashEl: HTMLElement;
-  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null }>();
+  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string }>();
   private mode: Mode = { kind: 'idle' };
   private msgTimer = 0;
 
@@ -139,7 +139,9 @@ export class BattleScreen {
     if (v.flip) img.classList.add('flip');
     const shadow = document.createElement('span');
     shadow.className = 'bf-shadow';
-    el.append(shadow, img);
+    const icons = document.createElement('span');
+    icons.className = 'bf-status';
+    el.append(shadow, icons, img);
     let bar: HTMLElement | null = null;
     if (v.side === 'enemy') {
       const tag = document.createElement('span');
@@ -156,12 +158,12 @@ export class BattleScreen {
       row = document.createElement('div');
       row.className = 'bstat';
       if (v.color) row.style.setProperty('--hero', v.color);
-      row.innerHTML = `<span class="bstat-name"></span><span class="bstat-bar hp"><span></span></span><span class="bstat-num hp"></span><span class="bstat-bar mp"><span></span></span><span class="bstat-num mp"></span>`;
-      (row.querySelector('.bstat-name') as HTMLElement).textContent = v.name;
+      row.innerHTML = `<span class="bstat-name"><span class="bstat-label"></span><span class="bstat-status"></span></span><span class="bstat-bar hp"><span></span></span><span class="bstat-num hp"></span><span class="bstat-bar mp"><span></span></span><span class="bstat-num mp"></span>`;
+      (row.querySelector('.bstat-label') as HTMLElement).textContent = v.name;
       row.addEventListener('click', () => this.tapFighter(v.key));
       this.statusEl.append(row);
     }
-    this.fighters.set(v.key, { view: v, el, img, bar, row });
+    this.fighters.set(v.key, { view: v, el, img, bar, row, icons, rowIcons: row?.querySelector('.bstat-status') as HTMLElement | null, statusKey: '' });
   }
 
   /** Health and magic for one fighter (party rows show numbers; enemies a bar). */
@@ -171,6 +173,14 @@ export class BattleScreen {
     const down = v.hp <= 0;
     f.el.classList.toggle('down', down);
     f.el.classList.toggle('guarding', !!v.guarding);
+    // Ailment icons over the fighter (and beside a party member's name).
+    const sk = (v.status ?? []).map((x) => x.name).join('|');
+    if (sk !== f.statusKey) {
+      f.statusKey = sk;
+      const make = () => (v.status ?? []).map((x) => { const im = document.createElement('img'); im.src = x.icon; im.alt = x.name; im.title = x.name; return im; });
+      f.icons.replaceChildren(...make());
+      f.rowIcons?.replaceChildren(...make());
+    }
     if (f.bar) f.bar.style.width = `${Math.max(0, Math.min(100, (v.hp / Math.max(1, v.maxHp)) * 100))}%`;
     if (f.row) {
       const q = (s: string) => f.row!.querySelector(s) as HTMLElement;

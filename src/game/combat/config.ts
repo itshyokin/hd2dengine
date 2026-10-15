@@ -15,9 +15,10 @@ export interface TurnBasedConfig {
   partyDamage: number;
   enemyDamage: number;
   grace: number;
+  guardHeal: number;
 }
 
-export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 4, partyDamage: 1, enemyDamage: 1, grace: 3 };
+export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 4, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10 };
 
 export interface CombatConfig {
   /** Action combat on the map, or turn-based battles. */
@@ -85,7 +86,7 @@ export function combatConfig(data?: CombatData): CombatConfig {
     turnBased: {
       ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
       flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(8, Math.round(tb.maxEnemies))),
-      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace),
+      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)),
     },
     unarmedDamage: s.unarmedDamage ?? d.unarmedDamage,
     classes,

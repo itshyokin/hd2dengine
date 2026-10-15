@@ -969,6 +969,34 @@ export interface EnemyDef {
   scale?: number;
   /** Turn-based battles: how quickly its turns come round (like the heroes' Dexterity; default from its speed). */
   agility?: number;
+  /** Turn-based battles: what else it can do on its turn, and how often it uses its plain attack (default 1; 0: never). */
+  actions?: EnemyAction[];
+  attackWeight?: number;
+  /** Its plain attack breaks a spell being charged (turn-based). */
+  counterspell?: boolean;
+}
+
+/**
+ * Something an enemy can do on its turn in a turn-based battle, besides its plain attack.
+ * attack: a hit (its damage × power); spell: a magic hit (its damage × power, Magic Defence counts);
+ * heal: health back for itself or a hurt friend (power % of their health); guard: half damage, a little health back
+ * and no ailments until its next turn.
+ */
+export interface EnemyAction {
+  name: string;
+  kind: 'attack' | 'spell' | 'heal' | 'guard';
+  /** Attacks and spells: × its damage (default 1). Heals: % of the target's health (default 30). */
+  power?: number;
+  element?: Element;
+  inflicts?: Inflict[];
+  /** One of the party, or all of them. */
+  targets?: 'one' | 'all';
+  /** How often it's chosen, against the others (default 1). */
+  weight?: number;
+  /** Only when its own health is below this % (e.g. a heal at 40). */
+  hpBelow?: number;
+  /** Breaks a spell being charged. */
+  counterspell?: boolean;
 }
 
 /** A kind of water on a map: how it looks and flows, and what standing in it does. */
@@ -1023,6 +1051,8 @@ export interface TurnBasedData {
   enemyDamage?: number;
   /** Seconds after a battle (won or fled) before another can start. */
   grace?: number;
+  /** Guarding gives back this % of the guard's health (default 10). */
+  guardHeal?: number;
 }
 
 export interface CombatData {

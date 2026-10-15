@@ -12,7 +12,7 @@ import { enemyWeaponSprites } from '../game/combat/weaponSprites';
 import { weaponSpriteField } from './weaponPicker';
 import { DEFAULT_COMBAT, combatConfig } from '../game/combat/config';
 import { enemyAgility } from '../game/battle/rules';
-import type { CombatData, EnemyBehaviour, EnemyDef, FlatLook, WeaponClass } from '../world/types';
+import type { CombatData, EnemyAction, EnemyBehaviour, EnemyDef, FlatLook, WeaponClass } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { enemyImage, setFlatImage } from './editorArt';
 import { canvasFromBlob } from '../shared/images';
@@ -40,7 +40,8 @@ export function combatTab(data: CombatData): HTMLElement[] {
       h('div', { class: 'field-row' },
         field('Enemies who join (tiles)', num(T.joinRadius, (v) => (tb.joinRadius = v), 0.5, 0, 'Join radius'), 'Enemies this close to the one that started it join the battle.'),
         field('Most enemies in a battle', num(T.maxEnemies, (v) => (tb.maxEnemies = Math.max(1, Math.min(8, Math.round(v)))), 1, 1, 'Max enemies')),
-        field('Safe after a battle (s)', num(T.grace, (v) => (tb.grace = v), 0.5, 0, 'Grace after battle'), 'No new battle starts for this long after one is won or run from.')),
+        field('Safe after a battle (s)', num(T.grace, (v) => (tb.grace = v), 0.5, 0, 'Grace after battle'), 'No new battle starts for this long after one is won or run from.'),
+        field('Guard heals %', num(T.guardHeal, (v) => (tb.guardHeal = Math.min(100, Math.round(v))), 1, 0, 'Guard heal'), 'Guarding gives back this much of the guard’s health, halves damage and keeps ailments away until their next turn (Legend of Dragoon).')),
       h('div', { class: 'field-row' },
         field('Party damage ×', num(T.partyDamage, (v) => (tb.partyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Party damage')),
         field('Enemy damage ×', num(T.enemyDamage, (v) => (tb.enemyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Enemy damage'), 'Scale either side to make battles quicker or harder. Both start at 1 (the same numbers as on the map).')),
@@ -270,6 +271,7 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
       field('Can’t get', ailmentChips(() => d.resists, (v) => { if (v) d.resists = v as Ailment[]; else delete d.resists; }, rerender, 'Can’t get')),
       checkbox('Undead (always a zombie: healing and absorbing hurt it, can’t be killed outright or given ailments)', !!d.undead, (v) => { d.undead = v || undefined; rerender(); })),
     h('div', { class: 'field-row' }, field('Its attacks hit with', elementSelect(d.attackElement, (e) => { if (e) d.attackElement = e; else delete d.attackElement; }, 'Attack element', { auto: d.elements?.[0] ? `Its element (${ELEMENT_NAMES[d.elements[0]]})` : 'Its element (non-elemental)' }))),
+    battleActions(d, rerender),
     h('section', { class: 'db-section' }, h('h3', {}, 'Senses'),
       h('div', { class: 'field-row' },
         field('Sight (tiles)', n(d.sight, (v) => (d.sight = v), 0.5, 1), 'In full light. Darkness and sneaking shorten it a lot.'),
@@ -289,4 +291,42 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
       h('p', { class: 'note' }, 'Loot goes straight into the bag (shown bottom left). Beaten enemies come back when the player returns to the map.')),
     h('div', { class: 'item-foot' }, h('button', { type: 'button', class: 'btn danger', onclick: remove }, 'Delete enemy')),
   ];
+}
+
+const ACTION_KINDS: [EnemyAction['kind'], string][] = [
+  ['attack', 'Attack: a hit (its damage × power)'],
+  ['spell', 'Spell: a magic hit (its damage × power; Magic Defence counts)'],
+  ['heal', 'Heal: itself or a hurt friend (power: % of their health)'],
+  ['guard', 'Guard: half damage, some health back, no ailments until its next turn'],
+];
+
+/** Database → Enemies → Turn-based battles: its plain attack's weight, Counterspell, and its other actions. */
+function battleActions(d: EnemyDef, rerender: () => void): HTMLElement {
+  const n = (v: number, set: (x: number) => void, step = 1, min = 0, label = '') => numberInput(v, (x) => set(Math.max(min, x)), { step, min, 'aria-label': label, class: 'db-num' });
+  const list = d.actions ?? [];
+  const save = () => { if (list.length) d.actions = list; else delete d.actions; };
+  const rows = list.map((a, k) => {
+    const powerLabel = a.kind === 'heal' ? 'Heals % of health' : a.kind === 'guard' ? '' : 'Power × its damage';
+    return h('div', { class: 'db-section enemy-action' },
+      h('div', { class: 'field-row' },
+        field('Name', textInput(a.name, (v) => { a.name = v.trim(); }, { 'aria-label': `Action ${k + 1} name`, placeholder: 'Shown when it’s used' })),
+        field('Does', select(ACTION_KINDS, a.kind, (v) => { a.kind = v as EnemyAction['kind']; rerender(); }, { 'aria-label': `Action ${k + 1} kind` })),
+        h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove action ${k + 1}`, onclick: () => { list.splice(k, 1); save(); rerender(); } }, '✕')),
+      h('div', { class: 'field-row' },
+        powerLabel ? field(powerLabel, n(a.power ?? (a.kind === 'heal' ? 30 : 1), (v) => (a.power = v), a.kind === 'heal' ? 5 : 0.1, 0, `Action ${k + 1} power`)) : h('span'),
+        field('How often', n(a.weight ?? 1, (v) => { const w = Math.round(v); if (w === 1) delete a.weight; else a.weight = w; }, 1, 0, `Action ${k + 1} weight`), 'Against its plain attack and its other actions.'),
+        field('Only below health %', n(a.hpBelow ?? 0, (v) => { if (v > 0) a.hpBelow = Math.min(100, Math.round(v)); else delete a.hpBelow; }, 5, 0, `Action ${k + 1} health condition`), '0: any time.')),
+      a.kind === 'attack' || a.kind === 'spell' ? h('div', { class: 'field-row' },
+        field('Hits', select([['one', 'One of the party'], ['all', 'The whole party']], a.targets ?? 'one', (v) => { if (v === 'all') a.targets = 'all'; else delete a.targets; }, { 'aria-label': `Action ${k + 1} targets` })),
+        field('Element', elementSelect(a.element, (e) => { if (e) a.element = e; else delete a.element; }, `Action ${k + 1} element`, { auto: 'Its attack’s element' })),
+        checkbox('Counterspell (breaks a spell being charged)', !!a.counterspell, (v) => { if (v) a.counterspell = true; else delete a.counterspell; })) : h('span'),
+      a.kind === 'attack' || a.kind === 'spell' ? inflictsField(() => a.inflicts, (v) => { if (v) a.inflicts = v; else delete a.inflicts; }, rerender, 'Ailments it can give (empty: its usual ones, for attacks)') : h('span'));
+  });
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Turn-based battles'),
+    h('div', { class: 'field-row' },
+      field('Plain attack: how often', n(d.attackWeight ?? 1, (v) => { const w = Math.round(v); if (w === 1) delete d.attackWeight; else d.attackWeight = w; }, 1, 0, 'Attack weight'), '0: it never just attacks (only its actions below).'),
+      checkbox('Its plain attack is a Counterspell (breaks a spell being charged)', !!d.counterspell, (v) => { if (v) d.counterspell = true; else delete d.counterspell; })),
+    ...rows,
+    h('button', { type: 'button', class: 'btn', onclick: () => { list.push({ name: '', kind: 'attack' }); save(); rerender(); } }, '+ Add action'),
+    h('p', { class: 'note' }, 'On its turn it picks its plain attack or one of these by how often each is set. Enemies only guard if given a Guard action. Counterspell takes effect once spells can be charged (learned spells, coming next).'));
 }

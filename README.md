@@ -488,8 +488,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   sooner. The bar on the right shows who's coming up, and changes as you move through the commands, like FFX.
   *Rounds (classic)*: everyone acts once a round, fastest first.
 - **Commands**: **Attack** (the equipped weapon; a bow if there's no melee weapon), **Magic** (the spell shard in the
-  magic slot; healers also have *Heal*), **Items** (consumables from the bag, on anyone in the party), **Guard**
-  (half damage until your next turn) and **Run** (more likely when the party is faster; never from a boss).
+  magic slot; healers also have *Heal*), **Items** (consumables from the bag, on anyone in the party; cures work on
+  battle ailments), **Guard** (Legend of Dragoon style: half damage, a little health back (*Guard heals %*, default
+  10) and no new ailments until your next turn) and **Run** (more likely when the party is faster; never from a boss).
   Elements, weaknesses, immunities, absorbing, critical hits and Defence / Magic Defence work as on the map.
 - **Winning** gives EXP to everyone standing, gold and drops straight into the bag (a full bag leaves them on the
   ground) and runs the beaten enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
@@ -499,8 +500,21 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   battle starting straight away. The map's **battle music** plays during battles (the built-in battle theme if the map
   has none).
 - Controls: arrows / D-pad move, OK picks, Cancel goes back; on a tablet, tap a command, then tap the target.
-- Not in turn-based battles yet: ailments and buffs given or ticking during a battle, enemy spells and skills,
-  multi-target spells, and a *Start battle* event command for scripted (boss) fights.
+- **Ailments in battle** run on turns instead of seconds, counted on the afflicted fighter's own turns: Burn (8% of
+  their health at the start of each turn, 3 turns), Poison (5%, 5 turns), Chill (slower turns; three freeze),
+  Frozen and Paralyze (lose a turn), Sleep (lose turns until hit, up to 3), Blind (half their attacks miss),
+  Silence (no Magic), Confusion (attacks anyone, friend or foe), Stagger (the next turn comes later) and Zombie
+  (healing hurts, all battle). Weapons and enemies give them with the same *Ailments its hits can give* settings
+  as on the map (a time set in seconds becomes about one turn per 3 seconds); bosses shake them off in half the
+  turns. Icons show over each fighter and beside party names. The hero brings their ailments from the map into a
+  battle; battle ailments end with the battle. Buffs don't carry into battles yet.
+- **Enemy actions** (Database → Enemies → *Turn-based battles*): besides its plain attack (*how often*, 0 for
+  never), an enemy can have actions: **Attack** and **Spell** (its damage × power, on one of the party or all of
+  them, with their own element and ailments), **Heal** (itself or a hurt friend, % of their health) and **Guard**
+  (enemies only guard when given this). Each has *how often* and can be limited to *only below health %*.
+  **Counterspell** (on an action or the plain attack) will break a spell being charged once spells can be charged.
+- Not in turn-based battles yet: learned spells with ranks and charge time (replacing spell shards for magic),
+  Additions, multi-target spells for the party, and a *Start battle* event command for scripted (boss) fights.
 
 ### EXP orbs and loot on the ground
 

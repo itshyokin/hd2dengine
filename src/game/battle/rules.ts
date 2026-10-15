@@ -2,7 +2,8 @@
  * Turn-based battle rules: turn order (FFX-style CTB or classic rounds), damage, running away and what enemies
  * choose to do. No three.js and no DOM, so it can be tested on its own.
  */
-import type { Element, TurnOrder } from '../../world/types';
+import type { Element, EnemyAction, Inflict, TurnOrder } from '../../world/types';
+import { type BattleStatus, CHILL_AGILITY } from './status';
 import { type ElementalDefence, elementResult } from '../elements';
 import { CRIT_MULTIPLIER, finalDamage, throughFraction } from '../attributes';
 
@@ -34,8 +35,9 @@ export interface Battler {
   attackMagic: boolean;
   armour: number;
   magicArmour: number;
-  /** How quickly turns come round (heroes: Dexterity). */
+  /** How quickly turns come round now (heroes: Dexterity; Chill slows it), and without ailments. */
   agility: number;
+  baseAgility: number;
   /** Critical hit chance, %. */
   crit: number;
   defence: ElementalDefence;
@@ -46,9 +48,18 @@ export interface Battler {
   guarding: boolean;
   /** Bosses: no running away. */
   boss?: boolean;
-  /** Healing hurts it. */
-  undead?: boolean;
+  /** Ailments on them, and their guard's ward (no new ailments until their next turn). */
+  status: BattleStatus;
+  /** Ailments their attack can give. */
+  inflicts?: Inflict[];
+  /** Enemies: what else they can do, how often they just attack, and whether that attack breaks a spell being charged. */
+  actions?: EnemyAction[];
+  attackWeight?: number;
+  counterspell?: boolean;
 }
+
+/** Chill slows a fighter's turns; set their agility from what's on them. */
+export function refreshAgility(b: Battler): void { b.agility = b.status.chilled ? b.baseAgility * CHILL_AGILITY : b.baseAgility; }
 
 export const isUp = (b: Battler): boolean => b.hp > 0;
 
@@ -144,7 +155,7 @@ export function strike(power: number, element: Element, magic: boolean, by: Pick
   const el = elementResult(element, target.defence);
   if (el.kind === 'immune') return { kind: 'immune', amount: 0, crit: false, label: null };
   let dmg = power * scale * (0.9 + rng() * 0.2);
-  if (el.kind === 'absorb' && !target.undead) return { kind: 'absorb', amount: finalDamage(dmg), crit: false, label: null };
+  if (el.kind === 'absorb' && !target.status.zombie) return { kind: 'absorb', amount: finalDamage(dmg), crit: false, label: null };
   const mult = el.kind === 'hit' ? el.mult : 1;
   dmg *= mult;
   const crit = rng() * 100 < by.crit;
@@ -157,7 +168,7 @@ export function strike(power: number, element: Element, magic: boolean, by: Pick
 /** Health given back by a heal (the undead are hurt by it instead: a negative number). */
 export function healAmount(power: number, target: Battler, rng: () => number = Math.random): number {
   const n = Math.max(1, Math.round(power * (0.95 + rng() * 0.1)));
-  return target.undead ? -n : n;
+  return target.status.zombie ? -n : n;
 }
 
 /* ------------------------------------------------------------------ running away, enemy choices */
@@ -169,19 +180,43 @@ export function fleeChance(party: Battler[], enemies: Battler[], base: number): 
   return Math.max(0.05, Math.min(0.95, (base + (avg(party) - avg(enemies)) * 2) / 100));
 }
 
-/** What an enemy does on its turn: usually its attack, on someone standing (the weak a little more often). */
-export function enemyChoice(e: Battler, party: Battler[], rng: () => number = Math.random): { kind: 'attack' | 'spell'; target: Battler; spell?: BattleSpell } | null {
-  const up = party.filter(isUp);
-  if (!up.length) return null;
-  // A healer-type enemy patches itself up when low (if it has a heal).
-  const heal = e.spells.find((s) => s.kind === 'heal' && s.mp <= e.mp);
-  if (heal && e.hp < e.maxHp * 0.35 && rng() < 0.6) return { kind: 'spell', target: e, spell: heal };
-  const weights = up.map((b) => 1 + (1 - b.hp / Math.max(1, b.maxHp)));
-  let r = rng() * weights.reduce((s, w) => s + w, 0), target = up[0];
-  for (let i = 0; i < up.length; i++) { r -= weights[i]; if (r <= 0) { target = up[i]; break; } }
-  const bolt = e.spells.filter((s) => s.kind === 'bolt' && s.mp <= e.mp);
-  if (bolt.length && rng() < 0.35) return { kind: 'spell', target, spell: bolt[Math.floor(rng() * bolt.length)] };
-  return { kind: 'attack', target };
+/** What an enemy does on its turn: its plain attack (action null) or one of its actions, and on whom. */
+export interface EnemyMove { action: EnemyAction | null; targets: Battler[] }
+
+/** Someone standing, the hurt a little more often. */
+function pickWeak(list: Battler[], rng: () => number): Battler {
+  const w = list.map((b) => 1 + (1 - b.hp / Math.max(1, b.maxHp)));
+  let r = rng() * w.reduce((a, x) => a + x, 0);
+  for (let i = 0; i < list.length; i++) { r -= w[i]; if (r <= 0) return list[i]; }
+  return list[list.length - 1];
+}
+
+/**
+ * An enemy's choice: its plain attack (weight `attackWeight`, default 1) or one of its actions (each by its weight,
+ * if its health condition holds; spells and heals not while silenced; heals only when someone on its side is hurt).
+ */
+export function enemyChoice(e: Battler, party: Battler[], friends: Battler[], rng: () => number = Math.random): EnemyMove | null {
+  const foes = party.filter(isUp), mates = friends.filter(isUp);
+  if (!foes.length) return null;
+  const hurt = mates.filter((m) => m.hp < m.maxHp * 0.7);
+  const options: { action: EnemyAction | null; weight: number }[] = [];
+  const aw = e.attackWeight ?? 1;
+  if (aw > 0) options.push({ action: null, weight: aw });
+  for (const a of e.actions ?? []) {
+    const w = a.weight ?? 1;
+    if (w <= 0) continue;
+    if (a.hpBelow !== undefined && e.hp / Math.max(1, e.maxHp) * 100 >= a.hpBelow) continue;
+    if ((a.kind === 'spell' || a.kind === 'heal') && e.status.silenced) continue;
+    if (a.kind === 'heal' && !hurt.length) continue;
+    options.push({ action: a, weight: w });
+  }
+  if (!options.length) options.push({ action: null, weight: 1 });
+  const pick = weighted(options, rng)!;
+  const a = pick.action;
+  if (a?.kind === 'guard') return { action: a, targets: [e] };
+  if (a?.kind === 'heal') return { action: a, targets: [hurt.sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]] };
+  if (a?.targets === 'all') return { action: a, targets: foes };
+  return { action: a, targets: [pickWeak(foes, rng)] };
 }
 
 /** An enemy's agility when Database → Enemies leaves it unset: from how fast it moves on the map (1.6 tiles/s: 10). */

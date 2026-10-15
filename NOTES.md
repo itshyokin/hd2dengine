@@ -20,9 +20,12 @@ Kept in the project so they travel with the code. Tick them off as they're built
       Default: white with black text. Text colour, bold, italic options.
 
 ## Abilities and combat
-- [ ] Turn-based battles, next steps: a "Start battle" event command (boss fights from events), ailments and buffs in
-      battle, enemy skills and spells (Database → Enemies), multi-target spells, Limit / Overdrive-style specials,
-      swapping party members mid-battle (FFX), a battle backdrop image per map.
+- [ ] Turn-based battles, next steps: learned spells (Database → Spells; taught by skill tree nodes, events and
+      trainers; ranks add charge turns; Counterspell breaks a charge; a learned spell as the action mode's field
+      spell; shards stay for enchanting), Additions (timed strikes with button prompts, ranks gained by use, set per
+      character or chosen in battle), classes (a skill tree per class, class change keeps what's learned), a
+      "Start battle" event command, buffs in battle, swapping party members mid-battle (FFX), a battle backdrop
+      image per map.
 
 ## Gathering
 - [ ] Fishing, next steps: cooking fish at a campfire; a reeling mini-game for big fish.
@@ -53,3 +56,4 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Status page (About, ailments, fighting style); Gear tab as Weapons | Armor with per-hero comparison; hero colours; party beside the bag (update 35).
 - [x] River currents push swimmers; drowning sinks; seasons (recolouring, snow, bare or snowy trees, ice and sliding, cold-season ambience) (update 36).
 - [x] Turn-based battles as an option (Database → Combat → Battle system): FFX-style turn order or rounds, map enemies and random encounters start battles, Attack / Magic / Items / Guard / Run (update 38).
+- [x] Turn-based battles: ailments run on turns, Legend of Dragoon Guard (heals, wards off ailments), enemy actions (attack / spell / heal / guard, whole-party hits, health conditions, Counterspell flag) (update 39).
