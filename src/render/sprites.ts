@@ -1,0 +1,430 @@
+/**
+ * The 2.5D sprite system.
+ *
+ * Sprites are upright quads standing on the ground. Their vertex normals point mostly UP
+ * (tilted slightly toward the camera), so a sprite is lit like the ground it stands on —
+ * the core HD-2D trick. A normal map (imported, or generated from the art) adds volume on top.
+ * Shadows use the sprite's alpha, so trees cast tree-shaped shadows.
+ */
+import * as THREE from 'three';
+import { shapeGeometry } from './propShapes';
+import { patchSway } from './wind';
+import { DEFAULT_PALETTE, PLACEHOLDER_SPRITES, characterSheet } from '../art/placeholderArt';
+import { normalMapFrom } from '../core/pixel';
+import { loadCanvas, maskToGlow, missingImage } from '../shared/images';
+import type { PropCatalog } from '../world/props';
+import type { CharacterAnimLayout, CharacterDef, CharacterPalette, PropDef, WeaponSpriteDef, WeaponSpriteManifest } from '../world/types';
+
+import { WEAPON_MANIFEST_PATH as WEAPON_MANIFEST } from '../game/combat/weaponSprites';
+import { cutIcon, weaponIconRect } from '../art/weaponIcon';
+import { weaponMaskCanvas } from './weaponMask';
+import { patchAreaTint } from './areaTint';
+import { linearColor, makeTexture, registerNormalMap } from './textures';
+
+export const PIXELS_PER_TILE = 16;
+const SPRITE_NORMAL = new THREE.Vector3(0, 1, 0.35).normalize();
+
+export interface SpriteAsset {
+  map: THREE.Texture;
+  material: THREE.MeshStandardMaterial;
+  geometry: THREE.BufferGeometry;
+  castShadow: boolean;
+  depthMaterial: THREE.MeshDepthMaterial;
+  distanceMaterial: THREE.MeshDistanceMaterial;
+  /**
+   * An animated sheet (LPC layout): its animations and pixel size. These share one texture between every character
+   * wearing the sheet, so each gets its own geometry and picks frames through its UVs (not the texture offset).
+   */
+  anim?: { layout: CharacterAnimLayout; width: number; height: number };
+}
+
+/** Pixels per tile for animated (LPC) sheets: a 64 × 64 frame covers 2 × 2 tiles. */
+export const ANIM_PIXELS_PER_TILE = 32;
+
+export interface SpriteOpts {
+  /** Size in tiles. Defaults to the canvas (or frame) size at 16 px per tile. */
+  w?: number;
+  h?: number;
+  /** For sprite sheets: the size of one frame in pixels. */
+  frameW?: number;
+  frameH?: number;
+  /** Generated normal map: strength and rounding distance (px). */
+  normalStrength?: number;
+  maxD?: number;
+  /** Use this normal map instead of generating one. */
+  normal?: HTMLCanvasElement;
+  /** Night-glow mask (white glows). */
+  glow?: HTMLCanvasElement;
+  glowColor?: string;
+  filter?: 'point' | 'smooth';
+  castShadow?: boolean;
+}
+
+/** Upright quad with its origin at the bottom centre, and up-tilted normals. */
+export function spriteGeometry(w: number, h: number): THREE.BufferGeometry {
+  const g = new THREE.PlaneGeometry(w, h);
+  g.translate(0, h / 2, 0);
+  const n = g.attributes.normal;
+  for (let i = 0; i < n.count; i++) n.setXYZ(i, SPRITE_NORMAL.x, SPRITE_NORMAL.y, SPRITE_NORMAL.z);
+  return g;
+}
+
+/** Materials whose glow mask lights up at night. */
+const glowMaterials: THREE.MeshStandardMaterial[] = [];
+/** 0 = day (no glow) … 1 = full glow. */
+export function setSpriteGlow(amount: number): void {
+  for (const m of glowMaterials) m.emissiveIntensity = amount * (m.userData.glowStrength as number);
+  lastGlow = amount;
+}
+let lastGlow = 0;
+
+/** Make a material's `mask` (white = glows) light up at night with the sprites (building windows). */
+export function registerGlow(material: THREE.MeshStandardMaterial, mask: HTMLCanvasElement | THREE.Texture, color: string, strength = 2.2): void {
+  material.emissiveMap = typeof HTMLCanvasElement !== 'undefined' && mask instanceof HTMLCanvasElement ? makeTexture(maskToGlow(mask), { mip: true }) : (mask as THREE.Texture);
+  material.emissive = linearColor(color);
+  material.userData.glowStrength = strength;
+  material.emissiveIntensity = lastGlow * strength;
+  glowMaterials.push(material);
+}
+
+/** Forget a material that's being thrown away (map change). */
+export function unregisterGlow(material: THREE.Material): void {
+  const i = glowMaterials.indexOf(material as THREE.MeshStandardMaterial);
+  if (i >= 0) glowMaterials.splice(i, 1);
+}
+
+export function createSpriteAsset(canvas: HTMLCanvasElement, o: SpriteOpts = {}): SpriteAsset {
+  const smooth = o.filter === 'smooth';
+  const map = makeTexture(canvas, { mip: smooth });
+  if (smooth) map.magFilter = THREE.LinearFilter;
+  const nmCanvas = o.normal ?? normalMapFrom(canvas, { sprite: true, strength: o.normalStrength ?? 2.5, maxD: o.maxD ?? 4 });
+  const nm = makeTexture(nmCanvas, { linear: true, mip: smooth });
+  if (smooth) nm.magFilter = THREE.LinearFilter;
+  const material = patchAreaTint(new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }));
+  registerNormalMap(material, nm);
+  if (o.glow) {
+    const gm = makeTexture(maskToGlow(o.glow), { mip: smooth });
+    material.emissiveMap = gm;
+    material.emissive = linearColor(o.glowColor ?? '#ffc86b');
+    material.emissiveIntensity = 0;
+    material.userData.glowStrength = 2.2; // above 1 so lit windows bloom
+    glowMaterials.push(material);
+  }
+  const w = o.w ?? (o.frameW ?? canvas.width) / PIXELS_PER_TILE;
+  const h = o.h ?? (o.frameH ?? canvas.height) / PIXELS_PER_TILE;
+  return {
+    map,
+    material,
+    geometry: spriteGeometry(w, h),
+    castShadow: o.castShadow !== false,
+    depthMaterial: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map, alphaTest: 0.5, side: THREE.DoubleSide }),
+    distanceMaterial: new THREE.MeshDistanceMaterial({ map, alphaTest: 0.5, side: THREE.DoubleSide }),
+  };
+}
+
+/** Apply alpha-cut shadow casting/receiving to a mesh built from a sprite asset. */
+export function withSpriteShadows<T extends THREE.Mesh>(mesh: T, a: SpriteAsset): T {
+  mesh.castShadow = a.castShadow;
+  mesh.receiveShadow = true;
+  mesh.customDepthMaterial = a.depthMaterial;
+  mesh.customDistanceMaterial = a.distanceMaterial;
+  return mesh;
+}
+
+/** Tuning for the generated normal maps of the built-in art. */
+const BUILTIN_OPTS: Record<string, SpriteOpts> = {
+  oak: { maxD: 6 },
+  pine: { maxD: 5 },
+  rock: { normalStrength: 3 },
+  pebble: { normalStrength: 3 },
+  tuft: { maxD: 2 },
+  flowers: { maxD: 2 },
+};
+
+/** Images loaded for one imported prop. */
+interface LoadedImages { image: HTMLCanvasElement; normal?: HTMLCanvasElement; glow?: HTMLCanvasElement }
+
+/** Builds sprite assets for props on first use and caches them. */
+export class SpriteLibrary {
+  private readonly cache = new Map<string, SpriteAsset>();
+  private readonly images = new Map<string, LoadedImages>();
+  /** Imported character sheets by path. */
+  private readonly sheets = new Map<string, HTMLCanvasElement>();
+  /** Flat enemy pictures (scaled down if huge), and their normal maps (made once). */
+  private readonly flats = new Map<string, { image: HTMLCanvasElement; normal: HTMLCanvasElement | null }>();
+
+  /** Load the flat enemy pictures in use. */
+  async preloadFlats(paths: Iterable<string>, resolve: (path: string) => string): Promise<void> {
+    await Promise.all([...new Set(paths)].filter((p) => !this.flats.has(p)).map(async (p) => {
+      try {
+        let img = await loadCanvas(resolve(p));
+        // A big drawing is shrunk to at most 256 px tall: plenty on screen, and quick to light.
+        if (img.height > 256) {
+          const c = document.createElement('canvas'), k = 256 / img.height;
+          c.width = Math.max(1, Math.round(img.width * k)); c.height = 256;
+          const g = c.getContext('2d')!;
+          g.imageSmoothingQuality = 'high';
+          g.drawImage(img, 0, 0, c.width, c.height);
+          img = c;
+        }
+        this.flats.set(p, { image: img, normal: null });
+      } catch { this.problems.push(`Enemy picture “${p}” is missing`); }
+    }));
+  }
+
+  /** A flat enemy picture as a sprite, `height` tiles tall (null when it didn't load). Each call has its own material. */
+  flat(path: string, height: number): SpriteAsset | null {
+    const f = this.flats.get(path);
+    if (!f) return null;
+    const h = Math.max(0.2, height), w = h * f.image.width / f.image.height, ppt = f.image.height / h;
+    f.normal ??= normalMapFrom(f.image, { sprite: true, strength: 2.2, maxD: Math.max(2, Math.round(ppt / 10)) });
+    return createSpriteAsset(f.image, { w, h, normal: f.normal, filter: ppt > 48 ? 'smooth' : 'point' });
+  }
+  /** Textures for animated sheets, shared by every character wearing them. */
+  private readonly animBases = new Map<string, { map: THREE.Texture; normal: THREE.Texture }>();
+  /** LPC weapon sprites: the list (assets/weapons/weapons.json), the loaded sheets and their textures. */
+  private readonly weaponDefs = new Map<string, WeaponSpriteDef>();
+  private readonly weaponSheets = new Map<string, HTMLCanvasElement>();
+  private readonly weaponTex = new Map<string, THREE.Texture>();
+  private weaponManifest: Pick<WeaponSpriteManifest, 'thumbSize' | 'thumbCols'> = { thumbSize: 64, thumbCols: 16 };
+  private weaponThumbs: HTMLCanvasElement | null = null;
+  private readonly weaponIcons = new Map<string, HTMLCanvasElement>();
+  private readonly weaponMasks = new Map<string, THREE.Texture>();
+  /** Problems found while loading (missing files); shown as warnings. */
+  readonly problems: string[] = [];
+
+  constructor(readonly catalog: PropCatalog) {}
+
+  /** Load the images of every imported prop. `resolve` turns a stored path into a URL. */
+  async preload(resolve: (path: string) => string): Promise<void> {
+    const jobs = this.catalog.all().filter((d) => d.image).map(async (d) => {
+      const load = async (path: string | undefined, what: string) => {
+        if (!path) return undefined;
+        try { return await loadCanvas(resolve(path)); }
+        catch { this.problems.push(`${d.name}: ${what} “${path}” is missing`); return undefined; }
+      };
+      const [image, normal, glow] = await Promise.all([load(d.image, 'image'), load(d.normal, 'normal map'), load(d.glow, 'glow mask')]);
+      this.images.set(d.id, { image: image ?? missingImage(d.w * 16, d.h * 16), normal, glow });
+    });
+    await Promise.all(jobs);
+  }
+
+  /** Load the imported character sheets (Database → Characters). */
+  async preloadCharacters(chars: Record<string, CharacterDef>, resolve: (path: string) => string): Promise<void> {
+    await Promise.all(Object.values(chars).filter((c) => c.sheet && !this.sheets.has(c.sheet)).map(async (c) => {
+      try { this.sheets.set(c.sheet!, await loadCanvas(resolve(c.sheet!))); }
+      catch { this.problems.push(`${c.name}: character sheet “${c.sheet}” is missing`); }
+    }));
+  }
+
+  /** A character's own sprite asset: its imported sheet, else its palette over the built-in look. */
+  forCharacter(def: CharacterDef | undefined): SpriteAsset {
+    const sheet = def?.sheet ? this.sheets.get(def.sheet) : undefined;
+    if (sheet && def?.anim) return this.animated(def.sheet!, sheet, def.anim);
+    if (sheet) return this.sheet(sheet);
+    return this.character(def?.palette ?? DEFAULT_PALETTE);
+  }
+
+  private readonly portraits = new Map<string, HTMLCanvasElement>();
+
+  /**
+   * A character's head and shoulders, cut from the front-facing standing frame of their sheet (for menus).
+   * `key` caches it (the character's id).
+   */
+  portrait(key: string, def: CharacterDef | undefined, size = 48): HTMLCanvasElement {
+    const k = `${key}|${size}`;
+    let out = this.portraits.get(k);
+    if (out) return out;
+    const sheet = (def?.sheet ? this.sheets.get(def.sheet) : undefined) ?? characterSheet(def?.palette ?? DEFAULT_PALETTE);
+    // The front-facing frame: LPC sheets by their layout (the walk's down row, first frame); others 3 × 4 (middle of row 0).
+    let fx = 0, fy = 0, fw: number, fh: number;
+    if (def?.sheet && def.anim && this.sheets.has(def.sheet)) {
+      const L = def.anim, a = L.anims.walk ?? L.anims.idle ?? Object.values(L.anims)[0];
+      fw = fh = L.frame;
+      fy = ((a?.row ?? 0) + (a?.dirs === 4 ? Math.max(0, L.dirs.indexOf('down')) : 0)) * L.frame;
+    } else {
+      fw = Math.floor(sheet.width / 3); fh = Math.floor(sheet.height / 4); fx = fw;
+    }
+    // From the top of the head down: a square about the width of the head.
+    const g = sheet.getContext('2d', { willReadFrequently: true })!, px = g.getImageData(fx, fy, fw, fh).data;
+    let top = 0, minX = fw, maxX = 0;
+    for (let y = 0; y < fh && !top; y++) for (let x = 0; x < fw; x++) if (px[(y * fw + x) * 4 + 3] > 20) { top = y; break; }
+    for (let y = top; y < Math.min(fh, top + Math.round(fh * 0.25)); y++) for (let x = 0; x < fw; x++) if (px[(y * fw + x) * 4 + 3] > 20) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+    const side = Math.max(8, Math.round((maxX - minX + 1) * 1.35)), cx = maxX >= minX ? (minX + maxX + 1) / 2 : fw / 2;
+    const sx = Math.round(fx + cx - side / 2), sy = Math.max(fy, fy + top - 1);
+    out = document.createElement('canvas');
+    out.width = out.height = size;
+    const o = out.getContext('2d')!;
+    o.imageSmoothingEnabled = false;
+    o.drawImage(sheet, sx, sy, side, side, 0, 0, size, size);
+    this.portraits.set(k, out);
+    return out;
+  }
+
+  def(id: string): PropDef | undefined {
+    return this.catalog.get(id);
+  }
+
+  get(id: string): SpriteAsset {
+    let a = this.cache.get(id);
+    if (a) return a;
+    const d = this.catalog.get(id);
+    let picture: HTMLCanvasElement | null = null;
+    if (!d) {
+      // Unknown prop type (deleted from the catalog): show the "missing" chequerboard, one tile big.
+      if (!this.problems.some((p) => p.includes(`“${id}”`))) this.problems.push(`Unknown prop “${id}”`);
+      a = createSpriteAsset(missingImage(16, 16), { w: 1, h: 1 });
+    } else if (d.builtin) {
+      const art = (picture = PLACEHOLDER_SPRITES[d.builtin]());
+      // The pickup sparkle glows by itself so it can be found in the dark.
+      const glow = d.builtin === 'sparkle' ? art : undefined;
+      a = createSpriteAsset(art, { ...BUILTIN_OPTS[d.builtin], w: d.w, h: d.h, castShadow: d.castShadow, glow, glowColor: '#ffe9a0' });
+    } else {
+      const img = this.images.get(d.id) ?? { image: missingImage(d.w * 16, d.h * 16) };
+      picture = img.image;
+      a = createSpriteAsset(img.image, {
+        w: d.w, h: d.h, normal: img.normal, glow: img.glow, glowColor: d.glowColor,
+        filter: d.filter, castShadow: d.castShadow,
+        // Generated normal maps for imported art scale their rounding with the image resolution.
+        maxD: Math.max(3, Math.round((img.image.width / Math.max(1, d.w)) / 4)),
+      });
+    }
+    // A block, or crossing cards, instead of the flat card.
+    const shaped = d && picture ? shapeGeometry(picture, d, SPRITE_NORMAL) : null;
+    if (shaped) { a.geometry.dispose(); a.geometry = shaped; }
+    // Trees, bushes and grass sway in the wind (the shadow too).
+    if (d?.sway) for (const m of [a.material, a.depthMaterial, a.distanceMaterial]) patchSway(m, d.sway);
+    this.cache.set(id, a);
+    return a;
+  }
+
+  /**
+   * An animated (LPC) sheet for one character: textures shared with every other character on the same sheet, its own
+   * material (so a hurt flash stays its own) and its own geometry (the frame is chosen by UVs).
+   */
+  animated(key: string, canvas: HTMLCanvasElement, layout: CharacterAnimLayout): SpriteAsset {
+    let base = this.animBases.get(key);
+    if (!base) {
+      const map = makeTexture(canvas, {});
+      const normal = makeTexture(normalMapFrom(canvas, { sprite: true, strength: 2, maxD: 6 }), { linear: true });
+      base = { map, normal };
+      this.animBases.set(key, base);
+    }
+    const f = layout.frame, size = f / ANIM_PIXELS_PER_TILE;
+    const material = patchAreaTint(new THREE.MeshStandardMaterial({ map: base.map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }));
+    registerNormalMap(material, base.normal);
+    const geometry = spriteGeometry(size, size);
+    // LPC feet stand 2 pixels above the bottom of the frame.
+    geometry.translate(0, -(f / 32) / ANIM_PIXELS_PER_TILE, 0);
+    return {
+      map: base.map, material, geometry, castShadow: true,
+      depthMaterial: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: base.map, alphaTest: 0.5, side: THREE.DoubleSide }),
+      distanceMaterial: new THREE.MeshDistanceMaterial({ map: base.map, alphaTest: 0.5, side: THREE.DoubleSide }),
+      anim: { layout, width: canvas.width, height: canvas.height },
+    };
+  }
+
+  /** GPU resources the library keeps for reuse across maps (not to be disposed on a map change). */
+  shared(): Set<unknown> {
+    const out = new Set<unknown>();
+    for (const b of this.animBases.values()) { out.add(b.map); out.add(b.normal); }
+    for (const t of this.weaponTex.values()) out.add(t);
+    for (const t of this.weaponMasks.values()) out.add(t);
+    for (const a of this.cache.values()) {
+      out.add(a.map); out.add(a.material); out.add(a.geometry); out.add(a.depthMaterial); out.add(a.distanceMaterial);
+      for (const v of Object.values(a.material)) if ((v as THREE.Texture | null)?.isTexture) out.add(v);
+      if (a.material.userData.normalMap) out.add(a.material.userData.normalMap);
+    }
+    return out;
+  }
+
+  /**
+   * Load the LPC weapon list and the sheets of the weapons in `ids` (the ones items and enemies use). Without the
+   * list (an older project), weapons keep their icons.
+   */
+  async preloadWeapons(ids: Iterable<string>, resolve: (path: string) => string, custom: WeaponSpriteDef[] = [], icons: Iterable<string> = []): Promise<void> {
+    if (!this.weaponDefs.size) {
+      try {
+        const r = await fetch(resolve(WEAPON_MANIFEST));
+        if (r.ok) {
+          const m = (await r.json()) as WeaponSpriteManifest;
+          this.weaponManifest = { thumbSize: m.thumbSize, thumbCols: m.thumbCols };
+          for (const d of m.weapons) this.weaponDefs.set(d.id, d);
+        }
+      } catch { /* no weapon sprites in this project */ }
+    }
+    // Looks made in the weapon builder (Database.weaponSprites).
+    for (const d of custom) this.weaponDefs.set(d.id, d);
+    // Icons cut from the sprites: built-in ones from thumbs.png, made ones from their own sheet (loaded below).
+    const iconIds = [...new Set(icons)].filter((id) => id && this.weaponDefs.has(id));
+    if (!this.weaponThumbs && iconIds.some((id) => !this.weaponDefs.get(id)!.icon)) {
+      try { this.weaponThumbs = await loadCanvas(resolve(WEAPON_MANIFEST.replace('weapons.json', 'thumbs.png'))); } catch { /* icons fall back */ }
+    }
+    ids = [...ids, ...iconIds.filter((id) => this.weaponDefs.get(id)!.icon)];
+    await Promise.all([...new Set(ids)].filter((id) => id && !this.weaponSheets.has(id)).map(async (id) => {
+      const d = this.weaponDefs.get(id);
+      if (!d) { if (this.weaponDefs.size) this.problems.push(`Unknown weapon sprite “${id}”`); return; }
+      try { this.weaponSheets.set(id, await loadCanvas(resolve(d.file))); }
+      catch { this.problems.push(`${d.name}: weapon sheet “${d.file}” is missing`); }
+    }));
+  }
+
+  /** A loaded weapon sprite and its texture (shared by everyone carrying it), or null. */
+  weapon(id: string | undefined): { def: WeaponSpriteDef; map: THREE.Texture } | null {
+    if (!id) return null;
+    const def = this.weaponDefs.get(id), sheet = this.weaponSheets.get(id);
+    if (!def || !sheet) return null;
+    let map = this.weaponTex.get(id);
+    if (!map) { map = makeTexture(sheet, {}); this.weaponTex.set(id, map); }
+    return { def, map };
+  }
+
+  /** A weapon sheet's soft silhouette (for glows and swing trails), made the first time it's needed. */
+  weaponMask(id: string): THREE.Texture | null {
+    let t = this.weaponMasks.get(id);
+    if (t) return t;
+    const sheet = this.weaponSheets.get(id);
+    if (!sheet) return null;
+    t = new THREE.CanvasTexture(weaponMaskCanvas(sheet));
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    this.weaponMasks.set(id, t);
+    return t;
+  }
+
+  /** The icon cut from a weapon sprite (null if it isn't loaded or has none). */
+  weaponIcon(id: string | undefined): HTMLCanvasElement | null {
+    if (!id) return null;
+    const hit = this.weaponIcons.get(id);
+    if (hit) return hit;
+    const def = this.weaponDefs.get(id);
+    if (!def) return null;
+    const r = weaponIconRect(def, this.weaponManifest);
+    const src = r.inSheet ? this.weaponSheets.get(id) : this.weaponThumbs;
+    if (!src) return null;
+    const c = cutIcon(src, r);
+    this.weaponIcons.set(id, c);
+    return c;
+  }
+
+  /** Every weapon sprite in the list (loaded or not). */
+  weaponDef(id: string): WeaponSpriteDef | undefined { return this.weaponDefs.get(id); }
+
+  /** Characters get their own asset each, because each one animates its own texture frame. */
+  character(palette: CharacterPalette): SpriteAsset {
+    return this.sheet(characterSheet(palette));
+  }
+
+  /**
+   * A sprite sheet in the character layout (3 frames × 4 directions); each call makes its own copy to animate.
+   * Any frame size works: characters are always 1.5 tiles tall (a 16 × 24 frame is one pixel per texel, a
+   * 32 × 48 frame just has finer detail).
+   */
+  sheet(canvas: HTMLCanvasElement): SpriteAsset {
+    const fw = canvas.width / 3, fh = canvas.height / 4;
+    const a = createSpriteAsset(canvas, { maxD: Math.max(3, Math.round(3 * fh / 24)), normalStrength: 2, frameW: fw, frameH: fh, w: 1.5 * fw / fh, h: 1.5 });
+    a.map.repeat.set(1 / 3, 1 / 4);
+    return a;
+  }
+}

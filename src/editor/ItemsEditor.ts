@@ -1,0 +1,456 @@
+/**
+ * Database → Items and Database → Inventory: the item list with a form for the selected item
+ * (name, icon, kind, price, what it restores or which slot it fills, a ring's power and magic cost),
+ * and the bag size and what a new game starts with.
+ */
+import { ailmentChips, buffsField, inflictsField } from './statusFields';
+import type { Ailment } from '../world/types';
+import { elementSelect, matchupText } from './elementFields';
+import { ITEM_ICONS, builtinIcon, builtinIconName } from '../art/itemIcons';
+import { DEFAULT_BAG_SLOTS } from '../game/inventory';
+import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass } from '../world/types';
+import { FIELD_GLOW, POWER_NAMES, itemColor } from '../world/items';
+import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
+import { checkbox, field, h, numberInput, select, textInput, toast } from './dom';
+import type { EditorStore } from './store';
+import { findWeapon, itemSpriteField, loadWeaponList, weaponIcon } from './weaponPicker';
+import { itemWeaponSprite } from '../game/combat/weaponSprites';
+import type { WeaponGlow, WeaponTrail } from '../world/types';
+
+export const SLOT_NAMES: Record<EquipSlot, string> = { weapon: 'Melee weapon', shield: 'Shield', ranged: 'Bow', magic: 'Spell shard', armor: 'Armor', accessory: 'Accessory (rings, amulets…)' };
+const KIND_NAMES: [ItemKind, string][] = [['consumable', 'Consumable (used up)'], ['material', 'Loot / material (furs, wood, ore…)'], ['equipment', 'Equipment'], ['ammo', 'Arrows'], ['key', 'Key / quest item (always fits, can’t be sold or dropped)']];
+const CLASS_NAMES: [string, string][] = [['light', 'Light: daggers, short swords (fast, short reach)'], ['medium', 'Medium: longswords, rapiers'], ['heavy', 'Heavy: greatswords, great axes (slow, long reach, hard hits)']];
+const LIGHT_TYPES: [ItemLight['type'], string][] = [['orb', 'Orb: a ball of light floating by the hero, lighting all around'], ['lantern', 'Lantern: a steady glow all around'], ['torch', 'Torch: a flickering flame']];
+const GAUGE_LABEL: Record<Gauge, string> = { hp: 'Health', mp: 'Magic', sp: 'Stamina' };
+
+export function defaultLight(type: ItemLight['type']): ItemLight {
+  if (type === 'orb') return { type, color: '#ffe6b0', intensity: 2.2, radius: 10 };
+  if (type === 'lantern') return { type, color: '#ffd38a', intensity: 2.4, radius: 7 };
+  return { type, color: '#ffae55', intensity: 2.8, radius: 8 };
+}
+
+/** Image URL for an item icon in the editor (built-in art, or an imported file). */
+const urls = new Map<string, string>();
+export function iconUrl(store: EditorStore, icon: string | undefined): string {
+  const name = builtinIconName(icon);
+  if (name || !icon) return builtinIcon(name ?? 'bag').toDataURL();
+  const blob = store.files.get(icon);
+  if (!blob) return builtinIcon('?').toDataURL();
+  let u = urls.get(icon);
+  if (!u) { u = URL.createObjectURL(blob); urls.set(icon, u); }
+  return u;
+}
+
+/**
+ * An item's icon as an <img>. Icons cut from a weapon sprite ("sprite") load in the background and fill in
+ * (every image showing that weapon's icon updates).
+ */
+const spriteIconUrls = new Map<string, string>();
+export function itemIconImg(store: EditorStore, d: ItemDef, cls = 'item-icon'): HTMLImageElement {
+  if (d.icon !== 'sprite') return h('img', { src: iconUrl(store, d.icon), alt: '', class: cls });
+  const id = itemWeaponSprite(d);
+  const fallback = builtinIcon(d.slot === 'ranged' ? 'bow' : d.slot === 'shield' ? 'shield' : 'sword').toDataURL();
+  const img = h('img', { src: spriteIconUrls.get(id) ?? fallback, alt: '', class: `${cls} pixel`, 'data-sprite-icon': id });
+  if (!spriteIconUrls.has(id)) {
+    void loadWeaponList(store).then((wl) => weaponIcon(store, wl, findWeapon(store, wl, id))).then((c) => {
+      if (!c) return;
+      spriteIconUrls.set(id, c.toDataURL());
+      for (const el of document.querySelectorAll<HTMLImageElement>(`img[data-sprite-icon="${CSS.escape(id)}"]`)) el.src = spriteIconUrls.get(id)!;
+    });
+  }
+  return img;
+}
+
+/** Load the icon images that items in the database use (so the editor and playtests can show them). */
+export async function loadItemIconFiles(store: EditorStore): Promise<void> {
+  await Promise.all((store.db.items ?? []).map(async (d) => {
+    if (!d.icon || d.icon === 'sprite' || builtinIconName(d.icon) || store.files.has(d.icon)) return;
+    try { store.files.set(d.icon, await store.project.readFile(d.icon)); } catch { console.warn(`${d.name}: icon ${d.icon} is missing`); }
+  }));
+}
+
+function itemId(name: string, taken: (id: string) => boolean): string {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'item';
+  let id = base, n = 2;
+  while (taken(id)) id = `${base}_${n++}`;
+  return id;
+}
+
+export interface ItemsWork { items: ItemDef[]; inventory: InventorySetup }
+
+/** Items added in this window: their id follows their name until the database is applied. */
+const fresh = new WeakSet<ItemDef>();
+
+/** The Items tab. `rerender` redraws the whole tab (after adding or deleting an item). */
+export function itemsTab(store: EditorStore, work: ItemsWork, state: { sel: number }, rerender: () => void): HTMLElement[] {
+  const items = work.items;
+  state.sel = Math.min(state.sel, items.length - 1);
+  const add = () => {
+    const id = itemId('New item', (x) => items.some((d) => d.id === x));
+    const item: ItemDef = { id, name: 'New item', kind: 'consumable', icon: 'builtin:potion', price: 10, restore: { hp: 20 } };
+    fresh.add(item);
+    items.push(item);
+    state.sel = items.length - 1;
+    rerender();
+  };
+  const list = h('div', { class: 'item-list', role: 'listbox', 'aria-label': 'Items' },
+    ...items.map((d, i) => h('button', { type: 'button', class: 'item-row', role: 'option', 'aria-selected': String(i === state.sel), onclick: () => { state.sel = i; rerender(); } },
+      itemIconImg(store, d), h('span', itemColor(d) ? { style: `color:${itemColor(d)}` } : {}, d.name || '(no name)'))),
+    h('button', { type: 'button', class: 'btn item-add', onclick: add }, '+ New item'));
+  const d = items[state.sel];
+  const form = h('div', { class: 'item-form' });
+  if (!d) form.append(h('p', { class: 'note' }, 'No items yet. Add potions, a sword, a spell shard, a key… then hand them out with the “Give item” event command, put them in chests (Inspector → Create chest here), or sell them in shops (“Open shop”).'));
+  else form.append(...itemForm(store, work, d, rerender, () => { items.splice(state.sel, 1); state.sel = Math.max(0, state.sel - 1); rerender(); }));
+  return [h('div', { class: 'items-layout' }, list, form)];
+}
+
+function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () => void, remove: () => void): HTMLElement[] {
+  let icon = itemIconImg(store, d, 'item-icon big');
+  const refreshIcon = () => { const n = itemIconImg(store, d, 'item-icon big'); icon.replaceWith(n); icon = n; };
+  const rowName = () => rerender();
+  const out: HTMLElement[] = [
+    h('div', { class: 'item-head' }, icon,
+      field('Name', textInput(d.name, (v) => {
+        d.name = v.trim() || d.name;
+        // A new item's id follows its name (unless it has an imported icon saved under the old id).
+        if (fresh.has(d) && builtinIconName(d.icon)) d.id = itemId(d.name, (x) => x !== d.id && work.items.some((o) => o.id === x));
+        rowName();
+      }, { 'aria-label': 'Item name' })),
+      h('div', { class: 'item-id', title: 'Used by events and saves; it doesn’t change when you rename the item.' }, `id: ${d.id}`)),
+    field('Description', textInput(d.description ?? '', (v) => (d.description = v.trim() || undefined), { placeholder: 'Shown in the bag and shops' })),
+    field('Icon', iconPicker(store, d, refreshIcon, rerender)),
+    h('div', { class: 'field-row' },
+      field('Kind', select(KIND_NAMES, d.kind, (v) => {
+        d.kind = v as ItemKind;
+        if (d.kind === 'equipment') { d.slot ??= 'accessory'; delete d.restore; delete d.restorePercent; delete d.stack; }
+        else { delete d.slot; delete d.protects; if (d.kind !== 'ammo') delete d.inflicts; delete d.light; delete d.ring; delete d.weapon; delete d.defense; delete d.magicDefense; delete d.bonus; delete d.crit; delete d.glow; delete d.trail; delete d.sprite; delete d.rarity; delete d.spell; if (d.icon === 'sprite') d.icon = 'builtin:bag'; }
+        if (d.kind === 'ammo') { d.ammo ??= { damage: 2 }; delete d.restore; delete d.restorePercent; } else delete d.ammo;
+        if (d.kind === 'consumable') d.restore ??= { hp: 20 };
+        if (d.kind === 'key' || d.kind === 'material') { delete d.restore; delete d.restorePercent; }
+        if (d.kind !== 'consumable') { delete d.cures; delete d.buffs; }
+        if (d.kind === 'key') delete d.stack;
+        rerender();
+      })),
+      field('Price', numberInput(d.price ?? 0, (v) => (d.price = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }), 'Shops sell for this and buy back for half. 0: not sold unless a shop sets a price.'),
+      d.kind === 'consumable' || d.kind === 'material' ? field('Stack', numberInput(d.stack ?? 64, (v) => { const n = Math.max(1, Math.min(999, Math.round(v))); d.stack = n === 64 ? undefined : n; }, { step: 1, min: 1, max: 999 }), 'How many fit in one bag slot (64 by default); more take another slot.') : h('span')),
+  ];
+  if (d.kind === 'material' || d.kind === 'consumable') {
+    out.push(h('div', { class: 'field-row' }, field('Fire fuel: adds (game hours)', numberInput(d.fuel ?? 0, (v) => { const n = Math.max(0, Math.round(v * 4) / 4); if (n) d.fuel = n; else delete d.fuel; }, { step: 0.5, min: 0 }),
+      '0: not fuel. Otherwise the player can feed it to a fire that burns out (action button at the fire): a twig might add 0.5, a log 2, coal 6.')));
+  }
+  if (d.kind === 'material') {
+    // Ore (or an ingot that makes a better one): smelted at a forge.
+    const others = work.items.filter((x) => x !== d && x.kind === 'material').map((x) => [x.id, x.name] as [string, string]);
+    out.push(h('div', { class: 'field-row' },
+      field('At a forge, smelts into', select([['', 'Nothing (not ore)'], ...others], d.smelt?.into ?? '', (v) => { if (v) d.smelt = { ...d.smelt, into: v }; else delete d.smelt; rerender(); }),
+        'Ore becomes ingots (Iron Ore → Iron Ingot); an ingot can make a better one (Iron Ingot → Steel Ingot).'),
+      d.smelt ? field('How many for one', numberInput(d.smelt.need ?? 2, (v) => { const n = Math.max(1, Math.round(v)); d.smelt!.need = n === 2 ? undefined : n; }, { step: 1, min: 1 })) : h('span')));
+  }
+  if (d.kind === 'consumable') {
+    const r = (d.restore ??= {});
+    out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Using it restores'),
+      h('div', { class: 'field-row' }, ...(['hp', 'mp', 'sp'] as Gauge[]).map((g) =>
+        field(GAUGE_LABEL[g], numberInput(r[g] ?? 0, (v) => { const n = Math.max(0, Math.round(v)); if (n) r[g] = n; else delete r[g]; }, { step: 1, min: 0 })))),
+      checkbox('Amounts are percentages of the maximum', !!d.restorePercent, (v) => (d.restorePercent = v || undefined)),
+      field('Cures', ailmentChips(() => d.cures, (v) => { if (v) d.cures = v; else delete d.cures; }, rerender, 'Cures', { all: true }),
+        'Zombie is only cured when it’s chosen itself. A zombie is hurt by healing, so a Zombie cure that also heals cures first, then heals.'),
+      buffsField(() => d.buffs, (v) => { if (v) d.buffs = v; else delete d.buffs; }, rerender),
+      h('p', { class: 'note' }, 'An item isn’t used up when it would do nothing (health already full, say).')));
+  }
+  if (d.kind === 'equipment') {
+    out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Equipment'),
+      field('Slot', select(EQUIP_SLOTS.map((s) => [s, SLOT_NAMES[s]] as [string, string]), d.slot ?? 'accessory', (v) => {
+        d.slot = v as EquipSlot;
+        delete d.ring;
+        if (d.slot !== 'magic') delete d.light;
+        if (d.slot === 'weapon') d.weapon = { class: d.weapon && d.weapon.class !== 'bow' ? d.weapon.class : 'light', damage: d.weapon?.damage ?? 8 };
+        else if (d.slot === 'ranged') d.weapon = { class: 'bow', damage: d.weapon?.damage ?? 8 };
+        else delete d.weapon;
+        if (d.slot !== 'armor' && d.slot !== 'accessory' && d.slot !== 'shield') { delete d.defense; delete d.magicDefense; }
+        if (d.slot !== 'weapon' && d.slot !== 'ranged' && d.slot !== 'shield') delete d.sprite;
+        if (d.slot !== 'weapon' && d.slot !== 'ranged') delete d.glow;
+        if (d.slot !== 'weapon') delete d.trail;
+        if (d.slot !== 'weapon' && d.slot !== 'ranged' && d.slot !== 'magic') { delete d.element; delete d.inflicts; }
+        if (d.slot === 'magic') { d.spell ??= defaultSpell(); if (!d.icon.startsWith('builtin:shard_') && builtinIconName(d.icon)) d.icon = 'builtin:shard_frost'; }
+        else delete d.spell;
+        if (d.slot !== 'weapon' && d.slot !== 'ranged' && d.slot !== 'shield' && d.icon === 'sprite') d.icon = 'builtin:bag';
+        rerender();
+      })),
+      rarityField(d, rerender),
+      ...(d.slot === 'weapon' || d.slot === 'ranged' || (d.slot === 'magic' && !d.spell?.power) ? [field('Element', elementSelect(d.element, (e) => { if (e && e !== 'neutral') d.element = e; else delete d.element; rerender(); }), matchupText(d.element))] : []),
+      d.slot === 'weapon' || d.slot === 'ranged' ? weaponForm(d) : d.slot === 'magic' ? spellForm(d, rerender) : defenseForm(d),
+      ...(() => { const f = itemSpriteField(store, d, rerender); return f ? [field('Sprite (animated characters)', f, 'What LPC characters hold. Characters without animations show the icon.')] : []; })(),
+      ...(d.slot === 'weapon' || d.slot === 'ranged' ? [effectsForm(d)] : []),
+      ...(d.slot === 'weapon' ? [checkbox('Breaks rock (a pickaxe, a hammer): mines boulders and ore veins', !!d.mines, (v) => { if (v) d.mines = true; else delete d.mines; })] : []),
+      ...(d.slot !== 'magic' ? [field('Material (forge upgrades)', select([['none', 'None (can’t be upgraded)'], ...work.items.filter((x) => x.kind === 'material').map((x) => [x.id, x.name] as [string, string])],
+        d.material ?? 'none', (v) => { d.material = v; }), 'A forge upgrades it with ingots of this (Iron Ingot, Steel Ingot…): each upgrade adds a little damage or defence (Database → Combat → Forges).')] : []),
+      bonusForm(d),
+      ...(d.slot === 'weapon' || d.slot === 'ranged' || (d.slot === 'magic' && !d.spell?.power) ? [inflictsField(() => d.inflicts, (v) => { if (v) d.inflicts = v; else delete d.inflicts; }, rerender)] : []),
+      field('Wards off', ailmentChips(() => d.protects, (v) => { if (v) d.protects = v as Ailment[]; else delete d.protects; }, rerender, 'Wards off'), 'While worn, the hero can’t get these.'),
+      ...(d.slot !== 'magic' ? [usersField(store, d, rerender)] : [])));
+  }
+  if (d.kind === 'ammo') {
+    const a = (d.ammo ??= { damage: 2 });
+    out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Arrows'),
+      field('Extra damage', numberInput(a.damage, (v) => (a.damage = Math.max(0, Math.round(v))), { step: 1, min: 0 }), 'Added to the bow’s damage.'),
+      field('Element', elementSelect(d.element, (e) => { if (e && e !== 'neutral') d.element = e; else delete d.element; rerender(); }), d.element ? matchupText(d.element) : 'Non-elemental arrows hit with the bow’s element.'),
+      checkbox('Never run out (shown as ∞; one in the bag is enough; can’t be sold or dropped)', !!a.infinite, (v) => { a.infinite = v || undefined; rerender(); }),
+      inflictsField(() => d.inflicts, (v) => { if (v) d.inflicts = v; else delete d.inflicts; }, rerender, 'Ailments these arrows can give (with the bow’s)'),
+      a.infinite ? h('span') : field('Stack', numberInput(d.stack ?? 64, (v) => { const n = Math.max(1, Math.min(999, Math.round(v))); d.stack = n === 64 ? undefined : n; }, { step: 1, min: 1 }), 'How many fit in one bag slot (64 by default).'),
+      h('p', { class: 'note' }, 'The player picks which arrows to shoot in the bag (Nock these arrows). When they run out, the never-ending ones are used.')));
+  }
+  // Fishing: a rod (any item kind; with one in the bag the hero can fish), or a fish (its usual size, for Records).
+  out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Fishing'),
+    checkbox('Fishing rod: with this in the bag, the hero can fish at fishing spots (Map editor → Water → Fishing)', !!d.rod, (v) => { if (v) d.rod = { power: d.rod?.power ?? 0 }; else delete d.rod; rerender(); }),
+    d.rod ? field('Rod power', numberInput(d.rod.power ?? 0, (v) => { d.rod = { power: Math.max(0, Math.min(100, Math.round(v))) }; }, { min: 0, max: 100, step: 5 }), '0 … 100: bites come sooner, the hero has a little longer to react, and rare catches are likelier. The best rod in the bag is used.') : h('span'),
+    d.kind === 'consumable' || d.kind === 'material' ? checkbox('It’s a fish (each catch gets a length; Records keep the biggest)', !!d.fish, (v) => { if (v) d.fish = { size: d.fish?.size ?? 30 }; else delete d.fish; rerender(); }) : h('span'),
+    d.fish ? field('Usual length (cm)', numberInput(d.fish.size, (v) => { d.fish = { size: Math.max(1, Math.round(v)) }; }, { min: 1, step: 1 }), 'Each catch is 70 % … 135 % of this.') : h('span'),
+    h('p', { class: 'note' }, 'What can be caught where is set per fishing spot, in the Map editor’s Water tab → Fishing.')));
+  out.push(h('div', { class: 'item-foot' }, h('button', { type: 'button', class: 'btn danger', onclick: () => {
+    const used = usedBy(work, d.id);
+    if (used && !confirm(`${d.name} is ${used}. Delete it anyway?`)) return;
+    remove();
+  } }, 'Delete item')));
+  return out;
+}
+
+/** Equipment: which heroes can use it (none ticked: everyone). In the game, the others are greyed out for it. */
+function usersField(store: EditorStore, d: ItemDef, rerender: () => void): HTMLElement {
+  const heroes = store.db.heroes ?? [];
+  if (heroes.length < 2) return h('span');
+  const on = new Set(d.users ?? []);
+  return field('Who can use it', h('div', { class: 'users-row', style: 'display:flex;flex-wrap:wrap;gap:4px 14px' }, ...heroes.map((x) => checkbox(x.name, on.has(x.id), (v) => {
+    if (v) on.add(x.id); else on.delete(x.id);
+    const list = heroes.map((y) => y.id).filter((id) => on.has(id));
+    if (list.length && list.length < heroes.length) d.users = list; else delete d.users;
+    rerender();
+  }))), d.users?.length ? `Only ${heroes.filter((x) => d.users!.includes(x.id)).map((x) => x.name).join(', ')}: the others are greyed out for it in Equipment.` : 'Everyone (tick heroes to keep it to them).');
+}
+
+/** A new spell shard's spell. */
+export const defaultSpell = (): SpellDef => ({ damage: 14, mp: 6, color: '#7ac8ff', light: { intensity: 1.2, radius: 3 } });
+
+/** Rarity: the colour the item's name is shown in (weapons, armor, shards and other equipment). */
+function rarityField(d: ItemDef, rerender: () => void): HTMLElement {
+  const r = d.rarity ?? 'common';
+  const dot = h('span', { class: 'rarity-dot', style: `background:${RARITY_COLORS[r]}` });
+  return field('Rarity', h('div', { class: 'rarity-pick' }, dot,
+    select(RARITIES.map((x) => [x, RARITY_NAMES[x]] as [string, string]), r, (v) => { d.rarity = v === 'common' ? undefined : v as Rarity; rerender(); }, { 'aria-label': 'Rarity' })),
+  'Its name shows in this colour in the bag, equipment, shops and the HUD: grey common, green uncommon, blue rare, purple legendary, orange mythic. Uncommon and better glow when dropped.');
+}
+
+const FIELD_HINTS: Record<FieldPower, string> = {
+  light: 'Casting it (key 3, or F) calls up its light around the hero; casting again puts it out. Drains magic while it shines.',
+  waterWalk: 'Casting it (key 3, or F) lets the hero walk on water of any depth instead of swimming (no stamina), draining magic; it ends when they step back on land. If magic runs out over deep water, the hero is put back on the shore.',
+};
+
+/** A spell shard: a bolt (damage, magic, speed, colour, the light in the hands), or a field spell (Light, Water Walk). */
+function spellForm(d: ItemDef, rerender: () => void): HTMLElement {
+  const sp = (d.spell ??= defaultSpell());
+  const kind = select([['bolt', 'A bolt (an attack)'], ...FIELD_POWERS.map((p) => [p, `${POWER_NAMES[p]} (switched on and off)`] as [string, string])], sp.power ?? 'bolt', (v) => {
+    if (v === 'bolt') { d.spell = defaultSpell(); delete d.light; }
+    else {
+      const power = v as FieldPower;
+      d.spell = { power, damage: 0, mp: power === 'waterWalk' ? 2 : 0, mpPerSecond: power === 'waterWalk' ? 3 : 0.5, color: FIELD_GLOW[power] };
+      if (power === 'light') d.light ??= defaultLight('orb'); else delete d.light;
+      delete d.element; delete d.inflicts;
+    }
+    rerender();
+  });
+  if (sp.power) {
+    const power = sp.power;
+    const num = (v: number | undefined, set: (n: number | undefined) => void) =>
+      numberInput(v ?? 0, (n) => set(Math.max(0, Math.round(n * 10) / 10) || undefined), { step: 0.5, min: 0 });
+    const glow = h('input', { type: 'color', value: sp.glow ?? FIELD_GLOW[power], 'aria-label': 'Glow colour' });
+    glow.addEventListener('input', () => { sp.glow = glow.value === FIELD_GLOW[power] ? undefined : glow.value; sp.color = glow.value; });
+    return h('div', { class: 'item-ring' },
+      field('Spell', kind),
+      h('p', { class: 'note' }, FIELD_HINTS[power]),
+      h('div', { class: 'field-row' },
+        field('MP to switch on', num(sp.mp, (n) => (sp.mp = n ?? 0)), 'Spent once each time it’s cast.'),
+        field('MP per second while on', num(sp.mpPerSecond, (n) => (sp.mpPerSecond = n)), 'When magic runs out, it ends.'),
+        field('Glow colour', glow, 'The hero glows this colour while it’s on.')),
+      power === 'light' ? lightForm(d, rerender) : h('span'));
+  }
+  const li = (sp.light ??= { intensity: 1.2, radius: 3 });
+  const color = h('input', { type: 'color', value: sp.color, 'aria-label': 'Spell colour', oninput: () => (sp.color = color.value) });
+  const num = (v: number | undefined, set: (n: number) => void, o: { step: number; min: number; max?: number }) => numberInput(v ?? 0, set, o);
+  return h('div', { class: 'item-ring' },
+    field('Spell', kind),
+    h('div', { class: 'field-row' },
+      field('Damage', num(sp.damage, (v) => (sp.damage = Math.max(0, Math.round(v))), { step: 1, min: 0 })),
+      field('MP a cast', num(sp.mp, (v) => (sp.mp = Math.max(0, Math.round(v))), { step: 1, min: 0 })),
+      field('Speed (tiles/s)', numberInput(sp.speed ?? 0, (v) => (sp.speed = v > 0 ? v : undefined), { step: 0.5, min: 0 }), '0: Database → Combat’s spell speed.'),
+      field('Range (tiles)', numberInput(sp.range ?? 0, (v) => (sp.range = v > 0 ? v : undefined), { step: 0.5, min: 0 }), '0: Database → Combat’s spell range.')),
+    h('div', { class: 'field-row' },
+      field('Colour', color, 'The bolt, its sparks, the glow in the hands, and its light.'),
+      field('Hand light brightness', num(li.intensity ?? 1.2, (v) => (li.intensity = Math.max(0, Math.min(3, v))), { step: 0.1, min: 0, max: 3 }), '0: no light (still glows).'),
+      field('Hand light reach (tiles)', num(li.radius ?? 3, (v) => (li.radius = Math.max(1, Math.min(10, v))), { step: 0.5, min: 1, max: 10 }))),
+    h('p', { class: 'note' }, 'One shard is equipped at a time, in the magic slot. Key 3 casts it (Y on a controller switches to it); its icon floats in the hero’s hands while it’s readied. Give shards as loot, quest rewards, in shops, or from a skill (Database → Skills → Gives spell shard).'));
+}
+
+/** A melee weapon's class and damage, or a bow's damage. */
+function weaponForm(d: ItemDef): HTMLElement {
+  const w = (d.weapon ??= { class: d.slot === 'ranged' ? 'bow' : 'light', damage: 8 });
+  const dmg = field('Damage', numberInput(w.damage, (v) => (w.damage = Math.max(0, Math.round(v))), { step: 1, min: 0 }),
+    w.class === 'bow' ? 'Plus the arrow’s extra damage, scaled by how far the bow was drawn.' : 'Each swing; the third swing of a combo hits harder.');
+  if (w.class === 'bow') return h('div', { class: 'item-ring' }, dmg, h('p', { class: 'note' }, 'Key 2: hold to draw, let go to shoot. Draw time, arrow speed and lock-on range are in Database → Combat.'));
+  return h('div', { class: 'item-ring' },
+    field('Class', select(CLASS_NAMES, w.class, (v) => (w.class = v as WeaponClass))),
+    dmg,
+    h('p', { class: 'note' }, 'Key 1 swings. Each class’s swing speed, reach and damage multiplier are in Database → Combat.'));
+}
+
+/** Armor and accessories: defence against hits and against spells. */
+function defenseForm(d: ItemDef): HTMLElement {
+  return h('div', { class: 'item-ring' }, h('div', { class: 'field-row' },
+    field('Defence', numberInput(d.defense ?? 0, (v) => (d.defense = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }),
+      'Against hits and arrows. Damage taken is reduced by defence ÷ (defence + 50): 10 takes away 17%, 50 takes away half.'),
+    field('Magic defence', numberInput(d.magicDefense ?? 0, (v) => (d.magicDefense = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }),
+      'The same against spells.')));
+}
+
+/** Any equipment: stats it adds (or takes away) while worn, and extra critical hit chance. */
+function bonusForm(d: ItemDef): HTMLElement {
+  const b = d.bonus ?? {};
+  const set = (k: Attr, v: number) => { const n = Math.max(-99, Math.min(99, Math.round(v))); if (n) b[k] = n; else delete b[k]; if (!Object.keys(b).length) delete d.bonus; };
+  return h('div', { class: 'item-ring' },
+    h('div', { class: 'section-label' }, 'While worn'),
+    h('div', { class: 'field-row bonus-row' },
+      ...ATTRS.map((k) => field(ATTR_INFO[k].short, numberInput(b[k] ?? 0, (v) => { d.bonus ??= b; set(k, v); }, { step: 1, min: -99, max: 99, 'aria-label': `${ATTR_INFO[k].name} bonus` }))),
+      field('Crit %', numberInput(d.crit ?? 0, (v) => (d.crit = Math.max(-100, Math.min(100, Math.round(v * 10) / 10)) || undefined), { step: 1, 'aria-label': 'Critical hit chance bonus' }))),
+    h('p', { class: 'note' }, 'Added to the hero’s Strength, Dexterity, Defence, Magic and Magic Defence (negative takes away: a heavy axe might cost Dexterity). Critical hits start at 5%.'));
+}
+
+function lightForm(d: ItemDef, rerender: () => void): HTMLElement {
+  const l = (d.light ??= defaultLight('orb'));
+  const color = h('input', { type: 'color', value: l.color, 'aria-label': 'Light colour', oninput: () => (l.color = color.value) });
+  return h('div', { class: 'item-light' },
+    field('Light', select(LIGHT_TYPES, l.type, (v) => { d.light = { ...defaultLight(v as ItemLight['type']), color: l.color === defaultLight(l.type).color ? defaultLight(v as ItemLight['type']).color : l.color }; rerender(); })),
+    h('div', { class: 'field-row' },
+      field('Colour', color),
+      field('Brightness', numberInput(l.intensity, (v) => (l.intensity = Math.max(0, v)), { step: 0.2, min: 0 })),
+      field('Reach (tiles)', numberInput(l.radius, (v) => (l.radius = Math.max(1, v)), { step: 0.5, min: 1 })),
+      h('span')),
+    checkbox('Casts shadows (looks great; costs some speed)', !!l.shadows, (v) => (l.shadows = v || undefined)),
+    h('p', { class: 'note' }, 'The light reaches this far around the hero (Radiance in the Magic tree reaches further still).'));
+}
+
+/** Built-in icon grid plus “Import image…”. */
+function iconPicker(store: EditorStore, d: ItemDef, refresh: () => void, rerender: () => void): HTMLElement {
+  const grid = h('div', { class: 'icon-grid', role: 'radiogroup', 'aria-label': 'Built-in icons' },
+    ...Object.entries(ITEM_ICONS).map(([name, def]) => h('button', {
+      type: 'button', class: 'icon-pick', role: 'radio', 'aria-checked': String(d.icon === `builtin:${name}`), title: def.name, 'aria-label': def.name,
+      onclick: () => { d.icon = `builtin:${name}`; rerender(); },
+    }, h('img', { src: builtinIcon(name).toDataURL(), alt: '' }))));
+  const file = h('input', { type: 'file', accept: 'image/png,image/webp,image/gif', hidden: true });
+  file.addEventListener('change', async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    const path = `assets/icons/${d.id}.png`;
+    const p = store.project;
+    const persistent = p.canSave && p.canStoreImages;
+    try { if (persistent) await p.writeFile(path, f); }
+    catch (err) { toast(`Couldn’t save the icon: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+    store.files.set(path, f);
+    urls.delete(path);
+    d.icon = path;
+    if (!persistent) toast('Icon kept for this session only: open the project folder itself to save imported images.');
+    refresh();
+    rerender();
+  });
+  const imported = !builtinIconName(d.icon) && d.icon !== 'sprite';
+  const fromSprite = d.slot === 'weapon' || d.slot === 'ranged' || d.slot === 'shield'
+    ? h('button', { type: 'button', class: 'icon-pick sprite-pick', role: 'radio', 'aria-checked': String(d.icon === 'sprite'), title: 'Cut from its weapon sprite: the bag, shop and back icons look like the weapon in the hand',
+      onclick: () => { d.icon = 'sprite'; rerender(); } }, 'From its sprite')
+    : null;
+  if (fromSprite) grid.prepend(fromSprite);
+  return h('div', { class: 'icon-picker' }, grid,
+    h('div', { class: 'icon-import' },
+      h('button', { type: 'button', class: 'btn', onclick: () => file.click() }, imported ? 'Replace image…' : 'Import image…'),
+      h('span', { class: 'hint' }, imported ? d.icon : d.icon === 'sprite' ? 'Cut from its weapon sprite (bag, shop and back icons match the weapon).' : '16 × 16 or 32 × 32 PNG with a transparent background.'), file));
+}
+
+/** Where an item is used by the inventory setup (events aren't scanned here). */
+function usedBy(work: ItemsWork, id: string): string | null {
+  const inv = work.inventory;
+  if (inv.startItems?.some((s) => s.item === id)) return 'in the starting items';
+  if (Object.values(inv.startEquip ?? {}).includes(id)) return 'starting equipment';
+  return null;
+}
+
+/** The Inventory tab: bag size, starting gold, items and equipment. */
+export function inventoryTab(store: EditorStore, work: ItemsWork, rerender: () => void): HTMLElement[] {
+  const inv = work.inventory, items = work.items;
+  const choices = (filter: (d: ItemDef) => boolean, current: string | undefined): [string, string][] => {
+    const out = items.filter(filter).map((d) => [d.id, d.name] as [string, string]);
+    if (current && !out.some(([id]) => id === current)) out.unshift([current, `${current} (missing)`]);
+    return out;
+  };
+  const start = (inv.startItems ??= []);
+  return [
+    h('section', { class: 'db-section' }, h('h3', {}, 'Bag'),
+      h('div', { class: 'field-row' },
+        field('Slots per bag tab', numberInput(inv.slots ?? DEFAULT_BAG_SLOTS, (v) => { const n = Math.max(8, Math.min(96, Math.round(v / 8) * 8)); inv.slots = n === DEFAULT_BAG_SLOTS ? undefined : n; }, { step: 8, min: 8, max: 96 }), 'Each tab of the bag (Consumables, Gear, Shards, Materials, Key items) has this many slots, eight to a row. Each slot holds one stack of an item.'),
+        field('Starting gold', numberInput(inv.startGold ?? 0, (v) => (inv.startGold = Math.max(0, Math.round(v)) || undefined), { step: 10, min: 0 })))),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Starting items'),
+      ...start.map((s, k) => h('div', { class: 'field-row start-item' },
+        select(choices(() => true, s.item), s.item, (v) => (s.item = v), { 'aria-label': `Starting item ${k + 1}` }),
+        numberInput(s.count, (v) => (s.count = Math.max(1, Math.round(v))), { step: 1, min: 1, 'aria-label': `How many of starting item ${k + 1}` }),
+        h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove starting item ${k + 1}`, onclick: () => { start.splice(k, 1); rerender(); } }, '✕'))),
+      items.length ? h('button', { type: 'button', class: 'btn', onclick: () => { start.push({ item: items[0].id, count: 1 }); rerender(); } }, '+ Add starting item')
+        : h('p', { class: 'note' }, 'Add items in the Items tab first.')),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Starting equipment'),
+      h('div', { class: 'field-row' }, ...EQUIP_SLOTS.map((slot) => field(SLOT_NAMES[slot],
+        select([['', 'Nothing'], ...choices((d) => d.kind === 'equipment' && d.slot === slot, inv.startEquip?.[slot])], inv.startEquip?.[slot] ?? '', (v) => {
+          inv.startEquip ??= {};
+          if (v) inv.startEquip[slot] = v; else delete inv.startEquip[slot];
+        })))),
+      h('p', { class: 'note' }, 'A Light or Water Walk shard in the magic slot is ready from the start: cast it (key 3, or F) to switch it on.')),
+  ];
+}
+
+/** Drop empty parts, so database.json only lists what was set. */
+export function cleanInventory(inv: InventorySetup): InventorySetup | undefined {
+  const out: InventorySetup = {};
+  if (inv.slots && inv.slots !== DEFAULT_BAG_SLOTS) out.slots = inv.slots;
+  if (inv.startGold) out.startGold = inv.startGold;
+  const items = (inv.startItems ?? []).filter((s) => s.item && s.count > 0);
+  if (items.length) out.startItems = items;
+  const eq = Object.fromEntries(Object.entries(inv.startEquip ?? {}).filter(([, v]) => v));
+  if (Object.keys(eq).length) out.startEquip = eq;
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** Glow and swing trail: per weapon, on or off, with their colours (drawn on animated characters). */
+function effectsForm(d: ItemDef): HTMLElement {
+  const melee = d.slot === 'weapon';
+  const glowBox = h('div', { class: 'field-row' });
+  const trailBox = h('div', { class: 'field-row' });
+  const colour = (value: string, set: (v: string) => void, label: string) => {
+    const i = h('input', { type: 'color', value, 'aria-label': label, class: 'color-in' });
+    i.addEventListener('input', () => set(i.value));
+    return i;
+  };
+  const renderGlow = () => {
+    glowBox.replaceChildren();
+    const g = d.glow;
+    if (!g) return;
+    glowBox.append(field('Colour', colour(g.color, (v) => (g.color = v), 'Glow colour')),
+      field('Strength', numberInput(g.strength ?? 1, (v) => { const n = Math.max(0.2, Math.min(2, v)); g.strength = Math.abs(n - 1) < 0.001 ? undefined : n; }, { step: 0.1, min: 0.2, max: 2 })),
+      checkbox('Pulses', g.pulse !== false, (v) => (g.pulse = v ? undefined : false)));
+  };
+  const renderTrail = () => {
+    trailBox.replaceChildren();
+    const t = d.trail;
+    if (!t) return;
+    trailBox.append(field('Colour', colour(t.color, (v) => (t.color = v), 'Trail colour')),
+      field('Length', numberInput(t.length ?? 3, (v) => { const n = Math.max(1, Math.min(4, Math.round(v))); t.length = n === 3 ? undefined : n; }, { step: 1, min: 1, max: 4 }), 'Earlier frames echoing behind the swing.'));
+  };
+  renderGlow(); renderTrail();
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Effects (animated characters)'),
+    checkbox('Glow: a coloured aura around the weapon while it’s in the hand', !!d.glow, (v) => { if (v) d.glow = { color: '#7fd0ff' } as WeaponGlow; else delete d.glow; renderGlow(); }),
+    glowBox,
+    ...(melee ? [checkbox('Swing trail: a coloured streak following each swing', !!d.trail, (v) => { if (v) d.trail = { color: '#ffffff' } as WeaponTrail; else delete d.trail; renderTrail(); }), trailBox] : []),
+    h('p', { class: 'note' }, 'Any weapon can have them, whatever its rarity. Preview them in the Character Builder → Weapons.'));
+}
