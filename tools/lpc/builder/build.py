@@ -1,0 +1,10 @@
+import os
+D = os.path.dirname(os.path.abspath(__file__))
+src = lambda f: open(os.path.join(D, 'src', f)).read()
+js = "\n".join(src(f) for f in ['zip.js', 'lpc.js', 'store.js', 'weapons.js', 'transfer.js', 'app.js'])
+assert '</script' not in js.lower()
+page = src('page.html').replace('<!--SCRIPTS-->', '<script>\n(() => {\n"use strict";\n' + js + '\n})();\n</script>')
+os.makedirs(os.path.join(D, 'site'), exist_ok=True)
+open(os.path.join(D, 'site', 'index.html'), 'w').write(page)
+open(os.path.join(D, 'site', 'standalone.html'), 'w').write('<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body style="margin:0">\n' + page + '\n</body></html>\n')
+print('built', len(page))
