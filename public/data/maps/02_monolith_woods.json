@@ -7,6 +7,25 @@
     "seed": 371
   },
   "battleMap": "battle_forest",
+  "encounters": {
+    "enemies": [
+      {
+        "enemy": "slime"
+      }
+    ]
+  },
+  "zones": {
+    "A": {
+      "troops": [
+        {
+          "troop": "troop"
+        },
+        {
+          "troop": "troop_2"
+        }
+      ]
+    }
+  },
   "terrain": [
     "kkkkkk==kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
     "kkkkkk==kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",

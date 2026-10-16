@@ -4619,5 +4619,8 @@
         }
       ]
     }
-  ]
+  ],
+  "combat": {
+    "mode": "turnBased"
+  }
 }
