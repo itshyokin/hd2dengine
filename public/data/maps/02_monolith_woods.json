@@ -321,6 +321,46 @@
           ]
         }
       ]
+    },
+    {
+      "id": 2,
+      "name": "Katrina",
+      "x": 34,
+      "z": 12,
+      "pages": [
+        {
+          "trigger": "action",
+          "solid": true,
+          "commands": [
+            {
+              "cmd": "text",
+              "text": "Ready to get moving?",
+              "speaker": "Katrina"
+            },
+            {
+              "cmd": "party",
+              "op": "add",
+              "hero": "hero_2"
+            },
+            {
+              "cmd": "setSwitch",
+              "switch": "katrina_party_1",
+              "value": true
+            }
+          ],
+          "character": "katrina",
+          "facePlayer": true
+        },
+        {
+          "trigger": "action",
+          "commands": [],
+          "facePlayer": true,
+          "condition": {
+            "switch": "katrina_party_1",
+            "is": true
+          }
+        }
+      ]
     }
   ],
   "props": [
