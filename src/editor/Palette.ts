@@ -1,3 +1,4 @@
+import { openDatabase } from './DatabaseEditor';
 /** Left panel: layer tabs, tools, brush options and the swatch / sprite palette. */
 import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSteps } from './assets';
 import { AILMENTS, AILMENT_INFO } from '../game/status';
@@ -489,6 +490,7 @@ export class Palette {
         h('span', { class: 'zone-chip', style: key === 'erase' ? '' : `background:${MARKER_COLORS[key]}` }, key === 'erase' ? '✕' : key === 'party' ? 'P' : 'E'),
         h('span', { class: 'swatch-name' }, name), h('span', { class: 'swatch-note' }, note));
     return [
+      h('p', { class: 'note' }, 'This is a battle map, so the Spawns layer places where fighters stand. Zones and troops are painted on the maps you walk around (untick Map settings → Battles → This is a battle map to paint zones here).'),
       h('div', { class: 'section-label' }, 'Place'),
       h('div', { class: 'swatches' },
         tool('party', 'Party marker', `${n('party')} placed · P1 is the hero, then the party in order`),
@@ -515,9 +517,15 @@ export class Palette {
       h('span', { class: 'zone-chip', style: l === '.' ? '' : `background:${zoneColor(l)}` }, l === '.' ? '✕' : l),
       h('span', { class: 'swatch-name' }, l === '.' ? 'Erase' : m.zones?.[l]?.name || `Zone ${l}`),
       h('span', { class: 'swatch-note' }, l === '.' ? 'No random battles here.' : `${grid.filter((c) => c === l).length} tiles · ${m.zones?.[l]?.troops.length ?? 0} troop${(m.zones?.[l]?.troops.length ?? 0) === 1 ? '' : 's'}`));
-    const out: HTMLElement[] = [this.brush(), h('div', { class: 'section-label' }, 'Paint'), h('div', { class: 'swatches' }, ...letters.map(btn), btn('.'))];
+    const out: HTMLElement[] = [];
+    if (s.db.combat?.mode !== 'turnBased') out.push(h('p', { class: 'note warn' }, 'Zones only bring battles with turn-based battles on: Database → Combat → Battle system.'),
+      h('button', { type: 'button', class: 'btn small', onclick: () => openDatabase(s, 'combat') }, 'Open Database → Combat'));
+    out.push(this.brush(), h('div', { class: 'section-label' }, 'Paint'), h('div', { class: 'swatches' }, ...letters.map(btn), btn('.')));
     const l = s.zoneLetter;
-    if (l === '.') { out.push(h('p', { class: 'note' }, 'Erase: tiles with no zone have no random battles (unless the map has its own random encounters, in map settings).')); return out; }
+    if (l === '.') {
+      out.push(h('p', { class: 'note' }, 'Erase: tiles with no zone have no random battles. Pick a zone letter above to paint it and choose its troops.'));
+      return out;
+    }
     const troops = s.db.troops ?? [];
     const zone = m.zones?.[l];
     const ensure = () => ((m.zones ??= {})[l] ??= { troops: [] });
@@ -527,7 +535,12 @@ export class Palette {
         (v) => edit(() => { if (v) ensure().battleMap = v; else if (m.zones?.[l]) delete m.zones[l].battleMap; }), { 'aria-label': `Zone ${l} battle map` }),
         h('div', { class: 'hint' }, 'Where battles in this zone are fought (a forest clearing, a beach…).')),
       h('div', { class: 'field' }, h('label', {}, 'Tiles between battles'), numberInput(zone?.steps ?? 30, (v) => edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) { if (m.zones?.[l]) delete m.zones[l].steps; } else ensure().steps = n; }), { min: 4, step: 1 }), h('div', { class: 'hint' }, 'About this far on average (it varies).')));
-    if (!troops.length) { out.push(h('p', { class: 'note' }, 'Add troops (groups of enemies) in Database → Troops first, then choose which come in this zone.')); return out; }
+    out.push(h('div', { class: 'section-label' }, `Zone ${l} troops`));
+    if (!troops.length) {
+      out.push(h('p', { class: 'note' }, 'No troops yet. A troop is a group of enemies that fight together (“2–3 slimes”). Make some in Database → Troops, then add them to this zone here.'),
+        h('button', { type: 'button', class: 'btn small', onclick: () => openDatabase(s, 'troops') }, 'Open Database → Troops'));
+      return out;
+    }
     const tOpts = troops.map((t) => [t.id, t.name] as [string, string]);
     (zone?.troops ?? []).forEach((zt, k) => {
       const days = new Set(zt.days ?? []);
@@ -542,7 +555,9 @@ export class Palette {
           onclick: () => edit(() => { if (days.has(d)) days.delete(d); else days.add(d); const list = [...days].sort(); if (list.length) zt.days = list; else delete zt.days; }) }, name))),
         h('div', { class: 'field' }, h('label', {}, 'Only while switch is ON'), h('input', { type: 'text', value: zt.switch ?? '', placeholder: 'Any (optional)', onchange: (e: Event) => edit(() => { const v = (e.target as HTMLInputElement).value.trim(); if (v) zt.switch = v; else delete zt.switch; }) }))));
     });
+    if (!zone?.troops.length) out.push(h('p', { class: 'note' }, `No troops in zone ${l} yet: add one, or several with how often each comes.`));
     out.push(h('button', { type: 'button', class: 'btn small', onclick: () => edit(() => ensure().troops.push({ troop: tOpts[0][0] })) }, '+ Add troop'),
+      h('button', { type: 'button', class: 'btn small ghost', onclick: () => openDatabase(s, 'troops') }, 'Edit troops (Database)'),
       h('p', { class: 'note' }, 'Walking in this zone brings a battle now and then (turn-based battles), with one of these troops by how often each is set, among those allowed right then: by day or at night (game time), on the chosen real-world days of the week, or while a switch is on.'));
     return out;
   }

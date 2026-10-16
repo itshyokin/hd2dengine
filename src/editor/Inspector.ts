@@ -116,14 +116,17 @@ export class Inspector {
     const s = this.store, m = s.map, enemies = s.db.enemies ?? [];
     const turnBased = s.db.combat?.mode === 'turnBased';
     const t = m.encounters;
-    const note = h('p', { class: 'hint' }, turnBased
-      ? 'While walking here, now and then a battle starts with enemies from this list (like tall grass in Pokémon). Enemies placed on the map still start battles when they reach the hero.'
-      : 'Random encounters need turn-based battles: Database → Combat → Battle system.');
-    if (!enemies.length) return [note, h('p', { class: 'hint' }, 'Add enemy types in Database → Enemies first.')];
-    if (!t) return [note, h('button', { type: 'button', class: 'btn small', onclick: () => { this.edit(() => (m.encounters = { enemies: [{ enemy: enemies[0].id }] })); this.render(); } }, '+ Add random encounters')];
+    const zones = Object.entries(m.zones ?? {}).filter(([, z]) => z.troops.length);
+    const goSpawns = h('button', { type: 'button', class: 'btn small', onclick: () => { s.mode = 'zones'; s.emit('ui'); } }, 'Go to the Spawns layer');
+    const how = h('p', { class: 'hint' }, `${turnBased ? '' : 'Random battles need turn-based battles (Database → Combat → Battle system). '}Paint encounter zones on the Spawns layer (key 9), then pick each zone’s troops (Database → Troops) below the zone letters.${zones.length ? ` This map has ${zones.length} zone${zones.length === 1 ? '' : 's'} with troops: ${zones.map(([k, z]) => z.name || `Zone ${k}`).join(', ')}.` : ''}`);
+    // The older per-map list (before zones and troops): only shown on maps that still have one.
+    if (!t || !enemies.length) return [how, goSpawns];
     const opts = enemies.map((e) => [e.id, e.name] as [string, string]);
     return [
-      note,
+      how, goSpawns,
+      h('div', { class: 'section-label' }, 'Older random encounters list'),
+      h('p', { class: 'hint' }, 'From before zones and troops: still used on tiles outside any painted zone. Remove it once your zones are set up.'),
+      h('button', { type: 'button', class: 'btn small danger', onclick: () => { this.edit(() => delete m.encounters); this.render(); } }, 'Remove this list'),
       ...t.enemies.map((row, k) => h('div', { class: 'field-row' },
         select(opts, row.enemy, (v) => this.edit(() => (row.enemy = v)), { 'aria-label': `Encounter ${k + 1} enemy` }),
         field('How often', numberInput(row.weight ?? 1, (v) => this.edit(() => { const w = Math.max(0, Math.round(v)); if (w === 1) delete row.weight; else row.weight = w; }), { min: 0, step: 1, 'aria-label': `Encounter ${k + 1} weight` })),
@@ -202,7 +205,7 @@ export class Inspector {
       ...mapAudioFields(s, m, (fn) => this.edit(fn)),
       h('div', { class: 'section-label' }, 'Battles'),
       ...this.battleFields(),
-      ...(m.kind === 'battle' ? [] : [h('div', { class: 'section-label' }, 'Random encounters'), ...this.encounterFields()]),
+      ...(m.kind === 'battle' ? [] : [h('div', { class: 'section-label' }, 'Random battles'), ...this.encounterFields()]),
       h('div', { class: 'section-label' }, 'Game start'),
       field('Starting hour', numberInput(s.db.startHour, (v) => { s.checkpoint(); s.db.startHour = Math.min(23.75, Math.max(0, v)); s.changedDb(); }, { min: 0, max: 23.75, step: 0.25 }), 'Time of day when a new game begins (0 – 23.75; 18.5 is 6:30 PM). Clock speed and night darkness are in Database → Time.'),
       h('p', { class: 'hint' }, s.startHere ? 'The player starts on this map. Select it in the Events layer to move it.' : `The player starts on “${s.db.startMap}”. To start here, select a tile in the Events layer and choose “Move player start here”.`),

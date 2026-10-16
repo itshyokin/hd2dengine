@@ -504,9 +504,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   and the enemies near it (*Enemies who join*, up to *Most enemies in a battle*). Hitting it first on the map, with a
   sword, an arrow or a spell, gives the party the first turns (*You caught … off guard!*); being hit from behind is an
   **ambush** (the enemies go first). Stealth still matters: sneak up on an enemy to strike first.
-- **Random encounters**: a map's settings → **Random encounters** lists enemies (with how often each appears), about
-  how many tiles are walked between battles, how many enemies come at once, and optionally which terrain characters
-  they happen on (tall grass, say). Works alongside enemies placed on the map.
+- **Random battles**: paint encounter zones on a map's **Spawns** layer and give each zone its troops (below). Maps
+  made before zones may still have an older *random encounters* list (shown in map settings → Random battles, with a
+  button to remove it); it only applies outside painted zones. Works alongside enemies placed on the map.
 - **Battle maps** (FFX / Legend of Dragoon style): a battle can be fought on a map you've made (a forest clearing,
   plains, a city street). Make a map and tick **Battles → This is a battle map** in its settings (or choose *Battle
   map* when making a new map); battle maps are listed apart in the map list. On the **Spawns** layer (key 9) of a
