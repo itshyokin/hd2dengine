@@ -510,6 +510,16 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
 - **Battle cameras**: on a battle map, **LB / RB** (Q / E, or tap the camera chip top-left) switch between seven
   cameras: behind the party, over either shoulder, high above, low and close, and wide from either side. Each
   battle starts on one at random, most often the one behind the party.
+- **Three a side**: the hero and up to two party members against up to three enemies (troops, zones and Start
+  battle are capped at three). On a battle map, put P1 (the hero) in the middle and P2 / P3 either side.
+- **Battle screen layout** (Database → Combat): **Dragon Legend** (default, Legend of Dragoon style): each hero's
+  card in a row along the bottom (the hero in the middle), with their face (Database → Heroes → *Face art*, or one cut
+  from their look), name, and HP / MP as numbers that are white, yellow at half or less, red at a quarter or less. A
+  gold frame marks whose turn it is; a silver card is the one being chosen for a spell or item. Items and Magic open
+  in the middle of the screen with their pictures and costs, and what the chosen one does in a box at the top.
+  **Forbidden Fantasy**: health and magic bars in a box at the bottom right, lists at the side.
+- **Choosing a target**: enemies are one row and the party another. Left / right move along the row; up / down
+  change rows.
 - **Commands** (Legend of Dragoon style): a row of pictures, Attack, Guard, Magic, Items and Escape; left / right
   choose. Any fighter can be targeted with an attack, a spell or an item (the usual side first; keep pressing left /
   right to reach the other side): heal a friend, or use a potion on a zombie to hurt it. Spells that hit a whole

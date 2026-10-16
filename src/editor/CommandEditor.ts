@@ -590,7 +590,7 @@ export class CommandEditor {
         const render = () => list.replaceChildren(...d.enemies.map((id, k) => h('div', { class: 'field-row' },
           select(enemies.length ? enemies : [['', '(add enemies in Database → Enemies)']], id, (v) => (d.enemies[k] = v), { 'aria-label': `Enemy ${k + 1}` }),
           h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove enemy ${k + 1}`, onclick: () => { d.enemies.splice(k, 1); render(); } }, '✕'))),
-          d.enemies.length < 8 && enemies.length ? h('button', { type: 'button', class: 'btn', onclick: () => { d.enemies.push(d.enemies[d.enemies.length - 1] ?? enemies[0][0]); render(); } }, '+ Add enemy') : h('span'));
+          d.enemies.length < 3 && enemies.length ? h('button', { type: 'button', class: 'btn', onclick: () => { d.enemies.push(d.enemies[d.enemies.length - 1] ?? enemies[0][0]); render(); } }, '+ Add enemy') : h('span'));
         render();
         return [list,
           checkbox('The party may run away', !!d.canRun, (v) => (d.canRun = v || undefined)),

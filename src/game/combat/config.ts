@@ -1,3 +1,5 @@
+/** Battles are three a side at most: the hero and two party members, and three enemies. */
+export const MAX_FOES = 3;
 /**
  * Combat tuning with defaults filled in. Database → Combat stores only what differs.
  * No three.js, so it can be tested on its own.
@@ -19,9 +21,11 @@ export interface TurnBasedConfig {
   guardHeal: number;
   additions: 'set' | 'choose';
   additionTiming: 'press' | 'auto';
+  /** The battle screen: Dragon Legend (faces and numbers in a row, lists in the middle) or Forbidden Fantasy (bars in a box, lists at the side). */
+  layout: 'dragon' | 'fantasy';
 }
 
-export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 4, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press' };
+export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon' };
 
 export interface CombatConfig {
   /** Action combat on the map, or turn-based battles. */
@@ -88,8 +92,8 @@ export function combatConfig(data?: CombatData): CombatConfig {
     mode: s.mode === 'turnBased' ? 'turnBased' : 'action',
     turnBased: {
       ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
-      flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(8, Math.round(tb.maxEnemies))),
-      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press',
+      flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(MAX_FOES, Math.round(tb.maxEnemies))),
+      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press', layout: tb.layout === 'fantasy' ? 'fantasy' : 'dragon',
     },
     unarmedDamage: s.unarmedDamage ?? d.unarmedDamage,
     classes,

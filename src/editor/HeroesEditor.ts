@@ -24,6 +24,9 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
   const out = w.heroes.map((x, i) => {
     const c: HeroDef = { id: x.id, name: x.name.trim() || 'Hero' };
     if (i > 0 && x.look) c.look = x.look;
+    if (x.face) c.face = x.face;
+    if (x.color) c.color = x.color;
+    if (x.about) c.about = x.about;
     const st = Object.fromEntries(ATTRS.filter((k) => (x.stats?.[k] ?? ATTR_BASE) !== ATTR_BASE).map((k) => [k, x.stats![k]]));
     if (Object.keys(st).length) c.stats = st;
     if (x.elements?.length) c.elements = x.elements;
@@ -47,12 +50,13 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     }
     return c;
   });
-  if (out.length === 1 && out[0].id === 'hero' && out[0].name === 'Hero' && !out[0].stats && !out[0].creation && !out[0].elements && !out[0].immune && !out[0].absorb && !out[0].resists && !out[0].cls && !out[0].spells && !out[0].additions) return undefined;
+  if (out.length === 1 && out[0].id === 'hero' && out[0].name === 'Hero' && !out[0].stats && !out[0].creation && !out[0].face && !out[0].color && !out[0].about && !out[0].elements && !out[0].immune && !out[0].absorb && !out[0].resists && !out[0].cls && !out[0].spells && !out[0].additions) return undefined;
   return out;
 }
 
 export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatData, state: { sel: number }, rerender: () => void, items: ItemDef[] = [],
-  learnable: { spells: SpellEntry[]; additions: AdditionDef[]; classes: ClassDef[] } = { spells: [], additions: [], classes: [] }): HTMLElement[] {
+  learnable: { spells: SpellEntry[]; additions: AdditionDef[]; classes: ClassDef[] } = { spells: [], additions: [], classes: [] },
+  face?: { pick: (hero: HeroDef, done: () => void) => void; url: (path: string) => string }): HTMLElement[] {
   state.sel = Math.min(state.sel, w.heroes.length - 1);
   const looks = Object.keys(people.chars).map((k) => [k, k] as [string, string]);
   const add = () => {
@@ -84,6 +88,11 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
       field('Name', textInput(x.name, (v) => { x.name = v.trim() || x.name; rerender(); }, { 'aria-label': 'Hero name' })),
       field('Look', select(looks.length ? looks : [['', '(no characters)']], main ? people.player : x.look ?? '', (v) => { if (main) people.player = v; else x.look = v; }),
         main ? 'The player character (the same as Characters → Player).' : 'From Characters.'),
+      ...(face ? [field('Face art', h('div', { class: 'face-pick' },
+        x.face ? h('img', { class: 'face-thumb', src: face.url(x.face), alt: '' }) : h('span', { class: 'note' }, 'From their look'),
+        h('button', { type: 'button', class: 'btn small', onclick: () => face.pick(x, rerender) }, x.face ? 'Change…' : 'Choose a picture…'),
+        x.face ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete x.face; rerender(); } }, 'Use their look') : h('span')),
+        'Their face on the battle screen (Dragon Legend layout). Square pictures look best; without one, a face is cut from their look.')] : []),
       field('Colour', (() => { const c = h('input', { type: 'color', value: x.color ?? ['#e8b04a', '#5aa8ff', '#7cd66a', '#e87ad0', '#ff8a5a'][Math.max(0, state.sel) % 5] }); c.addEventListener('change', () => { x.color = c.value; }); return c; })(),
         'Shown behind "equipped" on what they wear, and on their card in the menus.'),
       field('About', (() => { const t = h('textarea', { rows: '3', placeholder: 'A few lines of story about them (shown on their Status page).' }); t.value = x.about ?? ''; t.addEventListener('change', () => { const v = t.value.trim(); if (v) x.about = v; else delete x.about; }); return t; })()),
