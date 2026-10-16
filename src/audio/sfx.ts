@@ -5,7 +5,11 @@
  * file path like "assets/audio/forest.ogg". Effects can be swapped for files in Database → Audio.
  * Browsers only start audio after the player clicks or presses a key, so nothing plays before that.
  */
-import { AMBIENCE_NAMES, type AmbienceName, MUSIC_NAMES, type MusicName, RATE, SFX_NAMES, type SfxName, type Stereo, makeAmbience, makeMusic, makeSfx } from './synth';
+import { AMBIENCE_NAMES, type AmbienceName, JINGLE_SFX, MUSIC_NAMES, type MusicName, RATE, SFX_NAMES, type SfxName, type Stereo, UI_SFX, makeAmbience, makeMusic, makeSfx } from './synth';
+
+/** The volume groups (Settings → Sound), 0 – 100 each. */
+export interface Volumes { master: number; music: number; sfx: number; ambience: number; ui: number; jingle: number }
+type Bus = 'music' | 'ambience' | 'sfx' | 'ui' | 'jingle';
 
 export type Sfx = SfxName;
 export { SFX_NAMES, MUSIC_NAMES, AMBIENCE_NAMES };
@@ -20,12 +24,12 @@ export function uiSound(s: Sfx): void { uiPlayer(s); }
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
-  private buses!: Record<'music' | 'ambience' | 'sfx', GainNode>;
+  private buses!: Record<Bus, GainNode>;
   private readonly buffers = new Map<string, Promise<AudioBuffer | null>>();
   private readonly loops: Record<'music' | 'ambience', Loop | null> = { music: null, ambience: null };
   /** What each loop should be playing (kept while audio is still locked). */
   private readonly want: Record<'music' | 'ambience', string> = { music: '', ambience: '' };
-  private volumes = { music: 0.7, ambience: 0.7, sfx: 0.8 };
+  private volumes: Record<Bus | 'master', number> = { master: 0.25, music: 0.49, ambience: 0.49, sfx: 0.64, ui: 0.49, jingle: 0.64 };
   /** Effects swapped for other sounds (Database → Audio): name → source ('' = silent). */
   overrides: Partial<Record<Sfx, string>> = {};
   /** Where the listener is (the hero), for effects placed in the world. */
@@ -46,7 +50,7 @@ export class AudioManager {
       this.master = this.ctx.createGain();
       this.master.connect(this.ctx.destination);
       const bus = () => { const g = this.ctx!.createGain(); g.connect(this.master); return g; };
-      this.buses = { music: bus(), ambience: bus(), sfx: bus() };
+      this.buses = { music: bus(), ambience: bus(), sfx: bus(), ui: bus(), jingle: bus() };
       this.applyVolumes();
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
@@ -55,16 +59,18 @@ export class AudioManager {
   }
 
   /** Volumes 0 – 100 from the settings. */
-  setVolumes(music: number, sfx: number, ambience: number): void {
+  setVolumes(v: Volumes): void {
     // Perceived loudness: squared.
-    this.volumes = { music: (music / 100) ** 2, sfx: (sfx / 100) ** 2, ambience: (ambience / 100) ** 2 };
+    const q = (n: number) => (Math.max(0, Math.min(100, n)) / 100) ** 2;
+    this.volumes = { master: q(v.master), music: q(v.music), sfx: q(v.sfx), ambience: q(v.ambience), ui: q(v.ui), jingle: q(v.jingle) };
     this.applyVolumes();
   }
 
   private applyVolumes(): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    for (const k of ['music', 'ambience', 'sfx'] as const) this.buses[k].gain.setTargetAtTime(this.volumes[k], t, 0.05);
+    this.master.gain.setTargetAtTime(this.volumes.master, t, 0.05);
+    for (const k of ['music', 'ambience', 'sfx', 'ui', 'jingle'] as const) this.buses[k].gain.setTargetAtTime(this.volumes[k], t, 0.05);
   }
 
   /** Play an effect. With a world position it gets quieter with distance and pans left / right. */
@@ -90,7 +96,8 @@ export class AudioManager {
       let out: AudioNode = g;
       if (pan && this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); out = p; }
       node.connect(g);
-      out.connect(this.buses.sfx);
+      const bus: Bus = (UI_SFX as readonly string[]).includes(name) ? 'ui' : (JINGLE_SFX as readonly string[]).includes(name) ? 'jingle' : 'sfx';
+      out.connect(this.buses[bus]);
       node.start();
     });
   }

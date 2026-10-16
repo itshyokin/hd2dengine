@@ -507,6 +507,21 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
 - **Random battles**: paint encounter zones on a map's **Spawns** layer and give each zone its troops (below). Maps
   made before zones may still have an older *random encounters* list (shown in map settings → Random battles, with a
   button to remove it); it only applies outside painted zones. Works alongside enemies placed on the map.
+- **Battle cameras**: on a battle map, **LB / RB** (Q / E, or tap the camera chip top-left) switch between seven
+  cameras: behind the party, over either shoulder, high above, low and close, and wide from either side. Each
+  battle starts on one at random, most often the one behind the party.
+- **Commands** (Legend of Dragoon style): a row of pictures, Attack, Guard, Magic, Items and Escape; left / right
+  choose. Any fighter can be targeted with an attack, a spell or an item (the usual side first; keep pressing left /
+  right to reach the other side): heal a friend, or use a potion on a zombie to hurt it. Spells that hit a whole
+  group can be switched to the other group. The arrow over the target shows their health: **cyan** above half,
+  **yellow** at half or less, **red** at a quarter or less. Enemies' names and health bars are over their heads.
+- **Into battle**: a sting, everything freezes, and the picture breaks into black: **shatter, swirl, smudge,
+  blinds, rush in** or **flash**, with a rising swell. Map settings → Battles → *Battle transition* picks one, or
+  several to choose from at random (none picked: any).
+- **Victory**: a fanfare, then the victory tune. Each hero's EXP bar fills in turn (a level up dings and lists what
+  it brought: Max HP, stat and skill points), then the **Spoils**: gold and each item with a sound for its kind
+  (coins, a cork and slosh for potions, a chime for key items, a clunk for materials, steel for gear). OK hurries
+  things along; **B** (Esc) at the end fades the battle and its music out and the field back in.
 - **Battle maps** (FFX / Legend of Dragoon style): a battle can be fought on a map you've made (a forest clearing,
   plains, a city street). Make a map and tick **Battles → This is a battle map** in its settings (or choose *Battle
   map* when making a new map); battle maps are listed apart in the map list. On the **Spawns** layer (key 9) of a
@@ -705,7 +720,7 @@ skills as new abilities arrive). A **LEVEL UP** banner appears at the top of the
 - **Per map** (map settings → Sound): music, **battle music** (takes over while an enemy is hunting the hero and
   fades back after), background sound, and a night background sound for outdoor maps.
 - **Events**: Play sound effect, Change music, Change background sound (each lasts until the player leaves the map).
-- **Settings → Sound**: music, sound effects and background sound volumes. Browsers only allow sound after the first
+- **Settings → Sound**: **Master volume** (50% to start), music, sound effects, background sounds, **menus and text**, and **fanfares and chimes**. Browsers only allow sound after the first
   click or key press, so the title music starts then.
 
 ### Field spells (Light, Water Walk)

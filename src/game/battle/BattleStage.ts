@@ -60,6 +60,20 @@ interface Burst { sprite: THREE.Sprite; t: number; dur: number; grow: number; ri
 
 const UP = new THREE.Vector3(0, 1, 0);
 
+/**
+ * The battle cameras (LB / RB cycle them): turned from behind the party by `yaw` radians, `dist` and `height` × the
+ * battle map's camera, moved `side` tiles to the right, looking `look` of the way from the party to the enemies.
+ */
+const CAMERA_PRESETS = [
+  { name: 'Behind the party', yaw: 0, dist: 1, height: 1, side: 0, look: 0.6, lookUp: 0, fit: 'all' },
+  { name: 'Over the left shoulder', yaw: 0.3, dist: 0.42, height: 0.48, side: -1.7, look: 0.85, lookUp: 0.15, fit: 'enemies' },
+  { name: 'Over the right shoulder', yaw: -0.3, dist: 0.42, height: 0.48, side: 1.7, look: 0.85, lookUp: 0.15, fit: 'enemies' },
+  { name: 'High above', yaw: 0, dist: 0.9, height: 2.6, side: 0, look: 0.45, lookUp: -0.3, fit: 'all' },
+  { name: 'Low and close', yaw: 0.12, dist: 0.4, height: 0.18, side: 0.6, look: 0.8, lookUp: 0.9, fit: 'enemies' },
+  { name: 'Wide, from the left', yaw: 0.6, dist: 1.25, height: 1.15, side: 0, look: 0.5, lookUp: 0, fit: 'all' },
+  { name: 'Wide, from the right', yaw: -0.6, dist: 1.25, height: 1.15, side: 0, look: 0.5, lookUp: 0, fit: 'all' },
+] as const;
+
 let glowTexture: THREE.Texture | null = null;
 /** A soft round glow (spell flares, hit sparks). */
 function glow(): THREE.Texture {
@@ -77,7 +91,7 @@ function glow(): THREE.Texture {
   return glowTexture;
 }
 
-const RING_GEOMETRY = new THREE.RingGeometry(0.34, 0.5, 40).rotateX(-Math.PI / 2);
+const RING_GEOMETRY = new THREE.RingGeometry(0.38, 0.5, 40).rotateX(-Math.PI / 2);
 
 export class BattleStage implements StageHooks {
   readonly scene = new THREE.Scene();
@@ -136,7 +150,7 @@ export class BattleStage implements StageHooks {
       const mesh = s.sprite.mesh;
       mesh.geometry.computeBoundingBox();
       const bb = mesh.geometry.boundingBox!;
-      const ring = new THREE.Mesh(RING_GEOMETRY, new THREE.MeshBasicMaterial({ color: '#ffc46e', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const ring = new THREE.Mesh(RING_GEOMETRY, new THREE.MeshBasicMaterial({ color: '#ffc46e', transparent: true, opacity: 0, depthWrite: false }));
       ring.renderOrder = 2;
       this.group.add(mesh, ring);
       const flat = s.sprite instanceof FlatSprite ? s.sprite : null;
@@ -165,47 +179,74 @@ export class BattleStage implements StageHooks {
     return n ? c.divideScalar(n) : c.set(this.data.width / 2, 0, this.data.height / 2);
   }
 
-  /** The camera's resting place: behind the party, looking past them at the enemies, far enough to see everyone. */
+  /**
+   * Where each camera preset rests: behind the party (the default), over either shoulder, high above, low and
+   * looking up, and a wide angle from the side. Each backs off until every fighter is comfortably on screen.
+   */
   private frameCamera(): void {
     const s = this.settings, pc = this.centre('party'), ec = this.centre('enemy');
-    const back = this.v.copy(pc).sub(ec).setY(0);
-    if (back.lengthSq() < 0.01) back.set(0, 0, 1);
-    back.normalize();
+    const back0 = new THREE.Vector3().copy(pc).sub(ec).setY(0);
+    if (back0.lengthSq() < 0.01) back0.set(0, 0, 1);
     // Keep the view within about 35° of looking north, so the map's props (drawn facing south) still look right.
-    let yaw = Math.atan2(back.x, back.z);
-    yaw = THREE.MathUtils.clamp(yaw, -0.6, 0.6);
-    back.set(Math.sin(yaw), 0, Math.cos(yaw));
-    const right = this.w.crossVectors(UP, back).normalize();
-    const look = pc.clone().lerp(ec, 0.6);
-    look.y = Math.max(pc.y, ec.y) + 0.7;
-    // Back off until every fighter is comfortably on screen.
+    const baseYaw = THREE.MathUtils.clamp(Math.atan2(back0.x, back0.z), -0.6, 0.6);
     const probe = new THREE.PerspectiveCamera(s.fov, innerWidth / Math.max(1, innerHeight), 0.3, 200);
-    let dist = s.distance;
-    const place = (d: number) => {
-      probe.position.copy(pc).addScaledVector(back, d).addScaledVector(right, -s.side);
-      probe.position.y = pc.y + s.height * (d / s.distance);
-      probe.lookAt(look);
-      probe.updateMatrixWorld();
-    };
-    for (let k = 0; k < 12; k++) {
-      place(dist);
-      let fits = true;
-      for (const f of this.fighters.values()) {
-        for (const y of [0, f.tall * f.scale]) {
-          const p = this.v.copy(f.home).setY(f.home.y + y).project(probe);
-          if (Math.abs(p.x) > 0.82 || p.y > 0.8 || p.y < -0.55 || p.z > 1) fits = false;
+    const p = new THREE.Vector3();
+    this.presets = CAMERA_PRESETS.map((pr) => {
+      const yaw = THREE.MathUtils.clamp(baseYaw + pr.yaw, -0.65, 0.65);
+      const back = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      const right = new THREE.Vector3().crossVectors(UP, back).normalize();
+      const look = pc.clone().lerp(ec, pr.look);
+      look.y = Math.max(pc.y, ec.y) + 0.7 + pr.lookUp;
+      const dist0 = s.distance * pr.dist, height = s.height * pr.height;
+      const place = (d: number) => {
+        probe.position.copy(pc).addScaledVector(back, d).addScaledVector(right, -s.side + pr.side);
+        probe.position.y = pc.y + height * (d / dist0);
+        probe.lookAt(look);
+        probe.updateMatrixWorld();
+      };
+      let dist = dist0;
+      for (let k = 0; k < 14; k++) {
+        place(dist);
+        let fits = true;
+        for (const f of this.fighters.values()) {
+          // Close cameras let the party leave the frame (over the shoulder); the enemies must stay in it.
+          if (pr.fit === 'enemies' && f.side === 'party') continue;
+          for (const y of [0, f.tall * f.scale]) {
+            p.copy(f.home).setY(f.home.y + y).project(probe);
+            if (Math.abs(p.x) > 0.84 || p.y > 0.8 || p.y < -0.6 || p.z > 1) fits = false;
+          }
         }
+        if (fits) break;
+        dist *= 1.15;
       }
-      if (fits) break;
-      dist *= 1.15;
-    }
-    place(dist);
-    this.cam.basePos.copy(probe.position);
-    this.cam.baseLook.copy(look);
-    // The battle opens with the camera sweeping down from high above the enemies.
-    this.cam.pos.copy(probe.position).add(new THREE.Vector3(0, 5, 0)).addScaledVector(back, 4);
+      place(dist);
+      return { name: pr.name, pos: probe.position.clone(), look };
+    });
+    // Each battle starts from a camera chosen at random, most often the one behind the party.
+    this.preset = Math.random() < 0.5 ? 0 : 1 + Math.floor(Math.random() * (this.presets.length - 1));
+    const first = this.presets[this.preset];
+    this.cam.basePos.copy(first.pos);
+    this.cam.baseLook.copy(first.look);
+    // The battle opens with the camera sweeping down from high above.
+    this.cam.pos.copy(first.pos).add(new THREE.Vector3(0, 5, 0)).addScaledVector(new THREE.Vector3(Math.sin(baseYaw), 0, Math.cos(baseYaw)), 4);
     this.cam.look.copy(ec).setY(ec.y + 0.5);
     this.cam.t = 0;
+  }
+
+  private presets: { name: string; pos: THREE.Vector3; look: THREE.Vector3 }[] = [];
+  private preset = 0;
+
+  /** The camera's name now. */
+  get cameraName(): string { return this.presets[this.preset]?.name ?? ''; }
+
+  /** Move to the next (+1) or previous (−1) camera; returns its name. */
+  cycleCamera(dir: 1 | -1): string {
+    const n = this.presets.length;
+    if (!n) return '';
+    this.preset = (this.preset + dir + n) % n;
+    this.cam.basePos.copy(this.presets[this.preset].pos);
+    this.cam.baseLook.copy(this.presets[this.preset].look);
+    return this.cameraName;
   }
 
   get fov(): number { return this.settings.fov; }
@@ -346,11 +387,11 @@ export class BattleStage implements StageHooks {
     // Rings on the ground: the one whose turn it is (gold), targets (ember), guarding (blue).
     const target = this.targets.has(f.key), color = target ? '#ff9a3c' : f.active ? '#ffc46e' : f.ringColor;
     const mat = f.ring.material as THREE.MeshBasicMaterial;
-    const op = color && m.visible ? (target ? 0.75 + Math.sin(this.elapsed * 8) * 0.2 : 0.55) : 0;
+    const op = color && m.visible ? (target ? 0.7 + Math.sin(this.elapsed * 8) * 0.2 : 0.5) : 0;
     mat.opacity += (op - mat.opacity) * (1 - Math.exp(-dt * 12));
     if (color) mat.color.set(color);
     f.ring.position.set(m.position.x, this.stand(m.position.x, m.position.z) + 0.04, m.position.z);
-    f.ring.scale.setScalar(Math.max(0.8, f.wide * sc * 0.9));
+    f.ring.scale.setScalar(Math.max(0.6, f.wide * sc * 0.62));
   }
 
   private faceFoes(f: Fighter): void {
@@ -394,7 +435,8 @@ export class BattleStage implements StageHooks {
       const head = this.w.copy(m.position).addScaledVector(UP, f.tall * f.scale).project(camera);
       const x = (foot.x * 0.5 + 0.5) * width, y = (-foot.y * 0.5 + 0.5) * height;
       const hy = (-head.y * 0.5 + 0.5) * height;
-      const h = Math.max(8, y - hy);
+      // Sheets leave room above the head: the tags sit a little lower than the frame's top.
+      const h = Math.max(8, (y - hy) * 0.84);
       place(f.key, x, y, h * (f.wide / f.tall), h, foot.z < 1 && m.visible);
     }
   }

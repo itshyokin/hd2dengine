@@ -25,8 +25,13 @@ export interface Settings {
   detailedLighting: boolean;
   /** Brightness multiplier, 0.6 – 1.4. */
   brightness: number;
-  /** 0 – 100. */
+  /** 0 – 100. Everything at once (the others are mixed under it). */
+  masterVolume: number;
   musicVolume: number;
+  /** Menus and message text. */
+  uiVolume: number;
+  /** Fanfares and chimes: victory, level up, quests. */
+  jingleVolume: number;
   soundVolume: number;
   ambienceVolume: number;
   /** Keyboard and controller bindings the player changed (the rest use the defaults). */
@@ -59,7 +64,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   quality: 'auto', showFps: false, bloom: true, depthOfField: true, shadows: true, ambientOcclusion: true, lightShadows: true, detailedLighting: true,
-  brightness: 1, musicVolume: 70, soundVolume: 80, ambienceVolume: 70, textSpeed: 'normal', alwaysRun: false, clock12: false, crouch: 'toggle', sprint: 'hold', stickRun: true, textBox: 'above', adventureLog: 'all', footsteps: true,
+  brightness: 1, masterVolume: 50, uiVolume: 70, jingleVolume: 80, musicVolume: 70, soundVolume: 80, ambienceVolume: 70, textSpeed: 'normal', alwaysRun: false, clock12: false, crouch: 'toggle', sprint: 'hold', stickRun: true, textBox: 'above', adventureLog: 'all', footsteps: true,
 };
 
 export const TEXT_SPEEDS: Record<Settings['textSpeed'], number> = { slow: 25, normal: 45, fast: 90, instant: Infinity };

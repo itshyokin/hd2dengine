@@ -1,3 +1,4 @@
+import { TRANSITIONS, TRANSITION_NAMES } from '../ui/BattleTransition';
 import { formatFishing, parseFishing } from '../world/fishing';
 import type { Season } from '../world/seasons';
 import { blockedTiles } from '../world/props';
@@ -91,6 +92,12 @@ export class Inspector {
       out.push(field('Battle map', select([['', 'None: the flat battle screen'], ...names.map((n) => [n, n] as [string, string])], m.battleMap ?? '', (v) => this.edit(() => { if (v) m.battleMap = v; else delete m.battleMap; })),
         names.length ? 'Turn-based battles on this map are fought on this battle map (a zone in the Spawns layer can choose another).'
           : 'No battle maps yet: make a new map, tick “This is a battle map”, and place party and enemy markers on it (Spawns layer, key 9).'));
+      // How battles here begin: one transition, or several picked at random (none chosen: any of them).
+      const chosen = new Set(m.battleTransitions ?? []);
+      out.push(h('div', { class: 'field' }, h('label', {}, 'Battle transition'),
+        h('div', { class: 'zone-days', role: 'group', 'aria-label': 'Battle transitions' }, ...TRANSITIONS.map((k) => h('button', { type: 'button', class: 'day-chip', 'aria-pressed': String(chosen.has(k)),
+          onclick: () => { this.edit(() => { if (chosen.has(k)) chosen.delete(k); else chosen.add(k); const list = TRANSITIONS.filter((x) => chosen.has(x)); if (list.length) m.battleTransitions = list; else delete m.battleTransitions; }); this.render(); } }, TRANSITION_NAMES[k]))),
+        h('div', { class: 'hint' }, chosen.size === 0 ? 'None picked: any of them, at random.' : chosen.size === 1 ? 'Every battle here starts this way.' : 'One of these, at random.')));
       return out;
     }
     const cam = m.battleCamera ?? {};

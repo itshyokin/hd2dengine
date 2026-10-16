@@ -44,8 +44,9 @@ import { BattleStage, type StageFighterSpec } from './battle/BattleStage';
 import { FlatSprite } from './FlatSprite';
 import type { CarriedWeapon } from './CharacterSprite';
 import { enemyWeaponSprites } from './combat/weaponSprites';
+import { TRANSITIONS, type TransitionKind, playTransition } from '../ui/BattleTransition';
 import { CombatOverlay } from '../ui/CombatOverlay';
-import { BattleScreen, type FighterView } from '../ui/BattleScreen';
+import { BattleScreen, type FighterView, type VictoryHero, type VictoryLoot, type VictoryReport } from '../ui/BattleScreen';
 import { pickTroop, zoneAt } from '../world/zones';
 import { type BattleEntry, type BattleHost, TurnBattle } from './battle/TurnBattle';
 import { type BattleAddition, type BattleSpell, type Battler, type Opening, enemyAgility, weighted } from './battle/rules';
@@ -221,6 +222,10 @@ export class Game {
   /** A battle map is loading for a battle about to start. */
   private battlePending = false;
   private hemi!: THREE.HemisphereLight;
+  /** Battle sound taking over from the map's: a tune (the victory theme), or silence while fading in or out. */
+  private battleSound: { music: string; hush?: boolean; fade: number; next?: { at: number; music: string } } | null = null;
+  /** Leaving a battle: once the screen is dark, `done` closes it and the field fades back in. */
+  private outro: { done: () => void } | null = null;
   /** Seconds before another battle can start (just won or ran from one). */
   private battleGrace = 0;
   /** Random encounters: tiles walked since the last battle, and how far until the next. */
@@ -426,6 +431,7 @@ export class Game {
     this.overlay.setProjector(this.projector);
     this.battleScreen = new BattleScreen(this.ui, this.input);
     this.battle = new TurnBattle(this.battleScreen, this.battleHost());
+    this.battleScreen.onSound = (n) => this.audio.play(n);
     this.combatCfg = combatFromDb(this.db);
     this.progress = new Progression(this.combatCfg);
     this.syncSkills();
@@ -1201,11 +1207,17 @@ export class Game {
   }
 
   /** Add experience; a level-up shows its banner (and is logged). */
-  private gainXp(n: number, announce = true): void {
+  private gainXp(n: number, announce = true, quiet = false): void {
     if (n <= 0) return;
     if (announce) this.log.add(`+${n} EXP`, 'xp');
     const ups = this.progress.add(n);
     if (!ups) return;
+    if (quiet) {
+      // The battle's results screen shows it.
+      const pts = ups * this.combatCfg.pointsPerLevel, st = ups * this.combatCfg.statPointsPerLevel;
+      this.log.add(`Level ${this.progress.level}!${pts ? ` +${pts} skill point${pts === 1 ? '' : 's'}` : ''}${st ? ` +${st} stat point${st === 1 ? '' : 's'}` : ''}`, 'level');
+      return;
+    }
     // The EXP that did it is logged before the level-up.
     if (this.xpBurst > 0) this.flushXp();
     const points = ups * this.combatCfg.pointsPerLevel;
@@ -1378,7 +1390,7 @@ export class Game {
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
-    this.input.mode = paused || fighting || this.message.isOpen || this.interpreter.running || this.onTitle || !!this.transfer || this.dying ? 'menu' : 'field';
+    this.input.mode = paused || fighting || this.battlePending || this.message.isOpen || this.interpreter.running || this.onTitle || !!this.transfer || this.dying ? 'menu' : 'field';
     this.input.pollGamepad(dt);
     if (!paused && !fighting) { this.time.update(dt); this.playTime += dt; }
     if (!paused && !fighting && this.battleGrace > 0) this.battleGrace = Math.max(0, this.battleGrace - dt);
@@ -1405,7 +1417,12 @@ export class Game {
       else if (this.shop.isOpen) this.shop.update(); else if (this.bag.isOpen) this.bag.update(); else this.menu.update();
       this.player.animate(dt, false);
     }
-    else if (fighting) { this.battle.update(dt); this.stage?.stage.update(dt); this.player.animate(dt, false); }
+    else if (fighting) {
+      // LB / RB (Q / E): the next or previous battle camera.
+      if (this.stage) { if (this.input.consume('tabNext')) this.cycleCamera(1); if (this.input.consume('tabPrev')) this.cycleCamera(-1); }
+      this.battle.update(dt); this.stage?.stage.update(dt); this.player.animate(dt, false);
+    }
+    else if (this.battlePending) this.player.animate(dt, false);
     else if (this.updateDying(dt) || this.updateTransfer()) this.player.animate(dt, false);
     else if (this.interpreter.running) {
       this.interpreter.update(dt);
@@ -1435,6 +1452,14 @@ export class Game {
     if ((this.xpBurst > 0 || this.goldBurst > 0) && (this.xpBurstT += dt) > 0.45) { if (this.xpBurst > 0) this.flushXp(); this.flushGold(); }
     for (const e of this.events) e.update(dt);
     this.updateFade(dt);
+    if (this.outro && this.fade.t >= 1) {
+      const done = this.outro.done;
+      this.outro = null;
+      done();
+      // Back on the field: the picture fades in as its music and sounds return.
+      this.battleSound = null;
+      this.fade = { from: 1, to: 0, t: 0, duration: 1.4 };
+    }
     this.updateCamera(dt);
     this.updateEnvironment(dt);
     if (!this.onTitle && !fighting) this.combat.updateBack();
@@ -1449,10 +1474,18 @@ export class Game {
     // last picture on screen (the battle screen draws over it), which keeps tablets cool.
     this.battleFrames = this.battle.active ? this.battleFrames + 1 : 0;
     // On a battle map the stage is drawn instead (every frame: its fighters move).
-    if (this.stage || this.battleFrames < 4) {
+    if (this.stage || this.battleFrames < 4 || this.fade.t < 1) {
       const scene = this.stage?.stage.scene ?? this.scene;
       this.ssao.render(scene, this.camera);
       this.post.render(scene, this.camera);
+      if (this.snapWanted) {
+        // Read the picture straight after drawing it (before the browser clears it).
+        const c = document.createElement('canvas');
+        c.width = this.canvas.width; c.height = this.canvas.height;
+        c.getContext('2d')!.drawImage(this.canvas, 0, 0);
+        const cb = this.snapWanted; this.snapWanted = null;
+        cb(c);
+      }
     }
     this.message.position();
     if (!this.onTitle) this.updateAudio(dt);
@@ -1707,6 +1740,7 @@ export class Game {
   /** Load a save: fade out, rebuild its map with everything as it was, fade in. */
   private loadSave(d: SaveData): void {
     this.battle.abort();
+    this.battleSound = null; this.outro = null;
     // Loading from the title (Continue or Load Game) leaves the title: hero, status bars and camera come back.
     if (this.onTitle) { this.onTitle = false; this.setTitleLook(false); }
     this.menu.close();
@@ -3039,6 +3073,14 @@ export class Game {
   /** Music and background sound for where the hero is: the map's, an event's choice, night ambience, battle music. */
   private updateAudio(dt: number, fade = 1.5): void {
     const d = this.mapData, a = this.audio;
+    const bs = this.battleSound;
+    if (bs) {
+      // A battle's own sound: the victory fanfare then its tune, or silence while the screen fades.
+      if (bs.next && (bs.next.at -= dt) <= 0) { bs.music = bs.next.music; bs.fade = 1.2; bs.next = undefined; }
+      a.music(bs.hush ? '' : bs.music, bs.fade);
+      if (bs.hush) a.ambience('', bs.fade);
+      return;
+    }
     a.listener.x = this.player.position.x; a.listener.z = this.player.position.z;
     // Battle music while an enemy is hunting the hero nearby (and a moment after).
     const p = this.player.position;
@@ -3411,8 +3453,18 @@ export class Game {
    * `rules.stage`: the battle map to fight on (unset: this map's Battle map; '' or none: the flat battle screen).
    * A battle map not loaded yet loads first (battles wait for it).
    */
-  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening, rules: TurnBattle['rules'] & { lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean; stage?: string } = {}): void {
-    if (!list.length || this.battle.active || this.battlePending) return;
+  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening, rules: TurnBattle['rules'] & { lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean; stage?: string; noIntro?: boolean } = {}): void {
+    if (!list.length || this.battle.active || (this.battlePending && !rules.noIntro)) return;
+    // The way in: a sudden sting, everything stops, the picture breaks up into black; the battle starts there.
+    if (!rules.noIntro) {
+      this.battlePending = true;
+      // Its battle map loads while the transition plays.
+      const want = rules.stage ?? this.mapData?.battleMap;
+      if (want && !this.battleMaps.has(want)) void this.loadMapData(want).then((d) => this.battleMaps.set(want, d)).catch(() => { /* reported when the battle starts */ });
+      this.moveTarget = null;
+      this.battleIntro(() => { this.battlePending = false; this.startBattle(list, opening, { ...rules, noIntro: true }); });
+      return;
+    }
     const stageName = rules.stage ?? this.mapData?.battleMap ?? '';
     if (stageName && !this.battleMaps.has(stageName)) {
       this.battlePending = true;
@@ -3459,6 +3511,37 @@ export class Game {
     if (stageData) this.openStage(stageData, specs);
     this.audio.play('crit');
     this.battle.start(entries, this.combatCfg.turnBased, opening, { canRun: rules.canRun });
+  }
+
+  /** A snapshot of the next frame drawn (for the battle transition). */
+  private snapWanted: ((c: HTMLCanvasElement) => void) | null = null;
+  private transition: { remove(): void } | null = null;
+
+  /** Into battle: sting, freeze, a transition (the map's choice, or any) to black with a swell; then `start`. */
+  private battleIntro(start: () => void): void {
+    this.audio.play('encounter');
+    this.battleSound = { music: '', hush: true, fade: 0.3 };
+    const kinds = (this.mapData?.battleTransitions ?? []).filter((k): k is TransitionKind => (TRANSITIONS as readonly string[]).includes(k));
+    const pool = kinds.length ? kinds : [...TRANSITIONS];
+    const kind = pool[Math.floor(Math.random() * pool.length)];
+    this.snapWanted = (snap) => {
+      // A beat of stillness, then the picture goes.
+      setTimeout(() => {
+        this.audio.play(kind === 'shatter' ? 'shatter' : 'battleSwell');
+        if (kind === 'shatter') setTimeout(() => this.audio.play('battleSwell'), 120);
+        this.transition = playTransition(kind, snap, document.body, kind === 'shatter' ? 1.5 : 1.3, () => {
+          this.post.fade = 1;
+          this.fade = { from: 1, to: 1, t: 1, duration: 1 };
+          this.battleSound = null;
+          start();
+          // The battle fades in (its music starting) once its first picture is drawn.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            this.transition?.remove(); this.transition = null;
+            this.fade = { from: 1, to: 0, t: 0, duration: 0.7 };
+          }));
+        });
+      }, 280);
+    };
   }
 
   /* ------------------------------------------------------------------ battle maps (the 3D stage) */
@@ -3518,7 +3601,17 @@ export class Game {
     this.applyFov();
     this.battleScreen.setStage(stage);
     this.battleScreen.onClosed = () => this.endStage();
+    this.battleScreen.onCamera = (d) => this.cycleCamera(d);
+    this.battleScreen.cameraHint(stage.cameraName, this.cameraKeys());
     this.warmup = true;
+  }
+
+  private cameraKeys(): [string, string] { return this.input.lastDevice === 'pad' ? ['LB', 'RB'] : ['Q', 'E']; }
+
+  private cycleCamera(dir: 1 | -1): void {
+    if (!this.stage) return;
+    this.battleScreen.cameraHint(this.stage.stage.cycleCamera(dir), this.cameraKeys());
+    this.audio.play('menuMove');
   }
 
   /** The battle is over: back to the field's view and lighting. */
@@ -3566,7 +3659,7 @@ export class Game {
         const d = s && this.items.get(s.id);
         if (!s || !d || d.kind !== 'consumable' || !(d.restore || d.cures?.length || d.buffs?.length)) return [];
         const r = d.restore, bits = r ? (['hp', 'mp', 'sp'] as const).filter((g) => r[g]).map((g) => `+${r[g]}${d.restorePercent ? '%' : ''} ${g.toUpperCase()}`) : [];
-        return [{ slot: i, name: d.name, count: s.n, detail: bits.join(' · ') || d.description }];
+        return [{ slot: i, name: d.name, count: s.n, detail: bits.join(' · ') || d.description, restore: r ? { hp: r.hp, mp: r.mp } : undefined, percent: !!d.restorePercent, cures: d.cures as string[] | undefined }];
       }),
       useItem: (slot, who, ailments) => {
         const s0 = this.inventory.slots[slot], id = s0?.id, d = id ? this.items.get(id) : undefined, before = id ? this.inventory.count(id) : 0;
@@ -3584,6 +3677,7 @@ export class Game {
         }
         return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [] };
       },
+      spendItem: (slot) => { if (this.inventory.slots[slot]) { this.inventory.removeAt(slot, 1); this.state.tally('itemsUsed'); } },
       readVitals: (who) => {
         if (!who) return { hp: this.stats.hp, mp: this.stats.mp };
         const m = this.members()[who - 1];
@@ -3598,6 +3692,18 @@ export class Game {
         if (a && !m.data.down) { a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
       },
       victory: (beaten) => this.battleRewards(beaten as Ref[]),
+      fanfare: () => {
+        // The battle music stops; the fanfare plays; then the victory tune.
+        this.battleSound = { music: '', fade: 0.35, next: { at: 3.1, music: 'builtin:victory' } };
+        this.audio.play('victory');
+      },
+      outro: (done) => {
+        // Picture and sound fade out together; the field comes back once it's dark.
+        this.battleSound = { music: '', hush: true, fade: 1.6 };
+        this.battleScreen.fadeOut(1.4);
+        this.fade = { from: this.post.fade, to: 1, t: 0, duration: 1.6 };
+        this.outro = { done };
+      },
       finished: (outcome, beaten) => {
         this.battleGrace = this.combatCfg.turnBased.grace;
         this.encounterWalked = 0;
@@ -3637,7 +3743,7 @@ export class Game {
   }
 
   /** Won: EXP for everyone standing, gold and items into the bag, and what each beaten enemy's page does. */
-  private battleRewards(beaten: { def: EnemyDef; enemy: Enemy | null; battler: Battler }[]): string[] {
+  private battleRewards(beaten: { def: EnemyDef; enemy: Enemy | null; battler: Battler }[]): VictoryReport {
     let xp = 0, gold = 0;
     const got = new Map<string, number>();
     this.battleCommands = [];
@@ -3654,28 +3760,66 @@ export class Game {
         if (ev.page?.commands.length) this.battleCommands.push(ev);
       }
     }
-    const lines: string[] = [];
-    if (xp > 0) lines.push(`${xp} EXP`);
-    if (gold > 0) { this.inventory.gold += gold; this.state.tally('goldFound', gold); lines.push(`${gold} G`); this.log.add(`Received ${gold} G`, 'loot'); }
+    // The loot: gold first, then each item (with the sound its kind makes).
+    const loot: VictoryLoot[] = [];
+    if (gold > 0) {
+      this.inventory.gold += gold; this.state.tally('goldFound', gold); this.log.add(`Received ${gold} G`, 'loot');
+      loot.push({ name: `${gold} G`, icon: builtinIcon('coin').toDataURL(), count: 0, kind: 'gold' });
+    }
     for (const [id, n] of got) {
-      const name = this.items.get(id)!.name, left = this.inventory.add(id, n);
-      if (n - left > 0) { lines.push(`${n - left > 1 ? `${n - left} × ` : ''}${name}`); this.log.add(`Received ${n - left > 1 ? `${n - left} × ` : ''}${name}`, 'loot'); }
+      const d = this.items.get(id)!, left = this.inventory.add(id, n), kept = n - left;
+      const kind: VictoryLoot['kind'] = d.kind === 'consumable' ? 'potion' : d.kind === 'key' ? 'key' : d.kind === 'material' ? 'material' : d.kind === 'equipment' || d.kind === 'ammo' ? 'gear' : 'item';
+      if (kept > 0) this.log.add(`Received ${kept > 1 ? `${kept} × ` : ''}${d.name}`, 'loot');
       // No room: it's left on the ground at the hero's feet.
-      if (left > 0) { const p = this.player.position; this.pickups?.place(id, left, p.x, p.y, p.z); lines.push(`Bag full: ${name} left on the ground`); }
+      if (left > 0) { const p = this.player.position; this.pickups?.place(id, left, p.x, p.y, p.z); }
+      loot.push({ name: d.name, icon: this.itemIcon(id), count: n, kind, note: left > 0 ? (kept ? `${left} left on the ground: the bag is full` : 'Left on the ground: the bag is full') : undefined });
     }
-    if (xp > 0) {
-      const before = this.progress.level;
-      this.gainXp(xp);
-      if (this.progress.level > before) lines.push(`${mainHero(this.db).name} reached level ${this.progress.level}!`);
-      const per = this.combatCfg.statPointsPerLevel, sk = this.combatCfg.pointsPerLevel;
-      for (const m of this.members()) {
-        if (m.data.down) continue;
-        const ups = memberGainXp(m.data, xp, this.combatCfg, per, sk);
-        if (ups) { lines.push(`${m.def.name} reached level ${m.data.level}!`); this.log.add(`${m.def.name} reached level ${m.data.level}!`, 'level'); }
+    // EXP: each hero's bar, filled level by level, and what their new levels brought.
+    const heroes: VictoryHero[] = [];
+    const segments = (level: number, have: number, n: number): VictoryHero['segments'] => {
+      const out: VictoryHero['segments'] = [];
+      let left = n;
+      while (left > 0) {
+        const need = xpToNext(this.combatCfg, level);
+        if (need <= 0) break;
+        const take = Math.min(left, need - have);
+        out.push({ level, from: have / need, to: (have + take) / need, up: have + take >= need, xp: have + take, toNext: need });
+        left -= take;
+        if (have + take >= need) { level++; have = 0; } else have += take;
       }
+      return out;
+    };
+    const change = (out: string[], label: string, a: number, b: number) => { if (b !== a) out.push(`${label} ${Math.round(a)} → ${Math.round(b)}`); };
+    const gain = (out: string[], label: string, n: number) => { if (n > 0) out.push(`+${n} ${label}${n === 1 ? '' : 's'}`); };
+    {
+      const pr = this.progress, before = { level: pr.level, xp: pr.xp, toNext: pr.toNext, hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, st: pr.statPoints, sk: pr.points };
+      const segs = xp > 0 ? segments(pr.level, pr.xp, xp) : [];
+      if (xp > 0) this.gainXp(xp, true, true);
+      const changes: string[] = [];
+      if (pr.level > before.level) {
+        change(changes, 'Max HP', before.hp, this.stats.cfg.max.hp); change(changes, 'Max MP', before.mp, this.stats.cfg.max.mp);
+        gain(changes, 'stat point', pr.statPoints - before.st); gain(changes, 'skill point', pr.points - before.sk);
+      }
+      this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
+      heroes.push({ key: 'p0', name: mainHero(this.db).name, icon: this.portraitUrl, color: this.heroColor(0), level: before.level, xp: before.xp, toNext: before.toNext, gained: xp, segments: segs, changes, after: { level: pr.level, xp: pr.xp, toNext: pr.toNext } });
     }
-    if (!lines.length) lines.push('Nothing else to show for it.');
-    return lines;
+    const per = this.combatCfg.statPointsPerLevel, sk = this.combatCfg.pointsPerLevel;
+    this.members().forEach((m, k) => {
+      const d = m.data, n0 = this.allyNumbers(d, m.def), before = { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), st: d.statPoints, sk: d.skillPoints ?? 0 };
+      const out = !!d.down, segs = !out && xp > 0 ? segments(d.level, d.xp, xp) : [];
+      const changes: string[] = [];
+      if (!out && xp > 0) {
+        const ups = memberGainXp(d, xp, this.combatCfg, per, sk);
+        if (ups) {
+          this.log.add(`${m.def.name} reached level ${d.level}!`, 'level');
+          const n1 = this.allyNumbers(d, m.def);
+          change(changes, 'Max HP', n0.max.hp, n1.max.hp); change(changes, 'Max MP', n0.max.mp, n1.max.mp);
+          gain(changes, 'stat point', d.statPoints - before.st); gain(changes, 'skill point', (d.skillPoints ?? 0) - before.sk);
+        }
+      }
+      heroes.push({ key: `p${k + 1}`, name: m.def.name, icon: this.memberPortrait(m.def), color: this.heroColor(k + 1), out, level: before.level, xp: before.xp, toNext: before.toNext, gained: out ? 0 : xp, segments: segs, changes, after: { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level) } });
+    });
+    return { xp, heroes, loot };
   }
 
   /* ------------------------------------------------------------------ party */
@@ -3886,9 +4030,12 @@ export class Game {
       { label: 'Detailed lighting', detail: 'Normal maps. Turn off on slower computers.', toggle: { value: st.detailedLighting, set: set('detailedLighting') } },
     ], { note: 'Left / right change a setting.' });
     const sound = () => this.menu.push('Sound', [
+      { label: 'Master volume', detail: 'Everything at once.', slider: { value: st.masterVolume, min: 0, max: 100, step: 5, format: pct, set: (v) => { set('masterVolume')(v); this.audio.play('menuOk'); } } },
       { label: 'Music', slider: { value: st.musicVolume, min: 0, max: 100, step: 10, format: pct, set: set('musicVolume') } },
       { label: 'Sound effects', slider: { value: st.soundVolume, min: 0, max: 100, step: 10, format: pct, set: (v) => { set('soundVolume')(v); this.audio.play('item'); } } },
       { label: 'Background sounds', detail: 'Wind, birds, crickets, water…', slider: { value: st.ambienceVolume, min: 0, max: 100, step: 10, format: pct, set: set('ambienceVolume') } },
+      { label: 'Menus and text', detail: 'Menu clicks and the letter ticks of messages.', slider: { value: st.uiVolume, min: 0, max: 100, step: 10, format: pct, set: (v) => { set('uiVolume')(v); this.audio.play('menuOk'); } } },
+      { label: 'Fanfares and chimes', detail: 'Victory, level up, quests, saving.', slider: { value: st.jingleVolume, min: 0, max: 100, step: 10, format: pct, set: (v) => { set('jingleVolume')(v); this.audio.play('expDing'); } } },
       { label: 'Footsteps', detail: 'The hero’s footsteps, sounding like the ground underfoot.', toggle: { value: st.footsteps, set: set('footsteps') } },
       { label: 'Letter ticks', detail: 'A soft tick as the letters of a message appear.', toggle: { value: st.textTicks !== false, set: (v) => set('textTicks')(v ? undefined : false) } },
     ], { note: 'Left / right change a volume.' });
@@ -3961,7 +4108,7 @@ export class Game {
     // The lettering: the game's (Database → Title & menus), or easy-to-read when the player asks for it.
     document.documentElement.dataset.font = st.easyText ? 'smooth' : this.db?.menus?.font ?? 'classic';
     this.input.setBindings(st.bindings ?? DEFAULT_BINDINGS);
-    this.audio?.setVolumes(st.musicVolume, st.soundVolume, st.ambienceVolume);
+    this.audio?.setVolumes({ master: st.masterVolume, music: st.musicVolume, sfx: st.soundVolume, ambience: st.ambienceVolume, ui: st.uiVolume, jingle: st.jingleVolume });
     this.hud?.applyLayout(st.hud);
   }
 
@@ -4042,6 +4189,7 @@ export class Game {
 
   private quitToTitle(): void {
     this.battle.abort();
+    this.battleSound = null; this.outro = null;
     this.menu.close();
     this.interpreter.stop();
     // Back to the start map behind the title, everything reset (New Game or Load picks up from here).

@@ -42,6 +42,32 @@ export interface FighterView {
   color?: string;
 }
 
+/** One hero on the victory screen: their EXP bar before, and how it fills (level by level) with what they won. */
+export interface VictoryHero {
+  key: string; name: string; icon: string; color?: string;
+  /** Knocked out: no EXP. */
+  out?: boolean;
+  level: number; xp: number; toNext: number; gained: number;
+  /** Each stretch of the bar to fill: a level, from and to (0 … 1), whether it ends in a level up, the EXP shown then. */
+  segments: { level: number; from: number; to: number; up: boolean; xp: number; toNext: number }[];
+  /** What their new levels brought ("Max HP 100 → 112", "+3 stat points"). */
+  changes: string[];
+  /** Where their bar ends up. */
+  after: { level: number; xp: number; toNext: number };
+}
+export interface VictoryLoot { name: string; icon: string; count: number; kind: 'gold' | 'potion' | 'key' | 'material' | 'gear' | 'item'; note?: string }
+export interface VictoryReport { xp: number; heroes: VictoryHero[]; loot: VictoryLoot[] }
+
+const LOOT_SOUND: Record<VictoryLoot['kind'], string> = { gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' };
+
+interface VicHeroView { h: VictoryHero; fill: HTMLElement; num: HTMLElement; lv: HTMLElement; badge: HTMLElement; changes: HTMLElement }
+interface Victory {
+  report: VictoryReport; done: () => void; el: HTMLElement; hint: HTMLElement;
+  page: 'exp' | 'expDone' | 'loot' | 'lootDone';
+  heroes: VicHeroView[]; hero: number; seg: number; t: number; pause: number; started: boolean;
+  rows: HTMLElement[]; row: number;
+}
+
 /** A 3D battle stage behind the screen (a battle map): it moves the sprites; the screen keeps the tags and numbers. */
 export interface StageHooks {
   animate(key: string, how: Anim, color?: string, target?: string): void;
@@ -57,6 +83,8 @@ export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; 
 
 export interface ChoiceItem {
   label: string;
+  /** The command bar's picture (a key of COMMAND_ICONS). */
+  icon?: string;
   detail?: string;
   disabled?: boolean;
   /** Shown on the right (an MP cost, a count). */
@@ -67,9 +95,19 @@ export interface ChoiceItem {
 
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'list'; title: string; items: ChoiceItem[]; index: number; pick: (i: number) => void; back?: () => void; hover?: (i: number) => void }
-  | { kind: 'target'; keys: string[]; index: number; pick: (key: string) => void; back: () => void; all?: boolean }
+  | { kind: 'list'; title: string; items: ChoiceItem[]; index: number; pick: (i: number) => void; back?: () => void; hover?: (i: number) => void; bar?: boolean }
+  | { kind: 'target'; keys: string[]; index: number; pick: (key: string) => void; back: () => void; all?: boolean; other?: string[] }
   | { kind: 'wait'; done: () => void };
+
+/** The command bar's pictures (Legend of Dragoon style): small white line drawings. */
+export const COMMAND_ICONS: Record<string, string> = {
+  attack: '<path d="M6 26 L22 10 L26 6 L25 12 L10 27 Z" fill="currentColor" opacity=".9"/><path d="M5 22 L10 27 M7 29 L3 25" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  guard: '<path d="M16 3 L27 7 V15 C27 22 22 27 16 29 C10 27 5 22 5 15 V7 Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 8 V24 M10 14 H22" stroke="currentColor" stroke-width="2" opacity=".75"/>',
+  magic: '<path d="M16 3 L18.6 12.4 L28 15 L18.6 17.6 L16 27 L13.4 17.6 L4 15 L13.4 12.4 Z" fill="currentColor"/><circle cx="25" cy="6" r="1.8" fill="currentColor"/><circle cx="7" cy="25" r="1.4" fill="currentColor"/>',
+  items: '<path d="M13 4 H19 V9 L24 16 C26 20 24 28 16 28 C8 28 6 20 8 16 L13 9 Z" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/><path d="M9.5 18 H22.5 C23 23 20 26 16 26 C12 26 9 23 9.5 18 Z" fill="currentColor" opacity=".8"/><path d="M12 4 H20" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  escape: '<circle cx="19" cy="6" r="3" fill="currentColor"/><path d="M17 11 L12 18 L17 21 L15 28 M12 18 L7 22 M17 11 L23 15 L27 13 M14 14 L9 13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 9 H8 M1 14 H6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>',
+};
+const svgIcon = (k: string) => `<svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">${COMMAND_ICONS[k] ?? ''}</svg>`;
 
 export class BattleScreen {
   private readonly root = document.createElement('div');
@@ -85,6 +123,14 @@ export class BattleScreen {
   private readonly resultEl: HTMLElement;
   private readonly flashEl: HTMLElement;
   private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string }>();
+  private readonly camEl: HTMLElement;
+  private readonly capEl: HTMLElement;
+  private camTimer = 0;
+  private vic: Victory | null = null;
+  /** Plays an effect or chime (victory, EXP, loot) on the game's sound. */
+  onSound: ((name: string) => void) | null = null;
+  /** Staged battles: the camera button (or LB / RB) asks for the next (+1) or previous (−1) camera. */
+  onCamera: ((dir: 1 | -1) => void) | null = null;
   private mode: Mode = { kind: 'idle' };
   private msgTimer = 0;
   private qte: Qte | null = null;
@@ -113,8 +159,9 @@ export class BattleScreen {
       <div class="battle-msg" role="status" aria-live="polite"></div>
       <div class="battle-field"><div class="battle-floor"></div><div class="battle-enemies"></div><div class="battle-party"></div></div>
       <div class="battle-order" aria-label="Turn order"></div>
+      <button type="button" class="battle-cam" hidden aria-label="Change camera"><span class="battle-cam-key">LB</span><span class="battle-cam-name"></span><span class="battle-cam-key">RB</span></button>
       <div class="battle-bottom">
-        <div class="battle-cmd" hidden><div class="battle-cmd-title"></div><div class="battle-cmd-list" role="listbox"></div></div>
+        <div class="battle-cmd" hidden><div class="battle-cmd-title"></div><div class="battle-cmd-list" role="listbox"></div><div class="battle-cmd-cap"></div></div>
         <div class="battle-status"></div>
       </div>
       <div class="battle-result" hidden></div>`;
@@ -130,8 +177,12 @@ export class BattleScreen {
     this.statusEl = q('.battle-status');
     this.resultEl = q('.battle-result');
     this.flashEl = q('.battle-flash');
+    this.camEl = q('.battle-cam');
+    this.capEl = q('.battle-cmd-cap');
+    this.camEl.addEventListener('click', (e) => { e.stopPropagation(); this.onCamera?.(1); });
     // Tapping anywhere while a message waits moves it on.
     this.root.addEventListener('pointerdown', (e) => {
+      if (this.vic) { e.preventDefault(); this.vicNext(); return; }
       if (this.mode.kind === 'wait' && !(e.target as HTMLElement).closest('.battle-cmd')) { e.preventDefault(); this.finishWait(); }
     });
     // Additions: the ring that closes on the target, the button to press, and touch buttons.
@@ -169,6 +220,8 @@ export class BattleScreen {
     this.enemiesEl.dataset.count = String(enemies.length);
     this.partyEl.dataset.count = String(party.length);
     this.root.hidden = false;
+    this.root.style.transition = '';
+    this.root.style.opacity = '';
     this.root.classList.remove('closing');
     this.root.classList.remove('entering');
     void this.root.offsetWidth;
@@ -177,6 +230,8 @@ export class BattleScreen {
 
   close(): void {
     this.endQte();
+    this.vic?.el.remove();
+    this.vic = null;
     this.mode = { kind: 'idle' };
     this.root.hidden = true;
     this.fighters.clear();
@@ -190,7 +245,17 @@ export class BattleScreen {
   setStage(stage: StageHooks | null): void {
     this.stage = stage;
     this.root.classList.toggle('staged', !!stage);
+    this.camEl.hidden = !stage;
     document.body.classList.toggle('staged-battle', !!stage);
+  }
+
+  /** Staged: show which camera is in use (briefly bright, then dim). */
+  cameraHint(name: string, keys: [string, string] = ['LB', 'RB']): void {
+    (this.camEl.querySelector('.battle-cam-name') as HTMLElement).textContent = name;
+    const k = this.camEl.querySelectorAll('.battle-cam-key');
+    (k[0] as HTMLElement).textContent = keys[0]; (k[1] as HTMLElement).textContent = keys[1];
+    this.camEl.classList.add('lit');
+    this.camTimer = 2;
   }
 
   /** Staged: where a fighter's sprite is on screen (its feet, its size), so its tag and numbers follow it. */
@@ -225,7 +290,13 @@ export class BattleScreen {
     shadow.className = 'bf-shadow';
     const icons = document.createElement('span');
     icons.className = 'bf-status';
-    el.append(shadow, icons, img);
+    // Over the head: the target arrow (coloured by health), ailments, and an enemy's name and health.
+    const head = document.createElement('span');
+    head.className = 'bf-head';
+    const arrow = document.createElement('span');
+    arrow.className = 'bf-arrow';
+    head.append(arrow, icons);
+    el.append(shadow, head, img);
     let bar: HTMLElement | null = null;
     if (v.side === 'enemy') {
       const tag = document.createElement('span');
@@ -233,8 +304,9 @@ export class BattleScreen {
       tag.innerHTML = `<span class="bf-name"></span><span class="bf-hp"><span></span></span>`;
       (tag.querySelector('.bf-name') as HTMLElement).textContent = v.name;
       bar = tag.querySelector('.bf-hp span') as HTMLElement;
-      el.append(tag);
+      head.append(tag);
     }
+    el.classList.add('hp-high');
     el.addEventListener('click', () => this.tapFighter(v.key));
     (v.side === 'enemy' ? this.enemiesEl : this.partyEl).append(el);
     let row: HTMLElement | null = null;
@@ -256,6 +328,11 @@ export class BattleScreen {
     if (!f) return;
     const down = v.hp <= 0;
     this.stage?.vitals(key, down, !!v.guarding);
+    // The target arrow's colour: cyan with plenty of health, yellow at half or less, red at a quarter or less.
+    const share = v.hp / Math.max(1, v.maxHp);
+    f.el.classList.toggle('hp-high', share > 0.5);
+    f.el.classList.toggle('hp-mid', share <= 0.5 && share > 0.25);
+    f.el.classList.toggle('hp-low', share <= 0.25);
     f.el.classList.toggle('down', down);
     f.el.classList.toggle('guarding', !!v.guarding);
     // Ailment icons over the fighter (and beside a party member's name).
@@ -349,18 +426,21 @@ export class BattleScreen {
   /* ------------------------------------------------------------------ questions */
 
   /** A list to pick from (commands, spells, items). */
-  choose(title: string, items: ChoiceItem[], pick: (i: number) => void, back?: () => void, hover?: (i: number) => void, start = 0): void {
+  choose(title: string, items: ChoiceItem[], pick: (i: number) => void, back?: () => void, hover?: (i: number) => void, start = 0, bar = false): void {
     const first = items[start] && !items[start].disabled ? start : Math.max(0, items.findIndex((i) => !i.disabled));
-    this.mode = { kind: 'list', title, items, index: first, pick, back, hover };
+    this.mode = { kind: 'list', title, items, index: first, pick, back, hover, bar };
     this.renderList();
     hover?.(first);
   }
 
-  /** Pick a fighter (arrows cycle, OK confirms). `all`: the whole group is hit (shown, not chosen). */
-  target(keys: string[], pick: (key: string) => void, back: () => void, start?: string, all = false): void {
+  /**
+   * Pick a fighter (arrows cycle, OK confirms). `all`: the whole group is hit (shown, not chosen); with `other`,
+   * left / right switch to that group instead (a healing spell on every foe, say), and the pick is its first key.
+   */
+  target(keys: string[], pick: (key: string) => void, back: () => void, start?: string, all = false, other?: string[]): void {
     if (!keys.length) { back(); return; }
     const i = Math.max(0, start ? keys.indexOf(start) : 0);
-    this.mode = { kind: 'target', keys, index: i, pick, back, all };
+    this.mode = { kind: 'target', keys, index: i, pick, back, all, other: other?.length ? other : undefined };
     this.cmdEl.hidden = true;
     this.renderTarget();
   }
@@ -369,7 +449,7 @@ export class BattleScreen {
   waitForOk(done: () => void): void { this.mode = { kind: 'wait', done }; this.cmdEl.hidden = true; }
 
   /** Nothing to answer (enemies acting, animations). */
-  idle(): void { this.mode = { kind: 'idle' }; this.cmdEl.hidden = true; this.clearTargets(); }
+  idle(): void { this.mode = { kind: 'idle' }; this.cmdEl.hidden = true; this.root.classList.remove('bar-mode'); this.clearTargets(); }
 
   /** The victory panel: a heading and lines (EXP, gold, items, level-ups). */
   result(title: string, lines: string[]): void {
@@ -392,6 +472,29 @@ export class BattleScreen {
     if (m.kind !== 'list') return;
     this.cmdEl.hidden = false;
     this.cmdTitle.textContent = m.title;
+    this.cmdEl.classList.toggle('bar', !!m.bar);
+    this.root.classList.toggle('bar-mode', !!m.bar);
+    if (m.bar) {
+      // Legend of Dragoon: a row of pictures, the chosen one raised, named underneath.
+      this.cmdList.replaceChildren(...m.items.map((it, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'bcmd-tile';
+        b.disabled = !!it.disabled;
+        b.setAttribute('role', 'option');
+        b.setAttribute('aria-selected', String(i === m.index));
+        b.setAttribute('aria-label', it.label);
+        b.innerHTML = `${svgIcon(it.icon ?? '')}<span class="bcmd-tile-label"></span>`;
+        (b.querySelector('.bcmd-tile-label') as HTMLElement).textContent = it.label;
+        b.addEventListener('pointerenter', () => { if (this.mode === m && !it.disabled && m.index !== i) { m.index = i; this.renderList(); m.hover?.(i); } });
+        b.addEventListener('click', () => { if (this.mode !== m || it.disabled) return; m.index = i; uiSound('menuOk'); this.idle(); m.pick(i); });
+        return b;
+      }));
+      const it = m.items[m.index];
+      this.capEl.textContent = it ? [it.right, it.detail].filter(Boolean).join(' · ') : '';
+      return;
+    }
+    this.capEl.textContent = '';
     this.cmdList.replaceChildren(...m.items.map((it, i) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -417,13 +520,14 @@ export class BattleScreen {
     m.keys.forEach((k, i) => this.fighters.get(k)?.el.classList.toggle('targeted', m.all || i === m.index));
     this.stage?.highlight(m.all ? m.keys : [m.keys[m.index]]);
     const f = this.fighters.get(m.keys[m.index]);
-    this.message(f ? f.view.name : '', true);
+    this.message(m.all ? (f?.view.side === 'party' ? 'The whole party' : 'Every foe') : f ? f.view.name : '', true);
   }
 
   private clearTargets(): void { for (const f of this.fighters.values()) f.el.classList.remove('targeted'); this.stage?.highlight([]); }
 
   private tapFighter(key: string): void {
     const m = this.mode;
+    if (m.kind === 'target' && m.all && m.other?.includes(key)) { const o = m.other; m.other = m.keys; m.keys = o; m.index = 0; this.renderTarget(); uiSound('menuMove'); return; }
     if (m.kind !== 'target' || !m.keys.includes(key)) return;
     if (m.keys[m.index] !== key) { m.index = m.keys.indexOf(key); this.renderTarget(); uiSound('menuMove'); return; }
     uiSound('menuOk');
@@ -443,6 +547,8 @@ export class BattleScreen {
   /** Keys and buttons, and the message timer. */
   update(dt: number): void {
     if (this.msgTimer !== Infinity && this.msgTimer > 0 && (this.msgTimer -= dt) <= 0) this.msgEl.classList.remove('on');
+    if (this.vic) { this.updateVictory(dt); return; }
+    if (this.camTimer > 0 && (this.camTimer -= dt) <= 0) this.camEl.classList.remove('lit');
     if (this.qte) { this.updateQte(dt); return; }
     const i = this.input, m = this.mode;
     if (m.kind === 'list') {
@@ -453,8 +559,8 @@ export class BattleScreen {
         this.renderList();
         m.hover?.(m.index);
       };
-      if (i.consume('down')) step(1);
-      if (i.consume('up')) step(-1);
+      if (i.consume('down') || (m.bar && i.consume('right'))) step(1);
+      if (i.consume('up') || (m.bar && i.consume('left'))) step(-1);
       if (i.consume('ok')) { const it = m.items[m.index]; if (it && !it.disabled) { uiSound('menuOk'); this.idle(); m.pick(m.index); } }
       else if (i.consume('cancel') && m.back) { uiSound('menuBack'); this.idle(); m.back(); }
     } else if (m.kind === 'target') {
@@ -463,6 +569,8 @@ export class BattleScreen {
       if (!m.all) {
         if (i.consume('down') || i.consume('right')) { m.index = (m.index + 1) % n; moved = true; }
         if (i.consume('up') || i.consume('left')) { m.index = (m.index - 1 + n) % n; moved = true; }
+      } else if (m.other && (i.consume('left') || i.consume('right') || i.consume('up') || i.consume('down'))) {
+        const o = m.other; m.other = m.keys; m.keys = o; m.index = 0; moved = true;
       }
       if (moved) { uiSound('menuMove'); this.renderTarget(); }
       if (i.consume('ok')) { uiSound('menuOk'); const k = m.keys[m.index]; this.idle(); this.message(''); m.pick(k); }
@@ -474,6 +582,161 @@ export class BattleScreen {
 
   /** The battle field's size, for laying out sprites (unused for now, kept for later camera work). */
   get bounds(): DOMRect { return this.field.getBoundingClientRect(); }
+
+  /** Fade the whole battle screen away over `secs` (leaving the battle). */
+  fadeOut(secs: number): void {
+    this.root.style.transition = `opacity ${secs}s ease`;
+    this.root.style.opacity = '0';
+  }
+
+  /* ------------------------------------------------------------------ the victory screens: EXP, then loot */
+
+  /**
+   * After a win: each hero's EXP bar fills in turn (a level up dings and lists what it brought), then the loot,
+   * row by row, each with its sound. OK hurries things along; at the end B (or OK, or a tap) goes on: `done`.
+   */
+  victory(report: VictoryReport, done: () => void): void {
+    this.idle();
+    this.message('');
+    this.setOrder([], null);
+    const el = document.createElement('div');
+    el.className = 'battle-victory';
+    el.innerHTML = `<div class="bv-head"><span class="bv-title">Victory!</span><span class="bv-xp"></span></div><div class="bv-body"></div><div class="bv-hint"></div>`;
+    (el.querySelector('.bv-xp') as HTMLElement).textContent = report.xp > 0 ? `+${report.xp} EXP` : '';
+    const body = el.querySelector('.bv-body') as HTMLElement;
+    const heroes = report.heroes.map((h) => {
+      const row = document.createElement('div');
+      row.className = `bv-hero${h.out ? ' out' : ''}`;
+      if (h.color) row.style.setProperty('--hero', h.color);
+      row.innerHTML = `<img class="bv-face" alt=""><div class="bv-main"><div class="bv-line"><span class="bv-name"></span><span class="bv-lv"></span><span class="bv-badge">Level up!</span></div>
+        <div class="bv-bar"><span></span></div><div class="bv-num"></div><div class="bv-changes"></div></div>`;
+      (row.querySelector('.bv-face') as HTMLImageElement).src = h.icon;
+      (row.querySelector('.bv-name') as HTMLElement).textContent = h.name;
+      const v: VicHeroView = { h, fill: row.querySelector('.bv-bar span') as HTMLElement, num: row.querySelector('.bv-num') as HTMLElement, lv: row.querySelector('.bv-lv') as HTMLElement,
+        badge: row.querySelector('.bv-badge') as HTMLElement, changes: row.querySelector('.bv-changes') as HTMLElement };
+      v.lv.textContent = `Lv ${h.level}`;
+      v.fill.style.width = `${h.toNext ? Math.min(100, (h.xp / h.toNext) * 100) : 100}%`;
+      v.num.textContent = h.out ? 'Knocked out: no EXP' : h.toNext ? `${h.xp} / ${h.toNext} EXP` : 'Top level';
+      body.append(row);
+      return v;
+    });
+    this.root.append(el);
+    this.vic = { report, done, el, hint: el.querySelector('.bv-hint') as HTMLElement, page: 'exp', heroes, hero: 0, seg: 0, t: 0, pause: 0.9, started: false, rows: [], row: 0 };
+    this.vic.hint.textContent = 'OK to skip';
+  }
+
+  private vicSound(name: string): void { this.onSound?.(name); }
+
+  /** OK / B / a tap on the victory screens: hurry the animation, or go on. */
+  private vicNext(): void {
+    const v = this.vic!;
+    if (v.page === 'exp') { this.finishExp(true); return; }
+    if (v.page === 'expDone') { this.showLoot(); uiSound('menuOk'); return; }
+    if (v.page === 'loot') { while (v.row < v.rows.length) this.revealLoot(false); this.lootDone(); return; }
+    // The end: on to the field.
+    const done = v.done;
+    v.hint.textContent = '';
+    this.vic = null;
+    uiSound('menuOk');
+    done();
+  }
+
+  private updateVictory(dt: number): void {
+    const v = this.vic!, i = this.input;
+    const okKey = i.consume('ok'), backKey = i.consume('cancel');
+    if (okKey || backKey) { this.vicNext(); return; }
+    if (v.page === 'exp') {
+      if (v.pause > 0) { v.pause -= dt; return; }
+      const hv = v.heroes[v.hero];
+      if (!hv) { this.finishExp(false); return; }
+      const seg = hv.h.segments[v.seg];
+      if (!seg) { v.hero++; v.seg = 0; v.started = false; v.pause = 0.25; return; }
+      if (!v.started) { v.started = true; v.t = 0; this.vicSound('expFill'); }
+      const dur = Math.max(0.35, (seg.to - seg.from) * 1.0);
+      v.t += dt;
+      const k = Math.min(1, v.t / dur), f = seg.from + (seg.to - seg.from) * k;
+      hv.fill.style.width = `${f * 100}%`;
+      hv.num.textContent = `${Math.round(f * seg.toNext)} / ${seg.toNext} EXP`;
+      if (k >= 1) {
+        v.started = false;
+        v.seg++;
+        if (seg.up) { this.levelUp(hv, seg.level + 1); v.pause = 1.1; } else v.pause = 0.15;
+      }
+    } else if (v.page === 'loot') {
+      v.t += dt;
+      if (v.t >= 0.4) { v.t = 0; this.revealLoot(true); if (v.row >= v.rows.length) this.lootDone(); }
+    }
+  }
+
+  private barAt(hv: VicHeroView, a: { level: number; xp: number; toNext: number }): void {
+    hv.fill.style.width = `${a.toNext ? Math.min(100, (a.xp / a.toNext) * 100) : 100}%`;
+    hv.num.textContent = a.toNext ? `${a.xp} / ${a.toNext} EXP` : 'Top level';
+  }
+
+  private levelUp(hv: VicHeroView, level: number, sound = true): void {
+    hv.fill.style.width = '0%';
+    if (level === hv.h.after.level) hv.num.textContent = hv.h.after.toNext ? `0 / ${hv.h.after.toNext} EXP` : 'Top level';
+    hv.lv.textContent = `Lv ${level}`;
+    hv.badge.classList.add('on');
+    hv.lv.classList.add('up');
+    if (hv.h.changes.length && !hv.changes.childElementCount) for (const c of hv.h.changes) { const d = document.createElement('span'); d.textContent = c; hv.changes.append(d); }
+    if (sound) { this.vicSound('expDing'); setTimeout(() => this.vicSound('levelUp'), 180); }
+  }
+
+  /** Every bar straight to where it ends (a level up still chimes, once). */
+  private finishExp(hurry: boolean): void {
+    const v = this.vic!;
+    let ups = false;
+    for (const hv of v.heroes.slice(v.hero)) {
+      const segs = hv.h.segments, last = segs[segs.length - 1];
+      for (const sg of segs.slice(hv === v.heroes[v.hero] ? v.seg : 0)) if (sg.up) { this.levelUp(hv, sg.level + 1, false); ups = true; }
+      if (last) this.barAt(hv, hv.h.after);
+    }
+    if (hurry && ups) this.vicSound('levelUp');
+    v.hero = v.heroes.length;
+    v.page = 'expDone';
+    v.hint.textContent = 'OK: spoils';
+  }
+
+  private showLoot(): void {
+    const v = this.vic!;
+    v.page = 'loot';
+    (v.el.querySelector('.bv-title') as HTMLElement).textContent = 'Spoils';
+    (v.el.querySelector('.bv-xp') as HTMLElement).textContent = '';
+    const body = v.el.querySelector('.bv-body') as HTMLElement;
+    body.classList.add('loot');
+    body.replaceChildren();
+    v.rows = v.report.loot.map((l) => {
+      const r = document.createElement('div');
+      r.className = `bv-loot ${l.kind}`;
+      r.innerHTML = `<img alt=""><span class="bv-loot-name"></span><span class="bv-loot-n"></span>${l.note ? '<span class="bv-loot-note"></span>' : ''}`;
+      (r.querySelector('img') as HTMLImageElement).src = l.icon;
+      (r.querySelector('.bv-loot-name') as HTMLElement).textContent = l.name;
+      (r.querySelector('.bv-loot-n') as HTMLElement).textContent = l.kind === 'gold' ? '' : `×${l.count}`;
+      if (l.note) (r.querySelector('.bv-loot-note') as HTMLElement).textContent = l.note;
+      body.append(r);
+      return r;
+    });
+    if (!v.rows.length) { const p = document.createElement('div'); p.className = 'bv-empty'; p.textContent = 'Nothing found.'; body.append(p); }
+    v.row = 0; v.t = 0.25;
+    v.hint.textContent = 'OK to skip';
+    if (!v.rows.length) this.lootDone();
+  }
+
+  private revealLoot(sound: boolean): void {
+    const v = this.vic!, r = v.rows[v.row], l = v.report.loot[v.row];
+    if (!r || !l) return;
+    r.classList.add('on');
+    if (sound) this.vicSound(LOOT_SOUND[l.kind]);
+    v.row++;
+  }
+
+  private lootDone(): void {
+    const v = this.vic!;
+    v.page = 'lootDone';
+    v.hint.textContent = this.input.lastDevice === 'pad' ? 'Press B to continue' : 'Press Esc to continue';
+    v.hint.classList.add('go');
+  }
 
   /* ------------------------------------------------------------------ Additions: timed button presses */
 
