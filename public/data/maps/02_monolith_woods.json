@@ -361,6 +361,61 @@
           }
         }
       ]
+    },
+    {
+      "id": 3,
+      "name": "Katrina2",
+      "x": 35,
+      "z": 12,
+      "pages": [
+        {
+          "trigger": "action",
+          "solid": true,
+          "commands": [
+            {
+              "cmd": "text",
+              "text": "Ready to get moving?",
+              "speaker": "Katrina"
+            },
+            {
+              "cmd": "party",
+              "op": "add",
+              "hero": "hero_3"
+            },
+            {
+              "cmd": "party",
+              "op": "add",
+              "hero": "hero_4"
+            },
+            {
+              "cmd": "party",
+              "op": "add",
+              "hero": "hero_5"
+            },
+            {
+              "cmd": "party",
+              "op": "add",
+              "hero": "hero_6"
+            },
+            {
+              "cmd": "setSwitch",
+              "switch": "katrina_party_2",
+              "value": true
+            }
+          ],
+          "character": "katrina",
+          "facePlayer": true
+        },
+        {
+          "trigger": "action",
+          "commands": [],
+          "facePlayer": true,
+          "condition": {
+            "switch": "katrina_party_2",
+            "is": true
+          }
+        }
+      ]
     }
   ],
   "props": [
