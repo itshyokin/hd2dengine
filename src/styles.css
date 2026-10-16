@@ -1349,7 +1349,8 @@ body.in-battle.staged-battle #view { filter: none; }
 body.ui-dim :is(.hud-top, .hud-side, .hud-xp, .hud-weapons, .hud-quick, .hud-party, .hud-quest, .hud-status, .touch-controls, .loot-feed, .combat-overlay) { opacity: 0 !important; transition: none; }
 
 /* ---------------- Pause menu (update 48): a frame over most of the screen, tabs across the top ---------------- */
-.pause-shell { position: fixed; inset: max(12px, 2.5vh) max(12px, 2.5vw); z-index: 7; border-radius: 18px; background: #0b0d16;
+:root { --ps-w: min(980px, calc(100vw - 24px)); --ps-h: min(580px, calc(100vh - 24px)); --ps-x: calc((100vw - var(--ps-w)) / 2); --ps-y: calc((100vh - var(--ps-h)) / 2); }
+.pause-shell { position: fixed; left: var(--ps-x); top: var(--ps-y); width: var(--ps-w); height: var(--ps-h); box-sizing: border-box; z-index: 7; border-radius: 18px; background: #0b0d16;
   border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 100vmax rgba(4, 5, 10, 0.55); display: flex; flex-direction: column; pointer-events: auto; }
 .ps-bar { display: flex; align-items: center; gap: 4px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); overflow-x: auto; scrollbar-width: none; }
 .ps-bar .tab-key:last-child { margin-left: 8px; }
@@ -1361,7 +1362,7 @@ body.ui-dim :is(.hud-top, .hud-side, .hud-xp, .hud-weapons, .hud-quick, .hud-par
 .ps-foot { margin-top: auto; padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.08); color: #8f95a8; font: 600 12px var(--f-mono); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 760px) { .ps-tab > span:not(.menu-icon) { display: none; } .ps-tab { padding: 9px; } }
 /* Each tab's screen sits inside the frame: under the tabs, above the bottom line, no dimming of its own. */
-body.pause-open .inv, body.pause-open .menu { inset: calc(max(12px, 2.5vh) + 62px) calc(max(12px, 2.5vw) + 10px) calc(max(12px, 2.5vh) + 40px); padding: 6px; background: transparent; backdrop-filter: none; place-items: start center; }
+body.pause-open .inv, body.pause-open .menu { inset: calc(var(--ps-y) + 62px) calc(var(--ps-x) + 10px) calc(var(--ps-y) + 38px); padding: 6px; background: transparent; backdrop-filter: none; place-items: start center; }
 body.pause-open .inv > .inv-box, body.pause-open .menu > .menu-box { max-height: 100%; box-shadow: none; }
 body.pause-open .menu > .menu-box { width: min(620px, 100%); }
 body.pause-open .inv > .inv-box { max-width: 100%; }
@@ -1463,3 +1464,29 @@ body.hud-hidden :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud
 .dc-line { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid rgba(255,255,255,0.1); }
 .dc-prompt { color: #ffb04a; font-weight: 700; }
 .dc-in { flex: 1; background: transparent; border: 0; outline: none; color: #fff; font: inherit; font-size: 15px; }
+
+/* Every pause tab fills the same frame; the tabs are all one size. */
+.ps-tab { flex: 1 1 0; min-width: 0; height: 40px; overflow: hidden; }
+.ps-tab > span:not(.menu-icon) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.pause-open .inv > .inv-box, body.pause-open .menu > .menu-box { width: 100%; height: 100%; max-width: none; }
+body.pause-open .inv:has(> .inv-party) > .inv-box { width: auto; flex: 1 1 auto; }
+body.pause-open .inv:has(> .inv-party) { flex-direction: column; align-items: stretch; }
+body.pause-open .inv-party { order: 0; width: 100%; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); }
+body.pause-open .pc-box { width: 100%; }
+body.pause-open .pc-cards { padding-top: 14px; }
+body.pause-open .pc-box { gap: 8px; }
+.pc-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; }
+.pc-foot .menu-note { margin: 0; text-align: right; }
+.ps-tab { padding: 9px 6px; gap: 6px; font-size: 12px; letter-spacing: 0.02em; }
+
+/* ---------------- Word bubbles over events ---------------- */
+.bubble-layer { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.ev-bubble { position: absolute; left: 0; top: 0; padding: var(--bb-pad); border-radius: var(--bb-radius); background: var(--bb-bg); box-shadow: 0 3px 10px rgba(0,0,0,0.35); line-height: 1; white-space: nowrap; will-change: transform; }
+.ev-bubble:not(.clear):not(.below)::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--bb-bg); }
+.ev-bubble.clear { background: none; box-shadow: none; padding: 0; }
+.ev-bubble span { font-family: var(--f-display); display: block; }
+
+/* ---------------- World map: crosshair and tooltip ---------------- */
+.wm-cross { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; pointer-events: none;
+  background: linear-gradient(#fff, #fff) center / 2px 9px no-repeat, linear-gradient(#fff, #fff) center / 9px 2px no-repeat; border: 2px solid rgba(255,255,255,0.85); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.5); opacity: 0.85; }
+.wm-tip { position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap; font: 700 12.5px var(--f-body); color: #fff6dc; padding: 5px 10px; border-radius: 8px; background: rgba(10, 12, 20, 0.92); border: 1px solid rgba(255, 210, 122, 0.6); box-shadow: 0 4px 14px rgba(0,0,0,0.5); z-index: 2; }

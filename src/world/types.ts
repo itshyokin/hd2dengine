@@ -362,6 +362,8 @@ export interface EventPage {
    * health runs out the page's commands run (set a switch to lower a bridge, open a gate…).
    */
   breakable?: BreakableDef;
+  /** A word bubble over the event while this page is showing: "!" / "?" for quests, or short text. */
+  bubble?: import('../ui/BubbleLayer').EventBubble;
   commands: Command[];
 }
 
@@ -398,6 +400,8 @@ export interface EventData {
   /** Size in tiles (1 × 1 when omitted). Any tile of the area triggers the event. */
   w?: number;
   h?: number;
+  /** A marker on the world map (Quest location, Landmark…), optionally only while a switch is on. */
+  marker?: import('./landmarks').EventMarker;
   pages: EventPage[];
 }
 
@@ -735,6 +739,8 @@ export interface Database {
   title: string;
   /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
   world?: import('./worldLayout').WorldData;
+  /** Kinds of world-map marker for events (Database → Map markers; default: Quest location, Landmark, Town, Danger). */
+  markers?: import('./landmarks').MarkerKind[];
   /** Achievements (Database → Achievements). */
   achievements?: import('../game/achievements').AchievementDef[];
   /** The developer console (the ` key): in playtests only (default), always, or never. */

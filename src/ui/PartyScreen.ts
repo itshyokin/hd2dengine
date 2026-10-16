@@ -182,9 +182,9 @@ export class PartyScreen {
         : '↑ ↓ choose · Space: swap · Esc: back';
     this.root.innerHTML = `<div class="inv-box pc-box">
       <div class="pc-cards" role="listbox">${cards}</div>
-      ${bench.length && m.kind !== 'swap' ? `<div class="pc-bench"><span>Reserve</span>${bench.map((b) => `<img src="${b.portrait}" alt="${esc(b.name)}" title="${esc(b.name)} · Lv ${b.level}"${b.down ? ' class="down"' : ''}>`).join('')}</div>` : ''}
       ${swap}
-      <div class="menu-note">${esc(note)}</div>
+      <div class="pc-foot">${bench.length && m.kind !== 'swap' ? `<div class="pc-bench"><span>Reserve</span>${bench.map((b) => `<img src="${b.portrait}" alt="${esc(b.name)}" title="${esc(b.name)} · Lv ${b.level}"${b.down ? ' class="down"' : ''}>`).join('')}</div>` : '<span></span>'}
+      <div class="menu-note">${esc(note)}</div></div>
     </div>`;
     void sel;
     this.root.querySelectorAll<HTMLElement>('.pc-card').forEach((el) => el.addEventListener('click', (e) => {
