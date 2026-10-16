@@ -272,6 +272,10 @@ export type Command =
   | { cmd: 'skillPoints'; value: number }
   /** Overworld weapons (the field sword and bow) on or off: off indoors or in restricted areas (greyed out on the HUD). */
   | { cmd: 'fieldWeapons'; on: boolean }
+  /** Unlock an achievement (Database → Achievements). */
+  | { cmd: 'achievement'; id: string }
+  /** Run a developer-console command (testing shortcuts: give items, teleport…). */
+  | { cmd: 'console'; line: string }
   /**
    * Quests: start one, tick off (or count up) an objective, complete it (gives the rewards), fail it, or forget it
    * (back to not started). `add` counts an objective up by that much instead of finishing it.
@@ -729,6 +733,12 @@ export type AllyStyle = 'fighter' | 'archer' | 'caster' | 'healer';
 
 export interface Database {
   title: string;
+  /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
+  world?: import('./worldLayout').WorldData;
+  /** Achievements (Database → Achievements). */
+  achievements?: import('../game/achievements').AchievementDef[];
+  /** The developer console (the ` key): in playtests only (default), always, or never. */
+  devConsole?: 'playtest' | 'always' | 'off';
   startMap: string;
   start: { x: number; z: number; dir?: Dir };
   startHour: number;
@@ -951,7 +961,7 @@ export interface InventorySetup {
 
 export type MapEnvironment = 'outdoor' | 'indoor' | 'dark';
 /** Scenery outside the map: open grass, forest, meadow (bushes and flowers), rocky cliffs, water, or nothing. */
-export type BorderKind = 'grass' | 'forest' | 'meadow' | 'rocks' | 'water' | 'none';
+export type BorderKind = 'grass' | 'forest' | 'meadow' | 'rocks' | 'water' | 'none' | 'seamless';
 export interface MapBorder {
   /** Old maps: one kind for every side. */
   kind?: BorderKind;
@@ -961,7 +971,7 @@ export interface MapBorder {
 }
 
 export type TitleOption = 'continue' | 'newGame' | 'load' | 'options' | 'credits' | 'exit';
-export type PauseOption = 'items' | 'equipment' | 'skills' | 'abilities' | 'journal' | 'log' | 'status' | 'quests' | 'settings' | 'saveLoad' | 'quitToTitle';
+export type PauseOption = 'items' | 'equipment' | 'skills' | 'abilities' | 'journal' | 'log' | 'status' | 'quests' | 'settings' | 'saveLoad' | 'quitToTitle' | 'map' | 'achievements' | 'system';
 
 export interface MenuConfig {
   /** Big text on the title screen (defaults to the game's title) and a line under it. */
@@ -1157,6 +1167,8 @@ export interface TurnBasedData {
   additionTiming?: 'press' | 'auto';
   /** The battle screen's look: 'dragon' (default; Legend of Dragoon-like) or 'fantasy' (Final Fantasy-like). */
   layout?: 'dragon' | 'fantasy';
+  /** The hero always fights: can't be swapped onto the bench (default: anyone can). */
+  heroLocked?: boolean;
 }
 
 export interface CombatData {

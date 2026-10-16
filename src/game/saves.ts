@@ -37,6 +37,11 @@ export interface SaveData {
   progress?: { level: number; xp: number; points: number; ranks?: Record<string, number>; taught?: string[]; stats?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>; statPoints?: number };
   /** Party members besides the hero (their stats, gear and gauges). */
   party?: import('./party').MemberData[];
+  /** Where the hero stands in the lineup (0: first; 3 or more: on the bench). */
+  heroAt?: number;
+  /** Maps visited and the ground seen in each (the world map). */
+  visited?: string[];
+  explored?: Record<string, { w: number; h: number; bits: string }>;
   /** Quests started, their objectives and the followed one (older saves have none). */
   quests?: QuestBookData;
 }

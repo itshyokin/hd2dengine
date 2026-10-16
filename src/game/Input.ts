@@ -9,8 +9,8 @@ export type Action = 'up' | 'down' | 'left' | 'right' | 'ok' | 'cancel' | 'run' 
   | 'melee' | 'bow' | 'magic' | 'attack' | 'switchWeapon' | 'block' | 'lock' | 'target' | 'targetPrev' | 'sneak'
   /** Quick items (assigned in the bag): left, up, right. */
   | 'quick1' | 'quick2' | 'quick3'
-  /** Menus only: switch tabs (skill trees). */
-  | 'tabPrev' | 'tabNext';
+  /** Menus only: switch tabs (the pause menu's: LB / RB, Q / E), and the tabs inside one (LT / RT, Z / C). */
+  | 'tabPrev' | 'tabNext' | 'subPrev' | 'subNext';
 
 /** Actions the player can rebind, in the order the Controls screen lists them. */
 export const BINDABLE: [Action, string][] = [
@@ -59,9 +59,10 @@ const MENU_KEYS: Record<string, Action> = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
   Enter: 'ok', NumpadEnter: 'ok', Space: 'ok', Escape: 'cancel', Backspace: 'cancel',
   PageUp: 'tabPrev', PageDown: 'tabNext', KeyQ: 'tabPrev', KeyE: 'tabNext',
+  KeyZ: 'subPrev', KeyC: 'subNext', BracketLeft: 'subPrev', BracketRight: 'subNext',
 };
 /** Controller buttons menus always understand. */
-const MENU_PAD: Record<number, Action> = { 0: 'ok', 1: 'cancel', 9: 'cancel', 8: 'cancel', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 4: 'tabPrev', 5: 'tabNext' };
+const MENU_PAD: Record<number, Action> = { 0: 'ok', 1: 'cancel', 9: 'cancel', 8: 'cancel', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 4: 'tabPrev', 5: 'tabNext', 6: 'subPrev', 7: 'subNext' };
 /** Bumped when the default controller layout changes, so old saved layouts are replaced. */
 export const BINDINGS_VERSION = 2;
 
@@ -154,6 +155,9 @@ export class Input {
     if (this.mode === 'menu') { const m = MENU_KEYS[code]; if (m && !out.includes(m)) out.push(m); }
     return out;
   }
+
+  /** Forget every key and button held (after the console had the keyboard). */
+  releaseAll(): void { this.keysDown.clear(); this.padHeld.clear(); this.held.clear(); this.pressed.clear(); }
 
   private rebuildHeld(): void {
     this.held.clear();
@@ -249,7 +253,7 @@ export class Input {
       if (!Number.isNaN(b)) return padName(b);
     }
     // Menu-only actions (tabs) have fixed keys.
-    const k = this.bindings.keys[a]?.[0] ?? (a === 'tabPrev' ? 'KeyQ' : a === 'tabNext' ? 'KeyE' : undefined);
+    const k = this.bindings.keys[a]?.[0] ?? ({ tabPrev: 'KeyQ', tabNext: 'KeyE', subPrev: 'KeyZ', subNext: 'KeyC' } as Partial<Record<Action, string>>)[a];
     return k ? keyName(k) : '—';
   }
 

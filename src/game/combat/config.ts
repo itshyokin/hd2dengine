@@ -23,9 +23,11 @@ export interface TurnBasedConfig {
   additionTiming: 'press' | 'auto';
   /** The battle screen: Dragon Legend (faces and numbers in a row, lists in the middle) or Forbidden Fantasy (bars in a box, lists at the side). */
   layout: 'dragon' | 'fantasy';
+  /** The hero always fights (can't be swapped onto the bench). */
+  heroLocked: boolean;
 }
 
-export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon' };
+export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon', heroLocked: false };
 
 export interface CombatConfig {
   /** Action combat on the map, or turn-based battles. */
@@ -55,7 +57,7 @@ export interface CombatConfig {
 }
 
 export const DEFAULT_COMBAT: CombatConfig = {
-  mode: 'action',
+  mode: 'turnBased',
   turnBased: DEFAULT_TURN_BASED,
   unarmedDamage: 3,
   classes: {
@@ -89,11 +91,11 @@ export function combatConfig(data?: CombatData): CombatConfig {
   for (const k of ['light', 'medium', 'heavy'] as WeaponClass[]) classes[k] = { ...d.classes[k], ...s.classes?.[k] };
   const tb = { ...d.turnBased, ...s.turnBased };
   return {
-    mode: s.mode === 'turnBased' ? 'turnBased' : 'action',
+    mode: s.mode === 'action' ? 'action' : 'turnBased',
     turnBased: {
       ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
       flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(MAX_FOES, Math.round(tb.maxEnemies))),
-      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press', layout: tb.layout === 'fantasy' ? 'fantasy' : 'dragon',
+      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press', layout: tb.layout === 'fantasy' ? 'fantasy' : 'dragon', heroLocked: !!tb.heroLocked,
     },
     unarmedDamage: s.unarmedDamage ?? d.unarmedDamage,
     classes,

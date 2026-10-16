@@ -10,7 +10,7 @@ import { patchRoadEdge } from '../render/roadEdge';
 import type { V3 } from './terrainGeometry';
 import { normalMapFrom } from '../core/pixel';
 import { rng } from '../core/math';
-import { patchAreaTint } from '../render/areaTint';
+import { patchAreaTint, setBuildOrigin } from '../render/areaTint';
 import { patchWaterEdge, waterMask } from '../render/waterEdge';
 import { blendMask, patchTileBlend } from '../render/tileBlend';
 import { SpriteLibrary, withSpriteShadows } from '../render/sprites';
@@ -39,7 +39,16 @@ export interface BuiltWorld {
   buildings: BuiltBuilding[];
 }
 
-export function buildWorld(scene: THREE.Object3D, map: TileMap, data: MapData, sprites: SpriteLibrary, tileTextures: Map<string, TileTexture> = new Map()): BuiltWorld {
+/**
+ * Build a map's world into `scene`. `origin`: where it sits when drawn beside another map (a seamless neighbour), so
+ * its shader lookups stay in its own tile coordinates.
+ */
+export function buildWorld(scene: THREE.Object3D, map: TileMap, data: MapData, sprites: SpriteLibrary, tileTextures: Map<string, TileTexture> = new Map(), origin?: THREE.Vector2): BuiltWorld {
+  setBuildOrigin(origin ?? null);
+  try { return buildWorldAt(scene, map, data, sprites, tileTextures); } finally { setBuildOrigin(null); }
+}
+
+function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprites: SpriteLibrary, tileTextures: Map<string, TileTexture>): BuiltWorld {
   const spans = new Map([...tileTextures].map(([k, t]) => [k, Math.max(0.25, t.def.span || 1)] as [string, number]));
   // Cliff walls look the way the tile on top of them says (or the map's default).
   const wallLook = (x: number, z: number) => {
@@ -275,7 +284,8 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
     q.add([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], [[x0, -z0], [x1, -z0], [x1, -z1], [x0, -z1]], [0, 1, 0]);
   for (const [side, x0, z0, x1, z1] of strips) {
     const kind = sides[side];
-    if (kind === 'none') continue;
+    // Seamless: the neighbouring map is drawn there instead (the game adds it).
+    if (kind === 'none' || kind === 'seamless') continue;
     const ns = side === 'n' || side === 's';
     // Roads leaving on this side, as [start, end] along the edge.
     const gaps = roads.filter((r) => r.side === side).map((r) => [r.from, r.to + 1] as [number, number]).sort((p, q) => p[0] - q[0]);

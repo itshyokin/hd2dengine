@@ -33,15 +33,24 @@ const uniforms = {
   uHdCloud: { value: new THREE.Vector4(0, 0, 0, 1 / 9) },
 };
 
-const VERT_HEAD = 'varying vec2 vHdWorld;\n';
+const VERT_HEAD = 'varying vec2 vHdWorld;\nuniform vec2 uHdOrigin;\n';
 const VERT_BODY = `#include <project_vertex>
 {
   vec4 hdWp = vec4(transformed, 1.0);
   #ifdef USE_INSTANCING
     hdWp = instanceMatrix * hdWp;
   #endif
-  vHdWorld = (modelMatrix * hdWp).xz;
+  vHdWorld = (modelMatrix * hdWp).xz - uHdOrigin;
 }`;
+
+/**
+ * A map drawn beside the current one (a seamless neighbour) sits away from the world's origin, but its shoreline and
+ * tile-blend masks work in its own tile coordinates: materials built for it take its offset (set by buildWorld while
+ * it builds), so vHdWorld stays map-local. Shared materials (sprites) always use the world's coordinates.
+ */
+let buildOrigin: THREE.Vector2 | null = null;
+const ZERO = new THREE.Vector2();
+export function setBuildOrigin(v: THREE.Vector2 | null): void { buildOrigin = v; }
 
 const FRAG_HEAD = `
 uniform int uHdAreaCount;
@@ -87,13 +96,15 @@ vec3 hdAreaTint(vec2 p) {
 `;
 
 /** Add area-tint support to a lit material. Safe to call more than once. */
-export function patchAreaTint<T extends THREE.Material>(mat: T): T {
+export function patchAreaTint<T extends THREE.Material>(mat: T, local = true): T {
   if (mat.userData.hdArea) return mat;
   mat.userData.hdArea = true;
+  const origin = (local && buildOrigin) || ZERO;
   const prev = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
     prev?.call(mat, shader, renderer);
     Object.assign(shader.uniforms, uniforms);
+    shader.uniforms.uHdOrigin = { value: origin };
     shader.vertexShader = VERT_HEAD + shader.vertexShader.replace('#include <project_vertex>', VERT_BODY);
     shader.fragmentShader = FRAG_HEAD + shader.fragmentShader.replace(
       '#include <output_fragment>',

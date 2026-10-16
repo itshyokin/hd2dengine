@@ -18,6 +18,8 @@ export class GameState {
   readonly abilities = new Map<Ability, boolean>(ABILITIES.map((a) => [a, true]));
   /** "Overworld weapons: off" (an event, for indoors or restricted areas): the field sword and bow can't be used. */
   weaponsOff = false;
+  /** Console cheats were used in this game: achievements stay locked for it. */
+  cheated = false;
   /** Props cut down with a cutting ring, per map (keys from propKey). */
   readonly cut = new Map<string, Set<string>>();
   /** Game hours passed since the game began (the clock running; fires burn by it). */
@@ -115,8 +117,9 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean }): void {
+  load(d: { switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean }): void {
     this.weaponsOff = !!d.weaponsOff;
+    this.cheated = !!d.cheated;
     this.switches.clear();
     this.variables.clear();
     this.cut.clear();
@@ -136,9 +139,10 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean } {
+  toJSON(): { switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
+    if (this.cheated) out.cheated = true;
     if (this.cut.size) out.cut = Object.fromEntries([...this.cut].map(([m, s]) => [m, [...s]]));
     if (this.clock) out.clock = this.clock;
     if (this.fires.size) out.fires = Object.fromEntries([...this.fires].map(([m, f]) => [m, Object.fromEntries(f)]));

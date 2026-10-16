@@ -3,7 +3,7 @@ import type { BorderKind, MapBorder } from './types';
 
 export type Side = 'n' | 's' | 'w' | 'e';
 export const BORDER_KINDS: [BorderKind, string][] = [
-  ['grass', 'Open grass'], ['forest', 'Forest'], ['meadow', 'Meadow (bushes, flowers)'], ['rocks', 'Rocky cliffs'], ['water', 'Water'], ['none', 'Nothing (darkness)'],
+  ['grass', 'Open grass'], ['forest', 'Forest'], ['meadow', 'Meadow (bushes, flowers)'], ['rocks', 'Rocky cliffs'], ['water', 'Water'], ['none', 'Nothing (darkness)'], ['seamless', 'Seamless (the next map: World layout)'],
 ];
 
 /** The kind on each side. Old maps ({ kind: 'forest' }) use it everywhere; no border at all is open grass. */
@@ -24,7 +24,7 @@ export const cliffHeight = (side: Side): number => (side === 's' ? 0.5 : 1.5);
 export interface EdgeRoad { side: Side; key: string; from: number; to: number }
 
 /** Roads carry on across every kind of border except darkness (through a gap in cliffs, on a causeway over water). */
-export const roadContinues = (k: BorderKind): boolean => k !== 'none';
+export const roadContinues = (k: BorderKind): boolean => k !== 'none' && k !== 'seamless';
 
 /**
  * Every run of road tiles along the map's edges, per side (consecutive tiles of the same key form one
@@ -67,7 +67,7 @@ export function onEdgeRoad(roads: EdgeRoad[], x: number, z: number, w: number, h
 export interface EdgeWater { side: Side; from: number; to: number; surface: number; bed: number; kind: 'shallow' | 'swim' | 'deep'; style: number }
 
 /** Water continues past every kind of border except darkness and open water (which is already water). */
-export const waterContinues = (k: BorderKind): boolean => k !== 'none' && k !== 'water';
+export const waterContinues = (k: BorderKind): boolean => k !== 'none' && k !== 'water' && k !== 'seamless';
 
 /**
  * Every run of water along the map's edges, per side: consecutive edge cells with water of the same level, kind and

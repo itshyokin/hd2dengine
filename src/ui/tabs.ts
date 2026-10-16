@@ -13,6 +13,11 @@ export interface TabGroup {
   keys: [string, string];
   /** Go to another tab: by a step (-1, 1) or, with `to`, straight to that tab. */
   go(step: number, to?: number): void;
+  /**
+   * Inside the pause menu: its own tabs (Party, Items, Map…), drawn by the menu across the top and moved with LB / RB.
+   * This group is then the screen's inner tabs, moved with LT / RT (Z / C) instead.
+   */
+  main?: TabGroup;
 }
 
 export function tabStrip(t: TabGroup | undefined): string {
@@ -33,7 +38,16 @@ export function wireTabs(root: HTMLElement, t: TabGroup | undefined): void {
 
 /** LB / RB: true when it moved to another tab (the screen should stop handling keys this frame). */
 export function tabKeys(input: Input, t: TabGroup | undefined): boolean {
-  if (!t || t.labels.length < 2) return false;
+  if (!t) return false;
+  if (t.main) {
+    if (input.consume('tabPrev')) { t.main.go(-1); return true; }
+    if (input.consume('tabNext')) { t.main.go(1); return true; }
+    if (t.labels.length < 2) return false;
+    if (input.consume('subPrev')) { t.go(-1); return true; }
+    if (input.consume('subNext')) { t.go(1); return true; }
+    return false;
+  }
+  if (t.labels.length < 2) return false;
   if (input.consume('tabPrev')) { t.go(-1); return true; }
   if (input.consume('tabNext')) { t.go(1); return true; }
   return false;

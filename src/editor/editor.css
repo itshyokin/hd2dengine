@@ -586,3 +586,19 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .field-row.troop-row { display: grid; grid-template-columns: minmax(120px, 1fr) 90px 90px 30px; gap: 8px; align-items: end; }
 .face-pick { display: flex; align-items: center; gap: 8px; }
 .face-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; image-rendering: pixelated; box-shadow: 0 0 0 1px rgba(255,255,255,0.15); }
+
+/* World layout (toolbar → World) */
+.wl-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; height: min(72vh, 720px); }
+.wl-canvas { width: 100%; height: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); touch-action: none; cursor: grab; image-rendering: pixelated; display: block; }
+.wl-side { overflow-y: auto; display: grid; gap: 8px; align-content: start; }
+.wl-maps { display: grid; gap: 4px; }
+.wl-label-form { display: grid; gap: 6px; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.04); }
+@media (max-width: 760px) { .wl-body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; } }
+/* Achievements editor */
+.ach-edit-icon { width: 48px; height: 48px; image-rendering: pixelated; border-radius: 8px; background: rgba(255,255,255,0.06); margin-bottom: 6px; }
+.icon-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.icon-pick { width: 34px; height: 34px; padding: 3px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); }
+.icon-pick[aria-pressed="true"] { border-color: #ffb04a; background: rgba(255,176,74,0.15); }
+.icon-pick img { width: 100%; height: 100%; image-rendering: pixelated; }
+.db-legacy { border: 1px dashed rgba(255,255,255,0.15); border-radius: 10px; padding: 6px 12px; margin: 8px 0; }
+.db-legacy > summary { cursor: pointer; padding: 6px 0; color: var(--muted, #9ea3b6); font-weight: 600; }

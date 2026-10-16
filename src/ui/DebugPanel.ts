@@ -16,6 +16,8 @@ export interface DebugHooks {
   refill(): void;
   /** Test a season (null: back to the day's). */
   setSeason?(s: 'spring' | 'summer' | 'autumn' | 'winter' | null): void;
+  /** Open the developer console (for touch screens with no ` key). */
+  console?(): void;
 }
 
 const TOGGLES: [string, string, keyof DebugHooks][] = [
@@ -81,6 +83,7 @@ export class DebugPanel {
             <button class="chip" type="button" id="dbgHurt">−25 HP</button>
             <button class="chip" type="button" id="dbgTire">Empty stamina</button>
             <button class="chip" type="button" id="dbgRefill">Refill</button>
+            <button class="chip" type="button" id="dbgConsole" title="Developer console (\` key)">Console</button>
           </div>
         </section>
         <section class="group">
@@ -113,6 +116,7 @@ export class DebugPanel {
     q('dbgHurt').addEventListener('click', () => hooks.hurt());
     q('dbgTire').addEventListener('click', () => hooks.tire());
     q('dbgRefill').addEventListener('click', () => hooks.refill());
+    q('dbgConsole').addEventListener('click', () => hooks.console?.());
     const collapse = q<HTMLButtonElement>('dbgCollapse');
     const setCollapsed = (c: boolean) => {
       this.body.hidden = c;
@@ -169,6 +173,10 @@ export class DebugPanel {
   setLights(c: LightCounts): void {
     this.meter.setCounts(c);
   }
+
+  /** Show or hide the whole panel (the console's debug_menu command). */
+  setVisible(on: boolean): void { this.root.hidden = !on; }
+  get visible(): boolean { return !this.root.hidden; }
 
   update(dt: number, hour: number, timeLabel: string, drawCalls: number, state: { switches: Record<string, boolean>; variables: Record<string, number>; abilities?: Record<string, boolean> }): void {
     if (!this.dragging) this.slider.value = String(hour);

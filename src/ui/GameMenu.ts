@@ -5,6 +5,7 @@
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
 import { type SaveData, type SlotId, formatPlayTime } from '../game/saves';
+import { tabKeys, type TabGroup } from './tabs';
 
 export interface MenuItem {
   label: string;
@@ -23,7 +24,11 @@ export interface MenuItem {
   choice?: { value: string; options: [string, string][]; set: (v: string) => void };
 }
 
-interface Screen { title: string; items: MenuItem[]; note?: string; canBack: boolean; index: number; style: 'panel' | 'title'; subtitle?: string }
+interface Screen { title: string; items: MenuItem[]; note?: string; canBack: boolean; index: number; style: 'panel' | 'title'; subtitle?: string;
+  /** A pause menu tab's screen: LB / RB go to the other tabs. */
+  tabs?: TabGroup;
+  /** Called when this screen is left with Back (not when the whole menu is closed). */
+  onBack?: () => void }
 
 export class GameMenu {
   private readonly root = document.createElement('div');
@@ -52,9 +57,9 @@ export class GameMenu {
   get isOpen(): boolean { return this.stack.length > 0; }
 
   /** Show a screen on top of the current one (or as the first). */
-  push(title: string, items: MenuItem[], opts: { note?: string; canBack?: boolean; style?: 'panel' | 'title'; subtitle?: string } = {}): void {
+  push(title: string, items: MenuItem[], opts: { note?: string; canBack?: boolean; style?: 'panel' | 'title'; subtitle?: string; tabs?: TabGroup; onBack?: () => void } = {}): void {
     const first = Math.max(0, items.findIndex((i) => !i.disabled));
-    this.stack.push({ title, items, note: opts.note, canBack: opts.canBack ?? true, index: first, style: opts.style ?? 'panel', subtitle: opts.subtitle });
+    this.stack.push({ title, items, note: opts.note, canBack: opts.canBack ?? true, index: first, style: opts.style ?? 'panel', subtitle: opts.subtitle, tabs: opts.tabs, onBack: opts.onBack });
     this.render();
   }
 
@@ -78,12 +83,14 @@ export class GameMenu {
     if (!s?.canBack) return;
     this.stack.pop();
     if (this.stack.length) this.render(); else this.root.hidden = true;
+    s.onBack?.();
   }
 
   /** Call every frame while open: arrow keys move, OK picks, Cancel goes back. */
   update(): void {
     const s = this.stack[this.stack.length - 1];
     if (!s) return;
+    if (s.tabs && tabKeys(this.input, s.tabs)) return;
     const move = (d: number) => {
       for (let k = 1; k <= s.items.length; k++) {
         const i = (s.index + d * k + s.items.length * 4) % s.items.length;

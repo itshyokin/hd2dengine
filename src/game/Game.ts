@@ -57,6 +57,7 @@ import {
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
 import type { AbilityData, Command } from '../world/types';
+import { WEATHER_KINDS } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
@@ -93,7 +94,15 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
-import { PartyScreen } from '../ui/PartyScreen';
+import { PartyScreen, type PartyAction, type PartyMemberView } from '../ui/PartyScreen';
+import { PauseShell } from '../ui/PauseShell';
+import { WorldMapScreen, type WorldMapPiece } from '../ui/WorldMapScreen';
+import { AchievementsScreen, type AchievementView } from '../ui/AchievementsScreen';
+import { AchievementToast } from '../ui/AchievementToast';
+import { DevConsole, type ConsoleCommand } from '../ui/DevConsole';
+import { AchievementBook, platformUnlock, progress as achProgress, type AchievementWorld } from './achievements';
+import { Explored, type Neighbour, neighbourAt, neighbours, seamlessSides } from '../world/worldLayout';
+import { averageColor, builtinTileColor, drawMapArt, propMark } from '../render/worldMapArt';
 import { CharacterScreen } from '../ui/CharacterScreen';
 import type { TabGroup } from '../ui/tabs';
 import { ShopScreen, shopGoods } from '../ui/ShopScreen';
@@ -106,9 +115,9 @@ import { PlayerMotion } from './PlayerMotion';
 import { PlayerStats, configFromDb } from './stats';
 import { StatusBars } from '../ui/StatusBars';
 import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
-import { PAUSE_ICONS, PAUSE_OPTIONS, pauseLabel, titleLabel } from './menus';
+import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } from './menus';
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
-import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId } from './saves';
+import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
 import { alignFootProps, blockedTiles, footTiles, propCovers } from '../world/props';
 import { propKey } from './GameState';
 import { TouchControls } from '../ui/TouchControls';
@@ -127,6 +136,9 @@ const JOURNAL_TABS: ['quests' | 'log' | 'records', string][] = [['quests', 'Ques
 const INTERACT_RANGE = 1.3;
 
 type Start = { x: number; z: number; dir?: Dir };
+
+/** A neighbouring map drawn beside this one (a Seamless side), ready to walk into. */
+interface Preview { name: string; n: Neighbour; group: THREE.Group; map: TileMap; built: BuiltWorld; data: MapData; origin: THREE.Vector2 }
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer;
@@ -246,6 +258,21 @@ export class Game {
   private creation!: CreationScreen;
   private equipScreen!: EquipScreen;
   private partyScreen!: PartyScreen;
+  private pauseShell!: PauseShell;
+  /** Where the hero stands in the lineup: 0 first; past the first three, on the bench. */
+  private heroAt = 0;
+  private worldMap!: WorldMapScreen;
+  private achScreen!: AchievementsScreen;
+  private achToast!: AchievementToast;
+  private achBook!: AchievementBook;
+  private devConsole!: DevConsole;
+  /** Started from the editor's ▶ Playtest. */
+  private isPlaytest = false;
+  /** Maps the hero has been to, and the ground seen in each (the world map's fog; kept in saves). */
+  private visited = new Set<string>();
+  private explored = new Map<string, Explored>();
+  /** The console's cheats (not saved; using one marks the game as cheated). */
+  private readonly cheats = { deathless: false, deathlessParty: false, infiniteGold: false, ghost: false, speed: 1 };
   private charScreen!: CharacterScreen;
   private controls!: ControlsScreen;
   private creditsScreen!: CreditsScreen;
@@ -371,6 +398,7 @@ export class Game {
     this.audio = new AudioManager(resolve);
     this.audio.overrides = { ...(this.db.audio?.sfx ?? {}) } as Partial<Record<Sfx, string>>;
     setUiSound((s) => this.audio.play(s));
+    this.isPlaytest = !!pt;
     this.saves = new SaveStore(this.db.title || 'game', !!pt);
     this.settingsStore = new SettingsStore(this.db.title || 'game', !!pt);
     // The game's own default settings (controls, HUD…), for players who haven't changed any yet.
@@ -530,31 +558,35 @@ export class Game {
       },
       setStyle: (h, v) => { const mem = h ? this.members()[h - 1] : null; if (mem) mem.data.style = v as AllyStyle; },
     });
-    // Party: everyone's level, gauges and EXP; pick one for their Status, Skill Tree or Stats.
+    // Party (the pause menu's first tab): the three fighting as cards; Status, Equipment, Skill Tree… and Swap.
     this.partyScreen = new PartyScreen(this.ui, this.input, {
-      members: () => {
-        const hero = mainHero(this.db);
-        this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
-        return [{
-          name: hero.name, level: this.progress.level, portrait: this.portraitUrl,
-          hp: [this.stats.hp, this.stats.cfg.max.hp] as [number, number], mp: [this.stats.mp, this.stats.cfg.max.mp] as [number, number],
-          xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-          skillPoints: this.progress.points, statPoints: this.progress.statPoints,
-        }, ...this.members().map((m) => {
-          const mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
-          return {
-            name: m.def.name, level: m.data.level, portrait: this.memberPortrait(m.def),
-            hp: [m.data.hp, mx.hp] as [number, number], mp: [m.data.mp, mx.mp] as [number, number],
-            xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, statPoints: m.data.statPoints, down: !!m.data.down,
-          };
-        })];
-      },
-      open: (hero, page, back) => {
-        if (page === 'equip') this.charScreen.show(hero, back);
-        else if (page === 'skills') { this.skillHero = hero; this.skillScreen.show(back); }
-        else this.statusScreen.show(back, undefined, hero);
-      },
+      members: () => this.lineupWhos().map((w) => this.partyView(w)),
+      active: ACTIVE_MEMBERS + 1,
+      actions: (who) => this.partyActions(who),
+      run: (who, id, back) => this.partyRun(who, id, back),
+      swap: (a, b) => this.swapLineup(a, b),
     });
+    this.pauseShell = new PauseShell(this.ui, () => {
+      const where = this.mapData?.name || this.mapName;
+      return [where, `Time ${formatPlayTime(this.playTime)}`, `${this.inventory.gold.toLocaleString()} G`].filter(Boolean).join('   ·   ');
+    });
+    this.worldMap = new WorldMapScreen(this.ui, this.input, {
+      pieces: () => this.worldPieces(),
+      labels: () => this.db.world?.labels ?? [],
+      unvisited: () => this.db.world?.unvisited ?? 'hidden',
+      hero: () => { const p = this.db.world?.maps[this.mapName]; return p && this.motion ? { x: p.x + this.motion.x, z: p.z + this.motion.z, map: this.mapName } : null; },
+      artScale: 4,
+    });
+    this.achBook = new AchievementBook(`hd2d:${this.db.title || 'game'}${this.isPlaytest ? ':playtest' : ''}:achievements`);
+    // Unlocks already earned are passed on to a store's achievements (Steam through a desktop wrapper), if there is one.
+    for (const id of this.achBook.all) platformUnlock(id);
+    this.achToast = new AchievementToast(this.ui, () => this.audio.play('achievement'));
+    this.achScreen = new AchievementsScreen(this.ui, this.input, () => this.achievementViews(),
+      () => (this.state.cheated ? 'Console cheats were used in this game, so achievements stay locked in it. · Esc: close' : '↑ ↓ scroll · Esc: close'));
+    this.devConsole = new DevConsole(this.ui, () => this.consoleCommands());
+    const dc = this.db.devConsole ?? 'playtest';
+    this.devConsole.enabled = dc === 'always' || (dc === 'playtest' && this.isPlaytest);
+    this.devConsole.onToggle = (open) => { this.input.releaseAll(); if (!open) this.refreshEvents(); };
     this.controls = new ControlsScreen(this.ui, this.input);
     this.creditsScreen = new CreditsScreen(this.ui, this.input);
     this.log = new AdventureLog(this.ui);
@@ -704,6 +736,8 @@ export class Game {
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined });
       },
       busy: () => this.battle.active || this.battlePending,
+      achievement: (id) => { this.unlockAchievement(id); },
+      console: (line) => { const r = this.devConsole.exec(line, false); if (r && !/^Done/.test(r)) console.info(`[console] ${line}: ${r}`); },
       learn: (c) => this.eventLearn(c),
       heroClass: (c) => this.eventClass(c),
       skillPoints: (n) => { this.progress.points = Math.max(0, this.progress.points + n); if (n > 0) { this.menu.notice(`+${n} skill point${n === 1 ? '' : 's'}`); this.audio.play('skill'); } },
@@ -721,37 +755,43 @@ export class Game {
       hurt: () => this.stats.change('hp', 'add', -25),
       tire: () => { this.stats.change('sp', 'set', 0); this.stats.exhausted = true; },
       refill: () => this.stats.refill(),
+      console: () => this.devConsole.toggle(true),
     });
   }
 
-  /** Build a map and put the player on it. Anything from the previous map is thrown away first. */
-  private enterMap(name: string, data: MapData, start: Start | null): void {
+  /** A map as it is on this visit: props cut down earlier stay gone (leaving their stump, if they have one). */
+  private visitData(name: string, data: MapData): MapData {
+    if (!data.props.some((p) => this.state.isCut(name, propKey(p)))) return data;
+    const kept: PropData[] = [], stumps: PropData[] = [];
+    for (const p of data.props) {
+      if (!this.state.isCut(name, propKey(p))) { kept.push(p); continue; }
+      const st = this.sprites.def(p.type)?.stump;
+      if (st && this.sprites.def(st)) stumps.push({ type: st, x: p.x, z: p.z, ...(p.s ? { s: p.s } : {}), ...(p.y !== undefined ? { y: p.y } : {}) });
+    }
+    return { ...data, props: [...kept, ...stumps] };
+  }
+
+  /** Build a map and put the player on it (or take over a neighbour already built beside it). The previous map goes. */
+  private enterMap(name: string, data: MapData, start: Start | null, pre?: Preview): void {
+    if (pre) this.level?.remove(pre.group);
     this.leaveMap();
     this.mapName = name;
-    // Props cut down on an earlier visit stay gone (ones that regrow are back).
     this.cutThisVisit.clear();
     this.mineHits.clear();
-    // Cut ones leave their stump, if their prop has one.
-    if (data.props.some((p) => this.state.isCut(name, propKey(p)))) {
-      const kept: PropData[] = [], stumps: PropData[] = [];
-      for (const p of data.props) {
-        if (!this.state.isCut(name, propKey(p))) { kept.push(p); continue; }
-        const st = this.sprites.def(p.type)?.stump;
-        if (st && this.sprites.def(st)) stumps.push({ type: st, x: p.x, z: p.z, ...(p.s ? { s: p.s } : {}), ...(p.y !== undefined ? { y: p.y } : {}) });
-      }
-      data = { ...data, props: [...kept, ...stumps] };
-    }
+    data = this.visitData(name, data);
     this.mapData = data;
     this.time.environment = data.environment ?? 'outdoor';
-    const level = (this.level = new THREE.Group());
+    const level = (this.level = pre?.group ?? new THREE.Group());
+    level.position.set(0, 0, 0);
+    pre?.origin.set(0, 0);
     level.name = `map:${name}`;
     this.scene.add(level);
     // Winter freezes still water over (decided as the map is built; a change of season rebuilds it).
     this.season = this.seasonNow();
     setSeason(this.season);
     this.mapWinter = this.season === 'winter';
-    this.map = new TileMap(data, this.tiles, (style) => this.frozen(style));
-    const built = buildWorld(level, this.map, data, this.sprites, this.tileTextures);
+    this.map = pre?.map ?? new TileMap(data, this.tiles, (style) => this.frozen(style));
+    const built = pre?.built ?? buildWorld(level, this.map, data, this.sprites, this.tileTextures);
     this.waterNormals = built.waterNormals;
     this.waterFlows = built.waterFlows;
     this.findWetProps();
@@ -817,11 +857,70 @@ export class Game {
     if (!this.onTitle) this.updateAudio(0);
     this.debug.setLights(this.lights.budget);
     this.spawnAllies();
+    this.buildPreviews();
+  }
+
+  /* ---------------------------------------------------------------- seamless neighbours */
+
+  /** Seamless neighbours drawn past this map's edges (World layout + Seamless sides), built a moment after arriving. */
+  private previews: Preview[] = [];
+  private previewToken = 0;
+
+  /** Sides of this map with a seamless neighbour (the camera may look past them). */
+  private openSides = new Set<string>();
+
+  private buildPreviews(): void {
+    const token = ++this.previewToken;
+    const sides = seamlessSides(this.mapData.border);
+    const list = neighbours(this.db.world, this.mapName).filter((n) => sides.has(n.side));
+    this.openSides = new Set(list.map((n) => n.side));
+    if (this.onTitle || !list.length) return;
+    void (async () => {
+      for (const n of list) {
+        // One at a time, a little apart, so arriving stays smooth.
+        await new Promise((r) => setTimeout(r, 150));
+        if (token !== this.previewToken || !this.level) return;
+        try {
+          const raw = await this.loadMapData(n.map);
+          if (token !== this.previewToken || !this.level) return;
+          const data = this.visitData(n.map, raw);
+          const group = new THREE.Group(), origin = new THREE.Vector2(n.dx, n.dz);
+          group.name = `next:${n.map}`;
+          group.position.set(n.dx, 0, n.dz);
+          const map = new TileMap(data, this.tiles, (st) => this.season === 'winter' && !(waterStyle(data, st).flow ?? 0) && !(waterStyle(data, st).glow ?? 0));
+          const built = buildWorld(group, map, data, this.sprites, this.tileTextures, origin);
+          tagAOMeshes(group);
+          this.level.add(group);
+          this.previews.push({ name: n.map, n, group, map, built, data, origin });
+        } catch (e) { console.warn(`Couldn’t draw the map next door (${n.map}):`, e); }
+      }
+    })();
+  }
+
+  /** Walking off a seamless edge into the map next door: no fade, the same spot on the other side. */
+  private trySeamless(dx: number, dz: number): boolean {
+    if (!this.previews.length || this.transfer || (!dx && !dz)) return false;
+    const m = this.motion, W = this.mapData.width, H = this.mapData.height, edge = 0.42;
+    const out = dx < 0 && m.x < edge ? [-0.6, 0] : dx > 0 && m.x > W - edge ? [0.6, 0] : dz < 0 && m.z < edge ? [0, -0.6] : dz > 0 && m.z > H - edge ? [0, 0.6] : null;
+    if (!out) return false;
+    const px = m.x + out[0], pz = m.z + out[1];
+    const n = neighbourAt(this.previews.map((p) => p.n), seamlessSides(this.mapData.border), px, pz, W, H);
+    const p = n && this.previews.find((q) => q.n === n);
+    if (!p) return false;
+    const x = px - p.n.dx, z = pz - p.n.dz, cx = Math.floor(x), cz = Math.floor(z);
+    if (!p.map.inMap(cx, cz) || p.map.isBlocked(cx, cz) || Math.abs(p.map.standY(x, z) - m.y) > 0.6) return false;
+    const view = this.camTarget.clone().add(new THREE.Vector3(-p.n.dx, 0, -p.n.dz)), dir = this.player.dir;
+    this.enterMap(p.name, p.data, { x, z, dir }, p);
+    // The camera carries on from where it was (the world moved under it, not the view).
+    this.camTarget.copy(view);
+    return true;
   }
 
   /** Remove the current map from the scene and free its GPU memory (shared sprite art stays). */
   private leaveMap(): void {
     this.endFishing();
+    this.previews = [];
+    this.previewToken++;
     if (!this.level) return;
     this.bankPickups('leave');
     this.disposeTree(this.level);
@@ -1094,7 +1193,7 @@ export class Game {
 
   /** Free to act on the field: no menu, event, transfer or title in the way. */
   private fieldFree(): boolean {
-    return !this.onTitle && !this.menu.isOpen && !this.bag.isOpen && !this.shop.isOpen && !this.interpreter.running && !this.transfer && !this.dying && !this.message.isOpen;
+    return !this.onTitle && !this.pauseShell.isOpen && !this.menu.isOpen && !this.bag.isOpen && !this.shop.isOpen && !this.interpreter.running && !this.transfer && !this.dying && !this.message.isOpen;
   }
 
   /** Use the item on quick slot k (D-pad left / up / right, or 5 / 6 / 7). */
@@ -1304,6 +1403,8 @@ export class Game {
   }
 
   private bindPointer(): void {
+    // Three fingers at once on a touch screen: the developer console (no ` key on a tablet).
+    this.canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 3 && this.devConsole.enabled) { e.preventDefault(); this.devConsole.toggle(); } }, { passive: false });
     this.canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') this.showCursor(this.pick(e)); });
     this.canvas.addEventListener('pointerleave', () => (this.cursor.visible = false));
     this.canvas.addEventListener('pointerdown', (e) => {
@@ -1402,13 +1503,14 @@ export class Game {
     this.updateFps(raw);
     const dt = Math.min(raw, 0.05);
     this.elapsed += dt;
-    const paused = this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen;
+    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen;
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
     this.input.mode = paused || fighting || this.battlePending || this.message.isOpen || this.interpreter.running || this.onTitle || !!this.transfer || this.dying ? 'menu' : 'field';
     this.input.pollGamepad(dt);
-    if (!paused && !fighting) { this.time.update(dt); this.playTime += dt; }
+    if (!paused && !fighting) { this.time.update(dt); this.playTime += dt; this.updateExplored(dt); }
+    if (!this.devConsole.isOpen) { this.applyCheats(); this.checkAchievements(dt); }
     if (!paused && !fighting && this.battleGrace > 0) this.battleGrace = Math.max(0, this.battleGrace - dt);
     document.body.classList.toggle('in-battle', this.battle.active);
 
@@ -1416,8 +1518,11 @@ export class Game {
     // Arrived after respawning: fade back in (the player can already move).
     if (this.transferFadeIn && !this.transfer) { this.transferFadeIn = false; this.fade = { from: 1, to: 0, t: 0, duration: 0.8 }; }
     if (paused) {
-      // The topmost screen takes the keys: shop, then bag, then the menu under them.
-      if (this.creation.isOpen) this.creation.update();
+      // The topmost screen takes the keys: shop, then bag, then the menu under them. The console freezes everything.
+      if (this.devConsole.isOpen) { /* typing */ }
+      else if (this.creation.isOpen) this.creation.update();
+      else if (this.worldMap.isOpen) this.worldMap.update(dt);
+      else if (this.achScreen.isOpen) this.achScreen.update();
       else if (this.saveScreen.isOpen) this.saveScreen.update();
       else if (this.equipScreen.isOpen) this.equipScreen.update();
       else if (this.partyScreen.isOpen) this.partyScreen.update();
@@ -1600,7 +1705,8 @@ export class Game {
     i.sprintToggle = this.settings.sprint === 'toggle';
     if (!i.sprintToggle) i.runLatched = false;
     const run = this.settings.alwaysRun ? !i.isHeld('run') : i.isHeld('run') || i.runLatched || i.touchRun || stickRun;
-    const res = m.update(dt, { dx, dz, run, jump: space && !dodged, sneak: this.combat.sneaking, speedScale: this.combat.speedScale });
+    const res = m.update(dt, { dx, dz, run, jump: space && !dodged, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed });
+    if (!m.airborne && !m.climbing && this.trySeamless(dx, dz)) return;
     // Locked on, the hero keeps facing the target (strafing); otherwise they face where they walk, unless attacking.
     const lock = this.combat.lock;
     if (lock) this.player.faceToward(lock.x, lock.z);
@@ -1725,6 +1831,9 @@ export class Game {
       inventory: this.inventory.toJSON(),
       progress: this.progress.toJSON(),
       ...(this.party.members.length ? { party: this.party.toJSON() } : {}),
+      ...(this.heroAt ? { heroAt: this.heroAt } : {}),
+      ...(this.visited.size ? { visited: [...this.visited] } : {}),
+      ...(this.explored.size ? { explored: Object.fromEntries([...this.explored].map(([k, e]) => [k, { w: e.w, h: e.h, bits: e.toString() }])) } : {}),
       quests: this.quests.toJSON(),
       respawn: this.respawnPoint,
     };
@@ -1785,6 +1894,9 @@ export class Game {
         this.fixEquipSlots();
         this.progress.load(d.progress, this.heroBase());
         this.party.load(d.party);
+        this.heroAt = Math.max(0, Math.round(Number(d.heroAt) || 0));
+        this.visited = new Set(d.visited ?? []);
+        this.explored = new Map(Object.entries(d.explored ?? {}).map(([k, e]) => [k, new Explored(e.w, e.h, e.bits)]));
         this.ensureWornInBag();
         // Saves from before party members had skill trees: the skill points their levels would have given.
         for (const m of this.party.members) if (m.skillPoints === undefined) { m.skillPoints = (m.level - 1) * this.combatCfg.pointsPerLevel; m.skills ??= {}; }
@@ -3146,38 +3258,396 @@ export class Game {
 
   /* ------------------------------------------------------------------ menus */
 
-  private openPauseMenu(): void {
-    const m = this.db.menus, act: Partial<Record<PauseOption, () => void>> = {
-      items: () => this.openInventory(0),
-      journal: () => this.openJournal(0),
-      skills: () => { this.skillHero = 0; this.skillScreen.show(() => {}); },
-      status: () => this.partyScreen.show(() => {}),
-      abilities: () => this.openAbilities(),
-      log: () => this.logScreen.show(pauseLabel(m, 'log'), this.log.history, () => {}),
-      quests: () => this.questScreen.show(pauseLabel(m, 'quests'), this.quests, { item: (id) => this.items.get(id)?.name ?? id }, () => {}),
-      settings: () => this.openSettings(),
-      saveLoad: () => this.openSaveLoad(),
-      quitToTitle: () => this.confirmQuit(),
-    };
-    const items = PAUSE_OPTIONS.filter(([o]) => !m?.pauseHidden?.[o]).map(([o, , works]) => ({
-      label: pauseLabel(m, o), icon: PAUSE_ICONS[o], disabled: !works, detail: works ? undefined : 'Coming soon', pick: act[o],
+  /** The pause menu's tabs shown (built and not hidden in Database → Title & menus). */
+  private pauseTabs(): PauseOption[] {
+    const m = this.db.menus;
+    return PAUSE_OPTIONS.filter(([o, , works]) => works && !m?.pauseHidden?.[o]
+      // The Map needs a World layout; Achievements need some achievements.
+      && (o !== 'map' || Object.keys(this.db.world?.maps ?? {}).length > 0)
+      && (o !== 'achievements' || (this.db.achievements?.length ?? 0) > 0)).map(([o]) => o);
+  }
+
+  /** Open the pause menu: it covers most of the screen, its tabs across the top (LB / RB). */
+  private openPauseMenu(tab?: PauseOption): void {
+    const tabs = this.pauseTabs(), m = this.db.menus;
+    if (!tabs.length) return;
+    const k = tab ? Math.max(0, tabs.indexOf(tab)) : 0;
+    this.pauseShell.show(tabs.map((o) => ({ id: o, label: pauseLabel(m, o), icon: PAUSE_ICONS[o] })), k,
+      [this.input.label('tabPrev'), this.input.label('tabNext')], (to) => { uiSound('menuMove'); this.showPauseTab(to); });
+    this.showPauseTab(k);
+  }
+
+  /** Put away whatever pause tab is showing (another tab is taking over, or the menu is closing). */
+  private hidePauseScreens(): void {
+    this.partyScreen.hide(); this.bag.hide(); this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide();
+    this.worldMap.hide(); this.achScreen.hide();
+    this.menu.close();
+  }
+
+  private closePause(): void {
+    this.hidePauseScreens();
+    this.pauseShell.close();
+  }
+
+  /** Inner tabs remembered while the game runs (the bag's pocket, the Journal's page). */
+  private invTab = 0;
+  private journalTab = 0;
+
+  private showPauseTab(k: number): void {
+    this.hidePauseScreens();
+    this.pauseShell.select(k);
+    const done = () => this.closePause(), group = this.pauseShell.group();
+    switch (this.pauseShell.tab as PauseOption) {
+      case 'status': this.partyScreen.show(done, group); break;
+      case 'items': this.openInventory(this.invTab, done); break;
+      case 'journal': this.openJournal(this.journalTab, done); break;
+      case 'map': this.worldMap.show(done, group); this.drawWorldArt(); break;
+      case 'achievements': this.achScreen.show(done, group); break;
+      case 'settings': this.openSettings({ tabs: group, onBack: done }); break;
+      case 'system': this.openSystem(group, done); break;
+      default: done();
+    }
+  }
+
+  /** The System tab: saving, loading and quitting. */
+  private openSystem(tabs: TabGroup, done: () => void): void {
+    const m = this.db.menus, anywhere = this.db.saving?.anywhere !== false;
+    const label = (o: PauseOption) => pauseLabel(m, o);
+    const items: MenuItem[] = [
+      { label: 'Save', icon: PAUSE_ICONS.saveLoad, detail: anywhere ? undefined : 'Only at save points', disabled: !anywhere || !!m?.pauseHidden?.saveLoad, pick: () => this.openSaveScreen(false) },
+      { label: 'Load', icon: PAUSE_ICONS.journal, disabled: !this.saves.latest() || !!m?.pauseHidden?.saveLoad, pick: () => this.openLoadScreen() },
+      ...(m?.pauseHidden?.quitToTitle ? [] : [{ label: label('quitToTitle'), icon: PAUSE_ICONS.quitToTitle, pick: () => this.confirmQuit() }]),
+    ];
+    void SYSTEM_OPTIONS;
+    this.menu.push(label('system'), items, { tabs, onBack: done });
+  }
+
+  /* ---------------------------------------------------------------- world map */
+
+  private readonly worldArt = new Map<string, HTMLCanvasElement>();
+  private readonly worldTitles = new Map<string, string>();
+  private readonly tileColors = new Map<string, string>();
+  private worldDrawing = false;
+
+  private tileColor(key: string): string {
+    let c = this.tileColors.get(key);
+    if (c) return c;
+    const t = this.tileTextures.get(key);
+    c = builtinTileColor(key) ?? (t?.map.image ? averageColor(t.map.image as CanvasImageSource) : '#5f9a45');
+    this.tileColors.set(key, c);
+    return c;
+  }
+
+  /** Draw the maps of the World layout from above (once each; the current map again, as cut trees change it). */
+  private drawWorldArt(): void {
+    if (this.worldDrawing) return;
+    this.worldDrawing = true;
+    const names = Object.keys(this.db.world?.maps ?? {});
+    const style = { tile: (k: string) => this.tileColor(k), prop: (t: string) => propMark(this.sprites.def(t)) };
+    void (async () => {
+      for (const n of names) {
+        if (this.worldArt.has(n) && n !== this.mapName) continue;
+        try {
+          const data = n === this.mapName ? this.mapData : await this.loadMapData(n);
+          this.worldArt.set(n, drawMapArt(data, this.tiles, style, 4));
+          this.worldTitles.set(n, data.name || n);
+          if (this.worldMap.isOpen) this.worldMap.show(() => this.closePause(), this.pauseShell.group());
+        } catch { /* a map that can't be read stays blank */ }
+      }
+      this.worldDrawing = false;
+    })();
+  }
+
+  private worldPieces(): WorldMapPiece[] {
+    const w = this.db.world, explore = w?.explore !== false;
+    return Object.entries(w?.maps ?? {}).map(([name, at]) => ({
+      name, at, title: this.worldTitles.get(name) ?? name, art: this.worldArt.get(name) ?? null,
+      visited: this.visited.has(name), explored: explore ? this.exploredFor(name, at.w, at.h) : null,
     }));
-    this.menu.push('Menu', items);
   }
 
-  /** Menu → Abilities: each hero's spells, Additions and class (and what's readied). */
-  private openAbilities(): void {
-    const ms = this.members();
-    if (!ms.length) { this.openHeroAbilities(0); return; }
-    this.menu.push(pauseLabel(this.db.menus, 'abilities'), [
-      { label: mainHero(this.db).name, detail: this.abilitySummary(this.progress.abilities), pick: () => this.openHeroAbilities(0) },
-      ...ms.map((m, k) => ({ label: m.def.name, detail: this.abilitySummary(m.data.abilities ?? {}), pick: () => this.openHeroAbilities(k + 1) })),
-    ]);
+  private exploredFor(name: string, w: number, h: number): Explored {
+    let e = this.explored.get(name);
+    if (!e || e.w !== w || e.h !== h) { e = new Explored(w, h); this.explored.set(name, e); }
+    return e;
   }
 
-  private abilitySummary(a: AbilityData): string {
-    const ns = Object.keys(a.spells ?? {}).length, na = Object.keys(a.additions ?? {}).length, cl = findClass(this.db, a.cls);
-    return [cl?.name, `${ns} spell${ns === 1 ? '' : 's'}`, `${na} Addition${na === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+  /** Mark where the hero is as seen (a few times a second). */
+  private exploreT = 0;
+  private updateExplored(dt: number): void {
+    if (this.onTitle || !this.mapData || !this.motion) return;
+    this.visited.add(this.mapName);
+    this.exploreT -= dt;
+    if (this.exploreT > 0) return;
+    this.exploreT = 0.3;
+    this.exploredFor(this.mapName, this.mapData.width, this.mapData.height).reveal(this.motion.x, this.motion.z, 7);
+  }
+
+  /* ---------------------------------------------------------------- achievements */
+
+  private readonly achWorld: AchievementWorld = {
+    record: (k) => this.state.record(k),
+    level: () => this.progress.level,
+    questDone: (id) => this.quests.status(id) === 'done',
+    switchOn: (id) => this.state.getSwitch(id),
+    gold: () => this.inventory.gold,
+    count: (id) => this.inventory.count(id),
+    partySize: () => this.members().length + 1,
+  };
+
+  private achIcon(icon: string | undefined): string {
+    if (!icon || icon.startsWith('builtin:')) return this.builtinUrl(icon ? builtinIconName(icon) ?? 'trophy' : 'trophy');
+    return this.resolveFile(icon);
+  }
+
+  private achievementViews(): AchievementView[] {
+    return (this.db.achievements ?? []).map((a) => {
+      const got = this.achBook.has(a.id), p = got ? null : achProgress(a.rule, this.achWorld);
+      return { id: a.id, name: a.name, description: a.description, icon: this.achIcon(a.icon), points: a.points, unlocked: got, hidden: !!a.hidden,
+        when: this.achBook.when(a.id), have: p?.have, need: p?.need };
+    });
+  }
+
+  /** Unlock one (an event, or its rule met): the pop-up, once. Not in a game where console cheats were used. */
+  private unlockAchievement(id: string, force = false): boolean {
+    const a = this.db.achievements?.find((x) => x.id === id);
+    if (!a || this.achBook.has(id) || (this.state.cheated && !force)) return false;
+    this.achBook.unlock(id);
+    platformUnlock(id);
+    this.achToast.show({ name: a.name, points: a.points, icon: this.achIcon(a.icon) });
+    this.log.add(`Achievement unlocked: ${a.name} (${a.points}G)`, 'level');
+    return true;
+  }
+
+  /** Check the rules every so often. */
+  private achT = 0;
+  private checkAchievements(dt: number): void {
+    this.achT -= dt;
+    if (this.achT > 0 || this.onTitle || this.state.cheated) return;
+    this.achT = 0.5;
+    for (const a of this.db.achievements ?? []) {
+      if (a.rule.kind === 'event' || this.achBook.has(a.id)) continue;
+      const p = achProgress(a.rule, this.achWorld);
+      if (p.have >= p.need) this.unlockAchievement(a.id);
+    }
+  }
+
+  /* ---------------------------------------------------------------- developer console */
+
+  /** Using a cheat marks the game (achievements stay locked in it). */
+  private cheat(): void { this.state.cheated = true; }
+
+  private applyCheats(): void {
+    if (this.cheats.deathless && this.stats.hp < 1 && !this.onTitle) this.stats.change('hp', 'set', 1);
+    if (this.cheats.deathlessParty) for (const m of this.members()) { if (m.data.down || m.data.hp < 1) { m.data.down = false; m.data.hp = Math.max(1, m.data.hp); } }
+    if (this.cheats.infiniteGold && this.inventory.gold < 999999) this.inventory.gold = 999999;
+    if (this.motion) this.motion.ghost = this.cheats.ghost;
+  }
+
+  private consoleCommands(): ConsoleCommand[] {
+    const ids = <T extends { id: string }>(list: T[] | undefined) => (list ?? []).map((x) => x.id);
+    const items = () => [...this.items.keys()];
+    const heroes = () => ['all', ...ids(this.db.heroes)];
+    const onOff = (v: string | undefined, now: boolean) => (v === undefined ? !now : /^(on|true|1|yes)$/i.test(v));
+    const num = (v: string | undefined, d: number) => { const n = Number(v); if (v !== undefined && !Number.isFinite(n)) throw new Error(`“${v}” isn’t a number`); return v === undefined ? d : n; };
+    const need = (v: string | undefined, what: string) => { if (!v) throw new Error(`Which ${what}?`); return v; };
+    const run = (cmds: Command[]) => { this.interpreter.start(cmds); return 'Done (it happens as the console closes).'; };
+    const who = (v: string | undefined) => (!v || v === 'all' ? '@party' : v);
+    const toggle = (key: keyof typeof this.cheats, label: string): ConsoleCommand => ({
+      name: label.toLowerCase().replace(/ /g, '_'), args: '[on|off]', help: `${label}: toggle`, complete: () => ['on', 'off'],
+      run: (a) => { const on = onOff(a[0], !!this.cheats[key]); (this.cheats as Record<string, unknown>)[key] = on; if (on) this.cheat(); return `${label}: ${on ? 'on' : 'off'}`; },
+    });
+    const learnable = (i: number, kind: 'spell' | 'addition') => (i === 0 ? heroes() : kind === 'spell' ? spellList(this.db).map((x) => x.id) : additionList(this.db).map((x) => x.id));
+    return [
+      { name: 'give', args: '<item> [count]', help: 'Put an item in the bag', complete: (i) => (i === 0 ? items() : []),
+        run: (a) => { const id = need(a[0], 'item'); if (!this.items.get(id)) throw new Error(`No item “${id}”`); const n = Math.max(1, Math.round(num(a[1], 1))); this.cheat(); const left = this.inventory.add(id, n); this.refreshRing(); return `+${n - left} ${this.items.get(id)!.name}${left ? ` (${left} didn’t fit)` : ''}`; } },
+      { name: 'take', args: '<item> [count]', help: 'Take an item out of the bag', complete: (i) => (i === 0 ? items() : []),
+        run: (a) => { const id = need(a[0], 'item'); const n = this.inventory.remove(id, Math.max(1, Math.round(num(a[1], 1)))); this.refreshRing(); return `−${n} ${this.items.get(id)?.name ?? id}`; } },
+      { name: 'gold', args: '<amount>', help: 'Add gold (negative takes it)', run: (a) => { this.cheat(); this.inventory.gold = Math.max(0, this.inventory.gold + Math.round(num(a[0], 1000))); return `${this.inventory.gold} G`; } },
+      { name: 'party_add', args: '<hero>', help: 'A hero joins the party', complete: () => ids(this.db.heroes).filter((h) => h !== mainHero(this.db).id), run: (a) => { this.cheat(); this.changeParty('add', need(a[0], 'hero')); return 'Joined.'; } },
+      { name: 'party_remove', args: '<hero>', help: 'A hero leaves the party', complete: () => this.members().map((m) => m.def.id), run: (a) => { this.changeParty('remove', need(a[0], 'hero')); return 'Left.'; } },
+      { name: 'learn_spell', args: '<hero|all> <spell> [rank]', help: 'Teach a spell', complete: (i) => learnable(i, 'spell'),
+        run: (a) => { this.cheat(); return this.eventLearn({ cmd: 'learn', who: who(a[0]), spell: need(a[1], 'spell'), rank: Math.max(1, Math.round(num(a[2], 1))) }) ?? 'Already known.'; } },
+      { name: 'learn_addition', args: '<hero|all> <addition>', help: 'Teach an Addition', complete: (i) => learnable(i, 'addition'),
+        run: (a) => { this.cheat(); return this.eventLearn({ cmd: 'learn', who: who(a[0]), addition: need(a[1], 'Addition') }) ?? 'Already known.'; } },
+      { name: 'forget_spell', args: '<hero|all> <spell>', help: 'Forget a spell', complete: (i) => learnable(i, 'spell'),
+        run: (a) => { const id = need(a[1], 'spell'); let n = 0; for (const h of this.eventHeroes(who(a[0]))) if (h.a.spells?.[id]) { delete h.a.spells[id]; n++; } return `${n} forgot it.`; } },
+      { name: 'forget_addition', args: '<hero|all> <addition>', help: 'Forget an Addition', complete: (i) => learnable(i, 'addition'),
+        run: (a) => { const id = need(a[1], 'Addition'); let n = 0; for (const h of this.eventHeroes(who(a[0]))) if (h.a.additions && id in h.a.additions) { delete h.a.additions[id]; if (h.a.addition === id) delete h.a.addition; n++; } return `${n} forgot it.`; } },
+      { name: 'exp', args: '<amount>', help: 'Give EXP (the whole party)', run: (a) => { this.cheat(); this.gainXp(Math.max(1, Math.round(num(a[0], 100))), false); return `Level ${this.progress.level}`; } },
+      { name: 'level', args: '<level>', help: 'Level the hero up to this level', run: (a) => {
+        this.cheat(); const want = Math.round(num(a[0], this.progress.level + 1));
+        for (let k = 0; k < 200 && this.progress.level < want && !this.progress.maxed; k++) this.gainXp(Math.max(1, this.progress.toNext - this.progress.xp), false);
+        return `Level ${this.progress.level}`; } },
+      { name: 'heal', help: 'Full rest: health, magic and stamina for everyone, ailments cured', run: () => { this.fullRest(true); for (const m of this.members()) { m.data.down = false; } return 'Everyone restored.'; } },
+      toggle('deathless', 'Deathless'),
+      { ...toggle('deathlessParty', 'Deathless party'), name: 'deathless_party' },
+      { name: 'infinite_items', args: '[on|off]', help: 'Using consumables doesn’t use them up', complete: () => ['on', 'off'],
+        run: (a) => { const on = onOff(a[0], this.inventory.keepUsed); this.inventory.keepUsed = on; if (on) this.cheat(); return `Infinite items: ${on ? 'on' : 'off'}`; } },
+      { ...toggle('infiniteGold', 'Infinite gold'), name: 'infinite_gold' },
+      { name: 'god', args: '[on|off]', help: 'Deathless hero and party, infinite items and gold', complete: () => ['on', 'off'],
+        run: (a) => { const on = onOff(a[0], this.cheats.deathless); Object.assign(this.cheats, { deathless: on, deathlessParty: on, infiniteGold: on }); this.inventory.keepUsed = on; if (on) this.cheat(); return `God mode: ${on ? 'on' : 'off'}`; } },
+      toggle('ghost', 'Ghost'),
+      { name: 'speed', args: '<times>', help: 'Walk faster (1 = normal)', run: (a) => { this.cheats.speed = Math.max(0.25, Math.min(6, num(a[0], 1))); return `Speed ×${this.cheats.speed}`; } },
+      { name: 'unlock_skills', args: '[hero|all]', help: 'Every skill and perk, at full rank', complete: () => heroes(),
+        run: (a) => {
+          this.cheat();
+          const nodes = skillsData(this.db.skills).nodes, full = Object.fromEntries(nodes.map((n) => [n.id, Math.max(1, n.ranks ?? 1)]));
+          const target = a[0] ?? 'all';
+          if (target === 'all' || target === mainHero(this.db).id) { Object.assign(this.progress.ranks, full); this.syncSkills(); }
+          for (const m of this.members()) if (target === 'all' || m.def.id === target) m.data.skills = { ...full };
+          return `${nodes.length} skills unlocked.`;
+        } },
+      { name: 'teleport', args: '<map> [x z]', help: 'Go to a map (its start, or a tile)', complete: (i) => (i === 0 ? Object.keys(this.db.world?.maps ?? {}).concat(this.handedMaps ? Object.keys(this.handedMaps) : []) : []),
+        run: (a) => { const map = need(a[0], 'map'); const x = num(a[1], NaN), z = num(a[2], NaN);
+          const to = Number.isFinite(x) && Number.isFinite(z) ? { x: x + 0.5, z: z + 0.5 } : map === this.db.startMap ? this.db.start : { x: -1, z: -1 };
+          this.devConsole.toggle(false);
+          this.requestTransfer(map, to.x < 0 ? { x: 0.5, z: 0.5 } : to, 'black');
+          return `Off to ${map}.`; } },
+      { name: 'time', args: '<hour>', help: 'Set the time of day (0–23.75)', run: (a) => { this.time.set(Math.max(0, Math.min(23.75, num(a[0], 12))), true); return this.time.label(this.settings.clock12); } },
+      { name: 'weather', args: '<kind> [amount]', help: 'Change this map’s weather', complete: () => [...WEATHER_KINDS],
+        run: (a) => run([{ cmd: 'weather', kind: need(a[0], 'weather') as WeatherKind, amount: num(a[1], 1) }]) },
+      { name: 'season', args: '<spring|summer|autumn|winter|auto>', help: 'Show a season (auto: the real one)', complete: () => ['spring', 'summer', 'autumn', 'winter', 'auto'],
+        run: (a) => { const v = need(a[0], 'season'); this.seasonTest = v === 'auto' ? null : v as Season; return `Season: ${v}`; } },
+      { name: 'battle', args: '<troop|enemy…>', help: 'Start a battle with a troop or some enemies', complete: () => [...ids(this.db.troops), ...ids(this.db.enemies)],
+        run: (a) => {
+          const troop = this.db.troops?.find((t) => t.id === a[0]);
+          const enemies = troop ? troop.members.flatMap((m) => Array.from({ length: Math.max(1, m.min ?? 1) }, () => m.enemy)) : a;
+          if (!enemies.length) throw new Error('Which troop or enemies?');
+          return run([{ cmd: 'battle', enemies: enemies.slice(0, MAX_FOES), canRun: true }]);
+        } },
+      { name: 'win_battle', help: 'Every foe in this battle falls', run: () => { if (!this.battle.active) throw new Error('Not in a battle.'); this.cheat(); this.battle.debugWin(); return 'Victory.'; } },
+      { name: 'switch', args: '<switch> <on|off>', help: 'Set a switch', run: (a) => { this.state.setSwitch(need(a[0], 'switch'), onOff(a[1], !this.state.getSwitch(a[0]))); this.refreshEvents(); return `${a[0]}: ${this.state.getSwitch(a[0]) ? 'ON' : 'OFF'}`; } },
+      { name: 'var', args: '<variable> <value>', help: 'Set a variable', run: (a) => { this.state.setVar(need(a[0], 'variable'), num(a[1], 0)); this.refreshEvents(); return `${a[0]} = ${this.state.getVar(a[0])}`; } },
+      { name: 'debug_menu', args: '<show|hide>', help: 'The playtest panel', complete: () => ['show', 'hide'],
+        run: (a) => { const on = a[0] ? /^(show|on)$/i.test(a[0]) : !this.debug.visible; this.debug.setVisible(on); return `Debug menu ${on ? 'shown' : 'hidden'}.`; } },
+      { name: 'fps', args: '[on|off]', help: 'Show the frame rate', complete: () => ['on', 'off'], run: (a) => { this.settings.showFps = onOff(a[0], !!this.settings.showFps); this.applySettings(); return `Frame rate ${this.settings.showFps ? 'shown' : 'hidden'}.`; } },
+      { name: 'hud', args: '[on|off]', help: 'Show or hide the HUD (screenshots)', complete: () => ['on', 'off'], run: (a) => { const on = onOff(a[0], document.body.classList.contains('hud-hidden')); document.body.classList.toggle('hud-hidden', !on); return `HUD ${on ? 'shown' : 'hidden'}.`; } },
+      { name: 'achievement', args: '<id>', help: 'Unlock an achievement (even in a cheated game)', complete: () => ids(this.db.achievements),
+        run: (a) => (this.unlockAchievement(need(a[0], 'achievement'), true) ? 'Unlocked.' : 'Already unlocked, or no such achievement.') },
+      { name: 'achievements_reset', help: 'Lock every achievement again (in this browser)', run: () => { this.achBook.reset(); return 'All achievements locked again.'; } },
+      { name: 'explore_all', help: 'Reveal the whole world map', run: () => { for (const [n, p] of Object.entries(this.db.world?.maps ?? {})) { this.visited.add(n); this.exploredFor(n, p.w, p.h).reveal(p.w / 2, p.h / 2, Math.hypot(p.w, p.h)); } return 'The world map is revealed.'; } },
+      { name: 'where', help: 'This map and tile', run: () => `${this.mapName} · ${Math.floor(this.motion.x)}, ${Math.floor(this.motion.z)} · height ${this.map.step(Math.floor(this.motion.x), Math.floor(this.motion.z))}` },
+    ];
+  }
+
+  /* ---------------------------------------------------------------- party lineup */
+
+  /** The party in lineup order as `who`s (0 the hero, k the k-th member): the first three fight. */
+  private lineupWhos(): number[] {
+    const order = this.members().map((_, k) => k + 1);
+    const at = this.combatCfg.turnBased.heroLocked ? Math.min(this.heroAt, ACTIVE_MEMBERS) : this.heroAt;
+    order.splice(Math.max(0, Math.min(at, order.length)), 0, 0);
+    return order;
+  }
+
+  /** Who fights (and walks along on the map). */
+  private activeWhos(): number[] { return this.lineupWhos().slice(0, ACTIVE_MEMBERS + 1); }
+
+  /** Reorder the party (a list of `who`s). */
+  private setLineup(order: number[]): void {
+    const ms = this.party.members;
+    const list = order.filter((w) => w > 0).map((w) => ms[w - 1]).filter((x) => !!x);
+    this.party.members = [...list, ...ms.filter((x) => !list.includes(x))];
+    this.heroAt = Math.max(0, order.indexOf(0));
+    this.spawnAllies();
+  }
+
+  private swapLineup(a: number, b: number): void {
+    const order = this.lineupWhos(), i = order.indexOf(a), j = order.indexOf(b);
+    if (i < 0 || j < 0) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    // The hero who always fights can't end up on the bench.
+    if (this.combatCfg.turnBased.heroLocked && order.indexOf(0) > ACTIVE_MEMBERS) return;
+    this.setLineup(order);
+  }
+
+  private readonly bigArt = new Map<string, string>();
+  /** A hero's card picture: their face art (Database → Heroes), or their sprite drawn large. */
+  private heroArt(who: number): string {
+    const def = who ? this.members()[who - 1]?.def : mainHero(this.db);
+    if (def?.face) return this.resolveFile(def.face);
+    const key = who ? `ally:${def?.id}` : 'hero';
+    let u = this.bigArt.get(key);
+    if (!u) {
+      const look = who ? this.db.characters[def?.look ?? ''] ?? this.db.characters[this.db.player] : this.db.characters[this.db.player];
+      u = this.sprites.portrait(`${key}:big`, look, 128).toDataURL();
+      this.bigArt.set(key, u);
+    }
+    return u;
+  }
+
+  private partyView(who: number): PartyMemberView {
+    const locked = !who && this.combatCfg.turnBased.heroLocked;
+    if (!who) {
+      const hero = mainHero(this.db);
+      this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
+      return {
+        who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
+        hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
+        xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
+        skillPoints: this.progress.points, statPoints: this.progress.statPoints, down: this.stats.hp <= 0, locked,
+      };
+    }
+    const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
+    return {
+      who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
+      hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, statPoints: m.data.statPoints, down: !!m.data.down,
+    };
+  }
+
+  /** What can be done for someone from their card. */
+  private partyActions(who: number): PartyAction[] {
+    const a = this.abilitiesOf(who) ?? {};
+    const spells = spellList(this.db).filter((sp) => (a.spells?.[sp.id] ?? 0) > 0);
+    const adds = additionList(this.db).filter((d) => a.additions && d.id in a.additions);
+    const classes = classList(this.db).filter((c) => c.id === a.cls || (a.classes ?? []).includes(c.id));
+    const cur = adds.find((d) => d.id === a.addition);
+    const out: PartyAction[] = [
+      { id: 'status', label: 'Status', detail: 'Who they are, what they wear, ailments' },
+      { id: 'equip', label: 'Equipment', detail: 'Weapons, armor and accessories' },
+      { id: 'skills', label: 'Skill Tree', detail: 'Spend skill points' },
+      { id: 'stats', label: 'Stats', detail: 'Spend stat points' },
+    ];
+    if (this.combatCfg.mode === 'turnBased' && this.combatCfg.turnBased.additions === 'set') out.push({ id: 'addition', label: 'Addition', detail: adds.length ? `Attack performs: ${cur?.name ?? 'a plain attack'}` : 'No Additions learned yet', disabled: !adds.length });
+    out.push({ id: 'magic', label: 'Magic', detail: spells.length ? `${spells.length} spell${spells.length === 1 ? '' : 's'}: healing can be cast from here` : 'No spells learned yet', disabled: !spells.length });
+    if (classes.length > 1) out.push({ id: 'class', label: 'Class', detail: `Now: ${findClass(this.db, a.cls)?.name ?? 'none'}` });
+    return out;
+  }
+
+  private partyRun(who: number, id: string, back: () => void): void {
+    const name = who ? this.members()[who - 1]?.def.name ?? '' : mainHero(this.db).name;
+    const a = this.abilitiesOf(who);
+    switch (id) {
+      case 'status': this.charScreen.show(who, back); return;
+      case 'equip': this.equipScreen.show(back, undefined, undefined, who); return;
+      case 'skills': this.skillHero = who; this.skillScreen.show(back); return;
+      case 'stats': this.statusScreen.show(back, undefined, who); return;
+    }
+    if (!a) { back(); return; }
+    if (id === 'addition') {
+      const adds = additionList(this.db).filter((d) => a.additions && d.id in a.additions);
+      const items: MenuItem[] = [{ label: 'A plain attack', detail: a.addition ? undefined : 'Chosen', pick: () => { delete a.addition; this.menu.back(); } },
+        ...adds.map((d) => {
+          const uses = a.additions![d.id] ?? 0, rank = additionRank(d, uses), next = additionToNext(d, uses);
+          return { label: `${d.name} · Rank ${rank}`, color: '#ffd38a', detail: `${a.addition === d.id ? 'Chosen · ' : ''}${d.strikes.map((x) => x.button === 'any' ? '★' : x.button ?? 'A').join(' ')}${next === null ? ' · Mastered' : ` · ${next} more to rank ${rank + 1}`}${d.description ? ` · ${d.description}` : ''}`,
+            pick: () => { a.addition = d.id; this.audio.play('skill'); this.menu.back(); } };
+        })];
+      this.menu.push(`Addition: ${name}`, items, { onBack: back, note: 'The Addition performed with Attack in battle.' });
+    } else if (id === 'magic') {
+      const spells = spellList(this.db).filter((sp) => (a.spells?.[sp.id] ?? 0) > 0);
+      const items: MenuItem[] = spells.map((sp) => {
+        const r = Math.min(a.spells![sp.id], spellMaxRank(sp)), at = spellAtRank(sp, r);
+        return { label: rankName(sp.name, r), color: sp.color, detail: `${sp.kind === 'heal' ? 'Heal: choose to cast' : 'Battle spell'} · ${at.mp} MP${sp.targets === 'all' ? ' · all' : ''}${sp.description ? ` · ${sp.description}` : ''}`,
+          pick: sp.kind === 'heal' ? () => this.castHealMenu(who, sp.id) : undefined };
+      });
+      this.menu.push(`Magic: ${name}`, items, { onBack: back });
+    } else if (id === 'class') {
+      const classes = classList(this.db).filter((c) => c.id === a.cls || (a.classes ?? []).includes(c.id));
+      this.menu.push(`Class: ${name}`, classes.map((c) => ({ label: c.name, detail: `${c.id === a.cls ? 'Now · ' : ''}${c.description ?? ''}`,
+        pick: () => { if (c.id !== a.cls) { changeClass(a, c.id); this.audio.play('skill'); } this.menu.back(); } })), { onBack: back, note: 'Nothing learned is lost when changing class.' });
+    } else back();
   }
 
   private openHeroAbilities(who: number): void {
@@ -3263,6 +3733,7 @@ export class Game {
     this.bag.hide();
     const n = INVENTORY_TABS.length;
     k = ((k % n) + n) % n;
+    this.invTab = k;
     const tabs = this.tabGroup(INVENTORY_TABS.map((t) => t.label), k, (to) => this.openInventory(to, onClose));
     this.bag.show(onClose, tabs, INVENTORY_TABS[k].id);
   }
@@ -3273,6 +3744,7 @@ export class Game {
     this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide();
     const m = this.db.menus, n = JOURNAL_TABS.length;
     k = ((k % n) + n) % n;
+    this.journalTab = k;
     const tabs = this.tabGroup(JOURNAL_TABS.map((t) => t[1]), k, (to) => this.openJournal(to, onClose));
     const title = pauseLabel(m, 'journal');
     const id = JOURNAL_TABS[k][0];
@@ -3282,7 +3754,10 @@ export class Game {
   }
 
   private tabGroup(labels: string[], index: number, open: (k: number) => void): TabGroup {
-    return { labels, index, keys: [this.input.label('tabPrev'), this.input.label('tabNext')], go: (step, to) => { uiSound('menuMove'); open(to ?? index + step); } };
+    const go = (step: number, to?: number) => { uiSound('menuMove'); open(to ?? index + step); };
+    // Inside the pause menu: these are inner tabs (LT / RT), LB / RB being the menu's own.
+    if (this.pauseShell.isOpen) return this.pauseShell.group({ labels, index, keys: [this.input.label('subPrev'), this.input.label('subNext')], go });
+    return { labels, index, keys: [this.input.label('tabPrev'), this.input.label('tabNext')], go };
   }
 
   /** The Journal's Records: the tallies, in sections. */
@@ -3568,7 +4043,7 @@ export class Game {
     const entries: BattleEntry[] = [];
     // The hero and the first two of the lineup fight; the rest wait on the bench.
     this.battleWhos = new Set();
-    for (let who = 0; who <= Math.min(ACTIVE_MEMBERS, this.members().length); who++) {
+    for (const who of this.activeWhos()) {
       this.battleWhos.add(who);
       const b = this.partyBattler(who);
       if (!b) continue;
@@ -3603,10 +4078,8 @@ export class Game {
 
   /** After a battle: whoever finished it fighting moves to the front of the lineup (in their places). */
   private keepLineup(whos: number[]): void {
-    const ms = this.party.members, front = whos.filter((w) => w > 0).map((w) => ms[w - 1]).filter((m) => !!m);
-    if (!front.length) return;
-    this.party.members = [...front, ...ms.filter((m) => !front.includes(m))];
-    this.spawnAllies();
+    if (!whos.length) return;
+    this.setLineup([...whos, ...this.lineupWhos().filter((w) => !whos.includes(w))]);
   }
 
   /** A snapshot of the next frame drawn (for the battle transition). */
@@ -3781,9 +4254,17 @@ export class Game {
         return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [] };
       },
       voice: (src) => this.audio.play(src),
-      reserves: () => this.members().flatMap((m, k) => {
-        const who = k + 1;
+      reserves: () => this.lineupWhos().flatMap((who) => {
         if (this.battleWhos.has(who)) return [];
+        if (!who) {
+          // The hero on the bench (unless the hero always fights).
+          if (this.combatCfg.turnBased.heroLocked) return [];
+          const h = mainHero(this.db);
+          this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
+          return [{ who, name: h.name, icon: h.face ? this.resolveFile(h.face) : this.portraitUrl, hp: Math.max(0, this.stats.hp), maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, down: this.stats.hp <= 0 }];
+        }
+        const m = this.members()[who - 1];
+        if (!m) return [];
         const n = this.allyNumbers(m.data, m.def);
         return [{ who, name: m.def.name, icon: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp, down: !!m.data.down }];
       }),
@@ -3996,7 +4477,7 @@ export class Game {
     this.trail = [];
     for (let k = 12; k >= 0; k--) this.trail.push({ x: p.x - bx * k * 0.3, z: p.z - bz * k * 0.3 });
     // Only the lineup's front follows the hero (the rest of the party isn't shown walking along).
-    this.party.members.slice(0, ACTIVE_MEMBERS).forEach((m, i) => {
+    this.activeWhos().filter((w) => w > 0).map((w) => this.party.members[w - 1]).filter((m) => !!m).forEach((m, i) => {
       const def = this.db.heroes?.find((h) => h.id === m.id);
       if (!def) return;
       const look = this.db.characters[def.look ?? ''] ?? this.db.characters[this.db.player];
@@ -4111,14 +4592,6 @@ export class Game {
     };
   }
 
-  private openSaveLoad(): void {
-    const anywhere = this.db.saving?.anywhere !== false;
-    this.menu.push(pauseLabel(this.db.menus, 'saveLoad'), [
-      { label: 'Save', detail: anywhere ? undefined : 'Only at save points', disabled: !anywhere, pick: () => this.openSaveScreen(false) },
-      { label: 'Load', disabled: !this.saves.latest(), pick: () => this.openLoadScreen() },
-    ]);
-  }
-
   private confirmQuit(): void {
     this.menu.push('Quit to title?', [
       { label: 'No, keep playing', pick: () => this.menu.back() },
@@ -4140,7 +4613,7 @@ export class Game {
   }
 
   /** Settings: the same screen from the title's Options and the pause menu. Changes apply at once and are kept. */
-  private openSettings(): void {
+  private openSettings(opts: { tabs?: TabGroup; onBack?: () => void } = {}): void {
     const st = this.settings;
     const set = <K extends keyof Settings>(k: K) => (v: Settings[K]) => { st[k] = v; this.applySettings(); this.settingsStore.save(st); };
     const pct = (v: number) => `${v}%`;
@@ -4221,7 +4694,7 @@ export class Game {
         }, (e: Error) => this.menu.notice(e.message));
       } },
       { label: 'Restore defaults', detail: 'Everything, controls and HUD too', pick: () => { delete st.bindings; delete st.bindingsVersion; delete st.hud; Object.assign(st, this.settingsStore.defaults()); this.applySettings(); this.settingsStore.save(st); this.menu.notice('Settings restored'); } },
-    ], { note: 'Settings are yours: they stay the same whichever save is loaded.' });
+    ], { note: 'Settings are yours: they stay the same whichever save is loaded.', ...opts });
   }
 
   /** Push the settings into the renderer, lights and message window. */
@@ -4372,7 +4845,7 @@ export class Game {
     const tb = this.db.menus?.titleBackground, titleMap = tb?.kind === 'map' && tb.map ? tb.map : this.db.startMap;
     this.requestTransfer(titleMap, titleMap === this.db.startMap && !(tb?.kind === 'map' && tb.map) ? { x: st.x, z: st.z, dir: st.dir } : { x: tb?.x ?? 0.5, z: tb?.z ?? 0.5 }, 'black', {
       slow: true,
-      before: () => { this.bankPickups('discard'); this.log.clearFeed(); this.state.load({}); this.applyForge(); this.state.initAbilities(this.db.abilities); this.stats.refill(); this.time.set(this.db.startHour, true); this.respawnPoint = null; this.playTime = 0; this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize); this.progress.load(undefined, this.heroBase()); this.combat.heroStatus.clear(); this.quests.load(undefined); this.party.load(undefined); this.syncSkills(); this.rings.off(); this.refreshRing(); },
+      before: () => { this.bankPickups('discard'); this.log.clearFeed(); this.state.load({}); this.applyForge(); this.state.initAbilities(this.db.abilities); this.stats.refill(); this.time.set(this.db.startHour, true); this.respawnPoint = null; this.playTime = 0; this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize); this.progress.load(undefined, this.heroBase()); this.combat.heroStatus.clear(); this.quests.load(undefined); this.party.load(undefined); this.heroAt = 0; this.visited.clear(); this.explored.clear(); this.syncSkills(); this.rings.off(); this.refreshRing(); },
       fresh: true,
       after: () => this.openTitle(),
     });
@@ -4447,8 +4920,10 @@ export class Game {
       else this.titleFocus.set(this.map.w / 2 + Math.sin(a) * this.map.w * 0.3, this.player.position.y, this.map.h / 2 + Math.cos(a * 0.7) * this.map.h * 0.2);
       t.lerp(this.titleFocus, 1 - Math.exp(-dt * 0.8));
     } else t.lerp(this.player.position, 1 - Math.exp(-dt * 5));
-    t.x = clamp(t.x, 7, this.map.w - 7);
-    t.z = clamp(t.z, 5, this.map.h - 2);
+    // The view stays inside the map, except toward seamless sides (the next map is there to see).
+    const o = this.openSides;
+    t.x = clamp(t.x, o.has('w') ? -1e4 : 7, o.has('e') ? 1e4 : this.map.w - 7);
+    t.z = clamp(t.z, o.has('n') ? -1e4 : 5, o.has('s') ? 1e4 : this.map.h - 2);
     this.camera.position.copy(t).add(CAMERA_OFFSET);
     this.camera.lookAt(t.x, t.y + 0.6, t.z);
     const sh = this.combat.shake;

@@ -6,6 +6,7 @@ import './editor.css';
 import { writePlaytest } from '../shared/playtest';
 import { loadEnemyImages } from './CombatEditor';
 import { openDatabase } from './DatabaseEditor';
+import { openWorldLayout } from './WorldEditor';
 import type { MapData } from '../world/types';
 import { confirmModal, field, h, numberInput, openModal, select, textInput, toast } from './dom';
 import { tileName } from './editorArt';
@@ -155,7 +156,8 @@ function buildUI(): void {
       store.project.kind === 'browser' ? h('button', { type: 'button', class: 'btn ghost', title: 'Your changes are kept in this browser. Save them as a zip for your PC, or open a project zip.', onclick: () => void projectMenu(store) }, 'Project') : null,
       store.project.kind === 'browser' ? h('a', { class: 'btn ghost', href: 'character-builder.html', target: '_blank', rel: 'noopener', title: 'Make character sprite sheets, then import them in Database → Characters' }, 'Character Builder') : null,
       mapSelect, h('button', { type: 'button', class: 'btn ghost', onclick: newMapDialog }, 'New map'),
-      h('button', { type: 'button', class: 'btn ghost', title: 'Player stats, speeds and stamina costs', onclick: () => openDatabase(store) }, 'Database')),
+      h('button', { type: 'button', class: 'btn ghost', title: 'Player stats, speeds and stamina costs', onclick: () => openDatabase(store) }, 'Database'),
+      h('button', { type: 'button', class: 'btn ghost', title: 'Lay the maps out as one world: the world map in the pause menu, and seamless edges', onclick: () => void openWorldLayout(store) }, 'World')),
     h('div', { class: 'tb-group' }, undoBtn, redoBtn),
     h('div', { class: 'tb-group zoom' }, zoomOut, fitBtn, zoomIn),
     h('div', { class: 'tb-spacer' }),

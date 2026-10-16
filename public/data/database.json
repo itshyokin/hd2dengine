@@ -5296,5 +5296,154 @@
       ],
       "maxRank": 5
     }
+  ],
+  "world": {
+    "maps": {
+      "01_monolith": {
+        "x": 0,
+        "z": 0,
+        "w": 50,
+        "h": 50
+      },
+      "02_monolith_woods": {
+        "x": 7,
+        "z": 50,
+        "w": 50,
+        "h": 50
+      }
+    },
+    "labels": [
+      {
+        "id": "monolith",
+        "name": "The Monolith",
+        "x": 28,
+        "z": 22,
+        "kind": "landmark"
+      },
+      {
+        "id": "woods",
+        "name": "Monolith Woods",
+        "x": 32,
+        "z": 75,
+        "kind": "region"
+      }
+    ]
+  },
+  "achievements": [
+    {
+      "id": "FIRST_BLOOD",
+      "name": "First Blood",
+      "description": "Win your first battle.",
+      "icon": "builtin:sword",
+      "points": 5,
+      "rule": {
+        "kind": "record",
+        "record": "battlesWon",
+        "count": 1
+      }
+    },
+    {
+      "id": "SLIME_SLAYER",
+      "name": "Slime Slayer",
+      "description": "Defeat 25 slimes.",
+      "icon": "builtin:gem",
+      "points": 15,
+      "rule": {
+        "kind": "defeat",
+        "enemy": "slime",
+        "count": 25
+      }
+    },
+    {
+      "id": "COMBO_ARTIST",
+      "name": "Combo Artist",
+      "description": "Perform 20 Additions.",
+      "icon": "builtin:shard_fire",
+      "points": 20,
+      "rule": {
+        "kind": "addition",
+        "count": 20
+      }
+    },
+    {
+      "id": "SPELLWRIGHT",
+      "name": "Spellwright",
+      "description": "Cast 15 spells in battle.",
+      "icon": "builtin:shard_arcane",
+      "points": 15,
+      "rule": {
+        "kind": "spell",
+        "count": 15
+      }
+    },
+    {
+      "id": "UNTOUCHABLE",
+      "name": "Untouchable",
+      "description": "Win 5 battles without anyone taking damage.",
+      "icon": "builtin:shield",
+      "points": 25,
+      "rule": {
+        "kind": "record",
+        "record": "flawless",
+        "count": 5
+      }
+    },
+    {
+      "id": "SEASONED",
+      "name": "Seasoned",
+      "description": "Reach level 10.",
+      "icon": "builtin:trophy",
+      "points": 20,
+      "rule": {
+        "kind": "level",
+        "level": 10
+      }
+    },
+    {
+      "id": "FULL_HOUSE",
+      "name": "Full House",
+      "description": "Have four in the party.",
+      "icon": "builtin:amulet",
+      "points": 10,
+      "rule": {
+        "kind": "party",
+        "size": 4
+      }
+    },
+    {
+      "id": "ANGLER",
+      "name": "Angler",
+      "description": "Catch 5 fish.",
+      "icon": "builtin:fish_trout",
+      "points": 10,
+      "rule": {
+        "kind": "record",
+        "record": "fish",
+        "count": 5
+      }
+    },
+    {
+      "id": "WANDERER",
+      "name": "Wanderer",
+      "description": "Take 5,000 steps.",
+      "icon": "builtin:boots",
+      "points": 10,
+      "rule": {
+        "kind": "record",
+        "record": "steps",
+        "count": 5000
+      }
+    },
+    {
+      "id": "SECRET_OF_THE_STONE",
+      "name": "Secret of the Stone",
+      "description": "Learn what the Monolith hides.",
+      "icon": "builtin:key",
+      "points": 50,
+      "hidden": true,
+      "rule": {
+        "kind": "event"
+      }
+    }
   ]
 }

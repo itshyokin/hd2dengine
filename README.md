@@ -356,12 +356,26 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Continue** (the latest save; greyed out without one), **New Game**, **Load Game**, **Options**, **Exit**.
 - **Database → Title & menus**: the game title, the title shown on screen and a subtitle; rename or hide each title
   option and each pause menu entry; *Skip the title screen in playtests* for quick testing.
-- **Pause menu** (Esc / Start): Inventory, Party, Journal, Settings, Save / Load, Quit to Title, each with its icon.
-- **Party**: everyone in the party (the hero first) with their level, HP, MP and EXP. Pick one for their
-  **Status**, **Skill Tree** or **Stats** (where level-up stat points go); Esc comes back to the party to pick
-  someone else. Anyone with points to spend has a gold outline, a **LEVEL UP** badge and, in gold, what they have
-  ("1 Skill Point · 2 Stat Increases"). Party members have their own skill trees: each of their levels gives skill
-  points like the hero's, and what they learn makes them stronger (damage, health, magic, stats).
+- **Pause menu** (Esc / Start): it covers most of the screen, with its tabs across the top: **Party · Items · Map ·
+  Journal · Achievements · Settings · System**. **LB / RB** (Q / E) move between the tabs; tabs inside a tab (the
+  bag's pockets, the Journal's pages) move with **LT / RT** (Z / C). The bottom line shows where you are, the time
+  played and your gold. The HUD steps aside while it's open. Map shows once there's a World layout, Achievements
+  once there are achievements; System holds Save, Load and Quit to Title.
+- **Party**: the three fighting, as tall cards with their art (Face art from Database → Heroes, or their sprite drawn
+  large), name, level, HP, MP and EXP; the rest of the party (up to eight) shows as **Reserve** underneath. ← → pick
+  a card, Space opens its list: **Status**, **Equipment**, **Skill Tree**, **Stats** (level-up points), **Addition**
+  (the one Attack performs), **Magic** (their spells; healing spells can be cast from here), **Class** (when they
+  have more than one) and **Swap**: the rest of the party appears (Legend of Dragoon style), pick who takes this card's
+  place. Anyone can be swapped out, the hero too (they still lead on the map; the others fighting follow them).
+  **Database → Combat → The hero always fights** keeps the hero in the three. Anyone with points to spend has a gold
+  outline and a **LEVEL UP** badge.
+- **Map**: the world map (Pokémon Gold / Silver style), drawn from your maps themselves and laid out as in the
+  **World layout** (Map editor toolbar → **World**). Scroll with the arrows / stick or by dragging, zoom with LT / RT
+  (Z / C, or the mouse wheel), Space comes back to you (the red pin). Place names show over towns and landmarks.
+  The World layout's **Places not visited yet** setting: *hidden*, *greyed out* or *fully visible*; and **Explore**:
+  in maps visited, only the ground walked near shows (the rest stays under a dark fog) — mix them as you like.
+- **Achievements**: each with its icon, name, description and points (Xbox-style G), locked ones greyed with how far
+  along they are, hidden ones as "???" until unlocked; your total at the top.
 - **Playtest panel**: drag the *2.5D Engine* panel by its title bar to move it anywhere (remembered in this browser).
 - **HUD**: level, magic, health and stamina (all the same size) across the top; the clock and readied shard top right;
   the selected weapon top left; party members under it; EXP along the bottom. A hit shakes the bar and flashes the screen edges red, and
@@ -384,6 +398,52 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   starting settings for every player who hasn't changed theirs (controls, HUD layout, picture…). **Restore
   defaults** goes back to it. A browser that already has settings saved keeps them until Restore defaults.
 - Exit closes the game where the browser allows it; in a normal tab it asks the player to close the tab.
+
+### World layout, the world map and seamless maps
+
+- **Map editor toolbar → World**: every field map on one grid. Tick a map to put it in the world, drag it into
+  place: it snaps edge to edge to the maps around it. **Add a place name** and click the map to put a town, landmark,
+  dungeon or region name on the world map (click one to rename it, drag it to move it). The settings at the bottom say
+  how places not visited yet show in the game. **Apply**, then save.
+- **Seamless edges**: in a map's Inspector → *Beyond the map edge*, set a side to **Seamless**. Where another map
+  touches that side in the World layout, it's drawn past the edge (built a moment after you arrive, so arriving stays
+  smooth), and walking off the edge takes you straight into it: no fade, the same spot on the other side, the camera
+  carrying on. Set the matching side of the other map to Seamless too, to walk back. Make the ground meet at the same
+  height along the seam. Parts of a seamless side with no map beyond it show nothing (like *Nothing*), so keep the
+  other kinds (forest, cliffs, water…) for the world's outer edges, or a dungeon's darkness.
+- The ground under the hero and around them is marked as explored as they walk (kept in saves), for the world map's fog.
+
+### Achievements
+
+- **Database → Achievements**: each has a **name**, a **description**, an **icon**, **points** and an **ID**
+  (letters, numbers and underscores, like `SLIME_SLAYER`: the same as a Steam achievement's API name, so they carry
+  over). Tick *Hidden until unlocked* for secrets. **Unlocked by**: an event (the **Unlock achievement** command), a
+  switch turning on, defeating enemies (one kind or any, how many), performing Additions (one or any), casting spells,
+  reaching a level, completing a quest, holding gold, having an item, the party's size, or any **Journal record**
+  reaching a number (steps, fish caught, battles won, battles won without anyone taking damage…).
+- Unlocking shows the pop-up (a badge pops in at the bottom, opens into "Achievement unlocked · 20G – Name", holds, and
+  fades) with its own sound (Database → Audio → *Achievement unlocked*), and a line in the adventure log.
+- Unlocks belong to the player in this browser and count for every save (like Xbox and Steam). Playtests keep their own.
+- **Steam**: *Export for Steam (.csv)* lists the API names, names, descriptions and hidden flags for setting them up in
+  Steamworks (Steam has no points; theirs stay in the game). A desktop build that talks to Steam (Electron with
+  steamworks.js, say) only has to provide `window.hd2dAchievements.unlock(id)`: every unlock is passed on, and on start
+  every achievement already unlocked is passed on too, so earlier unlocks carry over.
+- Console cheats (below) turn achievements off for that game (the save remembers it).
+
+### Developer console
+
+- Press **`** in a playtest (or three fingers on a touch screen, or **Console** in the playtest panel): the game
+  freezes and commands can be typed. **Tab** completes commands and names (items, heroes, spells, enemies, maps…),
+  ↑ ↓ go through earlier commands, `help` lists everything (`help give` the ones matching), Esc or ` closes.
+- Commands: `give <item> [count]`, `take`, `gold <amount>`, `party_add <hero>`, `party_remove`, `learn_spell <hero|all>
+  <spell> [rank]`, `learn_addition`, `forget_spell`, `forget_addition`, `exp <n>`, `level <n>`, `heal`, `deathless`,
+  `deathless_party`, `infinite_items`, `infinite_gold`, `god` (all four), `ghost` (through walls, props and cliffs),
+  `speed <×>`, `unlock_skills [hero|all]`, `teleport <map> [x z]`, `time <hour>`, `weather <kind> [amount]`,
+  `season <name|auto>`, `battle <troop|enemies…>`, `win_battle`, `switch <name> <on|off>`, `var <name> <value>`,
+  `debug_menu <show|hide>` (the playtest panel), `fps`, `hud <on|off>` (screenshots), `achievement <id>`,
+  `achievements_reset`, `explore_all`, `where`.
+- **Database → Title & menus → Developer console**: in playtests only (default), always, or never.
+- The **Run console command** event command runs any of them from an event (handy for test events).
 
 ### Saving, loading and respawn points
 
@@ -447,7 +507,12 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 - Built-in sprites for events: **Chest**, **Chest (open)** and **Item sparkle** (which glows in the dark).
 - The sample map starts with 60 gold, 2 potions and some bread; a potion sparkle lies by the path.
 
-### Combat (stage 1 of the battle system)
+### Action combat (the older battle system)
+
+> Turn-based battles (next section) are the engine's main system and the default. Action combat — fighting on the
+> map in real time — still works (Database → Combat → Battles are: Action), and its settings are folded away under
+> *Action combat* in Database → Combat. In turn-based games enemies on the map still chase the hero, and reaching
+> them starts a battle.
 
 Action combat on the map, Zelda / Fable style:
 
@@ -1133,6 +1198,8 @@ Events work like RPG Maker's. Each event has **pages**. The active page is the l
 | Set time of day | `{ "cmd": "setTime", "hour": 21.5, "instant": true }` |
 | Change ability | `{ "cmd": "ability", "ability": "climb", "on": true }` (run, jump, climb, crawl) |
 | Enable / disable overworld weapons | `{ "cmd": "fieldWeapons", "on": false }`: the field sword and bow greyed out on the HUD with a red ✕ (indoors, towns, restricted areas) until enabled again; kept in saves |
+| Unlock achievement | `{ "cmd": "achievement", "id": "SECRET_OF_THE_STONE" }` |
+| Run console command | `{ "cmd": "console", "line": "give potion 3" }` |
 | Open save screen | `{ "cmd": "save" }` |
 | Transfer player | `{ "cmd": "transfer", "map": "map002", "x": 3, "z": 5, "dir": "up", "fade": "black" }` (fade `black`, `white` or `none`; ends the event) |
 | Play sound effect | `{ "cmd": "sound", "sound": "levelUp" }` (a built-in name or a file path) |

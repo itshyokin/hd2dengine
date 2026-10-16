@@ -256,6 +256,15 @@ export const ITEM_ICONS: Record<string, { name: string; draw: Draw }> = {
     fill(p, (x, y) => y >= 4 && y <= 7 ? Math.abs(x - 8) <= 4 + (y - 4) * 0.7 : y > 7 && Math.abs(x - 8) <= (14 - y) * 1.1, ['#e0fbff', '#5ad8f0', '#2a90b8', '#1a5a80']);
     line(p, 5, 7, 11, 7, 0.4, ['#bff2ff']);
   } },
+  trophy: { name: 'Trophy', draw: (p) => {
+    // The cup, its handles, the stem and the base.
+    fill(p, (x, y) => y >= 2 && y <= 8 && Math.abs(x - 8) <= 5 - Math.max(0, y - 5) * 0.9, ['#fff4b0', '#f0c44a', '#c8902a', '#8a5a1a']);
+    line(p, 2, 3, 2, 5, 0.6, ['#e0b43a']); line(p, 14, 3, 14, 5, 0.6, ['#e0b43a']);
+    p.set(3, 6, '#c8902a'); p.set(13, 6, '#c8902a');
+    p.rect(7, 9, 2, 3, '#c8902a');
+    p.rect(5, 12, 6, 2, '#8a5a1a'); p.rect(5, 12, 6, 1, '#e0b43a');
+    p.set(6, 3, '#ffffff'); p.set(6, 4, '#fff8d0');
+  } },
   coin: { name: 'Coins', draw: (p) => {
     fill(p, (x, y) => ell(x, y, 6, 10, 4.5, 4.5), ['#fff0a0', '#e0b43a', '#a87a1e']);
     fill(p, (x, y) => ell(x, y, 10.5, 6.5, 4, 4), ['#fff4b0', '#f0c44a', '#b8862a']);

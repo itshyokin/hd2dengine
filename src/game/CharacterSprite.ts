@@ -213,7 +213,7 @@ export class CharacterSprite {
         const g = new THREE.PlaneGeometry(1, 1);
         const n = g.attributes.normal, base = this.mesh.geometry.attributes.normal;
         for (let k = 0; k < n.count; k++) n.setXYZ(k, base.getX(0), base.getY(0), base.getZ(0));
-        const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: w.map, alphaTest: 0.5, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }));
+        const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: w.map, alphaTest: 0.5, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }), false);
         const m = new THREE.Mesh(g, mat);
         m.castShadow = true;
         m.receiveShadow = true;

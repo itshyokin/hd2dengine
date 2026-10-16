@@ -5,16 +5,19 @@ export const TITLE_OPTIONS: [TitleOption, string][] = [
   ['newGame', 'New Game'], ['load', 'Load Game'], ['options', 'Options'], ['credits', 'Credits'], ['exit', 'Exit'],
 ];
 
+/** The pause menu's tabs, left to right. */
 export const PAUSE_OPTIONS: [PauseOption, string, boolean][] = [
   // [id, default name, works yet]
-  ['items', 'Inventory', true],
   ['status', 'Party', true],
-  ['abilities', 'Abilities', true],
+  ['items', 'Items', true],
+  ['map', 'Map', true],
   ['journal', 'Journal', true],
+  ['achievements', 'Achievements', true],
   ['settings', 'Settings', true],
-  ['saveLoad', 'Save / Load', true],
-  ['quitToTitle', 'Quit to Title', true],
+  ['system', 'System', true],
 ];
+/** The System tab's entries (their wording can be changed too). */
+export const SYSTEM_OPTIONS: [PauseOption, string][] = [['saveLoad', 'Save / Load'], ['quitToTitle', 'Quit to Title']];
 
 /** Pictures for the pause menu's entries (simple line drawings in the text colour). */
 const svg = (d: string) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -30,10 +33,13 @@ export const PAUSE_ICONS: Partial<Record<PauseOption, string>> = {
   log: svg('<path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>'),
   quests: svg('<path d="M6 21V4M6 4h11l-2 4 2 4H6"/>'),
   equipment: svg('<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>'),
+  map: svg('<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>'),
+  achievements: svg('<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/>'),
+  system: svg('<rect x="4" y="4" width="16" height="12" rx="2"/><path d="M9 20h6M12 16v4"/>'),
 };
 
 /** Older entries, now tabs (the Inventory's Status; the Journal's quests and log): names kept for old databases. */
-const OLD_PAUSE: Partial<Record<PauseOption, string>> = { log: 'Adventure Log', quests: 'Quest Log', equipment: 'Equipment', skills: 'Skill Tree' };
+const OLD_PAUSE: Partial<Record<PauseOption, string>> = { log: 'Adventure Log', quests: 'Quest Log', equipment: 'Equipment', skills: 'Skill Tree', abilities: 'Abilities', saveLoad: 'Save / Load', quitToTitle: 'Quit to Title' };
 
 export const titleLabel = (m: MenuConfig | undefined, o: TitleOption): string =>
   m?.titleLabels?.[o]?.trim() || TITLE_OPTIONS.find(([k]) => k === o)![1];

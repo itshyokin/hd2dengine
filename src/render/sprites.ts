@@ -101,7 +101,7 @@ export function createSpriteAsset(canvas: HTMLCanvasElement, o: SpriteOpts = {})
   const nmCanvas = o.normal ?? normalMapFrom(canvas, { sprite: true, strength: o.normalStrength ?? 2.5, maxD: o.maxD ?? 4 });
   const nm = makeTexture(nmCanvas, { linear: true, mip: smooth });
   if (smooth) nm.magFilter = THREE.LinearFilter;
-  const material = patchAreaTint(new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }));
+  const material = patchAreaTint(new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }), false);
   registerNormalMap(material, nm);
   if (o.glow) {
     const gm = makeTexture(maskToGlow(o.glow), { mip: smooth });
@@ -371,7 +371,7 @@ export class SpriteLibrary {
       this.animBases.set(key, base);
     }
     const f = layout.frame, size = f / ANIM_PIXELS_PER_TILE;
-    const material = patchAreaTint(new THREE.MeshStandardMaterial({ map: base.map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }));
+    const material = patchAreaTint(new THREE.MeshStandardMaterial({ map: base.map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }), false);
     registerNormalMap(material, base.normal);
     const geometry = spriteGeometry(size, size);
     // LPC feet stand 2 pixels above the bottom of the frame.

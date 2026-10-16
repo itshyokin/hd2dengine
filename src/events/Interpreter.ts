@@ -57,6 +57,9 @@ export interface EventContext {
   heroClass(c: Extract<Command, { cmd: 'heroClass' }>): string | null;
   /** Something the event must wait for (a battle). */
   busy?(): boolean;
+  /** Unlock an achievement; run a console command. */
+  achievement?(id: string): void;
+  console?(line: string): void;
 }
 
 interface Frame { list: Command[]; i: number }
@@ -149,6 +152,8 @@ export class Interpreter {
       case 'fieldWeapons':
         state.weaponsOff = !c.on;
         break;
+      case 'achievement': this.ctx.achievement?.(c.id); break;
+      case 'console': this.ctx.console?.(c.line); break;
       case 'ability':
         state.setAbility(c.ability, c.on);
         break;

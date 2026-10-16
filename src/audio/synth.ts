@@ -12,6 +12,7 @@ export const SFX_NAMES = [
   'textTick', 'swim', 'fishCast', 'fishBite', 'fishCatch',
   'encounter', 'battleSwell', 'shatter', 'victory', 'expFill', 'expDing',
   'lootGold', 'lootPotion', 'lootKey', 'lootMaterial', 'lootGear', 'lootItem',
+  'achievement',
 ] as const;
 export type SfxName = typeof SFX_NAMES[number];
 
@@ -28,13 +29,13 @@ export const SFX_LABELS: Record<SfxName, string> = {
   fishCast: 'Fishing: cast', fishBite: 'Fishing: a bite', fishCatch: 'Fishing: caught one',
   encounter: 'Battle: encounter sting', battleSwell: 'Battle: transition swell', shatter: 'Battle: shatter transition',
   victory: 'Battle: victory fanfare', expFill: 'Battle: EXP filling', expDing: 'Battle: EXP bar full',
-  lootGold: 'Loot: gold', lootPotion: 'Loot: potion / consumable', lootKey: 'Loot: key item', lootMaterial: 'Loot: material', lootGear: 'Loot: weapon / armour', lootItem: 'Loot: other item',
+  lootGold: 'Loot: gold', lootPotion: 'Loot: potion / consumable', lootKey: 'Loot: key item', lootMaterial: 'Loot: material', lootGear: 'Loot: weapon / armour', lootItem: 'Loot: other item', achievement: 'Achievement unlocked',
 };
 
 /** Effects heard as part of the interface (menus, text), on the UI volume. */
 export const UI_SFX: readonly SfxName[] = ['menuMove', 'menuOk', 'menuBack', 'textTick'];
 /** Fanfares and chimes, on the jingle volume. */
-export const JINGLE_SFX: readonly SfxName[] = ['victory', 'levelUp', 'expDing', 'questStart', 'questStep', 'questDone', 'skill', 'save', 'battleSwell'];
+export const JINGLE_SFX: readonly SfxName[] = ['achievement', 'victory', 'levelUp', 'expDing', 'questStart', 'questStep', 'questDone', 'skill', 'save', 'battleSwell'];
 
 export const MUSIC_NAMES = { title: 'Title theme', field: 'Fields (calm)', night: 'Night', battle: 'Battle', cave: 'Cave', victory: 'Victory' } as const;
 export const AMBIENCE_NAMES = { wind: 'Wind', forest: 'Forest (birds)', chill: 'Autumn & winter woods (cold wind, rustling, crows)', night: 'Night (crickets)', cave: 'Cave (drips)', water: 'Stream', rain: 'Rain' } as const;
@@ -176,6 +177,13 @@ export function makeSfx(name: SfxName): Float32Array {
     // EXP pouring in: a rising, shimmering tone.
     case 'expFill': return make(1.05, (t) => (Math.sin(2 * Math.PI * sweep(t, 420, 1500, 1.0) * t) * 0.5 + Math.sin(2 * Math.PI * sweep(t, 840, 3000, 1.0) * t) * 0.12)
       * (0.75 + 0.25 * Math.sin(t * 2 * Math.PI * 18)) * Math.min(1, t / 0.05) * (t > 0.95 ? Math.max(0, 1 - (t - 0.95) / 0.1) : 1) * 0.5);
+    // Achievement unlocked: a soft two-note chime with a warm low bloom under it (original).
+    case 'achievement': return make(1.4, (t) => {
+      const n1 = Math.sin(2 * Math.PI * 659.3 * t) * env(t, 0.004, 0.5) * 0.32;
+      const t2 = t - 0.16, n2 = t2 > 0 ? (Math.sin(2 * Math.PI * 987.8 * t2) + Math.sin(2 * Math.PI * 1975.5 * t2) * 0.2) * env(t2, 0.004, 0.7) * 0.3 : 0;
+      const bloom = Math.sin(2 * Math.PI * 164.8 * t) * Math.sin(Math.PI * Math.min(1, t / 1.2)) * 0.18;
+      return n1 + n2 + bloom;
+    });
     case 'expDing': return make(0.9, (t) => (Math.sin(2 * Math.PI * 1568 * t) * 0.35 + Math.sin(2 * Math.PI * 3136 * t) * 0.1 + Math.sin(2 * Math.PI * 4704 * t) * 0.05) * env(t, 0.002, 0.3));
     // Loot: coins clattering together.
     case 'lootGold': {

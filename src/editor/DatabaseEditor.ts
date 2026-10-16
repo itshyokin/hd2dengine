@@ -21,6 +21,8 @@ import { additionsTab, classesTab, spellsTab } from './AbilitiesEditor';
 import { DEFAULT_ADDITIONS, DEFAULT_SPELLS, additionList, spellList } from '../game/abilities';
 import type { AdditionDef, ClassDef, SpellEntry, TroopDef } from '../world/types';
 import { troopsTab } from './TroopsEditor';
+import { achievementsTab } from './AchievementsEditor';
+import type { AchievementDef } from '../game/achievements';
 import { expSection, trimExpTable } from './ExpEditor';
 import { type CharactersWork, charactersTab } from './CharactersEditor';
 import { cleanCredits, creditsTab } from './CreditsEditor';
@@ -39,9 +41,9 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' = 'player'): void {
+export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' = 'player'): void {
   const cfg: PlayerConfig = playerConfig(store.db.stats);
-  let tab: 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' = startTab;
+  let tab: 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' = startTab;
   const work: ItemsWork = { items: JSON.parse(JSON.stringify(store.db.items ?? [])) as ItemDef[], inventory: JSON.parse(JSON.stringify(store.db.inventory ?? {})) };
   const itemState = { sel: 0 }, enemyState = { sel: 0 };
   const combat: CombatData = JSON.parse(JSON.stringify(store.db.combat ?? {}));
@@ -66,6 +68,9 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
   const spellState = { sel: 0 }, additionState = { sel: 0 }, classState = { sel: 0 };
   const troops: TroopDef[] = JSON.parse(JSON.stringify(store.db.troops ?? []));
   const troopState = { sel: 0 };
+  const achievements: AchievementDef[] = JSON.parse(JSON.stringify(store.db.achievements ?? []));
+  const achState = { sel: 0 };
+  let devConsole = store.db.devConsole ?? 'playtest';
 
   const num = (value: number, set: (v: number) => void, min = 0, step = 1, label = '') =>
     numberInput(value, (v) => set(Math.max(min, v)), { min: String(min), step: String(step), 'aria-label': label, class: 'db-num' });
@@ -75,7 +80,7 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
   body.className = 'db-wrap';
   body.append(tabs, content);
   const render = () => {
-    tabs.replaceChildren(...([['player', 'Player'], ['heroes', 'Heroes'], ['characters', 'Characters'], ['items', 'Items'], ['inventory', 'Inventory'], ['quests', 'Quests'], ['combat', 'Combat'], ['enemies', 'Enemies'], ['troops', 'Troops'], ['skills', 'Skills'], ['spells', 'Spells'], ['additions', 'Additions'], ['classes', 'Classes'], ['audio', 'Audio'], ['time', 'Time'], ['saving', 'Saving'], ['menus', 'Title & menus'], ['credits', 'Credits']] as const).map(([id, label]) =>
+    tabs.replaceChildren(...([['player', 'Player'], ['heroes', 'Heroes'], ['characters', 'Characters'], ['items', 'Items'], ['inventory', 'Inventory'], ['quests', 'Quests'], ['combat', 'Combat'], ['enemies', 'Enemies'], ['troops', 'Troops'], ['skills', 'Skills'], ['spells', 'Spells'], ['additions', 'Additions'], ['classes', 'Classes'], ['audio', 'Audio'], ['time', 'Time'], ['saving', 'Saving'], ['menus', 'Title & menus'], ['achievements', 'Achievements'], ['credits', 'Credits']] as const).map(([id, label]) =>
       h('button', { type: 'button', role: 'tab', class: 'db-tab', 'aria-selected': String(tab === id), onclick: () => { (document.activeElement as HTMLElement | null)?.blur?.(); tab = id; render(); } }, label)));
     if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
     if (tab === 'characters') { content.replaceChildren(...charactersTab(store, people, render)); return; }
@@ -84,6 +89,7 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
     if (tab === 'items') { content.replaceChildren(...itemsTab(store, work, itemState, render)); return; }
     if (tab === 'skills') { content.replaceChildren(...skillsTab(skills, skillState, render, work.items, { spells, additions })); return; }
     if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audio.files, troopState, render)); return; }
+    if (tab === 'achievements') { content.replaceChildren(...achievementsTab(store, store.db, achievements, achState, render)); return; }
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
     if (tab === 'additions') { content.replaceChildren(...additionsTab(additions, additionState, render)); return; }
     if (tab === 'classes') { content.replaceChildren(...classesTab(classes, skills, classState, render)); return; }
@@ -220,7 +226,11 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
           checkboxOnly(!menus.pauseHidden?.[o], (v) => ((menus.pauseHidden ??= {})[o] = v ? undefined : true), `Show ${name}`),
           h('span', { class: works ? 'db-unit works' : 'db-unit' }, works ? 'works' : 'coming soon'),
         ])),
-      h('p', { class: 'note' }, 'Entries that aren’t built yet show greyed out (“Coming soon”); hide them if you’d rather not show them. Settings are the player’s own and stay the same whichever save is loaded.')),
+      h('p', { class: 'note' }, 'The pause menu’s tabs, left to right (LB / RB move between them). Map shows once there’s a World layout (toolbar → World); Achievements once there are achievements. System holds Save, Load and Quit to Title. Settings are the player’s own and stay the same whichever save is loaded.')),
+    h('section', { class: 'db-section' },
+      h('h3', {}, 'Developer console'),
+      field('The \u0060 key opens it', select([['playtest', 'In playtests only'], ['always', 'Always (the released game too)'], ['off', 'Never']], devConsole, (v) => { devConsole = v as typeof devConsole; })),
+      h('p', { class: 'note' }, 'Type commands to test quickly: give items, teleport, god mode, ghost through walls… (help lists them). On a tablet: three fingers on the screen, or Console in the playtest panel. Using a cheat turns achievements off for that game.')),
   ];
 
   render();
@@ -265,6 +275,8 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
       const additionsOut = JSON.stringify(additions) === JSON.stringify(DEFAULT_ADDITIONS) && !db.additions ? null : additions;
       const classesOut = classes.length ? classes : null;
       const troopsOut = troops.length ? troops : null;
+      const achOut = achievements.length ? achievements : null;
+      const dcOut = devConsole === 'playtest' ? null : devConsole;
       if (JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
         JSON.stringify(mOut ?? null) === JSON.stringify(db.menus ?? null) && gameTitle === db.title && JSON.stringify(tFinal) === JSON.stringify(db.time ?? null) &&
         JSON.stringify(Object.keys(ab).length ? ab : null) === JSON.stringify(db.abilities && Object.keys(db.abilities).length ? db.abilities : null) &&
@@ -276,7 +288,8 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
         JSON.stringify(heroesOut) === JSON.stringify(db.heroes?.length ? db.heroes : null) &&
         JSON.stringify(spellsOut) === JSON.stringify(db.spells ?? null) && JSON.stringify(additionsOut) === JSON.stringify(db.additions ?? null) &&
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
-        JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null)) return;
+        JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) &&
+        JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null)) return;
       store.checkpoint();
       if (stats) db.stats = stats; else delete db.stats;
       if (Object.keys(ab).length) db.abilities = ab; else delete db.abilities;
@@ -296,6 +309,8 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
       if (additionsOut) db.additions = additionsOut; else delete db.additions;
       if (classesOut) db.classes = classesOut; else delete db.classes;
       if (troopsOut) db.troops = troopsOut; else delete db.troops;
+      if (achOut) db.achievements = achOut; else delete db.achievements;
+      if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
       db.characters = people.chars;
       const cr = cleanCredits(credits);
       if (cr) db.credits = cr; else delete db.credits;

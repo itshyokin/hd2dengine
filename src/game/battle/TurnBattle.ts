@@ -30,6 +30,10 @@ export interface ReserveView { who: number; name: string; icon: string; hp: numb
 
 export interface BattleHost {
   sound(name: Sfx): void;
+  /** Count something for the Journal's records (Additions performed, spells cast, battles won…). */
+  tally?(key: string, n?: number): void;
+  /** A party member who can't fall (the console's deathless cheats): their health stops at 1. */
+  protect?(who: number): boolean;
   /** Items usable in battle (consumables in the bag) right now. */
   items(): BattleItem[];
   /**
@@ -87,6 +91,7 @@ export class TurnBattle {
   rules: { canRun?: boolean } = {};
 
   start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean } = {}): void {
+    this.hurt = false;
     this.rules = rules;
     for (const e of entries) e.battler.charging = null;
     this.all = entries;
@@ -155,7 +160,7 @@ export class TurnBattle {
     // Burn and poison bite first; then an ailment may take the turn.
     let pause = 0;
     for (const d of start.damage) {
-      who.hp = Math.max(0, who.hp - d.amount);
+      who.hp = Math.max(this.floor(who), who.hp - d.amount);
       this.screen.popup(who.key, String(d.amount), 'dmg', d.ailment === 'burn' ? '#ff9a5a' : '#8ee05a');
       this.screen.animate(who.key, 'hit');
       this.host.log(`${who.name} takes ${d.amount} from ${d.ailment === 'burn' ? 'the burn' : 'poison'}`);
@@ -407,6 +412,7 @@ export class TurnBattle {
   }
 
   private unleash(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[], color: string): void {
+    if (b.side === 'party') { this.host.tally?.('spells'); this.host.tally?.(`spell:${s.id}`); }
     this.screen.animate(b.key, 'cast', color);
     this.host.sound(s.kind === 'heal' ? 'ringOn' : 'fire');
     this.later(0.4, () => {
@@ -449,6 +455,7 @@ export class TurnBattle {
         },
         () => {
           const complete = landed === a.strikes.length;
+          this.host.tally?.('additions'); this.host.tally?.(`addition:${a.id}`);
           // The damage, all at once, as the string ends.
           if (power > 0 && isUp(t)) this.hit(b, t, power, b.attackElement, b.attackMagic, complete ? b.inflicts : undefined);
           if (complete) {
@@ -645,8 +652,21 @@ export class TurnBattle {
     this.refresh(t);
   }
 
+  /** The lowest health a fighter can drop to: 1 for a protected party member, otherwise 0. */
+  private floor(t: Battler): number { return t.side === 'party' && this.host.protect?.(this.entry(t).who ?? 0) ? 1 : 0; }
+  /** The party took damage this battle (for "won without a scratch"). */
+  private hurt = false;
+
+  /** The console's win_battle: every foe falls. */
+  debugWin(): void {
+    if (this.phase === 'off' || this.phase === 'over') return;
+    for (const f of this.foes) if (isUp(f)) { f.hp = 0; this.refresh(f); this.fall(f); }
+    this.checkOver();
+  }
+
   private damage(t: Battler, n: number, crit: boolean, color?: string): void {
-    t.hp = Math.max(0, t.hp - n);
+    if (t.side === 'party' && n > 0) this.hurt = true;
+    t.hp = Math.max(this.floor(t), t.hp - n);
     this.screen.popup(t.key, String(n), crit ? 'crit' : 'dmg', color);
     this.screen.animate(t.key, 'hit', color);
     this.host.sound(t.side === 'party' ? 'hurt' : crit ? 'crit' : 'hit');
@@ -716,6 +736,8 @@ export class TurnBattle {
   }
 
   private close(outcome: BattleOutcome): void {
+    if (outcome === 'victory') { this.host.tally?.('battlesWon'); if (!this.hurt) this.host.tally?.('flawless'); }
+    if (outcome === 'fled') this.host.tally?.('fled');
     this.writeParty();
     const beaten = outcome === 'victory' ? this.all.filter((e) => e.battler.side === 'enemy').map((e) => e.ref) : [];
     this.phase = 'off';

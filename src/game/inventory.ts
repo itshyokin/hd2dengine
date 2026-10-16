@@ -199,9 +199,13 @@ export class Inventory {
   }
 
   /** Take from one slot. */
+  /** The console's infinite_items: using consumables doesn't use them up. */
+  keepUsed = false;
+
   removeAt(i: number, n: number): void {
     const s = this.slots[i];
     if (!s) return;
+    if (this.keepUsed && this.def(s.id)?.kind === 'consumable') return;
     s.n -= n;
     if (s.n <= 0) this.slots[i] = null;
     this.trim();
