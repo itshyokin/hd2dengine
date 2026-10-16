@@ -20,7 +20,7 @@ export function editorAudio(store: EditorStore): AudioManager {
     if (!u) { u = URL.createObjectURL(b); urls.set(path, u); }
     return u;
   });
-  manager.setVolumes(70, 80, 70);
+  manager.setVolumes({ master: 70, music: 70, sfx: 80, ambience: 70, ui: 70, jingle: 80 });
   return manager;
 }
 

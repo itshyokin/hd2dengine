@@ -10,6 +10,8 @@ export const SFX_NAMES = [
   'skill', 'save', 'transfer', 'orb', 'questStart', 'questStep', 'questDone',
   'break', 'dice', 'weak', 'stepGrass', 'stepDirt', 'stepStone', 'stepWood', 'stepSand', 'stepSnow', 'stepWater', 'stepMetal', 'stepCarpet',
   'textTick', 'swim', 'fishCast', 'fishBite', 'fishCatch',
+  'encounter', 'battleSwell', 'shatter', 'victory', 'expFill', 'expDing',
+  'lootGold', 'lootPotion', 'lootKey', 'lootMaterial', 'lootGear', 'lootItem',
 ] as const;
 export type SfxName = typeof SFX_NAMES[number];
 
@@ -24,9 +26,17 @@ export const SFX_LABELS: Record<SfxName, string> = {
   textTick: 'Letter tick (message text)',
   swim: 'Swimming stroke',
   fishCast: 'Fishing: cast', fishBite: 'Fishing: a bite', fishCatch: 'Fishing: caught one',
+  encounter: 'Battle: encounter sting', battleSwell: 'Battle: transition swell', shatter: 'Battle: shatter transition',
+  victory: 'Battle: victory fanfare', expFill: 'Battle: EXP filling', expDing: 'Battle: EXP bar full',
+  lootGold: 'Loot: gold', lootPotion: 'Loot: potion / consumable', lootKey: 'Loot: key item', lootMaterial: 'Loot: material', lootGear: 'Loot: weapon / armour', lootItem: 'Loot: other item',
 };
 
-export const MUSIC_NAMES = { title: 'Title theme', field: 'Fields (calm)', night: 'Night', battle: 'Battle', cave: 'Cave' } as const;
+/** Effects heard as part of the interface (menus, text), on the UI volume. */
+export const UI_SFX: readonly SfxName[] = ['menuMove', 'menuOk', 'menuBack', 'textTick'];
+/** Fanfares and chimes, on the jingle volume. */
+export const JINGLE_SFX: readonly SfxName[] = ['victory', 'levelUp', 'expDing', 'questStart', 'questStep', 'questDone', 'skill', 'save', 'battleSwell'];
+
+export const MUSIC_NAMES = { title: 'Title theme', field: 'Fields (calm)', night: 'Night', battle: 'Battle', cave: 'Cave', victory: 'Victory' } as const;
 export const AMBIENCE_NAMES = { wind: 'Wind', forest: 'Forest (birds)', chill: 'Autumn & winter woods (cold wind, rustling, crows)', night: 'Night (crickets)', cave: 'Cave (drips)', water: 'Stream', rain: 'Rain' } as const;
 export type MusicName = keyof typeof MUSIC_NAMES;
 export type AmbienceName = keyof typeof AMBIENCE_NAMES;
@@ -141,7 +151,78 @@ export function makeSfx(name: SfxName): Float32Array {
     case 'questStep': return arpeggio([784, 1047], 0.08, 0.5, true);
     case 'questDone': return arpeggio([523, 659, 784, 659, 784, 1047], 0.1, 1.1, true);
     case 'transfer': return lowpass(make(0.5, (t) => noise() * 0.3 * env(t, 0.15, 0.15)), 900);
+    // A battle starts: a sharp metallic stab over a deep hit, ringing out.
+    case 'encounter': return make(0.9, (t) => (
+      noise() * 0.5 * env(t, 0.0005, 0.03)
+      + Math.sin(2 * Math.PI * sweep(t, 2400, 1200, 0.25) * t) * 0.22 * env(t, 0.001, 0.25)
+      + Math.sin(2 * Math.PI * 1810 * t) * 0.12 * env(t, 0.001, 0.4)
+      + Math.sin(2 * Math.PI * sweep(t, 110, 45, 0.3) * t) * 0.6 * env(t, 0.002, 0.18)) * 0.65);
+    // Into battle: a rising rush of air and a minor chord swelling to a hit.
+    case 'battleSwell': return make(1.6, (t) => {
+      const k = Math.min(1, t / 1.25), after = t > 1.25 ? t - 1.25 : 0;
+      const rush = lowpass1(noise(), 400 + k * 5000) * k * k * 0.45;
+      const chord = [220, 261.6, 329.6, 440].reduce((a, f) => a + Math.sin(2 * Math.PI * f * (1 + k * 0.06) * t), 0) * 0.07 * k;
+      const hit = t > 1.25 ? (Math.sin(2 * Math.PI * 55 * after) * 0.7 + noise() * 0.4) * env(after, 0.002, 0.12) : 0;
+      return ((t < 1.25 ? rush + chord : (rush + chord) * Math.exp(-after * 20)) + hit) * 0.6;
+    });
+    // Glass breaking: a crack, then shards tinkling down.
+    case 'shatter': {
+      const shards = Array.from({ length: 22 }, () => ({ at: 0.03 + R() ** 1.6 * 0.8, f: 2200 + R() * 4200, g: 0.08 + R() * 0.12 }));
+      return make(1.1, (t) => noise() * 0.7 * env(t, 0.0005, 0.04) + shards.reduce((a, sh) => a + (t >= sh.at ? Math.sin(2 * Math.PI * sh.f * (t - sh.at)) * sh.g * env(t - sh.at, 0.0005, 0.05) : 0), 0));
+    }
+    // Victory: a short brassy fanfare (original), ending on a held chord.
+    case 'victory': return fanfare([[67, 0, 0.14], [67, 0.16, 0.14], [67, 0.32, 0.14], [72, 0.48, 0.5], [69, 1.0, 0.22], [71, 1.24, 0.22], [72, 1.48, 0.9]],
+      [[60, 64, 67, 1.48]]);
+    // EXP pouring in: a rising, shimmering tone.
+    case 'expFill': return make(1.05, (t) => (Math.sin(2 * Math.PI * sweep(t, 420, 1500, 1.0) * t) * 0.5 + Math.sin(2 * Math.PI * sweep(t, 840, 3000, 1.0) * t) * 0.12)
+      * (0.75 + 0.25 * Math.sin(t * 2 * Math.PI * 18)) * Math.min(1, t / 0.05) * (t > 0.95 ? Math.max(0, 1 - (t - 0.95) / 0.1) : 1) * 0.5);
+    case 'expDing': return make(0.9, (t) => (Math.sin(2 * Math.PI * 1568 * t) * 0.35 + Math.sin(2 * Math.PI * 3136 * t) * 0.1 + Math.sin(2 * Math.PI * 4704 * t) * 0.05) * env(t, 0.002, 0.3));
+    // Loot: coins clattering together.
+    case 'lootGold': {
+      const clinks = Array.from({ length: 9 }, (_, k) => ({ at: k * 0.045 + R() * 0.03, f: 2600 + R() * 1800, g: 0.16 - k * 0.012 }));
+      return make(0.75, (t) => clinks.reduce((a, c) => a + (t >= c.at ? (Math.sin(2 * Math.PI * c.f * (t - c.at)) + 0.6 * Math.sin(2 * Math.PI * c.f * 2.76 * (t - c.at))) * c.g * env(t - c.at, 0.0005, 0.06) : 0), 0));
+    }
+    // A cork popping, then liquid sloshing.
+    case 'lootPotion': return make(0.85, (t) => {
+      const pop = (Math.sin(2 * Math.PI * sweep(t, 900, 260, 0.03) * t) * 0.6 + noise() * 0.3) * env(t, 0.0005, 0.02);
+      const st = t - 0.18;
+      const slosh = st > 0 ? lowpass1(noise(), 500 + 400 * Math.sin(st * 28)) * env(st, 0.05, 0.22) * (0.6 + 0.4 * Math.sin(st * 31)) * 0.9 : 0;
+      const glug = st > 0 ? Math.sin(2 * Math.PI * sweep(st, 180, 320, 0.4) * st) * 0.12 * env(st, 0.02, 0.18) : 0;
+      return pop + slosh + glug;
+    });
+    // A key item: a bright, magical chime.
+    case 'lootKey': return arpeggio([1047, 1319, 1568, 2093, 2637], 0.06, 1.0, true);
+    // Materials: a hollow clunk and a small clink.
+    case 'lootMaterial': return lowpass(make(0.5, (t) => (Math.sin(2 * Math.PI * sweep(t, 240, 160, 0.06) * t) * 0.5 * env(t, 0.001, 0.06) + noise() * 0.3 * env(t, 0.0005, 0.015)
+      + (t > 0.09 ? Math.sin(2 * Math.PI * 1900 * (t - 0.09)) * 0.12 * env(t - 0.09, 0.001, 0.05) : 0))), 5000);
+    // Weapons and armour: a ringing steel shing.
+    case 'lootGear': return make(0.9, (t) => highpass1(noise(), 0) * 0.25 * env(t, 0.06, 0.08) + (Math.sin(2 * Math.PI * 2210 * t) * 0.18 + Math.sin(2 * Math.PI * 3320 * t) * 0.1) * env(Math.max(0, t - 0.05), 0.01, 0.3) * (t > 0.05 ? 1 : 0));
+    case 'lootItem': return arpeggio([784, 988, 1175], 0.07, 0.5, true);
   }
+}
+
+let lp1 = 0;
+/** A running one-pole low-pass for noise inside a `make` callback (cutoff in Hz). */
+function lowpass1(x: number, cutoff: number): number { lp1 += (x - lp1) * (1 - Math.exp((-2 * Math.PI * cutoff) / RATE)); return lp1; }
+let hp1 = 0;
+function highpass1(x: number, _c: number): number { const y = x - hp1; hp1 = x * 0.2 + hp1 * 0.8; return y; }
+
+/** A brassy fanfare: [midi note, start s, length s] for the tune, and [notes…, start] chords under it. */
+function fanfare(tune: [number, number, number][], chords: number[][]): Float32Array {
+  const len = Math.max(...tune.map(([, a, d]) => a + d)) + 0.9, out = new Float32Array(Math.floor(len * RATE));
+  const brass = (f: number, start: number, dur: number, gain: number) => {
+    const s0 = Math.floor(start * RATE), n = Math.floor((dur + 0.5) * RATE);
+    for (let i = 0; i < n && s0 + i < out.length; i++) {
+      const t = i / RATE, vib = 1 + 0.004 * Math.sin(2 * Math.PI * 5.5 * t) * Math.min(1, t / 0.2);
+      let v = 0;
+      for (let h = 1; h <= 6; h++) v += Math.sin(2 * Math.PI * f * h * vib * t) / (h * (h > 2 ? 1.6 : 1));
+      const a = Math.min(1, t / 0.025) * (t < dur ? 1 - 0.25 * Math.min(1, t / Math.max(0.05, dur)) : Math.exp(-(t - dur) * 7));
+      out[s0 + i] += v * a * gain;
+    }
+  };
+  for (const [m, a, d] of tune) brass(hz(m), a, d, 0.24);
+  for (const c of chords) { const at = c[c.length - 1]; for (const m of c.slice(0, -1)) brass(hz(m - 12), at, 0.9, 0.1); }
+  return out;
 }
 
 /** Rising notes with a soft bell tone. */
@@ -246,6 +327,7 @@ export function makeMusic(name: MusicName): Stereo {
     night: { bpm: 66, chords: [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -2, 2]], scale: [0, 3, 5, 7, 10], root: 57, melody: 0.5, pad: 1, bright: 0.4 },
     battle: { bpm: 138, chords: [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -1, 2]], scale: [0, 2, 3, 5, 7, 8, 11], root: 57, drums: true, melody: 1, pad: 0.6, bright: 0.9 },
     cave: { bpm: 54, chords: [[0, 3, 7], [1, 4, 8], [0, 3, 7], [-2, 1, 5]], scale: [0, 1, 3, 5, 7, 8], root: 50, melody: 0.35, pad: 1.1, bright: 0.25 },
+    victory: { bpm: 100, chords: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [0, 4, 7]], scale: [0, 2, 4, 7, 9, 12], root: 60, melody: 0.85, pad: 0.7, bright: 0.9 },
   };
   // Music is made at half rate: it's mostly low notes, and it makes the tracks twice as fast to build.
   const SR = RATE / 2;

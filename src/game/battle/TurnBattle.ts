@@ -6,7 +6,7 @@
  * the screen shows it.
  */
 import type { Sfx } from '../../audio/sfx';
-import type { BattleScreen, ChoiceItem, FighterView } from '../../ui/BattleScreen';
+import type { BattleScreen, ChoiceItem, FighterView, VictoryReport } from '../../ui/BattleScreen';
 import type { Ailment, Element, EnemyAction, Inflict } from '../../world/types';
 import type { TurnBasedConfig } from '../combat/config';
 import { ELEMENT_COLORS } from '../elements';
@@ -21,7 +21,7 @@ import { AILMENT_WORD, BLIND_MISS_CHANCE, type BattleAilment, ailmentName, rollI
 /** One fighter as the game hands it over. */
 export interface BattleEntry { battler: Battler; view: FighterView; /** Party: 0 the hero, 1… members. */ who?: number; /** Enemies: the map's enemy (handed back when it's beaten). */ ref?: unknown }
 
-export interface BattleItem { slot: number; name: string; count: number; detail?: string }
+export interface BattleItem { slot: number; name: string; count: number; detail?: string; restore?: { hp?: number; mp?: number }; percent?: boolean; cures?: string[] }
 
 export type BattleOutcome = 'victory' | 'defeat' | 'fled';
 
@@ -34,12 +34,18 @@ export interface BattleHost {
    * happened, whether it was used up, and what it cures.
    */
   useItem(slot: number, who: number, ailments: BattleAilment[]): { text: string; used: boolean; cures: (Ailment | 'all')[] } | null;
+  /** Use up one of the item in this bag slot (used on an enemy). */
+  spendItem(slot: number): void;
   /** Health and magic of party member `who` as the game has them now (after an item, say). */
   readVitals(who: number): { hp: number; mp: number };
   /** Write a party member's health and magic back to the game. */
   writeVitals(who: number, hp: number, mp: number): void;
   /** The battle was won: hand out the rewards for these enemies and say what was won (lines for the panel). */
-  victory(beaten: unknown[]): string[];
+  victory(beaten: unknown[]): VictoryReport;
+  /** The results are shown: the victory fanfare and tune. */
+  fanfare?(): void;
+  /** Leaving the battle: fade out (picture and sound), then `done` closes it (and the field fades back in). */
+  outro?(done: () => void): void;
   /** The battle is over and its screen closed. */
   finished(outcome: BattleOutcome, beaten: unknown[]): void;
   /** Party member `who` performed an Addition in full: count it towards its next rank (the new rank if it went up). */
@@ -179,15 +185,16 @@ export class TurnBattle {
     const items = this.host.items();
     const canFlee = this.rules.canRun !== false && !this.foes.some((f) => isUp(f) && f.boss);
     const silenced = b.status.silenced;
+    // Legend of Dragoon style: a row of pictures.
     const cmds: (ChoiceItem & { run: () => void })[] = [
-      { label: 'Attack', rank: RANK.attack, right: this.attackLabel(b), run: () => this.attackMenu(b) },
-      { label: 'Magic', rank: RANK.magic, disabled: !b.spells.length || silenced, right: silenced ? 'Silenced' : b.spells.length ? '' : '—', run: () => this.magicMenu(b) },
-      { label: 'Items', rank: RANK.item, disabled: !items.length, run: () => this.itemMenu(b) },
-      { label: 'Guard', rank: RANK.guard, detail: this.cfg.guardHeal > 0 ? `Half damage, +${this.cfg.guardHeal}% HP, no ailments` : 'Half damage, no ailments', run: () => this.doGuard(b) },
-      { label: 'Run', rank: RANK.flee, disabled: !canFlee, detail: canFlee ? undefined : 'Can’t run from this fight', run: () => this.doFlee(b) },
+      { label: 'Attack', icon: 'attack', rank: RANK.attack, right: this.attackLabel(b), detail: 'Strike a foe (or anyone)', run: () => this.attackMenu(b) },
+      { label: 'Guard', icon: 'guard', rank: RANK.guard, detail: this.cfg.guardHeal > 0 ? `Half damage, +${this.cfg.guardHeal}% HP, no ailments` : 'Half damage, no ailments', run: () => this.doGuard(b) },
+      { label: 'Magic', icon: 'magic', rank: RANK.magic, disabled: !b.spells.length || silenced, detail: silenced ? 'Silenced' : b.spells.length ? 'Cast a spell' : 'No spells learned', run: () => this.magicMenu(b) },
+      { label: 'Items', icon: 'items', rank: RANK.item, disabled: !items.length, detail: items.length ? 'Use an item' : 'Nothing to use', run: () => this.itemMenu(b) },
+      { label: 'Escape', icon: 'escape', rank: RANK.flee, disabled: !canFlee, detail: canFlee ? 'Try to run away' : 'Can’t run from this fight', run: () => this.doFlee(b) },
     ];
     this.screen.message(`${b.name}’s turn`, true);
-    this.screen.choose(b.name, cmds, (i) => { this.lastCommand = i; this.screen.message(''); cmds[i].run(); }, undefined, (i) => this.showOrder(cmds[i].rank), this.lastCommand);
+    this.screen.choose(b.name, cmds, (i) => { this.lastCommand = i; this.screen.message(''); cmds[i].run(); }, undefined, (i) => this.showOrder(cmds[i].rank), this.lastCommand, true);
   }
 
   /** What Attack does: the set Addition's name (when Additions are set per hero). */
@@ -197,7 +204,8 @@ export class TurnBattle {
   }
 
   private attackMenu(b: Battler): void {
-    const foes = this.foes.filter(isUp);
+    // Anyone can be targeted (foes first): a confused friend, a zombie ally…
+    const foes = this.anyone(this.otherSide(b), b);
     const adds = b.additions ?? [];
     // Set per hero: Attack performs it (or a plain attack without one).
     if (this.cfg.additions === 'set' || !adds.length) {
@@ -227,8 +235,14 @@ export class TurnBattle {
   private rankMenu(b: Battler, s: BattleSpell): void {
     const go = (r: SpellRank) => {
       const back = () => (s.ranks.length > 1 ? this.rankMenu(b, s) : this.magicMenu(b));
-      if (s.targets === 'all') { this.phase = 'busy'; this.doSpell(b, s, r, (s.kind === 'heal' ? this.party : this.foes).filter(isUp)); return; }
-      this.pickTarget((s.kind === 'heal' ? this.party : this.foes).filter(isUp), (t) => this.doSpell(b, s, r, [t]), back);
+      const mine = s.kind === 'heal' ? this.sideOf(b) : this.otherSide(b), theirs = s.kind === 'heal' ? this.otherSide(b) : this.sideOf(b);
+      if (s.targets === 'all') {
+        // The whole group: the usual one, or (left / right) the other side.
+        const a = mine.filter(isUp), o = theirs.filter(isUp);
+        this.screen.target(a.map((t) => t.key), (k) => { this.phase = 'busy'; this.doSpell(b, s, r, (a.some((t) => t.key === k) ? a : o)); }, () => { this.showOrder(); back(); }, undefined, true, o.map((t) => t.key));
+        return;
+      }
+      this.pickTarget(this.anyone(mine, b), (t) => this.doSpell(b, s, r, [t]), back, s.kind === 'heal' ? b : undefined);
     };
     if (s.ranks.length === 1) { go(s.ranks[0]); return; }
     this.screen.choose(s.name, s.ranks.map((r) => ({ label: r.name, right: `${r.mp} MP`, disabled: r.mp > b.mp, rank: RANK.magic,
@@ -241,14 +255,22 @@ export class TurnBattle {
     if (!items.length) { this.commandMenu(b); return; }
     this.screen.choose('Items', items.map((it) => ({ label: it.name, right: `×${it.count}`, detail: it.detail, rank: RANK.item })), (i) => {
       const it = items[i];
-      this.pickTarget(this.party.filter(isUp), (t) => this.doItem(b, it, t), () => this.itemMenu(b), b);
+      this.pickTarget(this.anyone(this.sideOf(b), b), (t) => this.doItem(b, it, t), () => this.itemMenu(b), b);
     }, () => this.commandMenu(b), () => this.showOrder(RANK.item));
+  }
+
+  /** Everyone standing, the usual side first (its weakest first), then the other side. */
+  private anyone(first: Battler[], b: Battler): Battler[] {
+    const a = first.filter(isUp), rest = this.battlers.filter((x) => isUp(x) && !a.includes(x));
+    void b;
+    return [...a, ...rest];
   }
 
   private pickTarget(list: Battler[], pick: (t: Battler) => void, back: () => void, start?: Battler): void {
     if (!list.length) { back(); return; }
-    // Start on the enemy with the least health left (or the actor themselves, for items).
-    const first = start ?? [...list].sort((x, y) => x.hp - y.hp)[0];
+    // Start on the usual side's weakest (the first group in the list), or the actor themselves (items, healing).
+    const side = list[0].side;
+    const first = start ?? [...list].filter((x) => x.side === side).sort((x, y) => x.hp - y.hp)[0];
     this.screen.target(list.map((t) => t.key), (k) => { const t = list.find((x) => x.key === k); if (t) { this.phase = 'busy'; pick(t); } }, () => { this.showOrder(); back(); }, first.key);
   }
 
@@ -370,6 +392,7 @@ export class TurnBattle {
   }
 
   private doItem(b: Battler, it: BattleItem, t: Battler): void {
+    if (t.side === 'enemy') { this.itemOnFoe(b, it, t); return; }
     const who = this.entry(t).who ?? 0;
     const r = this.host.useItem(it.slot, who, t.status.list);
     // It did nothing (full health, say): say so and choose again; the turn isn't lost.
@@ -390,6 +413,21 @@ export class TurnBattle {
     this.screen.message(msg);
     this.host.log(msg);
     this.endTurn(b, RANK.item, 0.9);
+  }
+
+  /** An item used on an enemy: its healing heals them (or hurts the undead), its cures cure them. */
+  private itemOnFoe(b: Battler, it: BattleItem, t: Battler): void {
+    const hp = it.restore?.hp ?? 0, cures = it.cures ?? [];
+    const cured = cures.length ? t.status.cure(cures as (Ailment | 'all')[]) : [];
+    if (!hp && !cured.length) { this.screen.message('It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
+    this.host.spendItem(it.slot);
+    this.screen.message(`${b.name} uses ${it.name} on ${t.name}`);
+    this.host.sound('item');
+    this.later(0.3, () => {
+      if (hp) this.heal(b, t, healAmount(it.percent ? t.maxHp * hp / 100 : hp, t));
+      if (cured.length) { refreshAgility(t); this.screen.popup(t.key, `Cured ${cured.map(ailmentName).join(', ')}`, 'info'); this.refresh(t); }
+      this.endTurn(b, RANK.item, 0.9);
+    });
   }
 
   /** Guard: half damage, some health back and no new ailments until their next turn (Legend of Dragoon). */
@@ -416,7 +454,7 @@ export class TurnBattle {
       this.screen.message('Got away safely!', true);
       this.host.log('You got away');
       this.phase = 'over';
-      this.later(1, () => this.close('fled'));
+      this.later(1, () => (this.host.outro ? this.host.outro(() => this.close('fled')) : this.close('fled')));
       return;
     }
     this.host.sound('menuBack');
@@ -579,10 +617,12 @@ export class TurnBattle {
     const beaten = this.all.filter((e) => e.battler.side === 'enemy').map((e) => e.ref);
     this.writeParty();
     this.later(0.9, () => {
-      const lines = this.host.victory(beaten);
-      this.screen.message('');
-      this.screen.result('Victory!', lines);
-      this.screen.waitForOk(() => this.close('victory'));
+      const report = this.host.victory(beaten);
+      this.host.fanfare?.();
+      this.screen.victory(report, () => {
+        if (this.host.outro) this.host.outro(() => this.close('victory'));
+        else this.close('victory');
+      });
     });
   }
 

@@ -565,6 +565,8 @@ export interface MapData {
   battleCamera?: BattleCamera;
   /** Field maps: the battle map turn-based battles here are fought on (its file name); unset: the flat battle screen. */
   battleMap?: string;
+  /** How battles here begin (one, or several picked at random): shatter, swirl, smudge, blinds, zoom, flash. Unset: any. */
+  battleTransitions?: string[];
   ambience?: string;
   ambienceNight?: string;
   /** Background sound in autumn and winter (outdoors, by day). Unset: the forest's birds give way to cold wind. */

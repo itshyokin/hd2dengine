@@ -42,7 +42,7 @@ export function formatMap(map: MapData): string {
   const { props, buildings, ...rest } = map;
   const ordered = {
     name: rest.name, kind: rest.kind, width: rest.width, height: rest.height, environment: rest.environment, border: rest.border,
-    music: rest.music, battleMusic: rest.battleMusic, battleMap: rest.battleMap, encounters: rest.encounters, zones: rest.zones, ambience: rest.ambience, ambienceNight: rest.ambienceNight, wind: rest.wind, uniqueWeather: rest.uniqueWeather, weatherZone: rest.weatherZone, weather: rest.weather, atmosphere: rest.atmosphere,
+    music: rest.music, battleMusic: rest.battleMusic, battleMap: rest.battleMap, battleTransitions: rest.battleTransitions, encounters: rest.encounters, zones: rest.zones, ambience: rest.ambience, ambienceNight: rest.ambienceNight, wind: rest.wind, uniqueWeather: rest.uniqueWeather, weatherZone: rest.weatherZone, weather: rest.weather, atmosphere: rest.atmosphere,
     cliffTile: rest.cliffTile, terrain: rest.terrain, heights: rest.heights?.length ? rest.heights : undefined,
     water: rest.water?.length ? rest.water : undefined, ramps: rest.ramps?.length ? rest.ramps : undefined,
     passage: rest.passage?.some((r) => /[^.]/.test(r)) ? rest.passage : undefined,
