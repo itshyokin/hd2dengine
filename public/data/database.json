@@ -3789,7 +3789,8 @@
       "price": 20,
       "restore": {
         "hp": 30
-      }
+      },
+      "restorePercent": true
     },
     {
       "id": "ether",
@@ -3800,7 +3801,8 @@
       "price": 40,
       "restore": {
         "mp": 20
-      }
+      },
+      "restorePercent": true
     },
     {
       "id": "tonic",
@@ -4150,18 +4152,6 @@
       "description": "Not a fish. Someone lost this a long time ago."
     }
   ],
-  "inventory": {
-    "startItems": [
-      {
-        "item": "iron_arrow",
-        "count": 1
-      }
-    ],
-    "startEquip": {
-      "weapon": "short_sword",
-      "ranged": "hunting_bow"
-    }
-  },
   "enemies": [
     {
       "id": "slime",
@@ -4188,6 +4178,26 @@
         {
           "item": "potion",
           "chance": 0.1
+        }
+      ],
+      "elements": [
+        "nature"
+      ],
+      "resists": [
+        "poison"
+      ],
+      "attackElement": "nature",
+      "actions": [
+        {
+          "name": "",
+          "kind": "attack"
+        }
+      ],
+      "defense": 80,
+      "inflicts": [
+        {
+          "ailment": "poison",
+          "chance": 20
         }
       ]
     },
@@ -4217,7 +4227,17 @@
           "item": "ether",
           "chance": 0.15
         }
-      ]
+      ],
+      "elements": [
+        "fire"
+      ],
+      "inflicts": [
+        {
+          "ailment": "burn",
+          "chance": 20
+        }
+      ],
+      "defense": 80
     },
     {
       "id": "bandit",
@@ -4411,12 +4431,14 @@
   "heroes": [
     {
       "id": "hero",
-      "name": "Jordan"
+      "name": "Jordan",
+      "color": "#e74b4b"
     },
     {
       "id": "hero_2",
       "name": "Katrina",
       "look": "katrina",
+      "color": "#6271f9",
       "stats": {
         "str": 16,
         "dex": 12,
@@ -4429,6 +4451,7 @@
       "id": "hero_3",
       "name": "Crowley",
       "look": "crowley",
+      "color": "#7067da",
       "stats": {
         "str": 8,
         "dex": 8,
@@ -4447,6 +4470,7 @@
       "id": "hero_4",
       "name": "Eleanor",
       "look": "eleanor",
+      "color": "#62dbd8",
       "stats": {
         "str": 14,
         "dex": 18,
@@ -4468,6 +4492,7 @@
       "id": "hero_5",
       "name": "Theresa",
       "look": "hero",
+      "color": "#e0c978",
       "stats": {
         "str": 13,
         "dex": 16,
@@ -4480,6 +4505,7 @@
       "id": "hero_6",
       "name": "Lynn",
       "look": "hero",
+      "color": "#51e166",
       "stats": {
         "str": 16,
         "dex": 16,
@@ -4563,7 +4589,10 @@
   },
   "menus": {
     "titleText": "Titamas",
-    "subtitle": "Chapter 1. Arcturus"
+    "subtitle": "Chapter 1. Arcturus",
+    "titleBackground": {
+      "kind": "image"
+    }
   },
   "troops": [
     {
@@ -4573,40 +4602,21 @@
         {
           "enemy": "slime",
           "min": 1,
-          "max": 2
+          "max": 3
         },
         {
           "enemy": "ember_slime",
           "min": 1,
-          "max": 1
-        },
-        {
-          "enemy": "slime",
-          "min": 1,
-          "max": 1
+          "max": 2
         }
       ]
     },
     {
       "id": "troop_2",
       "name": "New troop2",
-      "members": [
-        {
-          "enemy": "slime",
-          "min": 1,
-          "max": 2
-        },
-        {
-          "enemy": "slime",
-          "min": 1,
-          "max": 1
-        }
-      ]
+      "members": []
     }
   ],
-  "combat": {
-    "mode": "turnBased"
-  },
   "skills": {
     "trees": [
       {
@@ -5327,7 +5337,8 @@
         "z": 75,
         "kind": "region"
       }
-    ]
+    ],
+    "unvisited": "grey"
   },
   "achievements": [
     {
@@ -5444,6 +5455,73 @@
       "rule": {
         "kind": "event"
       }
+    }
+  ],
+  "time": {
+    "darkness": 1
+  },
+  "spells": [
+    {
+      "id": "fire",
+      "name": "Fire",
+      "kind": "bolt",
+      "power": 14,
+      "mp": 6,
+      "element": "fire",
+      "color": "#ff8a3a",
+      "maxRank": 3,
+      "description": "A firebolt. Higher ranks burn hotter but take longer to call up.",
+      "inflicts": [
+        {
+          "ailment": "burn",
+          "chance": 15
+        }
+      ]
+    },
+    {
+      "id": "frost",
+      "name": "Frost",
+      "kind": "bolt",
+      "power": 12,
+      "mp": 6,
+      "element": "water",
+      "color": "#8ad8ff",
+      "maxRank": 3,
+      "description": "A shard of ice that can chill.",
+      "inflicts": [
+        {
+          "ailment": "chill",
+          "chance": 35
+        }
+      ]
+    },
+    {
+      "id": "spark",
+      "name": "Spark",
+      "kind": "bolt",
+      "power": 10,
+      "mp": 8,
+      "element": "shock",
+      "color": "#ffe04a",
+      "maxRank": 3,
+      "targets": "all",
+      "description": "Lightning that strikes every foe.",
+      "inflicts": [
+        {
+          "ailment": "paralyze",
+          "chance": 20
+        }
+      ]
+    },
+    {
+      "id": "mend",
+      "name": "Mend",
+      "kind": "heal",
+      "power": 26,
+      "mp": 8,
+      "color": "#9dffb0",
+      "maxRank": 3,
+      "description": "Closes wounds on one of the party."
     }
   ]
 }
