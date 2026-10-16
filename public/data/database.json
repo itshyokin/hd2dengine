@@ -4580,5 +4580,44 @@
   "menus": {
     "titleText": "Titamas",
     "subtitle": "Chapter 1. Arcturus"
-  }
+  },
+  "troops": [
+    {
+      "id": "troop",
+      "name": "New troop",
+      "members": [
+        {
+          "enemy": "slime",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "enemy": "ember_slime",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "enemy": "slime",
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "troop_2",
+      "name": "New troop2",
+      "members": [
+        {
+          "enemy": "slime",
+          "min": 1,
+          "max": 2
+        },
+        {
+          "enemy": "slime",
+          "min": 1,
+          "max": 1
+        }
+      ]
+    }
+  ]
 }
