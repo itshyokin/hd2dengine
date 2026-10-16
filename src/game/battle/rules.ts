@@ -14,6 +14,8 @@ export interface SpellRank { rank: number; name: string; power: number; mp: numb
 
 /** A spell a fighter can cast in battle, at any rank they know. */
 export interface BattleSpell {
+  /** What it does, in a sentence (Database → Spells). */
+  description?: string;
   id: string;
   name: string;
   kind: 'bolt' | 'heal';

@@ -38,7 +38,7 @@ import { type BuiltWorld, buildWorld, hideProp } from '../world/WorldBuilder';
 import { Rings } from './rings';
 import { Bursts } from '../render/Bursts';
 import { Combat, type CombatHost } from './combat/Combat';
-import { type CombatConfig, Progression, SWING_TIME, combatFromDb, xpToNext } from './combat/config';
+import { type CombatConfig, MAX_FOES, Progression, SWING_TIME, combatFromDb, xpToNext } from './combat/config';
 import type { Enemy } from './combat/Enemy';
 import { BattleStage, type StageFighterSpec } from './battle/BattleStage';
 import { FlatSprite } from './FlatSprite';
@@ -222,6 +222,8 @@ export class Game {
   /** A battle map is loading for a battle about to start. */
   private battlePending = false;
   private hemi!: THREE.HemisphereLight;
+  /** Where a project file is (in a playtest, the editor's copy). */
+  private resolveFile: (path: string) => string = (p) => p;
   /** Battle sound taking over from the map's: a tune (the victory theme), or silence while fading in or out. */
   private battleSound: { music: string; hush?: boolean; fade: number; next?: { at: number; music: string } } | null = null;
   /** Leaving a battle: once the screen is dark, `done` closes it and the field fades back in. */
@@ -348,6 +350,7 @@ export class Game {
       start = mapName === this.db.startMap ? this.db.start : null;
       assets = await loadAssets();
     }
+    this.resolveFile = resolve;
     migrateMap(mapData);
     migrateItems(this.db);
     this.sprites = new SpriteLibrary(new PropCatalog(assets));
@@ -683,7 +686,7 @@ export class Game {
       quest: (c) => { this.questQuiet = !!c.silent; try { this.quests.run(c.quest, c.op, c.objective, c.add); } finally { this.questQuiet = false; } },
       battle: (c) => {
         const defs = new Map((this.db.enemies ?? []).map((x) => [x.id, x]));
-        const list = c.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).map((def) => ({ def, hp: def.hp, enemy: null }));
+        const list = c.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).slice(0, MAX_FOES).map((def) => ({ def, hp: def.hp, enemy: null }));
         if (!list.length) return;
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined });
       },
@@ -3265,7 +3268,7 @@ export class Game {
     const near = this.combat.enemies
       .filter((o) => o !== e && !o.dead && Math.hypot(o.x - e.x, o.z - e.z) <= tb.joinRadius && (o.alert || Math.hypot(o.x - e.x, o.z - e.z) < 3))
       .sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z));
-    const group = [e, ...near].slice(0, tb.maxEnemies);
+    const group = [e, ...near].slice(0, Math.min(MAX_FOES, tb.maxEnemies));
     this.startBattle(group.map((en) => ({ def: en.def, hp: en.hp, enemy: en })), opening);
     return true;
   }
@@ -3310,14 +3313,14 @@ export class Game {
         if (!def) continue;
         const lo = Math.max(0, Math.round(mem.min ?? 1)), hi = Math.max(lo, Math.round(mem.max ?? mem.min ?? 1));
         const n = lo + Math.floor(Math.random() * (hi - lo + 1));
-        for (let k = 0; k < n && list.length < 8; k++) list.push({ def, hp: def.hp, enemy: null });
+        for (let k = 0; k < n && list.length < MAX_FOES; k++) list.push({ def, hp: def.hp, enemy: null });
       }
       if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music, stage: zone.battleMap || undefined });
       return;
     }
     const table = t!.enemies.filter((x) => defs.has(x.enemy));
     if (!table.length) return;
-    const lo = Math.max(1, Math.min(8, Math.round(t!.min ?? 1))), hi = Math.max(lo, Math.min(8, Math.round(t!.max ?? 3)));
+    const lo = Math.max(1, Math.min(MAX_FOES, Math.round(t!.min ?? 1))), hi = Math.max(lo, Math.min(MAX_FOES, Math.round(t!.max ?? 3)));
     const n = lo + Math.floor(Math.random() * (hi - lo + 1));
     const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
     for (let k = 0; k < n; k++) { const pick = weighted(table)!, def = defs.get(pick.enemy)!; list.push({ def, hp: def.hp, enemy: null }); }
@@ -3358,7 +3361,7 @@ export class Game {
         const at = spellAtRank(s, i + 1);
         return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
       });
-      out.push({ id: s.id, name: s.name, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks });
+      out.push({ id: s.id, name: s.name, description: s.description, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks });
     }
     return out;
   }
@@ -3414,7 +3417,7 @@ export class Game {
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
           additions: this.battleAdditions(a), addition: a.addition,
         },
-        view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0) },
+        view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0), face: hero.face ? this.resolveFile(hero.face) : undefined },
         fig: { look, equip: gear, bow: useBow },
       };
     }
@@ -3440,7 +3443,7 @@ export class Game {
         inflicts: useBow ? undefined : n.meleeInflicts,
         additions: this.battleAdditions(ab), addition: ab.addition,
       },
-      view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who) },
+      view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who), face: m.def.face ? this.resolveFile(m.def.face) : undefined },
       fig: { look, equip: m.data.equip, bow: useBow },
     };
   }
@@ -3659,7 +3662,7 @@ export class Game {
         const d = s && this.items.get(s.id);
         if (!s || !d || d.kind !== 'consumable' || !(d.restore || d.cures?.length || d.buffs?.length)) return [];
         const r = d.restore, bits = r ? (['hp', 'mp', 'sp'] as const).filter((g) => r[g]).map((g) => `+${r[g]}${d.restorePercent ? '%' : ''} ${g.toUpperCase()}`) : [];
-        return [{ slot: i, name: d.name, count: s.n, detail: bits.join(' · ') || d.description, restore: r ? { hp: r.hp, mp: r.mp } : undefined, percent: !!d.restorePercent, cures: d.cures as string[] | undefined }];
+        return [{ slot: i, name: d.name, icon: this.itemIcon(d.id), count: s.n, detail: [bits.join(' · '), d.description].filter(Boolean).join(' — '), restore: r ? { hp: r.hp, mp: r.mp } : undefined, percent: !!d.restorePercent, cures: d.cures as string[] | undefined }];
       }),
       useItem: (slot, who, ailments) => {
         const s0 = this.inventory.slots[slot], id = s0?.id, d = id ? this.items.get(id) : undefined, before = id ? this.inventory.count(id) : 0;

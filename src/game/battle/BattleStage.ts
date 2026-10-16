@@ -129,8 +129,9 @@ export class BattleStage implements StageHooks {
     const cx = this.data.width / 2, cz = this.data.height / 2;
     let p: THREE.Vector3;
     if (!list.length) {
-      // No markers: a row each side of the middle, the party nearer the bottom (the camera's side).
-      const k = i % 4, row = Math.floor(i / 4), off = (k - 1.5) * 1.5 + (row % 2) * 0.75;
+      // No markers: a row each side of the middle (the first in the middle, then left, then right), the party nearer
+      // the bottom (the camera's side).
+      const k = i % 3, row = Math.floor(i / 3), off = [0, -1.6, 1.6][k] + (row % 2) * 0.8;
       p = new THREE.Vector3(cx + off, 0, side === 'party' ? cz + 2.5 + row : cz - 2 - row * 1.4);
     } else if (i < list.length) p = list[i].clone();
     else {

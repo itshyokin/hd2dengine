@@ -21,7 +21,7 @@ import { AILMENT_WORD, BLIND_MISS_CHANCE, type BattleAilment, ailmentName, rollI
 /** One fighter as the game hands it over. */
 export interface BattleEntry { battler: Battler; view: FighterView; /** Party: 0 the hero, 1… members. */ who?: number; /** Enemies: the map's enemy (handed back when it's beaten). */ ref?: unknown }
 
-export interface BattleItem { slot: number; name: string; count: number; detail?: string; restore?: { hp?: number; mp?: number }; percent?: boolean; cures?: string[] }
+export interface BattleItem { slot: number; name: string; count: number; detail?: string; icon?: string; restore?: { hp?: number; mp?: number }; percent?: boolean; cures?: string[] }
 
 export type BattleOutcome = 'victory' | 'defeat' | 'fled';
 
@@ -86,6 +86,7 @@ export class TurnBattle {
     this.actor = null;
     this.lastCommand = 0;
     for (const e of entries) { e.battler.guarding = false; refreshAgility(e.battler); }
+    this.screen.setLayout(cfg.layout);
     this.screen.open(entries.map((e) => e.view));
     this.refreshAll();
     startCounters(this.battlers, opening);
@@ -214,8 +215,8 @@ export class TurnBattle {
       return;
     }
     // Chosen each time: a plain attack or any Addition they know.
-    const list: ChoiceItem[] = [{ label: 'Attack', detail: 'A plain attack', rank: RANK.attack },
-      ...adds.map((a) => ({ label: a.name, right: `${a.strikes.length} hit${a.strikes.length === 1 ? '' : 's'} · Rank ${a.rank}`, detail: a.toNext === null ? 'Mastered' : `${a.toNext} more to rank ${a.rank + 1}`, rank: RANK.attack }))];
+    const list: ChoiceItem[] = [{ label: 'Attack', icon: 'attack', detail: 'A plain attack', rank: RANK.attack },
+      ...adds.map((a) => ({ label: a.name, icon: 'attack', iconColor: '#ffc46e', right: `${a.strikes.length} hit${a.strikes.length === 1 ? '' : 's'} · Rank ${a.rank}`, detail: a.toNext === null ? 'Mastered' : `${a.toNext} more to rank ${a.rank + 1}`, rank: RANK.attack }))];
     this.screen.choose('Attack', list, (i) => {
       const a = i ? adds[i - 1] : undefined;
       this.pickTarget(foes, (t) => (a ? this.doAddition(b, a, t) : this.doAttack(b, t)), () => this.attackMenu(b));
@@ -225,8 +226,8 @@ export class TurnBattle {
   private magicMenu(b: Battler): void {
     const list = b.spells.map((s) => {
       const top = s.ranks[s.ranks.length - 1], low = s.ranks[0];
-      return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
-        detail: [s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one of the party') : s.targets === 'all' ? 'Hits every foe' : '', low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') || undefined };
+      return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
+        detail: [s.description, s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one') : `${s.element === 'neutral' ? 'Magic' : s.element[0].toUpperCase() + s.element.slice(1)} damage to ${s.targets === 'all' ? 'every foe' : 'one foe'}`, low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : 'goes off at once'].filter(Boolean).join(' · ') };
     });
     this.screen.choose('Magic', list, (i) => this.rankMenu(b, b.spells[i]), () => this.commandMenu(b), () => this.showOrder(RANK.magic));
   }
@@ -245,7 +246,7 @@ export class TurnBattle {
       this.pickTarget(this.anyone(mine, b), (t) => this.doSpell(b, s, r, [t]), back, s.kind === 'heal' ? b : undefined);
     };
     if (s.ranks.length === 1) { go(s.ranks[0]); return; }
-    this.screen.choose(s.name, s.ranks.map((r) => ({ label: r.name, right: `${r.mp} MP`, disabled: r.mp > b.mp, rank: RANK.magic,
+    this.screen.choose(s.name, s.ranks.map((r) => ({ label: r.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], right: `${r.mp} MP`, disabled: r.mp > b.mp, rank: RANK.magic,
       detail: r.charge ? `Charges ${r.charge} turn${r.charge === 1 ? '' : 's'} before it goes off` : 'Goes off at once' })),
     (i) => go(s.ranks[i]), () => this.magicMenu(b), () => this.showOrder(RANK.magic), s.ranks.length - 1);
   }
@@ -253,7 +254,7 @@ export class TurnBattle {
   private itemMenu(b: Battler): void {
     const items = this.host.items();
     if (!items.length) { this.commandMenu(b); return; }
-    this.screen.choose('Items', items.map((it) => ({ label: it.name, right: `×${it.count}`, detail: it.detail, rank: RANK.item })), (i) => {
+    this.screen.choose('Items', items.map((it) => ({ label: it.name, iconUrl: it.icon, icon: 'items', right: `×${it.count}`, detail: it.detail, rank: RANK.item })), (i) => {
       const it = items[i];
       this.pickTarget(this.anyone(this.sideOf(b), b), (t) => this.doItem(b, it, t), () => this.itemMenu(b), b);
     }, () => this.commandMenu(b), () => this.showOrder(RANK.item));

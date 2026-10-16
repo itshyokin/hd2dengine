@@ -584,3 +584,5 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .troop-row select { min-width: 140px; }
 .item-sub { display: block; font-size: 11px; opacity: 0.7; }
 .field-row.troop-row { display: grid; grid-template-columns: minmax(120px, 1fr) 90px 90px 30px; gap: 8px; align-items: end; }
+.face-pick { display: flex; align-items: center; gap: 8px; }
+.face-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; image-rendering: pixelated; box-shadow: 0 0 0 1px rgba(255,255,255,0.15); }

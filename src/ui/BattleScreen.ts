@@ -40,6 +40,8 @@ export interface FighterView {
   /** Size multiplier (Database → Enemies → Size). */
   scale?: number;
   color?: string;
+  /** Party: their face art (Dragon Legend layout); unset: `icon`. */
+  face?: string;
 }
 
 /** One hero on the victory screen: their EXP bar before, and how it fills (level by level) with what they won. */
@@ -83,8 +85,10 @@ export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; 
 
 export interface ChoiceItem {
   label: string;
-  /** The command bar's picture (a key of COMMAND_ICONS). */
+  /** The command bar's picture (a key of COMMAND_ICONS), tinted `iconColor` in lists; or a picture of its own. */
   icon?: string;
+  iconColor?: string;
+  iconUrl?: string;
   detail?: string;
   disabled?: boolean;
   /** Shown on the right (an MP cost, a count). */
@@ -96,7 +100,8 @@ export interface ChoiceItem {
 type Mode =
   | { kind: 'idle' }
   | { kind: 'list'; title: string; items: ChoiceItem[]; index: number; pick: (i: number) => void; back?: () => void; hover?: (i: number) => void; bar?: boolean }
-  | { kind: 'target'; keys: string[]; index: number; pick: (key: string) => void; back: () => void; all?: boolean; other?: string[] }
+  /** Choosing who: `rows` are the enemies' row and the party's (left to right as on screen); `keys` is the row in use. */
+  | { kind: 'target'; keys: string[]; index: number; pick: (key: string) => void; back: () => void; all?: boolean; rows: string[][] }
   | { kind: 'wait'; done: () => void };
 
 /** The command bar's pictures (Legend of Dragoon style): small white line drawings. */
@@ -122,8 +127,11 @@ export class BattleScreen {
   private readonly statusEl: HTMLElement;
   private readonly resultEl: HTMLElement;
   private readonly flashEl: HTMLElement;
-  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string }>();
+  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string; card: HTMLElement | null }>();
   private readonly camEl: HTMLElement;
+  private readonly cardsEl: HTMLElement;
+  private readonly descEl: HTMLElement;
+  private layout: 'dragon' | 'fantasy' = 'dragon';
   private readonly capEl: HTMLElement;
   private camTimer = 0;
   private vic: Victory | null = null;
@@ -163,7 +171,9 @@ export class BattleScreen {
       <div class="battle-bottom">
         <div class="battle-cmd" hidden><div class="battle-cmd-title"></div><div class="battle-cmd-list" role="listbox"></div><div class="battle-cmd-cap"></div></div>
         <div class="battle-status"></div>
+        <div class="battle-cards"></div>
       </div>
+      <div class="battle-desc" hidden></div>
       <div class="battle-result" hidden></div>`;
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
     this.field = q('.battle-field');
@@ -179,6 +189,8 @@ export class BattleScreen {
     this.flashEl = q('.battle-flash');
     this.camEl = q('.battle-cam');
     this.capEl = q('.battle-cmd-cap');
+    this.cardsEl = q('.battle-cards');
+    this.descEl = q('.battle-desc');
     this.camEl.addEventListener('click', (e) => { e.stopPropagation(); this.onCamera?.(1); });
     // Tapping anywhere while a message waits moves it on.
     this.root.addEventListener('pointerdown', (e) => {
@@ -211,12 +223,16 @@ export class BattleScreen {
     this.enemiesEl.replaceChildren();
     this.partyEl.replaceChildren();
     this.statusEl.replaceChildren();
+    this.cardsEl.replaceChildren();
     this.resultEl.hidden = true;
     this.cmdEl.hidden = true;
     this.mode = { kind: 'idle' };
     const enemies = views.filter((v) => v.side === 'enemy'), party = views.filter((v) => v.side === 'party');
     enemies.forEach((v, i) => this.addFighter(v, i, enemies.length));
     party.forEach((v, i) => this.addFighter(v, i, party.length));
+    // Dragon Legend: the hero's card in the middle, the party either side (as they stand).
+    const cards = party.map((v) => this.fighters.get(v.key)?.card).filter((c): c is HTMLElement => !!c);
+    this.cardsEl.replaceChildren(...(cards.length === 3 ? [cards[1], cards[0], cards[2]] : cards));
     this.enemiesEl.dataset.count = String(enemies.length);
     this.partyEl.dataset.count = String(party.length);
     this.root.hidden = false;
@@ -319,7 +335,17 @@ export class BattleScreen {
       row.addEventListener('click', () => this.tapFighter(v.key));
       this.statusEl.append(row);
     }
-    this.fighters.set(v.key, { view: v, el, img, bar, row, icons, rowIcons: row?.querySelector('.bstat-status') as HTMLElement | null, statusKey: '' });
+    let card: HTMLElement | null = null;
+    if (v.side === 'party') {
+      card = document.createElement('div');
+      card.className = 'dl-card';
+      if (v.color) card.style.setProperty('--hero', v.color);
+      card.innerHTML = `<img class="dl-face" alt=""><div class="dl-info"><div class="dl-name"></div><div class="dl-nums"><span class="dl-k">HP</span><span class="dl-hp"></span><span class="dl-k">MP</span><span class="dl-mp"></span></div></div>`;
+      (card.querySelector('.dl-face') as HTMLImageElement).src = v.face ?? v.icon;
+      (card.querySelector('.dl-name') as HTMLElement).textContent = v.name;
+      card.addEventListener('click', () => this.tapFighter(v.key));
+    }
+    this.fighters.set(v.key, { view: v, el, img, bar, row, icons, rowIcons: row?.querySelector('.bstat-status') as HTMLElement | null, statusKey: '', card });
   }
 
   /** Health and magic for one fighter (party rows show numbers; enemies a bar). */
@@ -353,6 +379,23 @@ export class BattleScreen {
       f.row.classList.toggle('down', down);
       f.row.classList.toggle('low', !down && v.hp <= v.maxHp * 0.25);
     }
+    if (f.card) {
+      // Numbers: white, yellow at half or less, red at a quarter or less.
+      const tier = (n: number, mx: number) => (n / Math.max(1, mx) <= 0.25 ? 'low' : n / Math.max(1, mx) <= 0.5 ? 'mid' : '');
+      const hp = f.card.querySelector('.dl-hp') as HTMLElement, mp = f.card.querySelector('.dl-mp') as HTMLElement;
+      hp.textContent = `${Math.ceil(v.hp)}/${v.maxHp}`;
+      mp.textContent = `${Math.floor(v.mp)}/${v.maxMp}`;
+      hp.className = `dl-hp ${tier(v.hp, v.maxHp)}`;
+      mp.className = `dl-mp ${v.maxMp ? tier(v.mp, v.maxMp) : ''}`;
+      f.card.classList.toggle('down', down);
+    }
+  }
+
+  /** The battle screen's look: Dragon Legend (default) or Forbidden Fantasy. */
+  setLayout(l: 'dragon' | 'fantasy'): void {
+    this.layout = l;
+    this.root.classList.toggle('layout-dragon', l === 'dragon');
+    this.root.classList.toggle('layout-fantasy', l === 'fantasy');
   }
 
   /** Whose turn it is (highlighted), and the turn order after them. */
@@ -374,6 +417,7 @@ export class BattleScreen {
     for (const [k, f] of this.fighters) {
       f.el.classList.toggle('active', k === active);
       f.row?.classList.toggle('active', k === active);
+      f.card?.classList.toggle('active', k === active);
     }
   }
 
@@ -439,17 +483,37 @@ export class BattleScreen {
    */
   target(keys: string[], pick: (key: string) => void, back: () => void, start?: string, all = false, other?: string[]): void {
     if (!keys.length) { back(); return; }
-    const i = Math.max(0, start ? keys.indexOf(start) : 0);
-    this.mode = { kind: 'target', keys, index: i, pick, back, all, other: other?.length ? other : undefined };
+    // Two rows, enemies above and the party below, each left to right as on screen: left / right move along a row,
+    // up / down change rows. A whole group (`all`) is one choice per row.
+    const x = (k: string) => { const f = this.fighters.get(k); return f ? f.el.getBoundingClientRect().left + f.el.offsetWidth / 2 : 0; };
+    const side = (k: string) => this.fighters.get(k)?.view.side ?? 'enemy';
+    const pool = all ? [...keys, ...(other ?? [])] : keys;
+    const rows = (['enemy', 'party'] as const).map((sd) => pool.filter((k) => side(k) === sd).sort((a, b) => x(a) - x(b))).filter((r) => r.length);
+    const first = start && pool.includes(start) ? start : keys[0];
+    const keysRow = rows.find((r) => r.includes(first)) ?? rows[0];
+    this.mode = { kind: 'target', keys: keysRow, index: Math.max(0, keysRow.indexOf(first)), pick, back, all, rows };
     this.cmdEl.hidden = true;
+    this.descEl.hidden = true;
     this.renderTarget();
+  }
+
+  /** Change to the enemies' row (up) or the party's (down), landing on whoever is nearest on screen. */
+  private changeRow(m: Extract<Mode, { kind: 'target' }>, side: 'enemy' | 'party'): boolean {
+    const row = m.rows.find((r) => this.fighters.get(r[0])?.view.side === side);
+    if (!row || row === m.keys) return false;
+    const at = this.fighters.get(m.keys[m.index])?.el.getBoundingClientRect();
+    const cx = at ? at.left + at.width / 2 : 0;
+    let best = 0, bd = Infinity;
+    row.forEach((k, i) => { const r = this.fighters.get(k)!.el.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - cx); if (d < bd) { bd = d; best = i; } });
+    m.keys = row; m.index = best;
+    return true;
   }
 
   /** Wait for OK (or a tap), then go on. */
   waitForOk(done: () => void): void { this.mode = { kind: 'wait', done }; this.cmdEl.hidden = true; }
 
   /** Nothing to answer (enemies acting, animations). */
-  idle(): void { this.mode = { kind: 'idle' }; this.cmdEl.hidden = true; this.root.classList.remove('bar-mode'); this.clearTargets(); }
+  idle(): void { this.mode = { kind: 'idle' }; this.cmdEl.hidden = true; this.descEl.hidden = true; this.root.classList.remove('bar-mode', 'list-mode'); this.clearTargets(); }
 
   /** The victory panel: a heading and lines (EXP, gold, items, level-ups). */
   result(title: string, lines: string[]): void {
@@ -474,7 +538,9 @@ export class BattleScreen {
     this.cmdTitle.textContent = m.title;
     this.cmdEl.classList.toggle('bar', !!m.bar);
     this.root.classList.toggle('bar-mode', !!m.bar);
+    this.root.classList.toggle('list-mode', !m.bar);
     if (m.bar) {
+      this.descEl.hidden = true;
       // Legend of Dragoon: a row of pictures, the chosen one raised, named underneath.
       this.cmdList.replaceChildren(...m.items.map((it, i) => {
         const b = document.createElement('button');
@@ -495,6 +561,11 @@ export class BattleScreen {
       return;
     }
     this.capEl.textContent = '';
+    // Dragon Legend: the list in the middle with pictures, and what the chosen one does in a box at the top.
+    const dragon = this.layout === 'dragon';
+    const cur = m.items[m.index];
+    this.descEl.hidden = !dragon || !cur?.detail;
+    this.descEl.textContent = dragon ? cur?.detail ?? '' : '';
     this.cmdList.replaceChildren(...m.items.map((it, i) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -502,10 +573,17 @@ export class BattleScreen {
       b.disabled = !!it.disabled;
       b.setAttribute('role', 'option');
       b.setAttribute('aria-selected', String(i === m.index));
+      if (dragon) {
+        const ic = document.createElement('span');
+        ic.className = 'bcmd-icon';
+        if (it.iconUrl) { const im = document.createElement('img'); im.src = it.iconUrl; im.alt = ''; ic.append(im); }
+        else if (it.icon) { ic.innerHTML = svgIcon(it.icon); if (it.iconColor) ic.style.color = it.iconColor; }
+        b.append(ic);
+      }
       const l = document.createElement('span'); l.className = 'bcmd-label'; l.textContent = it.label;
       b.append(l);
       if (it.right) { const r = document.createElement('span'); r.className = 'bcmd-right'; r.textContent = it.right; b.append(r); }
-      if (it.detail) { const d = document.createElement('span'); d.className = 'bcmd-detail'; d.textContent = it.detail; b.append(d); }
+      if (it.detail && !dragon) { const d = document.createElement('span'); d.className = 'bcmd-detail'; d.textContent = it.detail; b.append(d); }
       b.addEventListener('pointerenter', () => { if (this.mode === m && !it.disabled && m.index !== i) { m.index = i; this.renderList(); m.hover?.(i); } });
       b.addEventListener('click', () => { if (this.mode !== m || it.disabled) return; m.index = i; uiSound('menuOk'); this.idle(); m.pick(i); });
       return b;
@@ -517,18 +595,22 @@ export class BattleScreen {
     const m = this.mode;
     this.clearTargets();
     if (m.kind !== 'target') return;
-    m.keys.forEach((k, i) => this.fighters.get(k)?.el.classList.toggle('targeted', m.all || i === m.index));
+    m.keys.forEach((k, i) => { const f = this.fighters.get(k); f?.el.classList.toggle('targeted', m.all || i === m.index); f?.card?.classList.toggle('targeted', m.all || i === m.index); });
     this.stage?.highlight(m.all ? m.keys : [m.keys[m.index]]);
     const f = this.fighters.get(m.keys[m.index]);
     this.message(m.all ? (f?.view.side === 'party' ? 'The whole party' : 'Every foe') : f ? f.view.name : '', true);
   }
 
-  private clearTargets(): void { for (const f of this.fighters.values()) f.el.classList.remove('targeted'); this.stage?.highlight([]); }
+  private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted'); f.card?.classList.remove('targeted'); } this.stage?.highlight([]); }
 
   private tapFighter(key: string): void {
     const m = this.mode;
-    if (m.kind === 'target' && m.all && m.other?.includes(key)) { const o = m.other; m.other = m.keys; m.keys = o; m.index = 0; this.renderTarget(); uiSound('menuMove'); return; }
-    if (m.kind !== 'target' || !m.keys.includes(key)) return;
+    if (m.kind !== 'target') return;
+    // A fighter in the other row: change rows to them.
+    const row = m.rows.find((r) => r.includes(key));
+    if (!row) return;
+    if (row !== m.keys) { m.keys = row; m.index = m.all ? 0 : row.indexOf(key); this.renderTarget(); uiSound('menuMove'); return; }
+    if (m.all) { uiSound('menuOk'); this.idle(); this.message(''); m.pick(m.keys[0]); return; }
     if (m.keys[m.index] !== key) { m.index = m.keys.indexOf(key); this.renderTarget(); uiSound('menuMove'); return; }
     uiSound('menuOk');
     this.idle();
@@ -566,11 +648,15 @@ export class BattleScreen {
     } else if (m.kind === 'target') {
       const n = m.keys.length;
       let moved = false;
+      if (i.consume('up')) moved = this.changeRow(m, 'enemy');
+      if (i.consume('down')) moved = this.changeRow(m, 'party') || moved;
       if (!m.all) {
-        if (i.consume('down') || i.consume('right')) { m.index = (m.index + 1) % n; moved = true; }
-        if (i.consume('up') || i.consume('left')) { m.index = (m.index - 1 + n) % n; moved = true; }
-      } else if (m.other && (i.consume('left') || i.consume('right') || i.consume('up') || i.consume('down'))) {
-        const o = m.other; m.other = m.keys; m.keys = o; m.index = 0; moved = true;
+        if (i.consume('right')) { m.index = (m.index + 1) % n; moved = true; }
+        if (i.consume('left')) { m.index = (m.index - 1 + n) % n; moved = true; }
+      } else {
+        // A whole row: left / right also swap rows.
+        const l = i.consume('left'), r = i.consume('right');
+        if ((l || r) && m.rows.length > 1) { const other = m.rows.find((x) => x !== m.keys)!; m.keys = other; m.index = 0; moved = true; }
       }
       if (moved) { uiSound('menuMove'); this.renderTarget(); }
       if (i.consume('ok')) { uiSound('menuOk'); const k = m.keys[m.index]; this.idle(); this.message(''); m.pick(k); }

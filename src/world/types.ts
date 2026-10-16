@@ -684,6 +684,8 @@ export interface HeroDef {
   name: string;
   /** Which look from Characters (the first hero's is the player's look). */
   look?: string;
+  /** Face art for the battle screen and menus (an image path); unset: a face cut from their look. */
+  face?: string;
   /** Starting Strength, Dexterity, Defence, Magic and Magic Defence (10 each when left out). */
   stats?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>;
   /** The first hero: how a new game makes their stats. */
@@ -1132,6 +1134,8 @@ export interface TurnBasedData {
   additions?: 'set' | 'choose';
   /** Additions' timing: pressed by the player, or automatic (every strike lands; for accessibility). */
   additionTiming?: 'press' | 'auto';
+  /** The battle screen's look: 'dragon' (default; Legend of Dragoon-like) or 'fantasy' (Final Fantasy-like). */
+  layout?: 'dragon' | 'fantasy';
 }
 
 export interface CombatData {

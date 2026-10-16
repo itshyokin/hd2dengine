@@ -141,8 +141,8 @@ export class Inspector {
       h('button', { type: 'button', class: 'btn small', onclick: () => { this.edit(() => t.enemies.push({ enemy: enemies[0].id })); this.render(); } }, '+ Add enemy'),
       h('div', { class: 'field-row' },
         field('Tiles between battles', numberInput(t.steps ?? 30, (v) => this.edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) delete t.steps; else t.steps = n; }), { min: 4, step: 1 }), 'About this far on average (it varies).'),
-        field('Enemies: at least', numberInput(t.min ?? 1, (v) => this.edit(() => { const n = Math.max(1, Math.min(8, Math.round(v))); if (n === 1) delete t.min; else t.min = n; }), { min: 1, max: 8, step: 1 })),
-        field('at most', numberInput(t.max ?? 3, (v) => this.edit(() => { const n = Math.max(1, Math.min(8, Math.round(v))); if (n === 3) delete t.max; else t.max = n; }), { min: 1, max: 8, step: 1 }))),
+        field('Enemies: at least', numberInput(t.min ?? 1, (v) => this.edit(() => { const n = Math.max(1, Math.min(3, Math.round(v))); if (n === 1) delete t.min; else t.min = n; }), { min: 1, max: 3, step: 1 })),
+        field('at most', numberInput(t.max ?? 3, (v) => this.edit(() => { const n = Math.max(1, Math.min(3, Math.round(v))); if (n === 3) delete t.max; else t.max = n; }), { min: 1, max: 3, step: 1 }))),
       field('Only on terrain', textInput(t.terrain ?? '', (v) => this.edit(() => { const c = [...new Set(v.replace(/\s+/g, ''))].join(''); if (c) t.terrain = c; else delete t.terrain; }), { 'aria-label': 'Encounter terrain', placeholder: 'Anywhere' }),
         'Terrain characters, e.g. . for grass (the Terrain palette shows each tile’s character). Empty: anywhere on this map.'),
     ];

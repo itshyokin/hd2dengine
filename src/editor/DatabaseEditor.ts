@@ -1,3 +1,5 @@
+import type { HeroDef } from '../world/types';
+import { toast } from './dom';
 /**
  * Database window: game-wide settings — the player (abilities, health / magic / stamina,
  * regeneration, speeds, stamina costs, EXP progression), items and the starting inventory, time, saving and menus.
@@ -75,7 +77,7 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
   const render = () => {
     tabs.replaceChildren(...([['player', 'Player'], ['heroes', 'Heroes'], ['characters', 'Characters'], ['items', 'Items'], ['inventory', 'Inventory'], ['quests', 'Quests'], ['combat', 'Combat'], ['enemies', 'Enemies'], ['troops', 'Troops'], ['skills', 'Skills'], ['spells', 'Spells'], ['additions', 'Additions'], ['classes', 'Classes'], ['audio', 'Audio'], ['time', 'Time'], ['saving', 'Saving'], ['menus', 'Title & menus'], ['credits', 'Credits']] as const).map(([id, label]) =>
       h('button', { type: 'button', role: 'tab', class: 'db-tab', 'aria-selected': String(tab === id), onclick: () => { (document.activeElement as HTMLElement | null)?.blur?.(); tab = id; render(); } }, label)));
-    if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes })); return; }
+    if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
     if (tab === 'characters') { content.replaceChildren(...charactersTab(store, people, render)); return; }
     if (tab === 'credits') { content.replaceChildren(...creditsTab(credits, people.chars, render, [...store.assets.props, ...store.assets.tiles].map((d) => d.credits ?? []))); return; }
     if (tab === 'quests') { content.replaceChildren(...questsTab(store, quests, { items: work.items, enemies }, questState, render)); return; }
@@ -334,4 +336,24 @@ function diffFromDefaults(cfg: PlayerConfig): PlayerConfigData | undefined {
     } else if (cv !== dv) (out as Record<string, unknown>)[key] = cv;
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+/** Database → Heroes → Face art: import a picture into assets/faces/. */
+function pickFace(store: EditorStore, x: HeroDef, done: () => void): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/webp,image/gif,image/jpeg';
+  input.addEventListener('change', async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    const path = `assets/faces/${x.id}_${Date.now().toString(36)}.${f.type === 'image/jpeg' ? 'jpg' : f.type === 'image/webp' ? 'webp' : f.type === 'image/gif' ? 'gif' : 'png'}`;
+    const p = store.project, persistent = p.canSave && p.canStoreImages;
+    try { if (persistent) await p.writeFile(path, f); }
+    catch (err) { toast(`Couldn’t save the picture: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+    store.files.set(path, f);
+    x.face = path;
+    if (!persistent) toast('Picture kept for this session only: open the project folder itself to save imported images.');
+    done();
+  });
+  input.click();
 }

@@ -241,6 +241,11 @@ async function playtest(stamp: string): Promise<void> {
     for (const f of store.db.audio?.files ?? []) used.add(f);
     for (const c of Object.values(store.db.characters)) if (c.sheet) used.add(c.sheet);
     for (const e of store.db.enemies ?? []) if (e.look.image) used.add(e.look.image);
+    // Heroes' face art (read now if it hasn't been yet).
+    for (const x of store.db.heroes ?? []) if (x.face) {
+      used.add(x.face);
+      if (!store.files.has(x.face)) { try { store.files.set(x.face, await store.project.readFile(x.face)); } catch { /* the game tries the project */ } }
+    }
     // LPC weapon sprites in use, with their list (read into the editor's files so file-based projects hand them over).
     const weapons = usedWeaponSprites(store.db), wl = await loadWeaponList(store);
     // Icons cut from weapon sprites need their sheet too (or the built-in thumbs).

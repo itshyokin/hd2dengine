@@ -21,7 +21,8 @@ import type { Enemy } from './combat/Enemy';
 import { MAX_LEVEL_LIMIT, mitigate, xpToNext, type XpRules } from './combat/config';
 import { elementResult } from './elements';
 
-export const MAX_PARTY = 3;
+/** Party members besides the hero: a battle is three a side at most. */
+export const MAX_PARTY = 2;
 
 /** A party member's own state (saved with the game). */
 export interface MemberData {
