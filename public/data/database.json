@@ -4622,5 +4622,695 @@
   ],
   "combat": {
     "mode": "turnBased"
-  }
+  },
+  "skills": {
+    "trees": [
+      {
+        "id": "might",
+        "name": "Might",
+        "color": "#e8784e"
+      },
+      {
+        "id": "dexterity",
+        "name": "Dexterity",
+        "color": "#7cc46a"
+      },
+      {
+        "id": "magic",
+        "name": "Magic",
+        "color": "#7aa8ff"
+      },
+      {
+        "id": "vitality",
+        "name": "Vitality",
+        "color": "#e6c25a"
+      },
+      {
+        "id": "tree",
+        "name": "Additions",
+        "color": "#c8a0ff"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "fighter",
+        "tree": "might",
+        "name": "Fighter",
+        "x": 2,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "meleeDamage",
+            "value": 5
+          }
+        ],
+        "description": "The basics of the blade. Opens the Might tree.",
+        "teachesAddition": "quick_strike"
+      },
+      {
+        "id": "quick_hands",
+        "tree": "might",
+        "name": "Quick Hands",
+        "x": 0,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "swingSpeed",
+            "value": 8
+          }
+        ],
+        "parents": [
+          "fighter"
+        ],
+        "ranks": 3,
+        "description": "Swing every weapon faster."
+      },
+      {
+        "id": "steady_guard",
+        "tree": "might",
+        "name": "Steady Guard",
+        "x": 0,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "blockStamina",
+            "value": 25
+          }
+        ],
+        "parents": [
+          "quick_hands"
+        ],
+        "ranks": 2,
+        "description": "Blocking costs less stamina."
+      },
+      {
+        "id": "heavy_blows",
+        "tree": "might",
+        "name": "Heavy Blows",
+        "x": 2,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "meleeDamage",
+            "value": 10
+          }
+        ],
+        "parents": [
+          "fighter"
+        ],
+        "ranks": 3,
+        "description": "Every melee hit does more damage."
+      },
+      {
+        "id": "arms_training",
+        "tree": "might",
+        "name": "Arms Training",
+        "x": 4,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "meleeDamage",
+            "value": 3
+          },
+          {
+            "stat": "proficientMedium",
+            "value": 1
+          }
+        ],
+        "parents": [
+          "fighter"
+        ],
+        "description": "Trained with medium weapons (longswords, rapiers): untrained, they swing slowly. Opens the masteries."
+      },
+      {
+        "id": "heavy_arms",
+        "tree": "might",
+        "name": "Heavy Arms",
+        "x": 6,
+        "y": 1.6,
+        "effects": [
+          {
+            "stat": "proficientHeavy",
+            "value": 1
+          }
+        ],
+        "parents": [
+          "arms_training"
+        ],
+        "level": 3,
+        "description": "Trained with heavy weapons (greatswords, great axes, hammers): untrained, they swing slowly."
+      },
+      {
+        "id": "light_mastery",
+        "tree": "might",
+        "name": "Light Mastery",
+        "x": 3,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "lightDamage",
+            "value": 15
+          },
+          {
+            "stat": "lightSpeed",
+            "value": 8
+          }
+        ],
+        "parents": [
+          "arms_training"
+        ],
+        "ranks": 2,
+        "description": "Daggers and short swords: faster and deadlier."
+      },
+      {
+        "id": "medium_mastery",
+        "tree": "might",
+        "name": "Medium Mastery",
+        "x": 4,
+        "y": 2.4,
+        "effects": [
+          {
+            "stat": "mediumDamage",
+            "value": 15
+          },
+          {
+            "stat": "mediumSpeed",
+            "value": 5
+          }
+        ],
+        "parents": [
+          "arms_training"
+        ],
+        "ranks": 2,
+        "description": "Longswords and rapiers: the balanced path."
+      },
+      {
+        "id": "heavy_mastery",
+        "tree": "might",
+        "name": "Heavy Mastery",
+        "x": 5,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "heavyDamage",
+            "value": 20
+          }
+        ],
+        "parents": [
+          "heavy_arms"
+        ],
+        "ranks": 2,
+        "description": "Greatswords and great axes hit even harder."
+      },
+      {
+        "id": "double_slash",
+        "tree": "might",
+        "name": "Double Slash",
+        "x": 1,
+        "y": 2,
+        "effects": [],
+        "parents": [
+          "quick_hands"
+        ],
+        "teachesAddition": "double_slash",
+        "description": "An Addition: two timed strikes."
+      },
+      {
+        "id": "volley",
+        "tree": "might",
+        "name": "Volley",
+        "x": 2,
+        "y": 3,
+        "effects": [],
+        "parents": [
+          "heavy_blows"
+        ],
+        "level": 4,
+        "teachesAddition": "volley",
+        "description": "An Addition: four timed strikes with mixed buttons."
+      },
+      {
+        "id": "crescent_storm",
+        "tree": "might",
+        "name": "Crescent Storm",
+        "x": 2,
+        "y": 4,
+        "effects": [],
+        "parents": [
+          "volley"
+        ],
+        "level": 10,
+        "cost": 2,
+        "teachesAddition": "crescent_storm",
+        "description": "An Addition: seven fast strikes."
+      },
+      {
+        "id": "archer",
+        "tree": "dexterity",
+        "name": "Archer",
+        "x": 1,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "bowDamage",
+            "value": 10
+          }
+        ],
+        "description": "Arrows fly true. Opens archery."
+      },
+      {
+        "id": "steady_draw",
+        "tree": "dexterity",
+        "name": "Steady Draw",
+        "x": 0,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "drawSpeed",
+            "value": 15
+          }
+        ],
+        "parents": [
+          "archer"
+        ],
+        "ranks": 2,
+        "description": "Draw the bow faster."
+      },
+      {
+        "id": "eagle_eye",
+        "tree": "dexterity",
+        "name": "Eagle Eye",
+        "x": 2,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "bowRange",
+            "value": 25
+          }
+        ],
+        "parents": [
+          "archer"
+        ],
+        "ranks": 2,
+        "description": "Lock on to enemies further away with a bow: spot them first, prepare, snipe."
+      },
+      {
+        "id": "power_shot",
+        "tree": "dexterity",
+        "name": "Power Shot",
+        "x": 1,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "bowDamage",
+            "value": 15
+          }
+        ],
+        "parents": [
+          "steady_draw"
+        ],
+        "ranks": 2,
+        "description": "Arrows hit harder."
+      },
+      {
+        "id": "shadow",
+        "tree": "dexterity",
+        "name": "Shadow",
+        "x": 4,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "sneakHide",
+            "value": 25
+          }
+        ],
+        "description": "Harder to see while sneaking. Opens stealth."
+      },
+      {
+        "id": "light_step",
+        "tree": "dexterity",
+        "name": "Light Step",
+        "x": 3,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "quietSteps",
+            "value": 30
+          }
+        ],
+        "parents": [
+          "shadow"
+        ],
+        "ranks": 2,
+        "description": "Make less noise while sneaking."
+      },
+      {
+        "id": "backstab",
+        "tree": "dexterity",
+        "name": "Backstab",
+        "x": 5,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "sneakDamage",
+            "value": 1
+          }
+        ],
+        "parents": [
+          "shadow"
+        ],
+        "ranks": 2,
+        "description": "Sneak attacks (on enemies that haven’t noticed you) do even more damage."
+      },
+      {
+        "id": "silent_shot",
+        "tree": "dexterity",
+        "name": "Silent Shot",
+        "x": 3,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "silentShot",
+            "value": 1
+          }
+        ],
+        "parents": [
+          "light_step",
+          "archer"
+        ],
+        "description": "Killing an unaware enemy with an arrow from 5 or more tiles away doesn’t make the others come looking."
+      },
+      {
+        "id": "assassinate",
+        "tree": "dexterity",
+        "name": "Assassinate",
+        "x": 5,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "assassinate",
+            "value": 1
+          }
+        ],
+        "parents": [
+          "backstab"
+        ],
+        "level": 5,
+        "description": "A sneak attack kills an ordinary enemy outright (not bosses)."
+      },
+      {
+        "id": "fire",
+        "tree": "magic",
+        "name": "Arcana",
+        "x": 2,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "spellDamage",
+            "value": 10
+          }
+        ],
+        "description": "Spell bolts hit harder, and learn Fire. Opens the Magic tree.",
+        "teachesSpell": "fire"
+      },
+      {
+        "id": "thrift",
+        "tree": "magic",
+        "name": "Mana Thrift",
+        "x": 1,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "spellCost",
+            "value": 10
+          }
+        ],
+        "parents": [
+          "fire"
+        ],
+        "ranks": 3,
+        "description": "Every spell costs less magic: bolts, and Light and Water Walk to cast and to keep going."
+      },
+      {
+        "id": "empower",
+        "tree": "magic",
+        "name": "Empower",
+        "x": 3,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "spellDamage",
+            "value": 10
+          }
+        ],
+        "parents": [
+          "fire"
+        ],
+        "ranks": 3,
+        "description": "Spell bolts hit harder still, and Fire ranks up (Fire II, Fire III).",
+        "teachesSpell": "fire",
+        "spellRankFrom": 2
+      },
+      {
+        "id": "frost_lore",
+        "tree": "magic",
+        "name": "Frost Lore",
+        "x": 0,
+        "y": 1,
+        "effects": [],
+        "parents": [
+          "fire"
+        ],
+        "ranks": 3,
+        "teachesSpell": "frost",
+        "description": "Learn Frost; more ranks raise it."
+      },
+      {
+        "id": "storm_lore",
+        "tree": "magic",
+        "name": "Storm Lore",
+        "x": 4,
+        "y": 2,
+        "effects": [],
+        "parents": [
+          "empower"
+        ],
+        "ranks": 3,
+        "level": 5,
+        "teachesSpell": "spark",
+        "description": "Learn Spark, lightning on every foe; more ranks raise it."
+      },
+      {
+        "id": "radiance",
+        "tree": "magic",
+        "name": "Radiance",
+        "x": 1,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "lightReach",
+            "value": 25
+          }
+        ],
+        "parents": [
+          "thrift"
+        ],
+        "ranks": 2,
+        "description": "The Light spell shines further."
+      },
+      {
+        "id": "far_cast",
+        "tree": "magic",
+        "name": "Far Cast",
+        "x": 3,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "spellRange",
+            "value": 25
+          }
+        ],
+        "parents": [
+          "empower"
+        ],
+        "ranks": 2,
+        "description": "Spell bolts fly further."
+      },
+      {
+        "id": "toughness",
+        "tree": "vitality",
+        "name": "Toughness",
+        "x": 0,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "maxHp",
+            "value": 20
+          }
+        ],
+        "ranks": 5,
+        "description": "More health."
+      },
+      {
+        "id": "endurance",
+        "tree": "vitality",
+        "name": "Endurance",
+        "x": 2,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "maxSp",
+            "value": 20
+          }
+        ],
+        "ranks": 5,
+        "description": "More stamina."
+      },
+      {
+        "id": "focus",
+        "tree": "vitality",
+        "name": "Focus",
+        "x": 4,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "maxMp",
+            "value": 15
+          }
+        ],
+        "ranks": 5,
+        "description": "More magic."
+      },
+      {
+        "id": "mending",
+        "tree": "vitality",
+        "name": "Mending",
+        "x": 6,
+        "y": 0,
+        "effects": [],
+        "ranks": 3,
+        "teachesSpell": "mend",
+        "description": "Learn Mend, healing for one of the party; more ranks raise it."
+      },
+      {
+        "id": "quick_strike",
+        "tree": "tree",
+        "name": "Quick Strike",
+        "x": 0,
+        "y": 0,
+        "effects": [],
+        "teachesAddition": "quick_strike",
+        "description": "One clean cut!"
+      },
+      {
+        "id": "skill",
+        "tree": "tree",
+        "name": "Double Slash",
+        "x": 0,
+        "y": 1,
+        "effects": [],
+        "description": "Dart would be proud.",
+        "parents": [
+          "quick_strike"
+        ],
+        "teachesAddition": "double_slash"
+      }
+    ]
+  },
+  "additions": [
+    {
+      "id": "quick_strike",
+      "name": "Quick Strike",
+      "description": "One clean, well-timed cut.",
+      "strikes": [
+        {
+          "power": 1.3
+        }
+      ]
+    },
+    {
+      "id": "double_slash",
+      "name": "Double Slash",
+      "description": "Two strikes!",
+      "strikes": [
+        {
+          "power": 0.8
+        },
+        {
+          "power": 0.9
+        }
+      ]
+    },
+    {
+      "id": "volley",
+      "name": "Volley",
+      "description": "Four quick strikes with mixed buttons.",
+      "strikes": [
+        {
+          "power": 0.5,
+          "time": 0.6
+        },
+        {
+          "power": 0.5,
+          "button": "X",
+          "time": 0.55
+        },
+        {
+          "power": 0.6,
+          "button": "A",
+          "time": 0.5
+        },
+        {
+          "power": 0.8,
+          "button": "Y",
+          "time": 0.5
+        }
+      ],
+      "maxRank": 5
+    },
+    {
+      "id": "crescent_storm",
+      "name": "Crescent Storm",
+      "description": "Seven strikes, fast and unforgiving.",
+      "strikes": [
+        {
+          "power": 0.4,
+          "time": 0.55
+        },
+        {
+          "power": 0.4,
+          "button": "B",
+          "time": 0.5
+        },
+        {
+          "power": 0.45,
+          "button": "X",
+          "time": 0.45
+        },
+        {
+          "power": 0.45,
+          "button": "Y",
+          "time": 0.45
+        },
+        {
+          "power": 0.5,
+          "button": "A",
+          "time": 0.42,
+          "window": 0.2
+        },
+        {
+          "power": 0.55,
+          "button": "B",
+          "time": 0.4,
+          "window": 0.2
+        },
+        {
+          "power": 0.9,
+          "button": "any",
+          "time": 0.55
+        }
+      ],
+      "maxRank": 5
+    }
+  ]
 }
