@@ -46,6 +46,7 @@ export function migrateItems(db: Database): boolean {
   // Rings used to carry field powers. Light and Water walking are spell shards now ("Light", "Water Walk"); the
   // cutting ring is gone (swords cut vines), along with anything that started the hero with it.
   if (ringsToShards(db)) changed = true;
+  if (shardsToTools(db)) changed = true;
   if (addForging(db)) changed = true;
   if (addFishing(db)) changed = true;
   // The Light spell is a glow all around the hero now, not a beam: flashlights become orbs reaching further.
@@ -154,6 +155,44 @@ export const isToggle = (p: string): boolean => p === 'light' || p === 'waterWal
 
 /** The glow a field spell gives the hero by default. */
 export const FIELD_GLOW: Record<FieldPower, string> = { light: '#ffd27a', waterWalk: '#5ab8ff' };
+
+/**
+ * Field spells moved again, from spell shards to key items: a Light shard is a lantern, Water Walk a pair of boots,
+ * switched on and off from the bag or with the B button (no magic needed). Shards still called by their spell's name
+ * get a key item's name and icon. Returns true when anything changed.
+ */
+function shardsToTools(db: Database): boolean {
+  let changed = false;
+  const moved = new Set<string>();
+  for (const d of db.items ?? []) {
+    const power = d.spell?.power;
+    if (!power) continue;
+    changed = true;
+    moved.add(d.id);
+    d.kind = 'key';
+    d.tool = power;
+    delete d.slot; delete d.spell; delete d.rarity; delete d.price;
+    if (power !== 'light') delete d.light;
+    const named = d.name === POWER_NAMES[power];
+    if (named) d.name = power === 'light' ? 'Lantern' : 'Strider Boots';
+    if (!d.icon || d.icon.startsWith('builtin:shard')) d.icon = power === 'light' ? 'builtin:lantern' : 'builtin:boots';
+    if (named || /\bshard\b/i.test(d.description ?? '')) d.description = TOOL_TEXT[power];
+  }
+  const inv = db.inventory, eq = inv?.startEquip as Record<string, string | undefined> | undefined;
+  if (eq?.magic && moved.has(eq.magic)) {
+    const id = eq.magic;
+    delete eq.magic;
+    const start = (inv!.startItems ??= []);
+    if (!start.some((s) => s.item === id)) start.push({ item: id, count: 1 });
+  }
+  return changed;
+}
+
+/** What a key item's field use does, for its description. */
+export const TOOL_TEXT: Record<FieldPower, string> = {
+  light: 'Lights the way in the dark. Switch it on or off in the bag, or assign it to the B button.',
+  waterWalk: 'Walk on water of any depth while they’re on; they switch off when you step back on land. Switch them on in the bag, or assign them to the B button.',
+};
 
 /**
  * Rings with field powers become spell shards in the magic slot. Their names become the spell's ("Light",

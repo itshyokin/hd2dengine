@@ -940,8 +940,22 @@ export class MapView {
     // Ramps and stairs.
     for (const r of m.ramps ?? []) {
       if (!s.inMap(r.x, r.z)) continue;
-      const dir = s.rampDir(r), px = r.x * TS, pz = r.z * TS;
+      const corner = r.style === 'corner', raised = corner ? s.rampCorners(r) : null;
+      const dir = corner ? null : s.rampDir(r), px = r.x * TS, pz = r.z * TS;
       ctx.save();
+      if (raised) {
+        // A corner slope: light toward its raised corners, a dot on each.
+        const pts: [number, number][] = [[px, pz], [px + TS, pz], [px + TS, pz + TS], [px, pz + TS]];
+        const up = pts.filter((_, k) => raised[k]);
+        const cx = up.reduce((a, p) => a + p[0], 0) / up.length, cz = up.reduce((a, p) => a + p[1], 0) / up.length;
+        const g = ctx.createRadialGradient(cx, cz, 1, cx, cz, TS * 1.2);
+        g.addColorStop(0, 'rgba(255,250,230,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0.35)');
+        ctx.fillStyle = g; ctx.fillRect(px, pz, TS, TS);
+        ctx.fillStyle = '#ffd36b';
+        for (const [qx, qz] of up) { ctx.beginPath(); ctx.arc(qx + (qx > px ? -3.5 : 3.5), qz + (qz > pz ? -3.5 : 3.5), 2.4, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+        continue;
+      }
       if (!dir) {
         // No higher neighbour to rise to: show it as a problem.
         ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 1.5;

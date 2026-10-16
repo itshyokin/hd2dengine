@@ -186,11 +186,13 @@ export class Palette {
           h('button', { type: 'button', class: 'tool', 'aria-pressed': String(s.rampTool === m), title: m === 'place' ? 'Place (A)' : 'Erase (E)',
             onclick: () => { s.rampTool = m; s.emit('ui'); } }, m === 'place' ? 'Place' : 'Erase'))));
         if (s.rampTool === 'place') body.push(h('div', { class: 'section-label' }, 'Style'),
-          h('div', { class: 'toolrow' }, ...(['stairs', 'ramp'] as const).map((st) =>
-            h('button', { type: 'button', class: 'tool', 'aria-pressed': String(s.rampStyle === st), onclick: () => { s.rampStyle = st; s.emit('ui'); } }, st === 'stairs' ? 'Stairs' : 'Ramp'))));
+          h('div', { class: 'toolrow' }, ...(['stairs', 'ramp', 'corner'] as const).map((st) =>
+            h('button', { type: 'button', class: 'tool', 'aria-pressed': String(s.rampStyle === st), onclick: () => { s.rampStyle = st; s.emit('ui'); } }, st === 'stairs' ? 'Stairs' : st === 'ramp' ? 'Ramp' : 'Corner'))));
         body.push(h('p', { class: 'note' }, s.rampTool === 'erase'
           ? 'Click or drag over ramps and stairs to remove them.'
-          : 'Place it on the lower cell, next to ground one step higher. For taller climbs, chain several in a row, each one step higher than the last. A red cross means it has no higher neighbour to rise to: switch to Erase to remove it.'));
+          : s.rampStyle === 'corner'
+            ? 'A corner slope rounds off a hill: put one on the low cell at a hill’s corner, between two ramps, and it rises toward the higher ground diagonally beside it (or, tucked into an inside corner, toward the higher ground on two sides). With ramps along the sides and corners at the turns, a raised area becomes a gentle hill instead of a cliff.'
+            : 'Place it on the lower cell, next to ground one step higher. For taller climbs, chain several in a row, each one step higher than the last. A red cross means it has no higher neighbour to rise to: switch to Erase to remove it.'));
         const broken = s.brokenRamps();
         if (broken.length) body.push(h('button', { type: 'button', class: 'btn danger small', style: 'white-space: normal; max-width: 100%', onclick: () => {
           s.checkpoint();

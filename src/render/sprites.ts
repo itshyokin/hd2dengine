@@ -18,6 +18,7 @@ import type { CharacterAnimLayout, CharacterDef, CharacterPalette, PropDef, Weap
 import { WEAPON_MANIFEST_PATH as WEAPON_MANIFEST } from '../game/combat/weaponSprites';
 import { cutIcon, weaponIconRect } from '../art/weaponIcon';
 import { weaponMaskCanvas } from './weaponMask';
+import { completeLayout } from './sheetCheck';
 import { patchAreaTint } from './areaTint';
 import { linearColor, makeTexture, registerNormalMap } from './textures';
 
@@ -238,7 +239,7 @@ export class SpriteLibrary {
     const sheet = (def?.sheet ? this.sheets.get(def.sheet) : undefined) ?? characterSheet(def?.palette ?? DEFAULT_PALETTE);
     let fx: number, fy: number, fw: number, fh: number;
     if (def?.sheet && def.anim && this.sheets.has(def.sheet)) {
-      const L = def.anim, a = L.anims.idle ?? L.anims.walk ?? Object.values(L.anims)[0];
+      const L = this.completeLayout(def.sheet, sheet, def.anim), a = L.anims.idle ?? L.anims.walk ?? Object.values(L.anims)[0];
       fw = fh = L.frame; fx = 0;
       fy = ((a?.row ?? 0) + (a?.dirs === 4 ? Math.max(0, L.dirs.indexOf(dir)) : 0)) * L.frame;
     } else {
@@ -346,7 +347,22 @@ export class SpriteLibrary {
    * An animated (LPC) sheet for one character: textures shared with every other character on the same sheet, its own
    * material (so a hurt flash stays its own) and its own geometry (the frame is chosen by UVs).
    */
+  /** A sheet's layout without the animations drawn missing some of the character's clothes (worked out once). */
+  completeLayout(key: string, canvas: HTMLCanvasElement, layout: CharacterAnimLayout): CharacterAnimLayout {
+    let l = this.layouts.get(key);
+    if (l && l.src === layout) return l.out;
+    let out = layout;
+    try {
+      const g = canvas.getContext('2d', { willReadFrequently: true });
+      if (g) out = completeLayout(g.getImageData(0, 0, canvas.width, canvas.height), layout);
+    } catch { /* unreadable: use it as it is */ }
+    this.layouts.set(key, (l = { src: layout, out }));
+    return l.out;
+  }
+  private readonly layouts = new Map<string, { src: CharacterAnimLayout; out: CharacterAnimLayout }>();
+
   animated(key: string, canvas: HTMLCanvasElement, layout: CharacterAnimLayout): SpriteAsset {
+    layout = this.completeLayout(key, canvas, layout);
     let base = this.animBases.get(key);
     if (!base) {
       const map = makeTexture(canvas, {});

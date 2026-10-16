@@ -17,7 +17,7 @@ type Cmd = Command['cmd'];
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['ability', 'Change ability'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['skillPoints', 'Give skill points'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -25,7 +25,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', ability: 'state', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', ability: 'state', fieldWeapons: 'state', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', party: 'state', skillPoints: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -59,6 +59,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'weather': return { cmd, kind: 'rain', amount: 1 };
     case 'party': return { cmd, op: 'add', hero: heroList()[0]?.[0] ?? '' };
     case 'skillPoints': return { cmd, value: 1 };
+    case 'fieldWeapons': return { cmd, on: false };
     case 'quest': return { cmd, quest: questDefs()[0]?.id ?? '', op: 'start' };
     case 'battle': return { cmd, enemies: dbNow ? (dbNow().enemies ?? []).slice(0, 1).map((e) => e.id) : [] };
     case 'learn': return { cmd, who: '', spell: dbNow ? spellList(dbNow())[0]?.id : undefined, rank: 1 };
@@ -161,6 +162,7 @@ function summary(c: Command): string {
     case 'weather': return `${c.kind === 'none' ? 'Clear skies' : `${WEATHER_NAMES[c.kind]}${c.amount !== undefined && c.amount !== 1 ? ` × ${c.amount}` : ''}`}${c.wind !== undefined ? `, wind ${c.wind}` : ''}${c.scope === 'world' ? ' (shared outdoor weather)' : ''}`;
     case 'party': return `${heroList().find(([id]) => id === c.hero)?.[1] ?? (c.hero || '(no hero)')} ${c.op === 'add' ? 'joins' : 'leaves'}${c.quiet ? ' (quietly)' : ''}`;
     case 'skillPoints': return `+${c.value} skill point${c.value === 1 ? '' : 's'}`;
+    case 'fieldWeapons': return c.on ? 'Overworld weapons: enabled' : 'Overworld weapons: disabled';
     case 'battle': {
       const names = c.enemies.map((id) => (dbNow?.().enemies ?? []).find((e) => e.id === id)?.name ?? id);
       return `Battle: ${names.join(', ') || '(no enemies)'}${c.map ? ` on ${c.map}` : ''}${c.canRun ? '' : ' · no running'}${c.lose === 'continue' ? ' · may lose' : ''}${c.resultVar ? ` → ${c.resultVar}` : ''}`;
@@ -582,6 +584,9 @@ export class CommandEditor {
           checkbox('Quietly (no banner; it’s still written in the adventure log)', !!d.silent, (v) => (d.silent = v || undefined)),
           h('p', { class: 'hint' }, 'Defeat, collect and visit objectives count by themselves while the quest is in progress. A quest that doesn’t complete by itself waits, “ready to hand in”, until an event completes it: check for that with a conditional branch (Quest → Ready to hand in).')];
       }
+      case 'fieldWeapons':
+        return [field('Overworld weapons', select([['off', 'Disable (greyed out with a red ✕)'], ['on', 'Enable again']], d.on ? 'on' : 'off', (v) => (d.on = v === 'on')),
+          'The sword and bow the hero uses on the field (cutting vines, shooting switches). Disable them indoors, in towns or other restricted areas; they stay off (across maps and saves) until an event enables them again.')];
       case 'skillPoints':
         return [field('Skill points', numberInput(d.value, (v) => (d.value = Math.round(v)), { step: 1 }), 'A quest reward. Negative takes points away.')];
       case 'battle': {

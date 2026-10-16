@@ -11,19 +11,34 @@ const uniforms = { uHdSeason: { value: new THREE.Vector4(0, 0, 0, 0) } };
 /** How a material changes: ground (grass turns to snow), leaves (snow on them), bare (leaves gone in winter). */
 export type SeasonMode = 'ground' | 'leaves' | 'bare';
 
+const VERT = `#include <project_vertex>
+{
+  vec4 hdO = vec4(0.0, 0.0, 0.0, 1.0);
+  #ifdef USE_INSTANCING
+    hdO = instanceMatrix * hdO;
+  #endif
+  vHdOrigin = (modelMatrix * hdO).xz;
+}`;
+
 const HEAD = `
 uniform vec4 uHdSeason;
 float hdSeasonHash(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 15731.743); }
-vec3 hdSeasonColor(vec3 c, vec2 world, float ground, float bare, out float gone) {
+varying vec2 vHdOrigin;
+vec3 hdSeasonColor(vec3 c, vec2 world, vec2 origin, float ground, float bare, out float gone) {
   gone = 0.0;
   float g = c.g - max(c.r, c.b);
   float leaf = smoothstep(0.006, 0.05, g);
   float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
   vec3 spring = mix(c, c * vec3(0.9, 1.14, 0.82), leaf);
   vec3 summer = mix(c, vec3(lum * 1.3, lum * 1.08, lum * 0.42), leaf * 0.4);
-  float h = hdSeasonHash(floor(world * 0.8));
-  vec3 fall = h < 0.45 ? vec3(0.95, 0.36, 0.05) : h < 0.78 ? vec3(0.78, 0.13, 0.04) : vec3(0.42, 0.2, 0.06);
-  vec3 autumn = mix(c, mix(fall * (0.25 + lum * 2.2), vec3(lum * 1.5, lum * 0.78, lum * 0.3), ground * 0.6), leaf * 0.9);
+  // Autumn: every green turns, evenly (no half-turned patches): any green-leaning colour, dark shades included.
+  float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+  float fallMask = smoothstep(-0.05, -0.005, c.g - c.r) * smoothstep(0.0, 0.035, c.g - c.b) * smoothstep(0.08, 0.22, (mx - mn) / max(mx, 0.04));
+  // Ground: one even straw-gold. Trees and bushes: the whole plant one colour (red, orange or gold), picked by where it stands.
+  float h = hdSeasonHash(floor(origin * 1.7) + 0.5);
+  vec3 fall = h < 0.36 ? vec3(0.96, 0.42, 0.07) : h < 0.68 ? vec3(0.84, 0.15, 0.05) : vec3(1.0, 0.72, 0.12);
+  vec3 turned = ground > 0.5 ? vec3(1.0, 0.8, 0.34) * min(lum * 1.95, 1.1) : fall * min(0.18 + lum * 2.1, 1.25);
+  vec3 autumn = mix(c, turned, fallMask);
   vec3 snow = vec3(0.84, 0.89, 0.98) * (0.6 + lum * 0.5);
   vec3 winter = mix(c, snow, leaf * (ground > 0.5 ? 1.0 : 0.62));
   if (ground > 0.5) winter = mix(winter, vec3(0.8, 0.85, 0.95), 0.12);
@@ -40,11 +55,13 @@ export function patchSeason<T extends THREE.Material>(mat: T, mode: SeasonMode):
   mat.onBeforeCompile = (shader, renderer) => {
     prev?.call(mat, shader, renderer);
     Object.assign(shader.uniforms, uniforms);
+    // Where each prop stands (instanced props share one mesh), so a whole tree turns one colour in autumn.
+    shader.vertexShader = 'varying vec2 vHdOrigin;\n' + shader.vertexShader.replace('#include <project_vertex>', VERT);
     shader.fragmentShader = HEAD + shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
-  { float hdGone; diffuseColor.rgb = hdSeasonColor(diffuseColor.rgb, vHdWorld, ${mode === 'ground' ? '1.0' : '0.0'}, ${mode === 'bare' ? '1.0' : '0.0'}, hdGone); if (hdGone > 0.5) discard; }`);
+  { float hdGone; diffuseColor.rgb = hdSeasonColor(diffuseColor.rgb, vHdWorld, vHdOrigin, ${mode === 'ground' ? '1.0' : '0.0'}, ${mode === 'bare' ? '1.0' : '0.0'}, hdGone); if (hdGone > 0.5) discard; }`);
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season:${mode}`;
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season2:${mode}`;
   return mat;
 }
 

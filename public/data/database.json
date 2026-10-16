@@ -3933,42 +3933,26 @@
     },
     {
       "id": "sun_ring",
-      "name": "Light",
-      "description": "A shard of captured daylight. Cast it (key 3, or F) to call up a light around you; again to put it out. Drains magic while it shines.",
-      "kind": "equipment",
-      "icon": "builtin:shard_light",
-      "price": 200,
-      "slot": "magic",
+      "name": "Lantern",
+      "description": "Lights the way in the dark. Switch it on or off in the bag, or assign it to the B button.",
+      "kind": "key",
+      "icon": "builtin:lantern",
       "light": {
-        "type": "orb",
-        "color": "#fff2d8",
-        "intensity": 2.4,
-        "radius": 12,
+        "type": "lantern",
+        "color": "#ffe2b0",
+        "intensity": 2.2,
+        "radius": 11,
         "shadows": true
       },
-      "spell": {
-        "power": "light",
-        "damage": 0,
-        "mp": 0,
-        "mpPerSecond": 0.5,
-        "color": "#ffd27a"
-      }
+      "tool": "light"
     },
     {
       "id": "tide_ring",
-      "name": "Water Walk",
-      "description": "A shard of still water. Cast it (key 3, or F) to walk on water of any depth; it ends when you step back on land.",
-      "kind": "equipment",
-      "icon": "builtin:shard_tide",
-      "price": 80,
-      "slot": "magic",
-      "spell": {
-        "power": "waterWalk",
-        "damage": 0,
-        "mp": 2,
-        "mpPerSecond": 3,
-        "color": "#5ab8ff"
-      }
+      "name": "Strider Boots",
+      "description": "Walk on water of any depth while they’re on; they switch off when you step back on land. Switch them on in the bag, or assign them to the B button.",
+      "kind": "key",
+      "icon": "builtin:boots",
+      "tool": "waterWalk"
     },
     {
       "id": "moon_amulet",

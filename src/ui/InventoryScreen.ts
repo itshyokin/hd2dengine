@@ -21,6 +21,12 @@ export interface InventoryActions {
   targets?(i: number): { label: string; disabled?: boolean }[];
   /** A warning to show on Use (a zombie drinking a potion), or null. */
   useWarning?(i: number): string | null;
+  /** Key items with a field use (a lantern…): switched on now? Switch it on or off; put it on (or take it off) the B button. */
+  toolOn?(i: number): boolean;
+  toggleTool?(i: number): string | null;
+  assignB?(i: number): string | null;
+  /** The B button's key or button name. */
+  bLabel?(): string;
   /** The key or button for quick slot k (shown when assigning). */
   quickLabel?(k: number): string;
   /** Equip the item in slot i. */
@@ -275,6 +281,12 @@ export class InventoryScreen {
       ? { label: 'Use on…', run: () => this.useOn(who, after) }
       : { label: this.actions.useWarning?.(this.sel) ?? 'Use', run: () => after(this.actions.use(this.sel)) });
     if (def?.kind === 'consumable') options.push({ label: inv.quick.includes(s.id) ? 'Quick slot… (assigned)' : 'Quick slot…', run: () => this.quickMenu(s.id, def.name, after) });
+    // Key items with a field use: switch on and off, or put on the B button.
+    if (def?.tool && this.actions.toggleTool) {
+      const on = this.actions.toolOn?.(this.sel) ?? false, b = this.actions.bLabel?.() ?? 'B';
+      options.push({ label: on ? 'Turn off' : 'Turn on', run: () => after(this.actions.toggleTool!(this.sel)) });
+      if (this.actions.assignB) options.push({ label: inv.bTool === s.id ? `Take off the ${b} button` : `Assign to the ${b} button`, run: () => after(this.actions.assignB!(this.sel)) });
+    }
     // In use: let go of it (it stays in the bag).
     const user = this.actions.usedBy?.(this.sel);
     if (user && this.actions.takeOff) options.push({ label: user.startsWith('In ') ? `Take it out of ${user.slice(3)}` : `Take it off ${user}`, run: () => after(this.actions.takeOff!(this.sel)) });
@@ -482,7 +494,7 @@ export class InventoryScreen {
 }
 
 function kindLine(d: ItemDef): string {
-  if (d.kind === 'key') return 'Key item';
+  if (d.kind === 'key') return `Key item${d.tool ? ` · ${POWER_NAMES[d.tool]} (switch on and off here, or assign it to B)` : ''}`;
   if (d.kind === 'material') return `Loot${d.fuel ? ` · fire fuel +${d.fuel} h` : ''}${d.smelt ? ' · smelt it at a forge' : ''}`;
   if (d.kind === 'ammo') return `Arrows${d.element && d.element !== 'neutral' ? ` · ${ELEMENT_NAMES[d.element]}` : ''} · +${d.ammo?.damage ?? 0} damage${d.ammo?.infinite ? ' · never run out' : ''}`;
   if (d.kind === 'equipment') {

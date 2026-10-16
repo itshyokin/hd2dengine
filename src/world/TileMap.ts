@@ -1,5 +1,5 @@
 import { clamp } from '../core/math';
-import { STEP, cornerHeights, parseHeights, parseWater, rampDirection, resolveWater, surfaceInCell } from './heights';
+import { STEP, cornerHeights, cornerMask, parseHeights, parseWater, rampDirection, resolveWater, surfaceInCell } from './heights';
 import { type PassageFlag, parsePassage } from './passage';
 import { TileCatalog } from './tiles';
 import type { Dir, MapData, RampData } from './types';
@@ -16,7 +16,7 @@ export class TileMap {
   /** Height in steps per cell. */
   private readonly heights: Int8Array;
   /** Ramp per cell (index → ramp and its resolved direction). */
-  private readonly ramps = new Map<number, { ramp: RampData; dir: Dir | null }>();
+  private readonly ramps = new Map<number, { ramp: RampData; dir: Dir | null; raised?: boolean[] | null }>();
   private readonly corners: Corners[];
   /** Water per cell after resolving Auto against the ground (null where dry). */
   private readonly water: (Water | null)[];
@@ -38,13 +38,14 @@ export class TileMap {
     const stepAt = (x: number, z: number) => (this.inMap(x, z) ? this.heights[z * this.w + x] : null);
     for (const r of data.ramps ?? []) {
       if (!this.inMap(r.x, r.z)) continue;
-      this.ramps.set(r.z * this.w + r.x, { ramp: r, dir: rampDirection(r, stepAt) });
+      this.ramps.set(r.z * this.w + r.x, r.style === 'corner' ? { ramp: r, dir: null, raised: cornerMask(r, stepAt) } : { ramp: r, dir: rampDirection(r, stepAt) });
     }
     this.corners = [];
     for (let z = 0; z < this.h; z++)
       for (let x = 0; x < this.w; x++) {
         const i = z * this.w + x;
-        this.corners.push(cornerHeights(this.heights[i], this.ramps.get(i)?.dir ?? null));
+        const r = this.ramps.get(i);
+        this.corners.push(cornerHeights(this.heights[i], r?.dir ?? null, r?.raised));
       }
     const rawWater = parseWater(data.water, this.w, this.h);
     this.water = rawWater.map((c, i) => resolveWater(c, this.heights[i] * STEP));
@@ -75,7 +76,7 @@ export class TileMap {
   cornersAt(x: number, z: number): Corners {
     return this.inMap(x, z) ? this.corners[z * this.w + x] : [0, 0, 0, 0];
   }
-  rampAt(x: number, z: number): { ramp: RampData; dir: Dir | null } | undefined {
+  rampAt(x: number, z: number): { ramp: RampData; dir: Dir | null; raised?: boolean[] | null } | undefined {
     return this.inMap(x, z) ? this.ramps.get(z * this.w + x) : undefined;
   }
   /** Ground height at any point (in tiles), following ramps smoothly. */

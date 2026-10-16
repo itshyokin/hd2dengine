@@ -123,12 +123,12 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       field('Kind', select(KIND_NAMES, d.kind, (v) => {
         d.kind = v as ItemKind;
         if (d.kind === 'equipment') { d.slot ??= 'accessory'; delete d.restore; delete d.restorePercent; delete d.stack; }
-        else { delete d.slot; delete d.protects; if (d.kind !== 'ammo') delete d.inflicts; delete d.light; delete d.ring; delete d.weapon; delete d.defense; delete d.magicDefense; delete d.bonus; delete d.crit; delete d.glow; delete d.trail; delete d.sprite; delete d.rarity; delete d.spell; if (d.icon === 'sprite') d.icon = 'builtin:bag'; }
+        else { delete d.slot; delete d.protects; if (d.kind !== 'ammo') delete d.inflicts; if (!(d.kind === 'key' && d.tool === 'light')) delete d.light; delete d.ring; delete d.weapon; delete d.defense; delete d.magicDefense; delete d.bonus; delete d.crit; delete d.glow; delete d.trail; delete d.sprite; delete d.rarity; delete d.spell; if (d.icon === 'sprite') d.icon = 'builtin:bag'; }
         if (d.kind === 'ammo') { d.ammo ??= { damage: 2 }; delete d.restore; delete d.restorePercent; } else delete d.ammo;
         if (d.kind === 'consumable') d.restore ??= { hp: 20 };
         if (d.kind === 'key' || d.kind === 'material') { delete d.restore; delete d.restorePercent; }
         if (d.kind !== 'consumable') { delete d.cures; delete d.buffs; }
-        if (d.kind === 'key') delete d.stack;
+        if (d.kind === 'key') delete d.stack; else delete d.tool;
         rerender();
       })),
       field('Price', numberInput(d.price ?? 0, (v) => (d.price = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }), 'Shops sell for this and buy back for half. 0: not sold unless a shop sets a price.'),
@@ -199,6 +199,16 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       a.infinite ? h('span') : field('Stack', numberInput(d.stack ?? 64, (v) => { const n = Math.max(1, Math.min(999, Math.round(v))); d.stack = n === 64 ? undefined : n; }, { step: 1, min: 1 }), 'How many fit in one bag slot (64 by default).'),
       h('p', { class: 'note' }, 'The player picks which arrows to shoot in the bag (Nock these arrows). When they run out, the never-ending ones are used.')));
   }
+  // Key items: a field use (switched on and off from the bag or the B button).
+  if (d.kind === 'key') {
+    out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Field use'),
+      field('Use', select([['', 'None (a plain key item)'], ...FIELD_POWERS.map((p) => [p, POWER_NAMES[p]] as [string, string])], d.tool ?? '', (v) => {
+        if (v) d.tool = v as FieldPower; else delete d.tool;
+        if (d.tool === 'light') d.light ??= defaultLight('lantern'); else delete d.light;
+        rerender();
+      }), 'Light: a lantern, torch or floating orb lights the way in the dark. Water Walk: walk on water of any depth (it switches off back on land). The player switches it on and off in the bag, or assigns it to the B button. No magic needed.'),
+      d.tool === 'light' ? lightForm(d, rerender) : h('span')));
+  }
   // Fishing: a rod (any item kind; with one in the bag the hero can fish), or a fish (its usual size, for Records).
   out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Fishing'),
     checkbox('Fishing rod: with this in the bag, the hero can fish at fishing spots (Map editor → Water → Fishing)', !!d.rod, (v) => { if (v) d.rod = { power: d.rod?.power ?? 0 }; else delete d.rod; rerender(); }),
@@ -247,13 +257,14 @@ const FIELD_HINTS: Record<FieldPower, string> = {
 /** A spell shard: a bolt (damage, magic, speed, colour, the light in the hands), or a field spell (Light, Water Walk). */
 function spellForm(d: ItemDef, rerender: () => void): HTMLElement {
   const sp = (d.spell ??= defaultSpell());
-  const kind = select([['bolt', 'A bolt (an attack)'], ...FIELD_POWERS.map((p) => [p, `${POWER_NAMES[p]} (switched on and off)`] as [string, string])], sp.power ?? 'bolt', (v) => {
+  const kind = select([['bolt', 'A bolt (an attack)'], ...FIELD_POWERS.map((p) => [p, `${POWER_NAMES[p]} (turns it into a key item)`] as [string, string])], sp.power ?? 'bolt', (v) => {
     if (v === 'bolt') { d.spell = defaultSpell(); delete d.light; }
     else {
+      // Field uses are key items now (a lantern, water-walking boots), switched on from the bag or the B button.
       const power = v as FieldPower;
-      d.spell = { power, damage: 0, mp: power === 'waterWalk' ? 2 : 0, mpPerSecond: power === 'waterWalk' ? 3 : 0.5, color: FIELD_GLOW[power] };
-      if (power === 'light') d.light ??= defaultLight('orb'); else delete d.light;
-      delete d.element; delete d.inflicts;
+      d.kind = 'key'; d.tool = power;
+      delete d.slot; delete d.spell; delete d.rarity; delete d.element; delete d.inflicts; delete d.price;
+      if (power === 'light') d.light ??= defaultLight('lantern'); else delete d.light;
     }
     rerender();
   });

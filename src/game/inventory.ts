@@ -8,6 +8,8 @@ import { EQUIP_SLOTS, type Database, type EquipSlot, type ItemDef } from '../wor
 
 export interface Stack { id: string; n: number }
 export interface InventoryData { slots: (Stack | null)[]; gold: number; equip: Partial<Record<EquipSlot, string>>; ammo?: string | null; quick?: (string | null)[];
+  /** The key item (a field tool: lantern, water-walking boots) quick-assigned to the B button. */
+  bTool?: string | null;
   /** The size of each pocket when it was saved (older saves had one shared bag: their items are sorted into pockets). */
   pocket?: number;
   /** How many pockets the bag had (gear became two pockets: weapons and armor). */
@@ -55,6 +57,8 @@ export class Inventory {
   ammo: string | null = null;
   /** Quick items: the item each quick slot uses (it stays assigned when they run out). */
   quick: (string | null)[] = new Array(QUICK_SLOTS).fill(null);
+  /** The key item with a field use (Light, Water Walk) the B button switches on and off. */
+  bTool: string | null = null;
 
   /** Slots in each pocket (key items can add slots past the last one). */
   size: number;
@@ -237,7 +241,7 @@ export class Inventory {
   }
 
   toJSON(): InventoryData {
-    return { slots: this.slots.map((s) => (s ? { ...s } : null)), gold: this.gold, equip: { ...this.equip }, ammo: this.ammo, quick: [...this.quick], pocket: this.size, layout: POCKETS.length };
+    return { slots: this.slots.map((s) => (s ? { ...s } : null)), gold: this.gold, equip: { ...this.equip }, ammo: this.ammo, quick: [...this.quick], ...(this.bTool ? { bTool: this.bTool } : {}), pocket: this.size, layout: POCKETS.length };
   }
 
   /** Restore from a save. Items no longer in the database are dropped; a bigger or smaller bag keeps what fits. */
@@ -248,6 +252,7 @@ export class Inventory {
     this.equip = {};
     this.ammo = d.ammo && this.def(d.ammo) ? d.ammo : null;
     this.quick = Array.from({ length: QUICK_SLOTS }, (_, k) => { const id = d.quick?.[k]; return id && this.def(id) ? id : null; });
+    this.bTool = d.bTool && this.def(d.bTool)?.tool ? d.bTool : null;
     // Saves from before rings kept light items in a "light" slot.
     const eq = { ...d.equip } as Record<string, string | undefined>;
     if (eq.light && !eq.ring) eq.ring = eq.light;

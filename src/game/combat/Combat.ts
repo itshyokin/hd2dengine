@@ -35,6 +35,9 @@ export type WeaponMode = 'melee' | 'bow' | 'magic';
 export const WEAPON_MODES: WeaponMode[] = ['melee', 'bow', 'magic'];
 /** What Y switches between and the trigger attacks with (spells have their own button). */
 const ARMS: WeaponMode[] = ['melee', 'bow'];
+/** Turn-based games: the hero's overworld tools (cutting vines, hitting switches), never in the bag. */
+export const FIELD_SWORD: ItemDef = { id: '__fieldSword', name: 'Sword', kind: 'equipment', icon: 'builtin:sword', slot: 'weapon', weapon: { class: 'light', damage: 6 } };
+export const FIELD_BOW: ItemDef = { id: '__fieldBow', name: 'Bow', kind: 'equipment', icon: 'builtin:bow', slot: 'ranged', weapon: { class: 'bow', damage: 5 } };
 
 export interface CombatHost {
   map: TileMap;
@@ -330,6 +333,8 @@ export class Combat {
     if (pressed || this.castQueued > 0) { use = this.available('magic') ? 'magic' : null; if (!use && pressed) this.whyNot('magic'); }
     if (pressed && use) this.castQueued = Math.max(this.castQueued, 0.5);
     if (i.consume('attack')) use = this.weapon;
+    // "Disable Overworld Weapons" (indoors, restricted areas): the sword and bow stay put.
+    if (this.toolsOff && (use === 'melee' || use === 'bow')) { h.notice('You can’t use weapons here'); use = null; }
     const held = i.isHeld(this.weapon) || i.isHeld('attack');
 
     if (use === 'melee' && free && this.guard === null) {
@@ -337,7 +342,7 @@ export class Combat {
     }
     // The bow: hold to draw, let go to shoot.
     if (use === 'bow' && free && !this.swing && !this.draw && this.guard === null) {
-      if (!h.inventory.arrow()) h.notice('No arrows');
+      if (!this.fieldTools && !h.inventory.arrow()) h.notice('No arrows');
       else if (this.available('bow')) { this.draw = { t: 0 }; h.sound('draw'); }
       else this.whyNot('bow');
     }
@@ -431,8 +436,19 @@ export class Combat {
 
   private equipped(slot: EquipSlot): ItemDef | undefined {
     const id = this.host.inventory.equip[slot];
-    return id ? this.host.items.get(id) : undefined;
+    const it = id ? this.host.items.get(id) : undefined;
+    // Turn-based games: the sword and bow are field tools the hero always has (vines, switches), not bag items.
+    if (this.fieldTools && (!it || (slot === 'ranged' && it.weapon?.class !== 'bow'))) {
+      if (slot === 'weapon') return FIELD_SWORD;
+      if (slot === 'ranged') return FIELD_BOW;
+    }
+    return it;
   }
+
+  /** Turn-based games: the overworld sword and bow are built-in tools (never missing, no arrows needed). */
+  get fieldTools(): boolean { return this.host.cfg.mode === 'turnBased'; }
+  /** Set by the "Overworld weapons" event command: off indoors or in restricted areas. */
+  toolsOff = false;
 
   /** Where an attack goes: at the locked target, or a nearby enemy roughly ahead, or straight ahead. */
   private aim(reach: number): [number, number] {
@@ -458,7 +474,7 @@ export class Combat {
     const sk = h.skills;
     const hero = h.hero().attrs;
     // Untrained with this kind of weapon (Might tree): slow, heavy swings.
-    const untrained = cls !== 'unarmed' && h.proficient?.(cls) === false;
+    const untrained = cls !== 'unarmed' && w !== FIELD_SWORD && h.proficient?.(cls) === false;
     if (untrained && !this.warnedUntrained.has(cls)) { this.warnedUntrained.add(cls); h.notice(`Untrained with ${cls} weapons: slow swings until you learn them (Skill Tree → Might)`); }
     const speed = t.speed * (1 + (sk.get('swingSpeed') + (cls === 'unarmed' ? 0 : sk.get(`${cls}Speed` as 'lightSpeed'))) / 100) * speedMultiplier(hero.dex) * this.heroStatus.speed * (untrained ? 0.6 : 1);
     const bonus = (1 + (sk.get('meleeDamage') + (cls === 'unarmed' ? 0 : sk.get(`${cls}Damage` as 'lightDamage'))) / 100) * powerMultiplier(hero.str);
@@ -537,11 +553,10 @@ export class Combat {
   }
 
   private shootArrow(power: number): void {
-    const h = this.host, bow = this.equipped('ranged'), arrowId = h.inventory.arrow();
-    if (!bow?.weapon || !arrowId) return;
-    const arrow = h.items.get(arrowId);
-    h.inventory.spendArrow(arrowId);
-    h.tally?.('arrows');
+    const h = this.host, bow = this.equipped('ranged'), arrowId = this.fieldTools ? null : h.inventory.arrow();
+    if (!bow?.weapon || (!arrowId && !this.fieldTools)) return;
+    const arrow = arrowId ? h.items.get(arrowId) : undefined;
+    if (arrowId) { h.inventory.spendArrow(arrowId); h.tally?.('arrows'); }
     const p = h.player.position, range = h.cfg.bow.lockRange * 1.1;
     const [dx, dz] = this.aim(0);
     const ty = this.lock ? this.lock.y + 0.6 : p.y + 0.7;
@@ -1136,7 +1151,7 @@ export class Combat {
     const drawn = h.player.weaponIds;
     const sprite = (slot: EquipSlot) => { const id = itemWeaponSprite(this.equipped(slot)); return !!id && drawn.includes(id); };
     if (this.holding) hd.hold(this.holding.icon, p, dir, this.holding.tilt);
-    else if (this.swing && !sprite('weapon')) hd.swing(h.iconCanvas(h.inventory.equip.weapon, 'fist'), p, dir, this.swing.t / this.swing.dur);
+    else if (this.swing && !sprite('weapon')) hd.swing(h.iconCanvas(h.inventory.equip.weapon, this.fieldTools ? 'sword' : 'fist'), p, dir, this.swing.t / this.swing.dur);
     else if (this.draw && !sprite('ranged')) hd.bow(h.iconCanvas(h.inventory.equip.ranged, 'bow'), p, dir, Math.min(1, this.draw.t / this.drawTime));
     else hd.hideItem();
     this.castGlow = Math.max(0, this.castGlow - dt);

@@ -270,6 +270,8 @@ export type Command =
   | { cmd: 'weather'; kind: WeatherKind; amount?: number; wind?: number; scope?: 'here' | 'world' }
   /** Give skill points (a quest reward). */
   | { cmd: 'skillPoints'; value: number }
+  /** Overworld weapons (the field sword and bow) on or off: off indoors or in restricted areas (greyed out on the HUD). */
+  | { cmd: 'fieldWeapons'; on: boolean }
   /**
    * Quests: start one, tick off (or count up) an objective, complete it (gives the rewards), fail it, or forget it
    * (back to not started). `add` counts an objective up by that much instead of finishing it.
@@ -399,10 +401,17 @@ export interface EventData {
 export interface RampData {
   x: number;
   z: number;
-  style: 'ramp' | 'stairs';
+  /** corner: a walkable slope that rounds a hill's corner (its raised corners meet the higher ground around it). */
+  style: 'ramp' | 'stairs' | 'corner';
   /** Direction it rises towards. */
   dir?: Dir;
+  /** Corner slopes: which corners are raised one step (unset: found from the neighbours one step higher). */
+  raise?: CornerName[];
 }
+
+/** A cell's corners, in the order north-west, north-east, south-east, south-west. */
+export type CornerName = 'nw' | 'ne' | 'se' | 'sw';
+export const CORNER_NAMES: CornerName[] = ['nw', 'ne', 'se', 'sw'];
 
 /** Which wall of a building: front faces the camera (down the map), back faces up the map. */
 export type BuildingSide = 'front' | 'back' | 'left' | 'right';
@@ -883,6 +892,11 @@ export interface ItemDef {
   spell?: SpellDef;
   /** Weapons: class and damage. */
   weapon?: WeaponDef;
+  /**
+   * Key items: a field use the player switches on and off from the bag, or with the B button once it's assigned
+   * there: Light (a lantern's glow around the hero; set the light below) or Water Walk (walk on water of any depth).
+   */
+  tool?: FieldPower;
   /** Weapons: breaks rock (pickaxes, hammers): mineable boulders and ore veins. */
   mines?: boolean;
   /** A fishing rod: with one in the bag, Talk / interact facing a fishing spot casts. `power` (0 … 100) brings bites sooner and rarer fish. */
@@ -961,6 +975,11 @@ export interface MenuConfig {
   pauseHidden?: Partial<Record<PauseOption, boolean>>;
   /** Start playtests straight on the map instead of at the title screen. */
   skipTitleInPlaytest?: boolean;
+  /**
+   * Behind the title menu: a map (`map`, looking around `x`, `z`; unset map: the start map), or a picture or a
+   * video (paths) with no map behind it. Unset: the start map.
+   */
+  titleBackground?: { kind: 'map' | 'image' | 'video'; map?: string; x?: number; z?: number; image?: string; video?: string };
   /** The game's lettering: "classic" Game Boy-style pixels (default), "soft" rounder pixels, or "smooth" (not pixel). */
   font?: 'classic' | 'soft' | 'smooth';
 }

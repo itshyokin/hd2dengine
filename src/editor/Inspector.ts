@@ -14,10 +14,10 @@ import { paletteProps, propName } from './editorArt';
 import { lightFields } from './lightForm';
 import { cliffChoices } from './assets';
 import { BRICKS } from '../world/tiles';
-import { type WaterCell, autoRampDir, formatHeights, formatWater, parseHeights, parseWater } from '../world/heights';
+import { type WaterCell, autoRampDir, autoCornerMask, formatHeights, formatWater, parseHeights, parseWater } from '../world/heights';
 import { openPropImporter } from './PropImporter';
 import type { EditorStore } from './store';
-import { WEATHER_KINDS, type MistWhen, type BuildingData, type BuildingSide, type WeatherKind } from '../world/types';
+import { CORNER_NAMES, type CornerName, type RampData, WEATHER_KINDS, type MistWhen, type BuildingData, type BuildingSide, type WeatherKind } from '../world/types';
 import { BUILDING_DEFAULTS, doorstep, resolveBuilding } from '../world/buildingShape';
 import { ROOF_CHOICES, WALL_CHOICES } from './buildingPresets';
 
@@ -492,9 +492,27 @@ export class Inspector {
     const detected = autoRampDir((cx, cz) => (s.inMap(cx, cz) ? s.heightAt(cx, cz) : null), x, z);
     const dirName = (d: Dir | null) => (d ? DIRS.find(([k]) => k === d)![1] : 'none');
     const remove = () => this.edit(() => { s.map.ramps = (s.map.ramps ?? []).filter((q) => q !== r); s.select(null); }, true);
+    const styleField = field('Style', select([['stairs', 'Stairs'], ['ramp', 'Ramp'], ['corner', 'Corner slope']], r.style, (v) => this.edit(() => { r.style = v as RampData['style']; if (r.style === 'corner') delete r.dir; else delete r.raise; }, true)));
+    if (r.style === 'corner') {
+      const auto = autoCornerMask((cx, cz) => (s.inMap(cx, cz) ? s.heightAt(cx, cz) : null), x, z);
+      const names: [CornerName, string][] = [['nw', 'Top left'], ['ne', 'Top right'], ['se', 'Bottom right'], ['sw', 'Bottom left']];
+      const now = r.raise?.length ? CORNER_NAMES.map((c) => r.raise!.includes(c)) : auto ?? [false, false, false, false];
+      const out: HTMLElement[] = [this.header('Corner slope', `${x}, ${z} · height ${s.heightAt(x, z)}`, remove), styleField,
+        field('Raised corners', select([['auto', `Automatic (${auto ? names.filter((_, k) => auto[k]).map(([, n]) => n.toLowerCase()).join(', ') : 'none'})`], ['hand', 'Set by hand']], r.raise?.length ? 'hand' : 'auto',
+          (v) => this.edit(() => { if (v === 'auto') delete r.raise; else r.raise = CORNER_NAMES.filter((_, k) => now[k]).length ? CORNER_NAMES.filter((_, k) => now[k]) : ['ne']; }, true)))];
+      if (r.raise?.length) out.push(h('div', { class: 'field-row' }, ...names.map(([c, n], k) => checkbox(n, now[k], (on) => this.edit(() => {
+        const set = new Set(r.raise ?? []); if (on) set.add(c); else set.delete(c);
+        r.raise = CORNER_NAMES.filter((q) => set.has(q));
+        if (!r.raise.length) delete r.raise;
+      }, true)))));
+      if (!s.rampCorners(r)) out.push(h('p', { class: 'warn' }, 'No ground one step higher touches its corners, so it lies flat (red ✕ on the map).'));
+      out.push(h('p', { class: 'hint' }, 'A walkable slope for a hill’s corners. Raised corners climb one step to meet the higher ground: one raised corner rounds an outside corner, three fill an inside one. Put ramps along the hill’s sides and corner slopes at its turns.'),
+        h('button', { type: 'button', class: 'btn danger', onclick: remove }, 'Remove this corner slope'));
+      return out;
+    }
     const out: HTMLElement[] = [
       this.header(r.style === 'stairs' ? 'Stairs' : 'Ramp', `${x}, ${z} · height ${s.heightAt(x, z)}`, remove),
-      field('Style', select([['stairs', 'Stairs'], ['ramp', 'Ramp']], r.style, (v) => this.edit(() => (r.style = v as 'ramp' | 'stairs')))),
+      styleField,
       field('Rises toward', select([['auto', `Automatic (${dirName(detected)})`], ...DIRS], r.dir ?? 'auto',
         (v) => this.edit(() => { if (v === 'auto') delete r.dir; else r.dir = v as Dir; }, true))),
     ];

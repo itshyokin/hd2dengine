@@ -3,7 +3,7 @@ import { formatFishing, parseFishing } from '../world/fishing';
 import { PropCatalog, alignFootProps, blockedTiles } from '../world/props';
 import type { AssetRegistry, Command, Database, EventData, LightData, MapData } from '../world/types';
 import { TileCatalog } from '../world/tiles';
-import { STEP, type WaterCell, type WaterKind, autoRampDir, formatHeights, formatWater, parseHeights, parseWater, resolveWater } from '../world/heights';
+import { STEP, type WaterCell, type WaterKind, autoRampDir, cornerMask, formatHeights, formatWater, parseHeights, parseWater, resolveWater } from '../world/heights';
 import type { Dir, RampData } from '../world/types';
 import { type PassageFlag, formatPassage, parsePassage } from '../world/passage';
 import { formatZones, parseZones } from '../world/zones';
@@ -66,7 +66,7 @@ export class EditorStore {
   /** Fill: set the whole connected area to Height, or raise / lower it all by Steps. */
   heightFillMode: 'set' | 'raise' | 'lower' = 'set';
   heightFillBy = 2;
-  rampStyle: 'ramp' | 'stairs' = 'stairs';
+  rampStyle: 'ramp' | 'stairs' | 'corner' = 'stairs';
   /** The Ramp tool places ramps, or erases them (click or drag over them). */
   rampTool: 'place' | 'erase' = 'place';
   waterMode: WaterMode = 'fill';
@@ -508,7 +508,7 @@ export class EditorStore {
   /** The direction a ramp rises (its override, or detected from the neighbours); null if it can't rise anywhere. */
   /** Ramps with no neighbour one step higher to rise to (drawn with a red cross). */
   brokenRamps(): RampData[] {
-    return (this.map.ramps ?? []).filter((r) => !this.inMap(r.x, r.z) || this.rampDir(r) === null);
+    return (this.map.ramps ?? []).filter((r) => !this.inMap(r.x, r.z) || (r.style === 'corner' ? this.rampCorners(r) === null : this.rampDir(r) === null));
   }
 
   /** Remove the ramp on a cell; true if there was one. (No checkpoint: the caller makes one.) */
@@ -518,6 +518,11 @@ export class EditorStore {
     if (this.map.ramps.length === n) return false;
     if (this.selection?.kind === 'ramp' && this.selection.x === x && this.selection.z === z) this.selection = null;
     return true;
+  }
+
+  /** A corner slope's raised corners (NW, NE, SE, SW), or null when it would lie flat. */
+  rampCorners(r: RampData): boolean[] | null {
+    return cornerMask(r, (x, z) => (this.inMap(x, z) ? this.heightAt(x, z) : null));
   }
 
   rampDir(r: RampData): Dir | null {

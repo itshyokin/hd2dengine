@@ -241,6 +241,9 @@ async function playtest(stamp: string): Promise<void> {
     for (const f of store.db.audio?.files ?? []) used.add(f);
     for (const c of Object.values(store.db.characters)) if (c.sheet) used.add(c.sheet);
     for (const e of store.db.enemies ?? []) if (e.look.image) used.add(e.look.image);
+    // The title's picture or video.
+    { const tb = store.db.menus?.titleBackground, f = tb?.kind === 'image' ? tb.image : tb?.kind === 'video' ? tb.video : undefined;
+      if (f) { used.add(f); if (!store.files.has(f)) { try { store.files.set(f, await store.project.readFile(f)); } catch { /* the game tries the project */ } } } }
     // Heroes' face art (read now if it hasn't been yet).
     for (const x of store.db.heroes ?? []) if (x.face) {
       used.add(x.face);

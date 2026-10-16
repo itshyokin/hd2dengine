@@ -3,7 +3,7 @@
  * (stored in the map as rows of space-separated numbers). Ramps and stairs are listed
  * separately; each one rises by one step towards a higher neighbour.
  */
-import type { Dir, MapData, RampData } from './types';
+import { CORNER_NAMES, type Dir, type MapData, type RampData } from './types';
 
 /** World units per height step (one step = half a tile). */
 export const STEP = 0.5;
@@ -52,6 +52,32 @@ export function autoRampDir(height: (x: number, z: number) => number | null, x: 
   return null;
 }
 
+/** The cells around each corner (NW, NE, SE, SW): the two beside it and the one diagonal to it. */
+const AROUND_CORNER: [number, number][][] = [
+  [[-1, 0], [0, -1], [-1, -1]],
+  [[1, 0], [0, -1], [1, -1]],
+  [[1, 0], [0, 1], [1, 1]],
+  [[-1, 0], [0, 1], [-1, 1]],
+];
+
+/**
+ * A corner slope's raised corners (NW, NE, SE, SW): each corner touching a cell at least one step higher. One raised
+ * corner rounds a hill's outer corner (the higher ground is diagonal); three fill an inner corner. Null when none
+ * (or all four) would rise: it lies flat.
+ */
+export function autoCornerMask(height: (x: number, z: number) => number | null, x: number, z: number): boolean[] | null {
+  const h0 = height(x, z) ?? 0;
+  const mask = AROUND_CORNER.map((nb) => nb.some(([dx, dz]) => (height(x + dx, z + dz) ?? -Infinity) >= h0 + 1));
+  const n = mask.filter(Boolean).length;
+  return n === 0 || n === 4 ? null : mask;
+}
+
+/** The corners a corner slope raises: its override, or the detected ones. */
+export function cornerMask(r: RampData, height: (x: number, z: number) => number | null): boolean[] | null {
+  if (r.raise?.length) { const m = CORNER_NAMES.map((c) => r.raise!.includes(c)); return m.every(Boolean) ? null : m; }
+  return autoCornerMask(height, r.x, r.z);
+}
+
 /** The direction a ramp actually uses: its override, or the detected one. */
 export function rampDirection(r: RampData, height: (x: number, z: number) => number | null): Dir | null {
   return r.dir ?? autoRampDir(height, r.x, r.z);
@@ -61,8 +87,9 @@ export function rampDirection(r: RampData, height: (x: number, z: number) => num
  * World heights of a cell's corners, in the order north-west, north-east, south-east, south-west.
  * Flat cells have four equal corners; a ramp's two corners on its high side are one step up.
  */
-export function cornerHeights(h: number, rampDir: Dir | null): [number, number, number, number] {
+export function cornerHeights(h: number, rampDir: Dir | null, raised?: boolean[] | null): [number, number, number, number] {
   const lo = h * STEP, hi = (h + 1) * STEP;
+  if (raised) return raised.map((r) => (r ? hi : lo)) as [number, number, number, number];
   switch (rampDir) {
     case 'up': return [hi, hi, lo, lo];
     case 'down': return [lo, lo, hi, hi];

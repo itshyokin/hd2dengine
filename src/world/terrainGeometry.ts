@@ -86,6 +86,12 @@ export function cellSurfaces(map: TileMap, x: number, z: number): Surface[] {
     return out;
   }
   const c = map.cornersAt(x, z);
+  // A corner slope: four triangles from its centre, so the raised corner (or the one left low) curves evenly.
+  if (r?.ramp.style === 'corner' && r.raised) {
+    const xz: [number, number][] = [[x, z], [x + 1, z], [x + 1, z + 1], [x, z + 1]];
+    const centre: V3 = [x + 0.5, (c[0] + c[1] + c[2] + c[3]) / 4, z + 0.5];
+    return xz.map(([px, pz], k) => { const [qx, qz] = xz[(k + 1) % 4]; const a: V3 = [px, c[k], pz], b: V3 = [qx, c[(k + 1) % 4], qz]; return [centre, a, b, b] as Surface; });
+  }
   const round = cornerRounding(map, x, z);
   if (round.convex.some(Boolean)) {
     // A flat cell with corners cut round: a fan of triangles from its centre (stored as quads with a repeated corner).

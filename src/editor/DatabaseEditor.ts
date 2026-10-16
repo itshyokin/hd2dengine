@@ -205,6 +205,7 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
           o === 'newGame' ? h('span', { class: 'db-unit' }, 'always') : checkboxOnly(!menus.titleHidden?.[o], (v) => ((menus.titleHidden ??= {})[o] = v ? undefined : true), `Show ${name}`),
         ])),
       h('p', { class: 'note' }, 'Continue and Load are greyed out until there’s a save. Exit closes the game (in a browser tab it can only ask the player to close the tab).'),
+      titleBackgroundField(store, menus),
       checkbox('Skip the title screen in playtests', !!menus.skipTitleInPlaytest, (v) => (menus.skipTitleInPlaytest = v || undefined)),
       field('Game lettering', select([['classic', 'Classic pixel (Game Boy style: Press Start 2P)'], ['soft', 'Soft pixel (Pixelify Sans)'], ['smooth', 'Smooth (Atkinson Hyperlegible, not pixel)']], menus.font ?? 'classic',
         (v) => { if (v === 'classic') delete menus.font; else menus.font = v as 'soft' | 'smooth'; }),
@@ -354,6 +355,53 @@ function pickFace(store: EditorStore, x: HeroDef, done: () => void): void {
     x.face = path;
     if (!persistent) toast('Picture kept for this session only: open the project folder itself to save imported images.');
     done();
+  });
+  input.click();
+}
+
+/** Title & menus → Behind the title: the start map, a map of its own (and where to look), a picture or a video. */
+function titleBackgroundField(store: EditorStore, menus: MenuConfig): HTMLElement {
+  const box = h('div', { class: 'title-bg-field' });
+  const draw = () => {
+    const tb = menus.titleBackground;
+    const kind = tb?.kind ?? '';
+    const set = (v: MenuConfig['titleBackground']) => { if (v) menus.titleBackground = v; else delete menus.titleBackground; draw(); };
+    const parts: HTMLElement[] = [field('Behind the title', select([['', 'The start map'], ['map', 'A map of its own'], ['image', 'A picture (no map)'], ['video', 'A video (no map)']], kind,
+      (v) => set(v ? { kind: v as 'map' | 'image' | 'video' } : undefined)), 'A map behind the title is seen from above, the camera looking slowly around the spot you choose.')];
+    if (tb?.kind === 'map') {
+      parts.push(h('div', { class: 'field-row' },
+        field('Map', select(store.maps.map((n) => [n, n] as [string, string]), tb.map ?? store.db.startMap, (v) => { tb.map = v; })),
+        field('Look around tile X', numberInput(tb.x ?? 10, (v) => { tb.x = Math.max(0, v); }, { step: 0.5, min: 0 })),
+        field('Z', numberInput(tb.z ?? 10, (v) => { tb.z = Math.max(0, v); }, { step: 0.5, min: 0 }))));
+      tb.map ??= store.db.startMap;
+    } else if (tb?.kind === 'image' || tb?.kind === 'video') {
+      const path = tb.kind === 'image' ? tb.image : tb.video;
+      parts.push(field(tb.kind === 'image' ? 'Picture' : 'Video', h('div', { class: 'face-pick' },
+        h('span', { class: 'note' }, path ? path.split('/').pop()! : 'None chosen'),
+        h('button', { type: 'button', class: 'btn small', onclick: () => pickTitleFile(store, tb.kind === 'image' ? 'image/png,image/jpeg,image/webp,image/gif' : 'video/mp4,video/webm', (p) => { if (tb.kind === 'image') tb.image = p; else tb.video = p; draw(); }) }, 'Choose a file…')),
+        tb.kind === 'video' ? 'Plays silently, looping (the title music plays over it). MP4 or WebM.' : 'Fills the screen (cropped to fit).'));
+    }
+    box.replaceChildren(...parts);
+  };
+  draw();
+  return box;
+}
+
+function pickTitleFile(store: EditorStore, accept: string, done: (path: string) => void): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = accept;
+  input.addEventListener('change', async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    const ext = (f.name.split('.').pop() ?? 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const path = `assets/title/title_${Date.now().toString(36)}.${ext}`;
+    const p = store.project, persistent = p.canSave && p.canStoreImages;
+    try { if (persistent) await p.writeFile(path, f); }
+    catch (err) { toast(`Couldn’t save the file: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+    store.files.set(path, f);
+    if (!persistent) toast('Kept for this session only: open the project folder itself to save imported files.');
+    done(path);
   });
   input.click();
 }

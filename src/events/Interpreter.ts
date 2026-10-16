@@ -146,6 +146,9 @@ export class Interpreter {
       case 'setTime':
         this.ctx.setTime(c.hour, !!c.instant);
         break;
+      case 'fieldWeapons':
+        state.weaponsOff = !c.on;
+        break;
       case 'ability':
         state.setAbility(c.ability, c.on);
         break;

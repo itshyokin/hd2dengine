@@ -106,7 +106,7 @@ import { PlayerMotion } from './PlayerMotion';
 import { PlayerStats, configFromDb } from './stats';
 import { StatusBars } from '../ui/StatusBars';
 import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
-import { PAUSE_OPTIONS, pauseLabel, titleLabel } from './menus';
+import { PAUSE_ICONS, PAUSE_OPTIONS, pauseLabel, titleLabel } from './menus';
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId } from './saves';
 import { alignFootProps, blockedTiles, footTiles, propCovers } from '../world/props';
@@ -180,7 +180,7 @@ export class Game {
   private mapName = '';
   /** Maps handed over by the editor in a playtest. */
   private handedMaps: Record<string, MapData> | null = null;
-  private transfer: { name: string; to: Start; fade: 'black' | 'white' | 'none'; phase: 'out' | 'load' | 'busy'; before?: () => void; after?: () => void; autosave?: boolean; fresh?: boolean } | null = null;
+  private transfer: { name: string; to: Start; fade: 'black' | 'white' | 'none'; phase: 'out' | 'load' | 'busy'; before?: () => void; after?: () => void; autosave?: boolean; fresh?: boolean; slow?: boolean } | null = null;
   private menu!: GameMenu;
   private saves!: SaveStore;
   private playTime = 0;
@@ -346,8 +346,11 @@ export class Game {
       if (location.protocol === 'file:') throw new Error('Open the game from the editor’s ▶ Playtest button. Opened as a file, it plays the map the editor hands it.');
       this.db = await loadDatabase();
       mapName = params.get('map') ?? this.db.startMap;
-      mapData = await loadMap(mapName);
       start = mapName === this.db.startMap ? this.db.start : null;
+      // A map of its own behind the title.
+      const tb = this.db.menus?.titleBackground;
+      if (!params.has('map') && tb?.kind === 'map' && tb.map) { mapName = tb.map; start = { x: tb.x ?? 0.5, z: tb.z ?? 0.5 }; }
+      mapData = await loadMap(mapName);
       assets = await loadAssets();
     }
     this.resolveFile = resolve;
@@ -605,6 +608,16 @@ export class Game {
         return d?.restore?.hp && this.combat.heroStatus.zombie && !d.cures?.includes('zombie') ? 'Use (hurts: you’re a zombie!)' : null;
       },
       equip: (i) => this.equipItem(i),
+      toolOn: (i) => { const id = this.inventory.slots[i]?.id; return !!id && this.rings.ring?.id === id && this.rings.active; },
+      toggleTool: (i) => { const id = this.inventory.slots[i]?.id; return id ? this.toggleTool(id) : null; },
+      assignB: (i) => {
+        const id = this.inventory.slots[i]?.id, d = id ? this.items.get(id) : undefined;
+        if (!id || !d?.tool) return null;
+        this.inventory.bTool = this.inventory.bTool === id ? null : id;
+        this.refreshRing();
+        return this.inventory.bTool ? `${d.name} is on the ${this.input.label('ring')} button.` : `${d.name} taken off the ${this.input.label('ring')} button.`;
+      },
+      bLabel: () => this.input.label('ring'),
       // Equipment picked in the bag: who puts it on (only those who can use it; arrows are the hero's).
       equipTargets: (i) => {
         const id = this.inventory.slots[i]?.id, host = this.equipHost();
@@ -846,7 +859,7 @@ export class Game {
    * Start a transfer: fade out, switch maps (or move within this one), fade back in.
    * The map loads while the screen is dark.
    */
-  private requestTransfer(name: string, to: Start, fade: 'black' | 'white' | 'none', opts: { before?: () => void; after?: () => void; autosave?: boolean; fresh?: boolean } = {}): void {
+  private requestTransfer(name: string, to: Start, fade: 'black' | 'white' | 'none', opts: { before?: () => void; after?: () => void; autosave?: boolean; fresh?: boolean; slow?: boolean } = {}): void {
     if (this.transfer) return;
     this.transfer = { name, to, fade, phase: 'out', ...opts };
     this.moveTarget = null;
@@ -855,7 +868,7 @@ export class Game {
     this.audio.play('transfer');
     // Fades back to black afterwards, so event fades keep working.
     this.post.fadeColor = fade === 'white' ? 0xffffff : 0x000000;
-    this.fade = { from: this.post.fade, to: 1, t: 0, duration: 0.35 };
+    this.fade = { from: this.post.fade, to: 1, t: 0, duration: opts.slow ? 0.9 : 0.35 };
   }
 
   /** Advance a transfer; returns true while one is under way (the player can't move). */
@@ -882,7 +895,7 @@ export class Game {
         } else {
           this.enterMap(t.name, data, t.to);
         }
-        if (t.fade !== 'none') this.fade = { from: 1, to: 0, t: 0, duration: 0.45 };
+        if (t.fade !== 'none') this.fade = { from: 1, to: 0, t: 0, duration: t.slow ? 1.3 : 0.45 };
         this.transfer = null;
         this.fadeColorReset = t.fade === 'white';
         if (t.autosave && !same && this.db.saving?.autosave !== false) this.saveTo('auto', true);
@@ -1477,7 +1490,7 @@ export class Game {
     // last picture on screen (the battle screen draws over it), which keeps tablets cool.
     this.battleFrames = this.battle.active ? this.battleFrames + 1 : 0;
     // On a battle map the stage is drawn instead (every frame: its fighters move).
-    if (this.stage || this.battleFrames < 4 || this.fade.t < 1) {
+    if (!this.titleCovered && (this.stage || this.battleFrames < 4 || this.fade.t < 1)) {
       const scene = this.stage?.stage.scene ?? this.scene;
       this.ssao.render(scene, this.camera);
       this.post.render(scene, this.camera);
@@ -1543,10 +1556,13 @@ export class Game {
     // Fishing: the hero stands still with the rod out (moving, jumping or attacking reels in).
     if (this.fishing) this.updateFishing(dt);
     if (i.consume('cancel') && !this.motion.airborne && !this.motion.climbing) { this.openPauseMenu(); return; }
-    // B / F / 3: cast the readied shard — a field spell (Light, Water Walk) switches on or off; the rest fire a bolt.
+    // B / F / 3: the key item assigned to it (a lantern…) switches on or off; otherwise cast the readied shard — a
+    // field spell (Light, Water Walk) switches on or off; the rest fire a bolt.
     if (i.consume('ring') && !this.motion.climbing) {
+      const tool = this.inventory.bTool;
+      if (tool && this.inventory.count(tool) > 0) this.toggleTool(tool);
       // A learned spell readied in Menu → Abilities comes first; otherwise the shard in the magic slot.
-      if (this.readiedSpell()) this.combat.castShard();
+      else if (this.readiedSpell()) this.combat.castShard();
       else if (this.rings.power) this.useRing();
       else if (this.inventory.equip.magic) this.combat.castShard();
       else this.menu.notice('No spell readied: equip a shard in Menu → Bag → Shards');
@@ -1606,6 +1622,7 @@ export class Game {
     if (m.swimming && !this.wasSwimming) this.audio.play('splash', m.x, m.z);
     this.wasSwimming = m.swimming;
     this.combat.setMoving(res.moving);
+    this.combat.toolsOff = this.state.weaponsOff;
     this.combat.update(dt);
     if (this.stats.dead) { this.die(); return; }
     if (res.fell) {
@@ -1744,11 +1761,15 @@ export class Game {
   private loadSave(d: SaveData): void {
     this.battle.abort();
     this.battleSound = null; this.outro = null;
-    // Loading from the title (Continue or Load Game) leaves the title: hero, status bars and camera come back.
-    if (this.onTitle) { this.onTitle = false; this.setTitleLook(false); }
+    // Loading from the title (Continue or Load Game) leaves the title: hero, status bars and camera come back,
+    // the HUD fading in with the picture.
+    const fromTitle = this.onTitle;
+    if (fromTitle) { this.onTitle = false; document.body.classList.add('ui-dim'); this.setTitleLook(false); }
     this.menu.close();
     this.interpreter.stop();
     this.requestTransfer(d.map, { x: d.x, z: d.z, dir: d.dir }, 'black', {
+      slow: fromTitle,
+      after: () => this.uiIn(),
       before: () => {
         this.bankPickups('discard');
         this.log.clearFeed();
@@ -2185,11 +2206,24 @@ export class Game {
   /** Ready the field spell of the shard in the magic slot (Light, Water Walk), if it has one. */
   private refreshRing(): void {
     const id = this.inventory.equip.magic, d = id ? this.items.get(id) : undefined;
-    this.rings.wear(d?.spell?.power ? d : null, this.settings.lightShadows);
-    // The HUD shows whichever spell is readied (a learned spell, or the shard's bolt or field spell): the spell button casts it.
+    // A key item in use (a lantern switched on from the bag or with B) stays in hand while it's in the bag.
+    const worn = this.rings.ring, keep = worn?.tool && this.inventory.count(worn.id) > 0 ? this.items.get(worn.id) ?? null : null;
+    const bt = this.inventory.bTool && this.inventory.count(this.inventory.bTool) > 0 ? this.items.get(this.inventory.bTool) : undefined;
+    this.rings.wear(keep ?? bt ?? (d?.spell?.power ? d : null), this.settings.lightShadows);
+    // The HUD shows what the spell button does: the key item on it, or the readied spell (a learned spell, or the
+    // shard's bolt or field spell).
     const learned = this.readiedSpell();
-    this.hud.setRing(learned ? { name: learned.name, icon: elementIconUrl(learned.element ?? 'neutral') } : d ? { name: d.name, icon: this.itemIcon(d.id) } : null);
-    this.touch.setRing(!!(learned || d));
+    this.hud.setRing(bt ? { name: bt.name, icon: this.itemIcon(bt.id) } : learned ? { name: learned.name, icon: elementIconUrl(learned.element ?? 'neutral') } : d ? { name: d.name, icon: this.itemIcon(d.id) } : null);
+    this.touch.setRing(!!(bt || learned || d));
+  }
+
+  /** Switch a key item's field use (a lantern, water-walking boots) on or off; another one in use goes off first. */
+  private toggleTool(id: string): string | null {
+    const d = this.items.get(id);
+    if (!d?.tool || this.inventory.count(id) < 1) return null;
+    if (this.rings.ring?.id !== id) this.rings.wear(d, this.settings.lightShadows);
+    this.useRing();
+    return `${d.name}: ${this.rings.active ? 'on' : 'off'}`;
   }
 
   /** Mana Thrift (Magic tree): spells cost this much of their magic. */
@@ -2199,7 +2233,7 @@ export class Game {
   private useRing(): void {
     const r = this.rings.power;
     if (!r) { this.menu.notice('No field spell: equip the Light or Water Walk shard in Menu → Equipment'); return; }
-    if (this.combat.heroStatus.silenced && !this.rings.active) { this.menu.notice('Silenced: can’t cast spells'); return; }
+    if (!this.rings.isTool && this.combat.heroStatus.silenced && !this.rings.active) { this.menu.notice('Silenced: can’t cast spells'); return; }
     this.tideOnWater = false;
     const was = this.rings.active;
     const msg = this.rings.toggle((mp) => this.stats.spendMp(Math.round(mp * this.spellThrift)), this.stats.mp);
@@ -2910,9 +2944,14 @@ export class Game {
     const melee = inv.equip.weapon, bow = inv.equip.ranged;
     const icon = (id: string | undefined, fallback: string) => (id ? this.itemIcon(id) : this.builtinUrl(fallback));
     const rc = (id: string | undefined) => (id ? itemColor(this.items.get(id)) ?? undefined : undefined);
+    const off = this.state.weaponsOff;
+    // Turn-based games: a built-in sword and bow (field tools, not bag items) unless a weapon is equipped.
+    const tools = c.fieldTools, ownBow = bow && this.items.get(bow)?.weapon?.class === 'bow' ? bow : undefined;
     this.hud.setWeapons([
-      { id: 'melee', name: melee ? this.items.get(melee)?.name ?? 'Weapon' : 'Fists', icon: icon(melee, 'fist'), available: true, color: rc(melee) },
-      { id: 'bow', name: bow ? this.items.get(bow)?.name ?? 'Bow' : 'No bow', icon: icon(bow, 'bow'), available: c.available('bow'), color: rc(bow) },
+      { id: 'melee', name: melee ? this.items.get(melee)?.name ?? 'Weapon' : tools ? 'Sword' : 'Fists', icon: icon(melee, tools ? 'sword' : 'fist'), available: true, color: rc(melee), blocked: off },
+      tools
+        ? { id: 'bow', name: ownBow ? this.items.get(ownBow)?.name ?? 'Bow' : 'Bow', icon: icon(ownBow, 'bow'), available: true, color: rc(ownBow), blocked: off }
+        : { id: 'bow', name: bow ? this.items.get(bow)?.name ?? 'Bow' : 'No bow', icon: icon(bow, 'bow'), available: c.available('bow'), color: rc(bow), blocked: off },
     ], c.weapon, c.switches, this.input.label('switchWeapon'));
   }
   private readonly builtinUrls = new Map<string, string>();
@@ -3121,7 +3160,7 @@ export class Game {
       quitToTitle: () => this.confirmQuit(),
     };
     const items = PAUSE_OPTIONS.filter(([o]) => !m?.pauseHidden?.[o]).map(([o, , works]) => ({
-      label: pauseLabel(m, o), disabled: !works, detail: works ? undefined : 'Coming soon', pick: act[o],
+      label: pauseLabel(m, o), icon: PAUSE_ICONS[o], disabled: !works, detail: works ? undefined : 'Coming soon', pick: act[o],
     }));
     this.menu.push('Menu', items);
   }
@@ -4234,13 +4273,45 @@ export class Game {
 
   private leaveTitle(then: () => void): void {
     this.onTitle = false;
+    // The HUD stays out of sight while the game loads, and fades in with the picture.
+    document.body.classList.add('ui-dim');
     this.setTitleLook(false);
     this.menu.close();
     then();
   }
 
+  /** A picture or video behind the title (Database → Title & menus), shown on the title and faded away after. */
+  private titleBgEl: HTMLImageElement | HTMLVideoElement | null = null;
+  private get titleCovered(): boolean {
+    const tb = this.db.menus?.titleBackground;
+    return this.onTitle && !!tb && ((tb.kind === 'image' && !!tb.image) || (tb.kind === 'video' && !!tb.video));
+  }
+  private showTitleBackground(on: boolean): void {
+    const tb = this.db.menus?.titleBackground;
+    const media = tb?.kind === 'image' ? tb.image : tb?.kind === 'video' ? tb.video : undefined;
+    if (on && tb && media) {
+      if (!this.titleBgEl) {
+        const el = tb.kind === 'video' ? Object.assign(document.createElement('video'), { autoplay: true, muted: true, loop: true, playsInline: true }) : document.createElement('img');
+        el.className = 'title-bg';
+        el.src = this.resolveFile(media);
+        if (el instanceof HTMLImageElement) el.alt = '';
+        document.body.append(el);
+        this.titleBgEl = el;
+      }
+      this.titleBgEl.classList.remove('gone');
+      if (this.titleBgEl instanceof HTMLVideoElement) void this.titleBgEl.play().catch(() => { /* starts after the first click */ });
+    } else if (this.titleBgEl) {
+      this.titleBgEl.classList.add('gone');
+      if (this.titleBgEl instanceof HTMLVideoElement) { const v = this.titleBgEl; setTimeout(() => { if (v.classList.contains('gone')) v.pause(); }, 1300); }
+    }
+  }
+
+  /** The game is on screen: the HUD fades in. */
+  private uiIn(): void { requestAnimationFrame(() => document.body.classList.remove('ui-dim')); }
+
   /** On the title the hero, status bars and touch buttons are hidden, and the camera drifts slowly. */
   private setTitleLook(on: boolean): void {
+    this.showTitleBackground(on);
     this.player.mesh.visible = !on;
     this.hud.setHidden(on);
     this.overlay.setHidden(on);
@@ -4264,6 +4335,8 @@ export class Game {
     const st = this.db.start;
     this.interpreter.stop();
     this.requestTransfer(this.db.startMap, { x: st.x, z: st.z, dir: st.dir }, 'black', {
+      slow: true,
+      after: () => this.uiIn(),
       before: () => {
         this.bankPickups('discard');
         this.log.clearFeed();
@@ -4295,7 +4368,10 @@ export class Game {
     this.interpreter.stop();
     // Back to the start map behind the title, everything reset (New Game or Load picks up from here).
     const st = this.db.start;
-    this.requestTransfer(this.db.startMap, { x: st.x, z: st.z, dir: st.dir }, 'black', {
+    // Back to the map behind the title (its own, or the start map).
+    const tb = this.db.menus?.titleBackground, titleMap = tb?.kind === 'map' && tb.map ? tb.map : this.db.startMap;
+    this.requestTransfer(titleMap, titleMap === this.db.startMap && !(tb?.kind === 'map' && tb.map) ? { x: st.x, z: st.z, dir: st.dir } : { x: tb?.x ?? 0.5, z: tb?.z ?? 0.5 }, 'black', {
+      slow: true,
       before: () => { this.bankPickups('discard'); this.log.clearFeed(); this.state.load({}); this.applyForge(); this.state.initAbilities(this.db.abilities); this.stats.refill(); this.time.set(this.db.startHour, true); this.respawnPoint = null; this.playTime = 0; this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize); this.progress.load(undefined, this.heroBase()); this.combat.heroStatus.clear(); this.quests.load(undefined); this.party.load(undefined); this.syncSkills(); this.rings.off(); this.refreshRing(); },
       fresh: true,
       after: () => this.openTitle(),
@@ -4365,8 +4441,10 @@ export class Game {
     const t = this.camTarget;
     if (this.onTitle) {
       // Drift slowly across the map behind the title.
-      const a = this.elapsed * 0.05;
-      this.titleFocus.set(this.map.w / 2 + Math.sin(a) * this.map.w * 0.3, this.player.position.y, this.map.h / 2 + Math.cos(a * 0.7) * this.map.h * 0.2);
+      const a = this.elapsed * 0.05, tb = this.db.menus?.titleBackground;
+      // Its own map: a slow look around the chosen spot; otherwise a drift across the map.
+      if (tb?.kind === 'map' && tb.map) this.titleFocus.set((tb.x ?? this.map.w / 2) + Math.sin(a * 2) * 2, this.map.surfaceY(tb.x ?? 0, tb.z ?? 0), (tb.z ?? this.map.h / 2) + Math.cos(a * 1.4) * 1.2);
+      else this.titleFocus.set(this.map.w / 2 + Math.sin(a) * this.map.w * 0.3, this.player.position.y, this.map.h / 2 + Math.cos(a * 0.7) * this.map.h * 0.2);
       t.lerp(this.titleFocus, 1 - Math.exp(-dt * 0.8));
     } else t.lerp(this.player.position, 1 - Math.exp(-dt * 5));
     t.x = clamp(t.x, 7, this.map.w - 7);

@@ -139,6 +139,8 @@ export class BattleScreen {
   private readonly capEl: HTMLElement;
   private camTimer = 0;
   private vic: Victory | null = null;
+  /** The results panel, kept while the battle fades out, removed when the screen closes. */
+  private leftover: HTMLElement | null = null;
   /** Plays an effect or chime (victory, EXP, loot) on the game's sound. */
   onSound: ((name: string) => void) | null = null;
   /** Staged battles: the camera button (or LB / RB) asks for the next (+1) or previous (−1) camera. */
@@ -226,6 +228,7 @@ export class BattleScreen {
   /** Open with these fighters. `opening` decides the banner. */
   open(views: FighterView[]): void {
     this.fighters.clear();
+    for (const el of this.root.querySelectorAll('.battle-victory')) el.remove();
     this.enemiesEl.replaceChildren();
     this.partyEl.replaceChildren();
     this.statusEl.replaceChildren();
@@ -254,6 +257,8 @@ export class BattleScreen {
     this.endQte();
     this.vic?.el.remove();
     this.vic = null;
+    this.leftover?.remove();
+    this.leftover = null;
     this.mode = { kind: 'idle' };
     this.root.hidden = true;
     this.fighters.clear();
@@ -749,6 +754,8 @@ export class BattleScreen {
     const done = v.done;
     v.hint.textContent = '';
     this.vic = null;
+    // The panel goes with the battle screen as it fades (and never carries over into the next battle).
+    this.leftover = v.el;
     uiSound('menuOk');
     done();
   }

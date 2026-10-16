@@ -16,6 +16,9 @@ import { FIELD_GLOW } from '../world/items';
 export interface FieldSpell { power: FieldPower; mpCost?: number; mpPerSecond?: number; glow?: string }
 
 
+/** A Light key item with no light of its own set: a warm lantern glow. */
+const DEFAULT_LANTERN: ItemLight = { type: 'lantern', color: '#ffe2b0', intensity: 2, radius: 10 };
+
 interface RingLights { def: ItemLight; main: THREE.PointLight; radius: number; orb: THREE.Sprite | null }
 
 export class Rings {
@@ -36,9 +39,13 @@ export class Rings {
   /** The shard whose field spell is ready (if any). */
   get ring(): ItemDef | null { return this.worn; }
   get power(): FieldSpell | null {
-    const s = this.worn?.spell;
+    const w = this.worn, s = w?.spell;
+    // Key items (a lantern, water-walking boots): free to use.
+    if (w?.tool) return { power: w.tool };
     return s?.power ? { power: s.power, mpCost: s.mp, mpPerSecond: s.mpPerSecond, glow: s.glow } : null;
   }
+  /** The field use comes from a key item (not a spell). */
+  get isTool(): boolean { return !!this.worn?.tool; }
   get waterWalk(): boolean { return this.active && this.power?.power === 'waterWalk'; }
   /** Magic drained per second right now. */
   get mpDrain(): number { return this.active ? Math.max(0, this.power?.mpPerSecond ?? 0) : 0; }
@@ -50,7 +57,7 @@ export class Rings {
     this.active = false;
     this.level = 0;
     this.removeLights();
-    const l = def?.spell?.power === 'light' ? def.light : undefined;
+    const l = (def?.spell?.power ?? def?.tool) === 'light' ? def!.light ?? (def!.tool ? DEFAULT_LANTERN : undefined) : undefined;
     if (l) this.addLights(l, shadows);
   }
 

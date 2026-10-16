@@ -23,6 +23,9 @@ const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 0.8);
 const MAX_FALL = 1.0;
 /** Seconds of pushing against a climbable wall before the player starts climbing it. */
 const CLIMB_PUSH = 0.18;
+/** Seconds of walking into a low ledge before hopping down it, and the hop's little lift. */
+const HOP_PUSH = 0.1;
+const HOP_SPEED = 3.6;
 
 export interface MotionWorld {
   map: TileMap;
@@ -67,7 +70,8 @@ export interface MotionResult {
 type V3 = [number, number, number];
 type State =
   | { kind: 'ground' }
-  | { kind: 'air'; vy: number; speed: number; from: V3 }
+  /** In the air: a jump, or a hop down a low ledge (`auto`: the way it carries the hero, whatever is held). */
+  | { kind: 'air'; vy: number; speed: number; from: V3; auto?: [number, number] }
   | { kind: 'climb'; path: V3[]; seg: number; face: Dir }
   | { kind: 'dash'; dx: number; dz: number; speed: number; left: number };
 
@@ -194,6 +198,7 @@ export class PlayerMotion {
       if (!res.moving) {
         res.blocked = true;
         if (this.tryClimb(dt, inp)) { res.blocked = false; res.moving = true; res.face = (this.state as { face: Dir }).face; }
+        else if (this.tryHop(dt, inp, speed)) return { ...this.updateAir(dt, inp, this.state as Extract<State, { kind: 'air' }>), face: res.face, jumped: true };
       } else this.push = { t: 0, key: '' };
     } else this.push = { t: 0, key: '' };
     // A river's current carries a swimmer (and, more gently, a wader) along: slower against it, faster with it.
@@ -256,12 +261,13 @@ export class PlayerMotion {
     const m = this.map, res: MotionResult = { moving: true, blocked: false, fell: false, face: null };
     st.vy -= GRAVITY * dt;
     const feet = this.y + st.vy * dt;
-    if (inp.dx || inp.dz) {
+    const [mx, mz] = st.auto ?? [inp.dx, inp.dz];
+    if (mx || mz) {
       const step = st.speed * dt;
-      const nx = this.x + inp.dx * step, nz = this.z + inp.dz * step;
-      if (inp.dx && this.airFree(nx, this.z, Math.max(feet, this.y))) this.x = nx;
-      if (inp.dz && this.airFree(this.x, nz, Math.max(feet, this.y))) this.z = nz;
-      res.face = faceOf(inp.dx, inp.dz);
+      const nx = this.x + mx * step, nz = this.z + mz * step;
+      if (mx && this.airFree(nx, this.z, Math.max(feet, this.y))) this.x = nx;
+      if (mz && this.airFree(this.x, nz, Math.max(feet, this.y))) this.z = nz;
+      res.face = faceOf(mx, mz);
     }
     this.y = feet;
 
@@ -301,6 +307,37 @@ export class PlayerMotion {
         if (ok(x, z)) { this.x = x; this.z = z; return true; }
       }
     return false;
+  }
+
+  /* ---------------------------------------------------------------- hopping down */
+
+  /**
+   * Walking off a ledge no more than a tile high (one or two steps): after a moment's push the hero hops down by
+   * themselves, no jump button needed. Not off climbable walls (those are climbed), into deep water or into a gap.
+   */
+  private tryHop(dt: number, inp: MotionInput, speed: number): boolean {
+    const m = this.map;
+    if (this.crawling || this.waterHere()?.kind === 'swim') return false;
+    const horiz = Math.abs(inp.dx) >= Math.abs(inp.dz);
+    const ddx = horiz ? Math.sign(inp.dx) : 0, ddz = horiz ? 0 : Math.sign(inp.dz);
+    const cx = Math.floor(this.x), cz = Math.floor(this.z), nx = cx + ddx, nz = cz + ddz;
+    if (!m.inMap(nx, nz) || m.isClimbable(cx, cz) || m.isClimbable(nx, nz) || this.cellBlocked(nx, nz, false)) return false;
+    const gap = ddx > 0 ? cx + 1 - this.x : ddx < 0 ? this.x - cx : ddz > 0 ? cz + 1 - this.z : this.z - cz;
+    if (gap > (ddx ? PLAYER_RADIUS : RZ) + 0.1) return false;
+    // Where the hero would land: just past the edge, the whole footprint on the lower ground.
+    const tx = ddx > 0 ? nx + PLAYER_RADIUS + 0.12 : ddx < 0 ? nx + 1 - PLAYER_RADIUS - 0.12 : clampIn(this.x, nx, PLAYER_RADIUS);
+    const tz = ddz > 0 ? nz + RZ + 0.12 : ddz < 0 ? nz + 1 - RZ - 0.12 : clampIn(this.z, nz, RZ);
+    const fromY = this.stand(this.x, this.z), toY = this.stand(tx, tz), drop = fromY - toY;
+    if (drop <= MAX_STEP || drop > MAX_FALL + 1e-3 || !this.groundFree(tx, tz, toY)) return false;
+    if (m.waterAt(Math.floor(tx), Math.floor(tz))?.kind === 'deep' && !this.onWater) return false;
+    const key = `hop${nx},${nz}`;
+    if (this.push.key !== key) this.push = { t: 0, key };
+    this.push.t += dt;
+    if (this.push.t < HOP_PUSH) return false;
+    this.push = { t: 0, key: '' };
+    this.state = { kind: 'air', vy: HOP_SPEED, speed: Math.max(speed, this.sp.walk), from: [this.x, fromY, this.z], auto: [ddx, ddz] };
+    this.y = fromY;
+    return true;
   }
 
   /* ---------------------------------------------------------------- dashing */

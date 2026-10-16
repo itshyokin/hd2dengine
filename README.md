@@ -306,6 +306,11 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   one step higher (shown with an arrow). For taller climbs, chain several, each one step higher than the last.
   A red cross means there is no such neighbour. Click an existing one to select it: change its style, set its
   direction by hand, or delete it.
+- **Corner slopes** (Ramp → Style: **Corner**): a walkable slope for a hill's corners, so raised ground can be a
+  rounded hill instead of cliff steps. Put ramps along a hill's sides and a corner slope on the low cell at each turn:
+  at an outside corner it rises toward the higher ground diagonally beside it (one raised corner); tucked into an
+  inside corner it rises on two sides (three raised corners). The corners are found from the neighbours one step
+  higher (dots on the map mark them); select one to set them by hand.
 - **Cliff wall look:** the Map settings' **Cliff walls** sets the default for the whole map (built-in stone bricks
   or any imported tile). A tile can choose its own: select it in the Terrain palette (or in the tile importer) and
   set **Cliff walls under it**. A wall takes its look from the tile on top of the cliff.
@@ -320,8 +325,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   it's above the ground. In the game the shoreline is softened: bank corners that jut into water are cut round
   and the water's inner corners are filled round, with a natural wobble (the cliff wall curves with them), and water at a bank's level
   laps a little over it. This only applies where flat ground meets water; other cliffs keep square corners.
-- In the game the player walks up ramps and stairs, can jump up one step, and climbs only walls marked Climbable
-  (Passage layer). From a bank they can walk straight into water at the bank's level, wade, or swim. Props, events
+- In the game the player walks up ramps, stairs and corner slopes, can jump up one step, and climbs only walls marked Climbable
+  (Passage layer). Walking off a ledge up to a tile high (one or two steps) the hero **hops down** by themselves
+  after a moment's push (not off climbable walls, which are climbed down, or into deep water). From a bank they can walk straight into water at the bank's level, wade, or swim. Props, events
   and lights stand on the ground at whatever height it is.
 
 ### Time, night and map lighting
@@ -343,11 +349,14 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 
 ### Title screen, pause menu and settings
 
-- The game (and every playtest) opens on the **title screen**, with the start map drifting behind it:
+- The game (and every playtest) opens on the **title screen**. **Database → Title & menus → Title background**: a
+  **map** (any map, centred on a spot you choose, the camera drifting round it), a **picture** or a **video** (no map
+  behind it at all). Starting or loading a game fades to black, hides the HUD while the map loads, then fades in with
+  the HUD coming up with it (Quit to Title fades the same way). Title options:
   **Continue** (the latest save; greyed out without one), **New Game**, **Load Game**, **Options**, **Exit**.
 - **Database → Title & menus**: the game title, the title shown on screen and a subtitle; rename or hide each title
   option and each pause menu entry; *Skip the title screen in playtests* for quick testing.
-- **Pause menu** (Esc / Start): Inventory, Party, Journal, Settings, Save / Load, Quit to Title.
+- **Pause menu** (Esc / Start): Inventory, Party, Journal, Settings, Save / Load, Quit to Title, each with its icon.
 - **Party**: everyone in the party (the hero first) with their level, HP, MP and EXP. Pick one for their
   **Status**, **Skill Tree** or **Stats** (where level-up stat points go); Esc comes back to the party to pick
   someone else. Anyone with points to spend has a gold outline, a **LEVEL UP** badge and, in gold, what they have
@@ -500,6 +509,11 @@ Short Sword, a Hunting Bow and Iron Arrows; bandits drop Steel Arrows.
 **Turn-based**, in the style of Final Fantasy X and the Game Boy Advance Pokémon games. Heroes, stats, gear, spell
 shards, items, enemies, EXP, gold and drops are the same in both, so a game can switch at any time.
 
+- **On the overworld** the hero's **sword and bow are field tools**: always there (not bag items, no arrows needed),
+  for cutting vines, breaking crates and shooting switches. An equipped weapon or bow is shown instead when there is
+  one. The **Enable / disable overworld weapons** event command turns them off indoors or in restricted areas: they're
+  greyed out on the HUD with a red ✕ until an event turns them back on.
+
 - **Starting a battle**: an enemy on the map that reaches the hero (its strike or its arrow) starts a battle with it
   and the enemies near it (*Enemies who join*, up to *Most enemies in a battle*). Hitting it first on the map, with a
   sword, an arrow or a spell, gives the party the first turns (*You caught … off guard!*); being hit from behind is an
@@ -516,10 +530,13 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   of the lineup. Up to three enemies (troops, zones and Start battle are capped at three). On a battle map, put P1 (the
   hero) in the middle and P2 / P3 either side.
 - **On the stage**: an arrow over whoever's turn it is while they choose. Additions: the camera closes in from the
-  side as the hero rushes in; the damage lands all at once when the string ends (a missed strike ends it, with the
-  damage of the strikes that landed); a pause, then they run back. Spells: the camera comes round in front of the
-  caster as they raise their arms (their chant, for a spell that charges), then back; when it goes off, in front again
-  for the call-out, back, and only then the spell. Items: they turn to whoever it's for and toss it. Badly hurt (a
+  side as the hero rushes up to the front of the target; the damage lands all at once when the string ends (a missed
+  strike ends it, with the damage of the strikes that landed); a pause, then they run back. Spells: the camera swings
+  round between the caster and the foes, looking back at the caster (who keeps facing the foes) as they raise their
+  arms (their chant, for a spell that charges), then back; when it goes off, in front again for the call-out, back,
+  and only then the spell. Sprites face the way they're turned in the world whichever way the camera looks.
+  Character Builder sheets don't always have every clothing layer in every pose: a pose that loses clothes or
+  accessories compared with the walk is left out automatically (the standing / walking frames are used instead). Items: they turn to whoever it's for and toss it. Badly hurt (a
   quarter of their health or less) or ailing, fighters crouch and breathe slow and heavy (a sheet with a `kneel` or
   `sit` animation kneels instead). The field's weather and mist carry on over the battle.
 - **Voices**: Database → Spells → *Call-out* (as it goes off) and *Chant* (while it charges); Database → Additions →
@@ -750,22 +767,24 @@ skills as new abilities arrive). A **LEVEL UP** banner appears at the top of the
 - **Settings → Sound**: **Master volume** (50% to start), music, sound effects, background sounds, **menus and text**, and **fanfares and chimes**. Browsers only allow sound after the first
   click or key press, so the title music starts then.
 
-### Field spells (Light, Water Walk)
+### Field uses: key items (Light, Water Walk)
 
-Two spell shards carry a **field spell** instead of a bolt. Ready one (Bag → **Shards**) and cast it (**B** on a
-controller, **F** or **3**, or the Spell button on touch screens) to switch it on; cast again to switch it off. Set them
-up in **Database → Items** (Slot: Spell shard → *Spell*):
+Overworld abilities come from **key items**: the built-in **Lantern** (Light) and **Strider Boots** (Water Walk).
+Pick one in the bag (**Key items** tab) and choose **Turn on** / **Turn off**, or **Assign to the B button** so **B**
+(controller), **F** / **3** or the Spell button on touch screens switches it on and off. Only one is on at a time;
+they cost no magic. Set them up in **Database → Items**: Kind *Key / quest item* → **Field use**:
 
-| Spell | Casting it | Magic |
-| --- | --- | --- |
-| **Light** | A glow all around the hero: an **orb** floating by them, a **lantern** or a flickering **torch** (no beam: older flashlights become orbs). Colour, brightness, reach and shadows are set per shard. | *MP to switch on* once, then *MP per second while on* |
-| **Water Walk** | Water of any depth is solid ground: no swimming, no stamina. Ends by itself when the hero steps back on land. | *MP to switch on*, then *MP per second while on* |
+| Use | What it does |
+| --- | --- |
+| **Light** | A glow all around the hero: a **lantern**, a flickering **torch** or an **orb** floating by them. Colour, brightness, reach and shadows are set per item. |
+| **Water Walk** | Water of any depth is solid ground: no swimming, no stamina. Switches off by itself when the hero steps back on land. |
 
-- While one is on the hero glows (gold for Light, blue for Water Walk; each shard can set its own colour).
-- When magic runs out it ends ("… fades: out of MP"). Over deep water the hero is put back on the last bit of shore.
-- The HUD shows the field-spell shard under the bars; it lights up while the spell is on.
-- **Older databases**: Light and Tide rings become the *Light* and *Water Walk* shards when the database loads (open
-  the editor and Save to keep the change); cutting rings are removed (sword swings cut vines). Saves wearing one
+- While one is on the hero glows (gold for Light, blue for Water Walk). Over deep water the hero is put back on the last bit of shore.
+- The HUD's spell box shows the item on the B button; it lights up while it's on.
+- **Older databases**: spell shards that carried Light or Water Walk become these key items when the database loads
+  (a shard still named *Light* / *Water Walk* becomes the Lantern / Strider Boots); choosing a field use for a shard
+  in the editor makes it a key item too. Older still: Light and Tide rings (open the editor and Save to keep the
+  change); cutting rings are removed (sword swings cut vines). Saves wearing one
   in the ring slot move it to the magic slot. There's no Ring slot any more: rings with stats are accessories.
 - **Cuttable props**: tick *Can be cut down* in a prop's importer (or *Customise* for built-ins); a sword swing cuts
   them. Built in: **Vines (cuttable)** and **Sapling (cuttable)**.
@@ -831,8 +850,9 @@ older single water look becomes its first style.
   condition **Day of the week (real world)**: a market only on Saturdays, a rare enemy on Fridays. A map can have its own season
   (Inspector → map settings → **Season**: follows the days, or always spring / summer / autumn / winter). Indoor and
   underground maps don't change. The playtest panel has season buttons for testing.
-- Outdoors everything green follows the season: fresh green in spring, green-gold in summer, orange, red and brown in
-  autumn, and snow in winter (grass under it, a dusting on evergreen leaves).
+- Outdoors everything green follows the season: fresh green in spring, green-gold in summer, autumn's even straw-gold
+  grass with each tree and bush turning wholly red, orange or gold (one colour per plant, no patches), and snow in winter
+  (grass under it, a dusting on evergreen leaves).
 - Props have a **Seasons** setting (prop importer): *keeps its leaves* (pines, flowers: snowy in winter), *bare in
   winter* (oaks, bushes: only branches) or *doesn't change*. Unset, it's guessed from the name.
 - **Ice**: in winter, still water (no current, not lava or goo) freezes over. The hero walks onto it and slides,
@@ -1112,6 +1132,7 @@ Events work like RPG Maker's. Each event has **pages**. The active page is the l
 | Fade out / in | `{ "cmd": "fadeOut", "seconds": 1 }`, `{ "cmd": "fadeIn" }` |
 | Set time of day | `{ "cmd": "setTime", "hour": 21.5, "instant": true }` |
 | Change ability | `{ "cmd": "ability", "ability": "climb", "on": true }` (run, jump, climb, crawl) |
+| Enable / disable overworld weapons | `{ "cmd": "fieldWeapons", "on": false }`: the field sword and bow greyed out on the HUD with a red ✕ (indoors, towns, restricted areas) until enabled again; kept in saves |
 | Open save screen | `{ "cmd": "save" }` |
 | Transfer player | `{ "cmd": "transfer", "map": "map002", "x": 3, "z": 5, "dir": "up", "fade": "black" }` (fade `black`, `white` or `none`; ends the event) |
 | Play sound effect | `{ "cmd": "sound", "sound": "levelUp" }` (a built-in name or a file path) |

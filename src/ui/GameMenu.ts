@@ -8,6 +8,8 @@ import { type SaveData, type SlotId, formatPlayTime } from '../game/saves';
 
 export interface MenuItem {
   label: string;
+  /** A small picture before the label (SVG markup drawn in the current colour). */
+  icon?: string;
   /** Colours for the label and the detail (an item's rarity). */
   color?: string;
   detail?: string;
@@ -148,7 +150,7 @@ export class GameMenu {
       b.setAttribute('aria-selected', String(i === s.index));
       const value = settingText(it);
       b.classList.toggle('setting', value !== null);
-      b.innerHTML = `<span class="menu-label"></span>${value !== null ? '<span class="menu-value"></span>' : ''}${it.detail ? '<span class="menu-detail"></span>' : ''}`;
+      b.innerHTML = `${it.icon ? `<span class="menu-icon" aria-hidden="true">${it.icon}</span>` : ''}<span class="menu-label"></span>${value !== null ? '<span class="menu-value"></span>' : ''}${it.detail ? '<span class="menu-detail"></span>' : ''}`;
       b.querySelector('.menu-label')!.textContent = it.label;
       if (it.color) b.querySelector<HTMLElement>('.menu-label')!.style.color = it.color;
       if (value !== null) {

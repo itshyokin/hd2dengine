@@ -9,7 +9,7 @@ import type { Gauge } from '../world/types';
 const BARS: [Gauge, string][] = [['mp', 'MP'], ['hp', 'HP'], ['sp', 'SP']];
 
 export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string }
-export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string }
+export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string; /** Disabled by an event (indoors): greyed with a red ✕. */ blocked?: boolean }
 
 /** The HUD pieces a player can move and scale. */
 export type HudWidget = 'stats' | 'party' | 'clock' | 'weapons' | 'xp' | 'log' | 'quest' | 'quick';
@@ -191,13 +191,13 @@ export class StatusBars {
    * `switches` changes on every switch, which plays the swap animation.
    */
   setWeapons(slots: WeaponSlot[], current: string, switches: number, keyLabel: string): void {
-    const key = `${current}|${switches}|${keyLabel}|${slots.map((s) => s.id + s.icon + s.available + s.name + s.color).join()}`;
+    const key = `${current}|${switches}|${keyLabel}|${slots.map((s) => s.id + s.icon + s.available + s.name + s.color + !!s.blocked).join()}`;
     if (key === this.weaponKey) return;
     const swapped = this.weaponKey !== '' && this.weaponKey.split('|')[1] !== String(switches);
     this.weaponKey = key;
     const i = Math.max(0, slots.findIndex((s) => s.id === current));
     const order = slots.map((_, k) => slots[(i + k) % slots.length]);
-    const slot = (s: WeaponSlot, main: boolean) => `<div class="hud-wslot${main ? ' main' : ''}${s.available ? '' : ' off'}" title="${s.name}${s.available ? '' : ' (not available)'}">
+    const slot = (s: WeaponSlot, main: boolean) => `<div class="hud-wslot${main ? ' main' : ''}${s.available ? '' : ' off'}${s.blocked ? ' blocked' : ''}" title="${s.name}${s.blocked ? ' (can’t be used here)' : s.available ? '' : ' (not available)'}">
       <img src="${s.icon}" alt="">${main ? `<span class="hud-wname"${s.color ? ` style="color:${s.color}"` : ''}>${s.name}</span>` : ''}</div>`;
     this.weapons.innerHTML = `${slot(order[0], true)}<div class="hud-wrest">${order.slice(1).map((s) => slot(s, false)).join('')}</div><kbd class="hud-wkey" title="Switch weapon">${keyLabel}</kbd>`;
     if (swapped) {
