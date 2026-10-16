@@ -1,3 +1,4 @@
+import { soundField } from './CommandEditor';
 /**
  * Database → Heroes: the hero you play (first) and heroes who'll join the party later: name, look, starting stats,
  * and for the first hero, how a new game makes their stats (character creation). Also the stat points per level.
@@ -25,6 +26,7 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     const c: HeroDef = { id: x.id, name: x.name.trim() || 'Hero' };
     if (i > 0 && x.look) c.look = x.look;
     if (x.face) c.face = x.face;
+    if (x.attackSounds?.length) c.attackSounds = x.attackSounds.filter(Boolean);
     if (x.color) c.color = x.color;
     if (x.about) c.about = x.about;
     const st = Object.fromEntries(ATTRS.filter((k) => (x.stats?.[k] ?? ATTR_BASE) !== ATTR_BASE).map((k) => [k, x.stats![k]]));
@@ -93,6 +95,11 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
         h('button', { type: 'button', class: 'btn small', onclick: () => face.pick(x, rerender) }, x.face ? 'Change…' : 'Choose a picture…'),
         x.face ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete x.face; rerender(); } }, 'Use their look') : h('span')),
         'Their face on the battle screen (Dragon Legend layout). Square pictures look best; without one, a face is cut from their look.')] : []),
+      h('div', { class: 'field' }, h('label', {}, 'Attack sounds'),
+        ...(x.attackSounds ?? []).map((src, k) => h('div', { class: 'field-row' }, soundField(`Sound ${k + 1}`, src, (v) => { if (v) x.attackSounds![k] = v; }),
+          h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove sound ${k + 1}`, onclick: () => { x.attackSounds!.splice(k, 1); if (!x.attackSounds!.length) delete x.attackSounds; rerender(); } }, '✕'))),
+        h('button', { type: 'button', class: 'btn small', onclick: () => { (x.attackSounds ??= []).push('hit'); rerender(); } }, '+ Add attack sound'),
+        h('div', { class: 'hint' }, 'Turn-based: one of these, at random, when they land a weapon or bow attack (voice clips like “Hah!”).')),
       field('Colour', (() => { const c = h('input', { type: 'color', value: x.color ?? ['#e8b04a', '#5aa8ff', '#7cd66a', '#e87ad0', '#ff8a5a'][Math.max(0, state.sel) % 5] }); c.addEventListener('change', () => { x.color = c.value; }); return c; })(),
         'Shown behind "equipped" on what they wear, and on their card in the menus.'),
       field('About', (() => { const t = h('textarea', { rows: '3', placeholder: 'A few lines of story about them (shown on their Status page).' }); t.value = x.about ?? ''; t.addEventListener('change', () => { const v = t.value.trim(); if (v) x.about = v; else delete x.about; }); return t; })()),

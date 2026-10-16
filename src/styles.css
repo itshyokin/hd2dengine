@@ -1318,3 +1318,11 @@ body.in-battle.staged-battle #view { filter: none; }
   .battle-cards { gap: 6px; }
   .battle-desc { top: calc(100px + env(safe-area-inset-top, 0px)); width: calc(100% - 24px); }
 }
+/* Whose turn: the arrow over them while they choose (gone once they're choosing a target). */
+.bfighter.turn .bf-arrow { display: block; }
+
+/* Settings → HUD: pieces turned off, and condensed hero bars (shown as a card with the party's). */
+.hud-off { display: none !important; }
+.hud-top.hud-compact { background: none; border-color: transparent; box-shadow: none; backdrop-filter: none; }
+.hud-top.hud-compact > .hud-level, .hud-top.hud-compact > .hud-gauge { display: none; }
+.hud-ally-bar.sp i { background: #6fcf5a; }

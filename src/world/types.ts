@@ -686,6 +686,8 @@ export interface HeroDef {
   look?: string;
   /** Face art for the battle screen and menus (an image path); unset: a face cut from their look. */
   face?: string;
+  /** Turn-based: voice clips, one at random as they land a weapon or bow attack (sound sources). */
+  attackSounds?: string[];
   /** Starting Strength, Dexterity, Defence, Magic and Magic Defence (10 each when left out). */
   stats?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>;
   /** The first hero: how a new game makes their stats. */
@@ -738,7 +740,7 @@ export interface Database {
   /** Combat tuning (Database → Combat); anything left out uses the defaults (see game/combat/config.ts). */
   combat?: CombatData;
   /** Sound (Database → Audio): imported files, effects swapped for files, title music. */
-  audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string };
+  audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; /** After the victory fanfare (unset: the map's music). */ victoryMusic?: string };
   /** The skill tree (Database → Skills). Without it, the built-in tree is used. */
   skills?: SkillsData;
   /** Troops: groups of enemies for random encounters (encounter zones on maps). */
@@ -1240,6 +1242,9 @@ export interface SpellEntry {
   rankMp?: number;
   /** Turns rank 1 takes to charge (default 0: cast at once). */
   charge?: number;
+  /** Turn-based: the caster's call-out as it goes off ("Fire!"), and a chant while it charges (sound sources). */
+  sound?: string;
+  chant?: string;
   /** Action mode: bolt speed and range in tiles (0 / unset: Database → Combat's spell values). */
   speed?: number;
   range?: number;
@@ -1270,6 +1275,8 @@ export interface AdditionDef {
   /** Each rank above the first: +rankDamage % damage (default 12), +rankWindow % wider timing (default 6). */
   rankDamage?: number;
   rankWindow?: number;
+  /** The hero's call-out when the whole string lands ("Quick slash!"): a sound source. */
+  sound?: string;
 }
 
 /** A class: the skill trees its members learn from. Changing class keeps everything already learned. */

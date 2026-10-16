@@ -16,6 +16,9 @@ export interface SpellRank { rank: number; name: string; power: number; mp: numb
 export interface BattleSpell {
   /** What it does, in a sentence (Database → Spells). */
   description?: string;
+  /** Call-out as it goes off, and the chant while it charges. */
+  sound?: string;
+  chant?: string;
   id: string;
   name: string;
   kind: 'bolt' | 'heal';
@@ -37,6 +40,8 @@ export interface BattleAddition {
   /** Completions to the next rank (null at the top). */
   toNext: number | null;
   damage: number;
+  /** Call-out when the whole string lands. */
+  sound?: string;
 }
 
 /** A spell being charged: what it is, at which rank, on whom, and the caster's turns until it goes off. */

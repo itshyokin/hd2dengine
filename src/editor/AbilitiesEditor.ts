@@ -1,3 +1,4 @@
+import { soundField } from './CommandEditor';
 /**
  * Database → Spells, Additions and Classes: learned spells (with ranks and charge turns), Legend of Dragoon-style
  * Additions (strings of timed strikes with button prompts), and classes (the skill trees each one opens).
@@ -52,6 +53,8 @@ export function spellsTab(list: SpellEntry[], state: { sel: number }, rerender: 
     return [
       nameId(list, d, rerender, 'Spell'),
       field('Description', textInput(d.description ?? '', (v) => { d.description = v.trim() || undefined; }, { 'aria-label': 'Spell description' })),
+      soundField('Call-out', d.sound, (v) => { d.sound = v; }, 'Turn-based: what the caster says as it goes off (“Fire!”). Import voice clips in Database → Audio.'),
+      soundField('Chant', d.chant, (v) => { d.chant = v; }, 'Played as they begin a spell that charges (Charges above 0).'),
       h('div', { class: 'field-row' },
         field('Kind', select([['bolt', 'Attack spell (a magic hit; in action mode, the bolt the spell button throws)'], ['heal', 'Healing (health back for the party)']], d.kind, (v) => { d.kind = v as SpellEntry['kind']; rerender(); })),
         field('Targets', select([['one', 'One'], ['all', 'All of them (every foe, or the whole party)']], d.targets ?? 'one', (v) => { if (v === 'all') d.targets = 'all'; else delete d.targets; }), 'Turn-based battles.')),
@@ -99,6 +102,7 @@ export function additionsTab(list: AdditionDef[], state: { sel: number }, rerend
     return [
       nameId(list, d, rerender, 'Addition'),
       field('Description', textInput(d.description ?? '', (v) => { d.description = v.trim() || undefined; }, { 'aria-label': 'Addition description' })),
+      soundField('Call-out', d.sound, (v) => { d.sound = v; }, 'What the hero shouts when the whole string lands (“Quick slash!”).'),
       h('section', { class: 'db-section' }, h('h3', {}, `Strikes (${strikes.length})`),
         ...strikes.map(row),
         strikes.length < 7 ? h('button', { type: 'button', class: 'btn', onclick: () => { strikes.push({ ...strikes[strikes.length - 1] }); rerender(); } }, '+ Add strike') : h('span'),

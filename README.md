@@ -510,8 +510,23 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
 - **Battle cameras**: on a battle map, **LB / RB** (Q / E, or tap the camera chip top-left) switch between seven
   cameras: behind the party, over either shoulder, high above, low and close, and wide from either side. Each
   battle starts on one at random, most often the one behind the party.
-- **Three a side**: the hero and up to two party members against up to three enemies (troops, zones and Start
-  battle are capped at three). On a battle map, put P1 (the hero) in the middle and P2 / P3 either side.
+- **Three a side, eight in the party**: the party holds up to eight (the hero and seven more). The hero and the first
+  two of the lineup fight (and follow on the map); the rest wait on the bench. **Swap** on any hero's turn brings one
+  in where they stood, and the newcomer takes that turn (no turn is lost). Whoever finishes a battle stays at the front
+  of the lineup. Up to three enemies (troops, zones and Start battle are capped at three). On a battle map, put P1 (the
+  hero) in the middle and P2 / P3 either side.
+- **On the stage**: an arrow over whoever's turn it is while they choose. Additions: the camera closes in from the
+  side as the hero rushes in; the damage lands all at once when the string ends (a missed strike ends it, with the
+  damage of the strikes that landed); a pause, then they run back. Spells: the camera comes round in front of the
+  caster as they raise their arms (their chant, for a spell that charges), then back; when it goes off, in front again
+  for the call-out, back, and only then the spell. Items: they turn to whoever it's for and toss it. Badly hurt (a
+  quarter of their health or less) or ailing, fighters crouch and breathe slow and heavy (a sheet with a `kneel` or
+  `sit` animation kneels instead). The field's weather and mist carry on over the battle.
+- **Voices**: Database → Spells → *Call-out* (as it goes off) and *Chant* (while it charges); Database → Additions →
+  *Call-out* (when the whole string lands); Database → Heroes → *Attack sounds* (one at random when they land a weapon
+  or bow attack). Import voice clips in Database → Audio.
+- **Victory music**: the fanfare, then Database → Audio → *Music after the fanfare* (unset: the map's music).
+- **Healing out of battle**: Menu → Abilities → a hero → a healing spell: cast it on the party (it costs their MP).
 - **Battle screen layout** (Database → Combat): **Dragon Legend** (default, Legend of Dragoon style): each hero's
   card in a row along the bottom (the hero in the middle), with their face (Database → Heroes → *Face art*, or one cut
   from their look), name, and HP / MP as numbers that are white, yellow at half or less, red at a quarter or less. A
@@ -730,6 +745,8 @@ skills as new abilities arrive). A **LEVEL UP** banner appears at the top of the
 - **Per map** (map settings → Sound): music, **battle music** (takes over while an enemy is hunting the hero and
   fades back after), background sound, and a night background sound for outdoor maps.
 - **Events**: Play sound effect, Change music, Change background sound (each lasts until the player leaves the map).
+- **Settings → HUD**: *Hero bars* long (across the top) or condensed (a card with the party's), *Show hero bars*,
+  *Show party bars*, and *Faces* beside the bars.
 - **Settings → Sound**: **Master volume** (50% to start), music, sound effects, background sounds, **menus and text**, and **fanfares and chimes**. Browsers only allow sound after the first
   click or key press, so the title music starts then.
 

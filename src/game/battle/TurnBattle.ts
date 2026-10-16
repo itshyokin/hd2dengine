@@ -25,6 +25,9 @@ export interface BattleItem { slot: number; name: string; count: number; detail?
 
 export type BattleOutcome = 'victory' | 'defeat' | 'fled';
 
+/** A party member waiting on the bench (they can swap in on a turn). */
+export interface ReserveView { who: number; name: string; icon: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean }
+
 export interface BattleHost {
   sound(name: Sfx): void;
   /** Items usable in battle (consumables in the bag) right now. */
@@ -36,6 +39,14 @@ export interface BattleHost {
   useItem(slot: number, who: number, ailments: BattleAilment[]): { text: string; used: boolean; cures: (Ailment | 'all')[] } | null;
   /** Use up one of the item in this bag slot (used on an enemy). */
   spendItem(slot: number): void;
+  /** Play a voice clip or other sound file (call-outs, chants). */
+  voice?(src: string): void;
+  /** Party member `who` landed a weapon or bow attack: one of their attack sounds. */
+  attackVoice?(who: number): void;
+  /** The party members not fighting now (up to eight in the party, three fight). */
+  reserves?(): ReserveView[];
+  /** Swap party member `outWho` (fighter `outKey`) for `inWho`: their entry, ready to fight (null: can't). */
+  swapIn?(outKey: string, outWho: number, inWho: number): BattleEntry | null;
   /** Health and magic of party member `who` as the game has them now (after an item, say). */
   readVitals(who: number): { hp: number; mp: number };
   /** Write a party member's health and magic back to the game. */
@@ -192,11 +203,43 @@ export class TurnBattle {
       { label: 'Guard', icon: 'guard', rank: RANK.guard, detail: this.cfg.guardHeal > 0 ? `Half damage, +${this.cfg.guardHeal}% HP, no ailments` : 'Half damage, no ailments', run: () => this.doGuard(b) },
       { label: 'Magic', icon: 'magic', rank: RANK.magic, disabled: !b.spells.length || silenced, detail: silenced ? 'Silenced' : b.spells.length ? 'Cast a spell' : 'No spells learned', run: () => this.magicMenu(b) },
       { label: 'Items', icon: 'items', rank: RANK.item, disabled: !items.length, detail: items.length ? 'Use an item' : 'Nothing to use', run: () => this.itemMenu(b) },
+      ...(this.host.reserves?.().length ? [{ label: 'Swap', icon: 'swap', disabled: !this.host.reserves!().some((r) => !r.down), detail: 'Bring in someone from the party (no turn used: they take this one)', run: () => this.swapMenu(b) }] : []),
       { label: 'Escape', icon: 'escape', rank: RANK.flee, disabled: !canFlee, detail: canFlee ? 'Try to run away' : 'Can’t run from this fight', run: () => this.doFlee(b) },
     ];
     this.screen.message(`${b.name}’s turn`, true);
     this.screen.choose(b.name, cmds, (i) => { this.lastCommand = i; this.screen.message(''); cmds[i].run(); }, undefined, (i) => this.showOrder(cmds[i].rank), this.lastCommand, true);
   }
+
+  /** Swap: choose who comes in from the bench. */
+  private swapMenu(b: Battler): void {
+    const res = this.host.reserves?.() ?? [];
+    this.screen.choose('Swap in', res.map((r) => ({ label: r.name, iconUrl: r.icon, right: r.down ? 'KO' : `${Math.ceil(r.hp)}/${r.maxHp} HP`, disabled: r.down,
+      detail: r.down ? 'Knocked out' : `HP ${Math.ceil(r.hp)}/${r.maxHp} · MP ${Math.floor(r.mp)}/${r.maxMp}` })),
+    (i) => this.doSwap(b, res[i].who), () => this.commandMenu(b));
+  }
+
+  /** Pass the baton: `b` leaves the battle, the newcomer stands where they stood and takes this turn. */
+  private doSwap(b: Battler, who: number): void {
+    const out = this.entry(b), e = this.host.swapIn?.(b.key, out.who ?? 0, who);
+    if (!e) { this.commandMenu(b); return; }
+    this.host.writeVitals(out.who ?? 0, b.hp, b.mp);
+    this.all[this.all.indexOf(out)] = e;
+    const n = e.battler;
+    n.ct = b.ct; n.charging = null; n.guarding = false;
+    refreshAgility(n);
+    this.screen.replaceFighter(b.key, e.view);
+    this.refresh(n);
+    this.host.sound('menuOk');
+    this.host.log(`${b.name} swaps out for ${n.name}`);
+    this.screen.message(`${n.name} steps in!`);
+    this.actor = n;
+    this.showOrder();
+    this.phase = 'busy';
+    this.later(0.8, () => this.commandMenu(n));
+  }
+
+  /** The party members fighting now (0 the hero), in their places: the lineup to keep after the battle. */
+  lineup(): number[] { return this.all.filter((e) => e.battler.side === 'party').map((e) => e.who ?? 0); }
 
   /** What Attack does: the set Addition's name (when Additions are set per hero). */
   private attackLabel(b: Battler): string {
@@ -281,6 +324,7 @@ export class TurnBattle {
     this.screen.animate(b.key, 'lunge', undefined, t.key);
     this.host.sound('swing');
     this.later(0.28, () => {
+      if (b.side === 'party') this.host.attackVoice?.(this.entry(b).who ?? 0);
       this.hit(b, t, b.attack, b.attackElement, b.attackMagic, b.inflicts);
       this.endTurn(b, RANK.attack, 0.75);
     });
@@ -295,13 +339,32 @@ export class TurnBattle {
       b.charging = { spell: s, rank: r, targets, left: r.charge };
       this.screen.setCharging(b.key, `${r.name} · ${r.charge}`, color);
       this.screen.message(`${b.name} begins casting ${r.name}…`);
-      this.screen.animate(b.key, 'cast', color);
       this.host.sound('ringOn');
       this.host.log(`${b.name} begins casting ${r.name}`);
-      this.endTurn(b, RANK.magic, 0.8);
+      // The camera comes round in front of them as they begin their chant, then goes back.
+      this.castPose(b, color, s.chant, false, () => this.endTurn(b, RANK.magic, 0.5));
       return;
     }
     this.release(b, s, r, targets);
+  }
+
+  /** How long a close-up holds (short on the flat battle screen, which has no camera). */
+  private hold(secs: number): number { return this.screen.staged ? secs : Math.min(secs, 0.35); }
+
+  /**
+   * A party member casting: the camera in front of them as they raise their arms (with the chant or the call-out),
+   * held a moment, then back (`snap`: at once); then `then`. Enemies just glow.
+   */
+  private castPose(b: Battler, color: string, sound: string | undefined, snap: boolean, then: () => void): void {
+    if (b.side !== 'party') { this.screen.animate(b.key, 'cast', color); this.later(0.3, then); return; }
+    this.screen.shot('cast', b.key);
+    this.screen.animate(b.key, 'pose', color);
+    if (sound) this.host.voice?.(sound);
+    this.later(this.hold(snap ? 1.4 : 1.8), () => {
+      this.screen.animate(b.key, 'unpose');
+      this.screen.shot(null, undefined, undefined, snap);
+      then();
+    });
   }
 
   /** A charging spell's turn: one turn closer, or it goes off now (at whoever is still standing). */
@@ -339,6 +402,11 @@ export class TurnBattle {
   private release(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[]): void {
     const color = s.color ?? ELEMENT_COLORS[s.element];
     this.screen.message(r.name);
+    // In front of the caster for the call-out, back to the battle, and only then does the spell go off.
+    this.castPose(b, color, s.sound, true, () => this.unleash(b, s, r, targets, color));
+  }
+
+  private unleash(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[], color: string): void {
     this.screen.animate(b.key, 'cast', color);
     this.host.sound(s.kind === 'heal' ? 'ringOn' : 'fire');
     this.later(0.4, () => {
@@ -358,41 +426,53 @@ export class TurnBattle {
    */
   private doAddition(b: Battler, a: BattleAddition, t: Battler): void {
     this.screen.message(a.name);
+    // The camera closes in from a little to the side as the hero rushes in, and follows them.
+    this.screen.shot('addition', b.key, t.key);
     this.screen.animate(b.key, 'approach', undefined, t.key);
-    this.later(0.35, () => {
-      let landed = 0;
-      const hitOnce = (power: number, last: boolean) => {
-        if (!isUp(t)) return;
-        this.host.sound('swing');
-        this.hit(b, t, power, b.attackElement, b.attackMagic, last ? b.inflicts : undefined);
-      };
+    this.later(0.45, () => {
+      let landed = 0, power = 0;
       this.screen.startQte(t.key, a.strikes.map((x) => ({ button: x.button, time: x.time, window: x.window })), this.cfg.additionTiming === 'auto',
         (i: number, r: QteResult) => {
           const st = a.strikes[i];
           if (r === 'miss') {
             this.screen.popup(t.key, i === 0 ? 'Weak' : 'Missed', 'info');
-            if (i === 0) hitOnce(b.attack * st.power * a.damage * 0.5, true);
+            // A first strike missed still lands, weakly.
+            if (i === 0) power += b.attack * st.power * a.damage * 0.5;
             return;
           }
           landed++;
           if (r === 'perfect') this.screen.popup(t.key, 'Perfect!', 'info');
           this.screen.animate(b.key, 'strike');
-          hitOnce(b.attack * st.power * a.damage * (r === 'perfect' ? 1.1 : 1), i === a.strikes.length - 1);
+          this.screen.animate(t.key, 'hit');
+          this.host.sound('swing');
+          power += b.attack * st.power * a.damage * (r === 'perfect' ? 1.1 : 1);
         },
         () => {
-          this.screen.animate(b.key, 'back');
           const complete = landed === a.strikes.length;
+          // The damage, all at once, as the string ends.
+          if (power > 0 && isUp(t)) this.hit(b, t, power, b.attackElement, b.attackMagic, complete ? b.inflicts : undefined);
           if (complete) {
+            if (a.sound) this.host.voice?.(a.sound); else this.host.attackVoice?.(this.entry(b).who ?? 0);
             this.screen.popup(b.key, a.strikes.length > 1 ? `${a.name}!` : 'Complete!', 'info');
             const up = this.host.mastered?.(this.entry(b).who ?? 0, a.id) ?? null;
             if (up) { this.screen.popup(b.key, `${a.name} rank ${up}!`, 'info'); this.host.log(`${b.name}’s ${a.name} reached rank ${up}`); this.host.sound('levelUp'); a.rank = up; }
-          }
-          this.endTurn(b, RANK.attack, 0.6);
+          } else if (power > 0) this.host.attackVoice?.(this.entry(b).who ?? 0);
+          // A moment to take it in, then back to their place (the camera with them).
+          this.later(this.hold(1.6), () => {
+            this.screen.animate(b.key, 'back');
+            this.later(0.5, () => { this.screen.shot(null); this.endTurn(b, RANK.attack, 0.3); });
+          });
         });
     });
   }
 
+  /** An item: the user turns to whoever it's for and tosses it, then it takes effect. */
   private doItem(b: Battler, it: BattleItem, t: Battler): void {
+    this.screen.animate(b.key, 'toss', undefined, t.key);
+    this.later(0.45, () => this.applyItem(b, it, t));
+  }
+
+  private applyItem(b: Battler, it: BattleItem, t: Battler): void {
     if (t.side === 'enemy') { this.itemOnFoe(b, it, t); return; }
     const who = this.entry(t).who ?? 0;
     const r = this.host.useItem(it.slot, who, t.status.list);
@@ -654,6 +734,7 @@ export class TurnBattle {
     const st = b.status;
     this.screen.setVitals(b.key, {
       hp: b.hp, maxHp: b.maxHp, mp: b.mp, maxMp: b.maxMp, guarding: b.guarding,
+      weak: b.hp > 0 && (b.hp <= b.maxHp * 0.25 || st.list.some((a) => a !== 'zombie')),
       status: st.list.map((a) => ({ icon: statusIconUrl(a), name: `${ailmentName(a)}${Number.isFinite(st.turns.get(a)!) ? ` (${st.turns.get(a)} turn${st.turns.get(a) === 1 ? '' : 's'})` : ''}` })),
     });
     // The party's numbers are the game's too (a save, the HUD).

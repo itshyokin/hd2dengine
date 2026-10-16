@@ -26,8 +26,13 @@ export interface StageFighterSpec {
 
 type Step =
   | { kind: 'move'; to: THREE.Vector3; dur: number; t: number; from?: THREE.Vector3; run?: boolean }
-  | { kind: 'play'; anim: string; dur: number; t: number; started?: boolean }
-  | { kind: 'wait'; dur: number; t: number };
+  | { kind: 'play'; anim: string; dur: number; t: number; started?: boolean; keepFacing?: boolean }
+  | { kind: 'wait'; dur: number; t: number }
+  /** Turn to face a point (null: the other side again). */
+  | { kind: 'face'; to: THREE.Vector3 | null; dur: number; t: number };
+
+/** A close camera: following an Addition (attacker and target), or in front of a caster. */
+interface Shot { kind: 'addition' | 'cast'; a: string; t?: string }
 
 interface Fighter {
   key: string;
@@ -48,6 +53,10 @@ interface Fighter {
   step: number;
   active: boolean;
   down: boolean;
+  /** Badly hurt or ailing: crouched, breathing slow and heavy. */
+  weak: boolean;
+  /** Posing for the camera (casting): facing it, arms up. */
+  posed: boolean;
   /** 0 standing … 1 gone (enemies sink away). */
   fade: number;
   fading: boolean;
@@ -145,9 +154,31 @@ export class BattleStage implements StageHooks {
 
   addFighters(list: StageFighterSpec[]): void {
     const counts = { party: 0, enemy: 0 };
-    for (const s of list) {
-      const i = counts[s.side]++;
-      const home = this.spot(s.side, i);
+    for (const s of list) this.makeFighter(s, this.spot(s.side, counts[s.side]++));
+    // Everyone faces the other side.
+    const pc = this.centre('party'), ec = this.centre('enemy');
+    for (const f of this.fighters.values()) {
+      const to = f.side === 'party' ? ec : pc;
+      f.sprite.faceVector(to.x - f.home.x, to.z - f.home.z);
+    }
+    this.frameCamera();
+  }
+
+  /** A party member swapped in: they stand where the one leaving stood. */
+  replaceFighter(oldKey: string, s: StageFighterSpec): void {
+    const old = this.fighters.get(oldKey);
+    if (!old) return;
+    old.sprite.mesh.removeFromParent();
+    old.ring.removeFromParent();
+    (old.ring.material as THREE.Material).dispose();
+    this.fighters.delete(oldKey);
+    const f = this.makeFighter(s, old.home.clone());
+    this.burst(f, '#ffffff', 1.4, 0.5, 0.4);
+    this.faceFoes(f);
+  }
+
+  private makeFighter(s: StageFighterSpec, home: THREE.Vector3): Fighter {
+    {
       const mesh = s.sprite.mesh;
       mesh.geometry.computeBoundingBox();
       const bb = mesh.geometry.boundingBox!;
@@ -159,18 +190,12 @@ export class BattleStage implements StageHooks {
         key: s.key, side: s.side, sprite: s.sprite, flat, scale: s.scale ?? 1,
         tall: Math.max(0.4, bb.max.y - bb.min.y), wide: Math.max(0.3, bb.max.x - bb.min.x),
         home, at: home.clone(), attackAnim: s.attackAnim ?? 'slash', steps: [], shake: 0, step: 0, active: false, down: false,
-        fade: 0, fading: false, ring, ringColor: null, lunge: 0,
+        fade: 0, fading: false, ring, ringColor: null, lunge: 0, weak: false, posed: false,
       };
       if (s.weapons?.length && s.sprite instanceof CharacterSprite) s.sprite.setWeapons(s.weapons);
       this.fighters.set(s.key, f);
+      return f;
     }
-    // Everyone faces the other side.
-    const pc = this.centre('party'), ec = this.centre('enemy');
-    for (const f of this.fighters.values()) {
-      const to = f.side === 'party' ? ec : pc;
-      f.sprite.faceVector(to.x - f.home.x, to.z - f.home.z);
-    }
-    this.frameCamera();
   }
 
   private centre(side: 'party' | 'enemy'): THREE.Vector3 {
@@ -254,14 +279,39 @@ export class BattleStage implements StageHooks {
 
   /* ------------------------------------------------------------------ what the battle screen asks for */
 
-  animate(key: string, how: 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back', color?: string, target?: string): void {
+  animate(key: string, how: 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss', color?: string, target?: string): void {
     const f = this.fighters.get(key);
     if (!f) return;
     const t = target ? this.fighters.get(target) : undefined;
+    if (how === 'pose') {
+      // Casting: turn to the camera, raise the arms and hold it.
+      f.posed = true;
+      f.steps = [];
+      const sp = f.sprite;
+      if (sp instanceof CharacterSprite && sp.has('spellcast')) sp.play('spellcast', 0.6, 0, () => { if (f.posed) sp.hold('spellcast', 4); }, 4);
+      this.burst(f, color ?? '#9dffb0', 1.2, 1.4, 0.7, 0.05);
+      return;
+    }
+    if (how === 'unpose') {
+      f.posed = false;
+      if (f.sprite instanceof CharacterSprite && !f.down) f.sprite.clearAction();
+      this.faceFoes(f);
+      return;
+    }
+    if (how === 'toss') {
+      // An item: turn to whoever it's for, a quick toss, then back to facing the foe.
+      const to = t && t !== f ? t.home.clone() : null;
+      const sp = f.sprite;
+      const anim = sp instanceof CharacterSprite && sp.has('thrust') ? 'thrust' : 'slash';
+      f.steps = [];
+      if (to) f.steps.push({ kind: 'face', to, dur: 0.12, t: 0 });
+      f.steps.push({ kind: 'play', anim, dur: 0.38, t: 0, keepFacing: true }, { kind: 'wait', dur: 0.3, t: 0 }, { kind: 'face', to: null, dur: 0.05, t: 0 });
+      return;
+    }
     if (how === 'lunge' || how === 'approach') {
       this.focus(key);
       f.steps = [];
-      const to = t ? this.front(f, t) : this.v.copy(f.home).lerp(this.centre(f.side === 'party' ? 'enemy' : 'party'), 0.25).clone();
+      const to = t && how === 'approach' ? this.beside(t) : t ? this.front(f, t) : this.v.copy(f.home).lerp(this.centre(f.side === 'party' ? 'enemy' : 'party'), 0.25).clone();
       to.y = this.stand(to.x, to.z);
       f.steps.push({ kind: 'move', to, dur: 0.22, t: 0, run: true });
       f.steps.push({ kind: 'play', anim: f.attackAnim, dur: 0.32, t: 0 });
@@ -284,16 +334,24 @@ export class BattleStage implements StageHooks {
     }
   }
 
-  /** Just in front of a target, on the attacker's side. */
-  private front(f: Fighter, t: Fighter): THREE.Vector3 {
-    const d = this.v.copy(f.home).sub(t.home).setY(0);
-    const len = d.length() || 1;
-    return t.home.clone().addScaledVector(d, Math.min(1, 0.9 / len) * (len > 0.9 ? 1 : 0));
+  /** An Addition: beside the target (front right, from the usual camera), so the close camera from the left sees both. */
+  private beside(t: Fighter): THREE.Vector3 {
+    const back = new THREE.Vector3().copy(this.cam.basePos).sub(this.cam.baseLook).setY(0).normalize();
+    const right = new THREE.Vector3().crossVectors(UP, back).normalize();
+    return t.home.clone().addScaledVector(back.add(right).normalize(), 1.3);
   }
 
-  vitals(key: string, down: boolean, guarding: boolean): void {
+  /** Just in front of a target, on the attacker's side. */
+  private front(f: Fighter, t: Fighter, gap = 0.9): THREE.Vector3 {
+    const d = this.v.copy(f.home).sub(t.home).setY(0);
+    const len = d.length() || 1;
+    return t.home.clone().addScaledVector(d, Math.min(1, gap / len) * (len > gap ? 1 : 0));
+  }
+
+  vitals(key: string, down: boolean, guarding: boolean, weak = false): void {
     const f = this.fighters.get(key);
     if (!f) return;
+    f.weak = weak && !down;
     if (f.side === 'party' && down !== f.down) this.lie(f, down);
     f.down = down;
     if (f.side === 'enemy' && !down && f.fading) { f.fading = false; f.fade = 0; }
@@ -317,10 +375,11 @@ export class BattleStage implements StageHooks {
 
   private focus(key: string): void { this.focusKey = key; this.focusT = 1.6; }
 
-  private burst(f: Fighter, color: string, size: number, dur: number, rise = 0): void {
+  /** A glow at a fighter (`at`: how far up them, 0 feet … 1 head). */
+  private burst(f: Fighter, color: string, size: number, dur: number, rise = 0, at = 0.55): void {
     const m = new THREE.SpriteMaterial({ map: glow(), color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     const sp = new THREE.Sprite(m);
-    sp.position.copy(f.at).addScaledVector(UP, f.tall * f.scale * 0.55);
+    sp.position.copy(f.at).addScaledVector(UP, f.tall * f.scale * at);
     sp.scale.setScalar(size * 0.4);
     sp.renderOrder = 3;
     this.group.add(sp);
@@ -358,10 +417,13 @@ export class BattleStage implements StageHooks {
         // Run facing the way they go; back home, turn to face the foe again.
         if (k < 1 && Math.hypot(dx, dz) > 0.05) f.sprite.faceVector(dx, dz);
         if (k >= 1) { f.steps.shift(); if (s.to.distanceToSquared(f.home) < 0.01) this.faceFoes(f); }
+      } else if (s.kind === 'face') {
+        if (s.to) f.sprite.faceVector(s.to.x - f.at.x, s.to.z - f.at.z); else this.faceFoes(f);
+        if (s.t >= s.dur) f.steps.shift();
       } else if (s.kind === 'play') {
         if (!s.started) {
           s.started = true;
-          this.faceFoes(f);
+          if (!s.keepFacing) this.faceFoes(f);
           const sp = f.sprite;
           if (!(sp instanceof CharacterSprite) || !sp.play(s.anim, s.dur)) f.lunge = 0.001;
         }
@@ -372,7 +434,11 @@ export class BattleStage implements StageHooks {
     const want = f.active && f.side === 'party' && !f.steps.length && !f.down ? 1 : 0;
     f.step += (want - f.step) * (1 - Math.exp(-dt * 8));
     if (f.lunge > 0) f.lunge = Math.min(1, f.lunge + dt * 3.5) % 1;
-    f.sprite.animate(dt, f.flat ? { moving } : { moving, running: moving, combat: true });
+    // Badly hurt: everything slows, as if each breath is an effort.
+    const weak = f.weak && !f.posed && !f.steps.length && !f.down;
+    const kneel = f.sprite instanceof CharacterSprite ? ['kneel', 'sit'].find((a) => f.sprite.has(a)) : undefined;
+    f.sprite.animate(weak ? dt * 0.5 : dt, f.flat ? { moving } : { moving, running: moving, combat: true });
+    if (weak && kneel && f.sprite instanceof CharacterSprite && !f.sprite.acting) f.sprite.hold(kneel, 0);
     if (f.fading) f.fade = Math.min(1, f.fade + dt * 1.4);
     const m = f.sprite.mesh;
     const toward = this.v.copy(this.centre(f.side === 'party' ? 'enemy' : 'party')).sub(f.home).setY(0).normalize();
@@ -380,6 +446,12 @@ export class BattleStage implements StageHooks {
     if (f.shake > 0) { f.shake -= dt; m.position.x += Math.sin(f.shake * 70) * 0.06 * (f.shake / 0.35); }
     const sc = f.scale;
     m.scale.set(sc, sc * (1 - f.fade * 0.85), sc);
+    if (weak && !kneel) {
+      // No kneeling frames: crouch low, with slow, heavy breathing.
+      const b = Math.sin(this.elapsed * 2.1 + f.home.x);
+      m.scale.y *= 0.86 + 0.035 * b;
+      m.scale.x *= 1.05 - 0.015 * b;
+    }
     m.position.y -= f.fade * 0.3;
     m.visible = f.fade < 1;
     if (f.flat) f.flat.pose(f.lunge, toward.x, toward.z, !f.down && !f.fading);
@@ -401,9 +473,49 @@ export class BattleStage implements StageHooks {
   }
 
   /** Place the camera (sweeping in at the start, then breathing gently, leaning towards whoever acts). */
+  private shotNow: Shot | null = null;
+
+  /**
+   * A close camera, or back to the usual one (null; `snap`: at once). Additions: from a little to the left of the
+   * attacker and their target, following them. Casting: in front of the caster.
+   */
+  shot(kind: Shot['kind'] | null, a?: string, t?: string, snap = false): void {
+    this.shotNow = kind && a ? { kind, a, t } : null;
+    if (!kind && snap) { this.cam.pos.copy(this.cam.basePos); this.cam.look.copy(this.cam.baseLook); }
+  }
+
   updateCamera(dt: number, camera: THREE.PerspectiveCamera): THREE.Vector3 {
     const c = this.cam;
     c.t += dt;
+    const sh = this.shotNow, fa = sh ? this.fighters.get(sh.a) : undefined;
+    if (sh && fa) {
+      const back = new THREE.Vector3().copy(c.basePos).sub(c.baseLook).setY(0).normalize();
+      const right = new THREE.Vector3().crossVectors(UP, back).normalize();
+      const pos = new THREE.Vector3(), look = new THREE.Vector3();
+      const A = fa.sprite.mesh.position;
+      if (sh.kind === 'addition') {
+        const ft = sh.t ? this.fighters.get(sh.t) : undefined, T = ft ? ft.sprite.mesh.position : A;
+        const mid = new THREE.Vector3().addVectors(A, T).multiplyScalar(0.5);
+        pos.copy(mid).addScaledVector(back, 3.6).addScaledVector(right, -3.2);
+        pos.y = mid.y + 2;
+        look.copy(mid).setY(mid.y + 0.75);
+      } else {
+        pos.copy(A).addScaledVector(back, 4.6).addScaledVector(right, 0.5);
+        pos.y = A.y + 1.5;
+        look.copy(A).setY(A.y + 0.7);
+      }
+      c.pos.lerp(pos, 1 - Math.exp(-dt * 4.5));
+      c.look.lerp(look, 1 - Math.exp(-dt * 4.5));
+      camera.position.copy(c.pos);
+      camera.lookAt(c.look);
+      for (const fi of this.fighters.values()) {
+        const m = fi.sprite.mesh;
+        m.rotation.y = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z);
+        // The caster faces the camera.
+        if (fi.posed) fi.sprite.faceVector(camera.position.x - m.position.x, camera.position.z - m.position.z);
+      }
+      return c.look;
+    }
     const sway = Math.sin(this.elapsed * 0.35) * 0.35, bob = Math.sin(this.elapsed * 0.5) * 0.12;
     const pos = this.v.copy(c.basePos);
     pos.x += sway; pos.y += bob;

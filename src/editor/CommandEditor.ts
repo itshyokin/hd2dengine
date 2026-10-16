@@ -669,6 +669,13 @@ let audioFiles: () => string[] = () => [];
 let previewSound: (src: string) => void = () => {};
 export function setAudioHooks(files: () => string[], preview: (src: string) => void): void { audioFiles = files; previewSound = preview; }
 const previewButton = (play: () => void) => h('button', { type: 'button', class: 'btn small', onclick: play }, '▶ Preview');
+
+/** A sound to pick (none, a built-in effect or an imported file), with a preview button. */
+export function soundField(label: string, value: string | undefined, set: (v: string | undefined) => void, hint?: string): HTMLElement {
+  const opts: [string, string][] = [['', 'None'], ...audioFiles().map((f) => [f, f.split('/').pop()!] as [string, string]), ...SFX_NAMES.map((n) => [n, `${SFX_LABELS[n]} (built-in)`] as [string, string])];
+  let cur = value ?? '';
+  return field(label, h('div', { class: 'field-row audio-row' }, select(opts, cur, (v) => { cur = v; set(v || undefined); }), previewButton(() => { if (cur) previewSound(cur); })), hint);
+}
 const soundName = (src: string) => (SFX_LABELS as Record<string, string>)[src] ?? src.split('/').pop() ?? src;
 function loopName(src: string): string {
   const b = src.startsWith('builtin:') ? src.slice(8) : '';

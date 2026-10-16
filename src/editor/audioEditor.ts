@@ -86,7 +86,7 @@ export function mapAudioFields(store: EditorStore, m: MapData, edit: (fn: () => 
   ];
 }
 
-export interface AudioWork { files: string[]; sfx: Record<string, string>; titleMusic?: string }
+export interface AudioWork { files: string[]; sfx: Record<string, string>; titleMusic?: string; victoryMusic?: string }
 
 /** Database → Audio. */
 export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void): HTMLElement[] {
@@ -107,6 +107,11 @@ export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void)
       h('div', { class: 'field-row audio-row' },
         field('Title music', select(titleOpts, w.titleMusic ?? 'builtin:title', (v) => { w.titleMusic = v; })),
         play(() => preview(store, w.titleMusic ?? 'builtin:title', true)))),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Victory'),
+      h('div', { class: 'field-row audio-row' },
+        field('Music after the fanfare', select([['', 'The map’s music'], ...titleOpts.filter(([v]) => v)], w.victoryMusic ?? '', (v) => { w.victoryMusic = v || undefined; }),
+          'Plays on the results screens once the victory fanfare ends.'),
+        play(() => { if (w.victoryMusic) preview(store, w.victoryMusic, true); }))),
     h('section', { class: 'db-section sfx-section' }, h('h3', {}, 'Sound effects'),
       h('div', { class: 'sfx-grid' }, ...SFX_NAMES.flatMap((n) => {
         const cur = w.sfx[n] ?? `builtin:${n}`;
@@ -121,8 +126,9 @@ export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void)
 }
 
 /** Only what differs from the defaults, for database.json. */
-export function cleanAudio(w: AudioWork): { files?: string[]; sfx?: Record<string, string>; titleMusic?: string } | undefined {
-  const out: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string } = {};
+export function cleanAudio(w: AudioWork): { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string } | undefined {
+  const out: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string } = {};
+  if (w.victoryMusic) out.victoryMusic = w.victoryMusic;
   if (w.files.length) out.files = w.files;
   if (Object.keys(w.sfx).length) out.sfx = w.sfx;
   if (w.titleMusic && w.titleMusic !== 'builtin:title') out.titleMusic = w.titleMusic;

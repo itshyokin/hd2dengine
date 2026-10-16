@@ -59,4 +59,5 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Battle maps: turn-based battles on a map you've made, with party and enemy markers and a camera behind the party (FFX / Legend of Dragoon style); chosen per map, per zone or per Start battle command (update 43).
 - [x] Battle cameras on LB / RB, Legend of Dragoon command bar, HP-coloured target arrows, targeting anyone, items on enemies, volume groups with Master at 50%, victory EXP and Spoils screens, battle transitions and fade out / in (update 44).
 - [x] Three a side, row targeting (left / right in a row, up / down between rows), Dragon Legend battle layout (default) with face art, Forbidden Fantasy layout, centred Items / Magic lists with a description box (update 45).
+- [x] Turn arrow, Addition and casting camera shots, damage at the end of Additions, item toss, wounded pose, voices (call-outs, chants, attack sounds), victory music, party of eight with Swap, healing from the menu, weather in battle, condensed / hidden HUD bars (update 46).
 - [ ] Visible wandering enemies per zone (later).

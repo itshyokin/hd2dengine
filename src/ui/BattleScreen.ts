@@ -73,15 +73,16 @@ interface Victory {
 /** A 3D battle stage behind the screen (a battle map): it moves the sprites; the screen keeps the tags and numbers. */
 export interface StageHooks {
   animate(key: string, how: Anim, color?: string, target?: string): void;
-  vitals(key: string, down: boolean, guarding: boolean): void;
+  vitals(key: string, down: boolean, guarding: boolean, weak?: boolean): void;
+  shot?(kind: 'addition' | 'cast' | null, a?: string, t?: string, snap?: boolean): void;
   active(key: string | null): void;
   highlight(keys: string[]): void;
 }
 
 /** Fighter animations. approach / strike / back: an Addition (close in, strike per button, then run back). */
-export type Anim = 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back';
+export type Anim = 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss';
 
-export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Ailments on them: icon and a name for the tooltip. */ status?: { icon: string; name: string }[] }
+export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Badly hurt or ailing (the wounded pose). */ weak?: boolean; /** Ailments on them: icon and a name for the tooltip. */ status?: { icon: string; name: string }[] }
 
 export interface ChoiceItem {
   label: string;
@@ -110,6 +111,7 @@ export const COMMAND_ICONS: Record<string, string> = {
   guard: '<path d="M16 3 L27 7 V15 C27 22 22 27 16 29 C10 27 5 22 5 15 V7 Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 8 V24 M10 14 H22" stroke="currentColor" stroke-width="2" opacity=".75"/>',
   magic: '<path d="M16 3 L18.6 12.4 L28 15 L18.6 17.6 L16 27 L13.4 17.6 L4 15 L13.4 12.4 Z" fill="currentColor"/><circle cx="25" cy="6" r="1.8" fill="currentColor"/><circle cx="7" cy="25" r="1.4" fill="currentColor"/>',
   items: '<path d="M13 4 H19 V9 L24 16 C26 20 24 28 16 28 C8 28 6 20 8 16 L13 9 Z" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/><path d="M9.5 18 H22.5 C23 23 20 26 16 26 C12 26 9 23 9.5 18 Z" fill="currentColor" opacity=".8"/><path d="M12 4 H20" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  swap: '<path d="M6 11 H24 L19 6 M26 21 H8 L13 26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
   escape: '<circle cx="19" cy="6" r="3" fill="currentColor"/><path d="M17 11 L12 18 L17 21 L15 28 M12 18 L7 22 M17 11 L23 15 L27 13 M14 14 L9 13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 9 H8 M1 14 H6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>',
 };
 const svgIcon = (k: string) => `<svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">${COMMAND_ICONS[k] ?? ''}</svg>`;
@@ -132,6 +134,8 @@ export class BattleScreen {
   private readonly cardsEl: HTMLElement;
   private readonly descEl: HTMLElement;
   private layout: 'dragon' | 'fantasy' = 'dragon';
+  /** Whose turn it is (a party member's shows the arrow over them while they choose). */
+  private activeKey: string | null = null;
   private readonly capEl: HTMLElement;
   private camTimer = 0;
   private vic: Victory | null = null;
@@ -216,6 +220,8 @@ export class BattleScreen {
   }
 
   get isOpen(): boolean { return !this.root.hidden; }
+  /** Fighting on a 3D stage (a battle map). */
+  get staged(): boolean { return !!this.stage; }
 
   /** Open with these fighters. `opening` decides the banner. */
   open(views: FighterView[]): void {
@@ -348,12 +354,26 @@ export class BattleScreen {
     this.fighters.set(v.key, { view: v, el, img, bar, row, icons, rowIcons: row?.querySelector('.bstat-status') as HTMLElement | null, statusKey: '', card });
   }
 
+  /** A party member swapped in where another stood: their picture, card and row take the old one's place. */
+  replaceFighter(oldKey: string, v: FighterView): void {
+    const old = this.fighters.get(oldKey);
+    if (!old) return;
+    const n = this.partyEl.childElementCount;
+    this.addFighter(v, Number(old.el.style.getPropertyValue('--i')) || 0, n);
+    const f = this.fighters.get(v.key)!;
+    old.el.replaceWith(f.el);
+    if (old.row && f.row) old.row.replaceWith(f.row);
+    if (old.card && f.card) old.card.replaceWith(f.card);
+    f.el.style.cssText = old.el.style.cssText;
+    this.fighters.delete(oldKey);
+  }
+
   /** Health and magic for one fighter (party rows show numbers; enemies a bar). */
   setVitals(key: string, v: Vitals): void {
     const f = this.fighters.get(key);
     if (!f) return;
     const down = v.hp <= 0;
-    this.stage?.vitals(key, down, !!v.guarding);
+    this.stage?.vitals(key, down, !!v.guarding, !!v.weak);
     // The target arrow's colour: cyan with plenty of health, yellow at half or less, red at a quarter or less.
     const share = v.hp / Math.max(1, v.maxHp);
     f.el.classList.toggle('hp-high', share > 0.5);
@@ -414,6 +434,7 @@ export class BattleScreen {
       return chip;
     }));
     this.stage?.active(active);
+    this.activeKey = active;
     for (const [k, f] of this.fighters) {
       f.el.classList.toggle('active', k === active);
       f.row?.classList.toggle('active', k === active);
@@ -450,7 +471,7 @@ export class BattleScreen {
     const f = this.fighters.get(key);
     if (!f) return;
     this.stage?.animate(key, anim, color, target);
-    if (anim === 'back') return;
+    if (anim === 'back' || anim === 'pose' || anim === 'unpose' || anim === 'toss') return;
     const how = anim === 'approach' || anim === 'strike' ? 'lunge' : anim;
     f.el.classList.remove('lunge', 'hit', 'cast', 'heal', 'faint');
     if (color) f.el.style.setProperty('--fx', color);
@@ -534,6 +555,8 @@ export class BattleScreen {
   private renderList(): void {
     const m = this.mode;
     if (m.kind !== 'list') return;
+    // Choosing what to do: the arrow over the one whose turn it is.
+    for (const [k, f] of this.fighters) f.el.classList.toggle('turn', k === this.activeKey && f.view.side === 'party');
     this.cmdEl.hidden = false;
     this.cmdTitle.textContent = m.title;
     this.cmdEl.classList.toggle('bar', !!m.bar);
@@ -601,7 +624,7 @@ export class BattleScreen {
     this.message(m.all ? (f?.view.side === 'party' ? 'The whole party' : 'Every foe') : f ? f.view.name : '', true);
   }
 
-  private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted'); f.card?.classList.remove('targeted'); } this.stage?.highlight([]); }
+  private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted', 'turn'); f.card?.classList.remove('targeted'); } this.stage?.highlight([]); }
 
   private tapFighter(key: string): void {
     const m = this.mode;
@@ -668,6 +691,9 @@ export class BattleScreen {
 
   /** The battle field's size, for laying out sprites (unused for now, kept for later camera work). */
   get bounds(): DOMRect { return this.field.getBoundingClientRect(); }
+
+  /** A close camera on a 3D stage (an Addition, a caster), or back to the usual one (null). */
+  shot(kind: 'addition' | 'cast' | null, a?: string, t?: string, snap = false): void { this.stage?.shot?.(kind, a, t, snap); }
 
   /** Fade the whole battle screen away over `secs` (leaving the battle). */
   fadeOut(secs: number): void {

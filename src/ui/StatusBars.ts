@@ -22,6 +22,10 @@ export interface HudPieceStyle {
   face?: boolean;
   /** The adventure log: one box behind it, a strip behind each line (default), or none. */
   bg?: 'box' | 'lines' | 'none';
+  /** The hero's bars: condensed into a card like the party's (first in the party piece) instead of across the top. */
+  compact?: boolean;
+  /** Not shown at all. */
+  hidden?: boolean;
 }
 /** Which pieces have which options. */
 export const HUD_OPTIONS: Partial<Record<HudWidget, (keyof HudPieceStyle)[]>> = { stats: ['stack', 'face'], party: ['stack', 'face'], log: ['bg'] };
@@ -69,8 +73,8 @@ export class StatusBars {
   private readonly partyEl = document.createElement('div');
   private partyKey = '';
   private partyCount = 0;
-  setParty(list: { name: string; level?: number; face?: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean }[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.down]));
+  setParty(list: { name: string; level?: number; face?: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean; sp?: number; maxSp?: number }[]): void {
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), Math.round(m.sp ?? -1), m.down]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -79,7 +83,8 @@ export class StatusBars {
     this.partyEl.innerHTML = list.map((m) => `<div class="hud-ally${m.down ? ' down' : ''}">${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <small>Lv ${m.level}</small>` : ''}</span>
       <span class="hud-ally-bar hp"><i style="width:${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%"></i></span>
-      <span class="hud-ally-bar mp"><i style="width:${Math.max(0, Math.min(100, (m.mp / m.maxMp) * 100))}%"></i></span></div>`).join('');
+      <span class="hud-ally-bar mp"><i style="width:${Math.max(0, Math.min(100, (m.mp / m.maxMp) * 100))}%"></i></span>${m.sp !== undefined && m.maxSp ? `
+      <span class="hud-ally-bar sp"><i style="width:${Math.max(0, Math.min(100, (m.sp / m.maxSp) * 100))}%"></i></span>` : ''}</div>`).join('');
   }
 
   /** The hero's face (shown beside the stats when the player turns it on). */
@@ -241,6 +246,8 @@ export class StatusBars {
       el.classList.toggle('stack-v', stack === 'v');
       el.classList.toggle('stack-h', stack === 'h');
       el.classList.toggle('with-face', !!l?.face);
+      el.classList.toggle('hud-off', !!l?.hidden);
+      el.classList.toggle('hud-compact', !!l?.compact);
       if (k === 'log') for (const b of ['box', 'lines', 'none']) el.classList.toggle(`bg-${b}`, (l?.bg ?? 'lines') === b);
     }
   }

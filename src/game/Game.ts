@@ -78,7 +78,7 @@ import { loadCanvas } from '../shared/images';
 import { builtinIcon, builtinIconName } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './inventory';
 import { forgeRules, forgedDef, settableShard, upgradable, enchantable, upgradeCost } from './forge';
-import { Ally, MAX_PARTY, PartyState, STYLE_NAMES, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
+import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, STYLE_NAMES, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attrs, type HeroTotals, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
 import { BUFF_INFO, effectColor, effectName, type EffectId } from './status';
@@ -216,7 +216,7 @@ export class Game {
   /** Frames since the battle screen opened (the world behind stops being redrawn after a few). */
   private battleFrames = 0;
   /** A battle on a battle map: its 3D stage (its own scene), the map's lights and water, and the field's lighting to go back to. */
-  private stage: { stage: BattleStage; lights: Lights; built: BuiltWorld; env: TimeOfDay['environment'] } | null = null;
+  private stage: { stage: BattleStage; lights: Lights; built: BuiltWorld; env: TimeOfDay['environment']; map: TileMap; look: THREE.Vector3 } | null = null;
   /** Battle maps loaded so far (by file name). */
   private readonly battleMaps = new Map<string, MapData>();
   /** A battle map is loading for a battle about to start. */
@@ -3168,7 +3168,9 @@ export class Game {
     }
     for (const sp of spells) {
       const r = Math.min(a.spells![sp.id], spellMaxRank(sp)), at = spellAtRank(sp, r);
-      items.push({ label: `${rankName(sp.name, r)}`, color: sp.color, detail: `${sp.kind === 'heal' ? 'Heal' : 'Spell'} · ${at.mp} MP${at.charge ? ` · charges ${at.charge} turn${at.charge === 1 ? '' : 's'}` : ''}${sp.targets === 'all' ? ' · all targets' : ''}${sp.description ? ` · ${sp.description}` : ''}` });
+      // Healing spells can be cast from here, on the party.
+      items.push({ label: `${rankName(sp.name, r)}`, color: sp.color, detail: `${sp.kind === 'heal' ? 'Heal (choose to cast)' : 'Spell'} · ${at.mp} MP${at.charge ? ` · charges ${at.charge} turn${at.charge === 1 ? '' : 's'}` : ''}${sp.targets === 'all' ? ' · all targets' : ''}${sp.description ? ` · ${sp.description}` : ''}`,
+        pick: sp.kind === 'heal' ? () => this.castHealMenu(who, sp.id) : undefined });
     }
     for (const d of adds) {
       const uses = a.additions![d.id] ?? 0, rank = additionRank(d, uses), next = additionToNext(d, uses);
@@ -3177,6 +3179,44 @@ export class Game {
     }
     if (!spells.length && !adds.length) items.push({ label: 'Nothing learned yet', detail: 'Spells and Additions are learned from the skill tree, from events and from trainers.', disabled: true });
     this.menu.push(`${pauseLabel(this.db.menus, 'abilities')}: ${name}`, items, { note: 'Left / right change a setting.' });
+  }
+
+  /** Out of battle: cast a healing spell (its highest rank known) on one of the party, or all of them. */
+  private castHealMenu(who: number, spell: string): void {
+    const caster = this.partyBattler(who)?.battler, sp = caster?.spells.find((x) => x.id === spell);
+    if (!caster || !sp) return;
+    const rank = sp.ranks[sp.ranks.length - 1];
+    const mpNow = () => (who ? this.members()[who - 1]?.data.mp ?? 0 : this.stats.mp);
+    const vit = (k: number) => {
+      if (!k) return { name: mainHero(this.db).name, hp: this.stats.hp, max: this.stats.cfg.max.hp, down: false };
+      const m = this.members()[k - 1];
+      return { name: m.def.name, hp: m.data.down ? 0 : m.data.hp, max: this.allyNumbers(m.data, m.def).max.hp, down: !!m.data.down };
+    };
+    const heal = (k: number, n: number): number => {
+      if (!k) { const before = this.stats.hp; this.stats.change('hp', 'add', n); return this.stats.hp - before; }
+      const m = this.members()[k - 1];
+      if (!m || m.data.down) return 0;
+      const max = this.allyNumbers(m.data, m.def).max.hp, before = m.data.hp;
+      m.data.hp = Math.min(max, m.data.hp + n);
+      return m.data.hp - before;
+    };
+    const spend = () => { if (who) { const m = this.members()[who - 1]; if (m) m.data.mp = Math.max(0, m.data.mp - rank.mp); } else this.stats.change('mp', 'add', -rank.mp); };
+    const cast = (targets: number[]) => {
+      if (mpNow() < rank.mp) { this.audio.play('menuBack'); this.menu.notice(`Not enough MP (${rank.mp} needed)`); return; }
+      const n = Math.max(1, Math.round(rank.power));
+      const got = targets.map((k) => heal(k, n));
+      if (!got.some((g) => g > 0)) { this.audio.play('menuBack'); this.menu.notice('Nobody needs healing'); return; }
+      spend();
+      this.audio.play('ringOn');
+      this.menu.notice(targets.length === 1 ? `${vit(targets[0]).name} +${got[0]} HP` : `Everyone healed (${rank.name})`);
+      this.menu.back();
+      this.castHealMenu(who, spell);
+    };
+    const all = [0, ...this.members().map((_, k) => k + 1)];
+    const items: MenuItem[] = sp.targets === 'all'
+      ? [{ label: 'The whole party', detail: all.map((k) => { const v = vit(k); return `${v.name} ${Math.ceil(v.hp)}/${v.max}`; }).join(' · '), pick: () => cast(all) }]
+      : all.map((k) => { const v = vit(k); return { label: v.name, detail: v.down ? 'Knocked out (healing can’t wake them)' : `${Math.ceil(v.hp)} / ${v.max} HP`, disabled: v.down, pick: () => cast([k]) }; });
+    this.menu.push(`${rank.name}: ${rank.mp} MP (${Math.floor(mpNow())} left)`, items);
   }
 
   /** The Inventory: the bag's tabs (all, by kind), then Equipment and Status. LB / RB move between them. */
@@ -3361,7 +3401,7 @@ export class Game {
         const at = spellAtRank(s, i + 1);
         return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
       });
-      out.push({ id: s.id, name: s.name, description: s.description, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks });
+      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks });
     }
     return out;
   }
@@ -3373,7 +3413,7 @@ export class Game {
       if (!a.additions || !(d.id in a.additions)) continue;
       const uses = a.additions[d.id] ?? 0, rank = additionRank(d, uses), bonus = additionBonus(d, rank);
       out.push({
-        id: d.id, name: d.name, rank, maxRank: d.maxRank ?? 5, toNext: additionToNext(d, uses), damage: bonus.damage,
+        id: d.id, name: d.name, sound: d.sound, rank, maxRank: d.maxRank ?? 5, toNext: additionToNext(d, uses), damage: bonus.damage,
         strikes: d.strikes.map((x) => ({ power: x.power, button: x.button ?? 'A', time: Math.max(0.25, x.time ?? 0.7), window: Math.max(0.06, (x.window ?? 0.24) * bonus.window) })),
       });
     }
@@ -3487,7 +3527,10 @@ export class Game {
     this.endFishing();
     this.moveTarget = null;
     const entries: BattleEntry[] = [];
-    for (let who = 0; who <= this.members().length; who++) {
+    // The hero and the first two of the lineup fight; the rest wait on the bench.
+    this.battleWhos = new Set();
+    for (let who = 0; who <= Math.min(ACTIVE_MEMBERS, this.members().length); who++) {
+      this.battleWhos.add(who);
       const b = this.partyBattler(who);
       if (!b) continue;
       entries.push({ battler: b.battler, view: b.view, who });
@@ -3514,6 +3557,17 @@ export class Game {
     if (stageData) this.openStage(stageData, specs);
     this.audio.play('crit');
     this.battle.start(entries, this.combatCfg.turnBased, opening, { canRun: rules.canRun });
+  }
+
+  /** Party members (0 the hero) fighting in the battle now. */
+  private battleWhos = new Set<number>();
+
+  /** After a battle: whoever finished it fighting moves to the front of the lineup (in their places). */
+  private keepLineup(whos: number[]): void {
+    const ms = this.party.members, front = whos.filter((w) => w > 0).map((w) => ms[w - 1]).filter((m) => !!m);
+    if (!front.length) return;
+    this.party.members = [...front, ...ms.filter((m) => !front.includes(m))];
+    this.spawnAllies();
   }
 
   /** A snapshot of the next frame drawn (for the battle transition). */
@@ -3596,7 +3650,11 @@ export class Game {
     stage.scene.background = this.fog.color;
     // The sun and sky light the stage while it's shown.
     stage.scene.add(this.hemi, this.sun, this.sun.target);
-    this.stage = { stage, lights, built, env: this.time.environment };
+    this.stage = { stage, lights, built, env: this.time.environment, map, look: new THREE.Vector3(data.width / 2, 0, data.height / 2) };
+    // The field's weather (rain, snow…) and mist and sun rays carry on over the battle.
+    const w = this.mapWeather();
+    this.weather.attach(stage.group, w.kind, w.amount, this.stage.look);
+    this.atmosphere.attach(stage.group, this.stage.look);
     this.time.environment = data.environment ?? 'outdoor';
     this.time.update(0);
     stage.addFighters(specs);
@@ -3623,6 +3681,8 @@ export class Game {
     if (!s) return;
     this.stage = null;
     this.scene.add(this.hemi, this.sun, this.sun.target);
+    // The weather goes back to the field (before the stage is thrown away).
+    if (this.level) { const w = this.mapWeather(); this.weather.attach(this.level, w.kind, w.amount, this.camTarget); this.atmosphere.attach(this.level, this.camTarget); }
     s.stage.dispose((root) => this.disposeTree(root));
     this.time.environment = s.env;
     this.time.update(0);
@@ -3640,6 +3700,7 @@ export class Game {
   private updateStageCamera(dt: number): void {
     const st = this.stage!.stage;
     const look = st.updateCamera(dt, this.camera);
+    this.stage!.look.copy(look);
     this.sun.target.position.copy(look);
     this.sun.position.copy(look).addScaledVector(this.time.sunDir, 30);
     this.post.focus = st.focusHeight(this.camera);
@@ -3680,6 +3741,26 @@ export class Game {
         }
         return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [] };
       },
+      voice: (src) => this.audio.play(src),
+      reserves: () => this.members().flatMap((m, k) => {
+        const who = k + 1;
+        if (this.battleWhos.has(who)) return [];
+        const n = this.allyNumbers(m.data, m.def);
+        return [{ who, name: m.def.name, icon: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp, down: !!m.data.down }];
+      }),
+      swapIn: (outKey, outWho, inWho) => {
+        const b = this.partyBattler(inWho);
+        if (!b) return null;
+        this.battleWhos.delete(outWho);
+        this.battleWhos.add(inWho);
+        if (this.stage) this.stage.stage.replaceFighter(outKey, this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow));
+        return { battler: b.battler, view: b.view, who: inWho };
+      },
+      attackVoice: (who) => {
+        const def = who ? this.members()[who - 1]?.def : mainHero(this.db);
+        const list = (def?.attackSounds ?? []).filter(Boolean);
+        if (list.length) this.audio.play(list[Math.floor(Math.random() * list.length)]);
+      },
       spendItem: (slot) => { if (this.inventory.slots[slot]) { this.inventory.removeAt(slot, 1); this.state.tally('itemsUsed'); } },
       readVitals: (who) => {
         if (!who) return { hp: this.stats.hp, mp: this.stats.mp };
@@ -3697,7 +3778,8 @@ export class Game {
       victory: (beaten) => this.battleRewards(beaten as Ref[]),
       fanfare: () => {
         // The battle music stops; the fanfare plays; then the victory tune.
-        this.battleSound = { music: '', fade: 0.35, next: { at: 3.1, music: 'builtin:victory' } };
+        // Then music: the game's victory music (Database → Audio), or the map's own.
+        this.battleSound = { music: '', fade: 0.35, next: { at: 3.0, music: this.db.audio?.victoryMusic ?? this.mapData?.music ?? '' } };
         this.audio.play('victory');
       },
       outro: (done) => {
@@ -3708,6 +3790,7 @@ export class Game {
         this.outro = { done };
       },
       finished: (outcome, beaten) => {
+        this.keepLineup(this.battle.lineup());
         this.battleGrace = this.combatCfg.turnBased.grace;
         this.encounterWalked = 0;
         const rules = this.battleRules;
@@ -3873,7 +3956,8 @@ export class Game {
     const p = this.motion, [bx, bz] = DIR_VECTOR[this.player.dir];
     this.trail = [];
     for (let k = 12; k >= 0; k--) this.trail.push({ x: p.x - bx * k * 0.3, z: p.z - bz * k * 0.3 });
-    this.party.members.forEach((m, i) => {
+    // Only the lineup's front follows the hero (the rest of the party isn't shown walking along).
+    this.party.members.slice(0, ACTIVE_MEMBERS).forEach((m, i) => {
       const def = this.db.heroes?.find((h) => h.id === m.id);
       if (!def) return;
       const look = this.db.characters[def.look ?? ''] ?? this.db.characters[this.db.player];
@@ -3907,7 +3991,9 @@ export class Game {
     const host = this.allyHost();
     for (const a of this.allies) a.update(dt, host);
     if (this.calmFor > 2.5) for (const a of this.allies) if (a.data.pendingXp) this.allyXp(a);
-    this.hud.setParty(this.allies.map((a) => { const n = this.allyNumbers(a.data, a.def); return { name: a.def.name, level: a.data.level, face: this.memberPortrait(a.def), hp: a.data.hp, maxHp: n.max.hp, mp: a.data.mp, maxMp: n.max.mp, down: a.down }; }));
+    // Condensed hero bars (Settings → HUD): the hero's card leads the party's.
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: this.progress.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, sp: this.stats.sp, maxSp: this.stats.cfg.max.sp, down: false }] : [];
+    this.hud.setParty([...heroCard, ...this.allies.map((a) => { const n = this.allyNumbers(a.data, a.def); return { name: a.def.name, level: a.data.level, face: a.def.face ? this.resolveFile(a.def.face) : this.memberPortrait(a.def), hp: a.data.hp, maxHp: n.max.hp, mp: a.data.mp, maxMp: n.max.mp, down: a.down }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -4060,8 +4146,20 @@ export class Game {
         if (this.onTitle) { this.hud.setHidden(false); this.log.setHidden(false); this.tracker.setHidden(false); }
         this.arranger.show(this.hud.widgets, st.hud, (l) => { st.hud = Object.keys(l).length ? l : undefined; this.settingsStore.save(st); }, () => { if (this.onTitle) { this.hud.setHidden(true); this.log.setHidden(true); this.tracker.setHidden(true); } });
       } },
+      { label: 'Hero bars', detail: 'Long: across the top. Condensed: a card like the party’s (with them).', choice: { value: st.hud?.stats?.compact ? 'compact' : 'long', options: [['long', 'Long'], ['compact', 'Condensed']], set: (v) => piece('stats', { compact: v === 'compact' || undefined }) } },
+      { label: 'Show hero bars', toggle: { value: !st.hud?.stats?.hidden, set: (v) => piece('stats', { hidden: v ? undefined : true }) } },
+      { label: 'Show party bars', toggle: { value: !st.hud?.party?.hidden, set: (v) => piece('party', { hidden: v ? undefined : true }) } },
+      { label: 'Faces', detail: 'Faces beside the hero’s and the party’s bars.', toggle: { value: !!st.hud?.party?.face, set: (v) => { piece('stats', { face: v || undefined }); piece('party', { face: v || undefined }); } } },
       { label: 'Put the HUD back', detail: 'Default places and sizes.', pick: () => { delete st.hud; this.applySettings(); this.settingsStore.save(st); this.menu.notice('HUD reset'); } },
     ]);
+    // Change one piece's style (Settings → HUD), keeping where it was put.
+    const piece = (w: 'stats' | 'party', change: Record<string, unknown>) => {
+      const hud = (st.hud ??= {}), p = { ...(hud[w] ?? {}), ...change } as Record<string, unknown>;
+      for (const k of Object.keys(p)) if (p[k] === undefined) delete p[k];
+      if (Object.keys(p).length) hud[w] = p; else delete hud[w];
+      if (!Object.keys(hud).length) delete st.hud;
+      this.applySettings(); this.settingsStore.save(st);
+    };
     this.menu.push(title, [
       { label: 'Picture', pick: picture },
       { label: 'HUD', detail: 'Arrange and resize', pick: hudMenu },
@@ -4318,12 +4416,14 @@ export class Game {
       this.weather.attach(this.level, w.kind, w.amount, this.camTarget);
       this.atmosphere.attach(this.level, this.camTarget);
     }
-    this.weather.update(dt, this.camTarget, this.elapsed, (x, z) => this.map.surfaceY(x, z));
+    // In a battle on a battle map, the weather falls around the battle.
+    const center = this.stage ? this.stage.look : this.camTarget, ground = this.stage ? this.stage.map : this.map;
+    this.weather.update(dt, center, this.elapsed, (x, z) => ground.surfaceY(x, z));
     // Rain dims the day; a sandstorm closes in the view.
     const rain = this.weather.rain, haze = this.weather.haze;
     this.time.gloom = rain;
     this.time.haze = haze;
-    const air = this.mapData.atmosphere, outdoor = this.time.environment === 'outdoor';
+    const air = this.stage?.stage.data.atmosphere ?? this.mapData.atmosphere, outdoor = this.time.environment === 'outdoor';
     const thick = Math.min(1, Math.max(air?.haze ?? 0, outdoor ? haze * 0.75 + rain * 0.25 : 0));
     this.fog.near = 22 - 16 * thick;
     this.fog.far = 50 - 30 * thick;
@@ -4341,7 +4441,7 @@ export class Game {
       this.cloudOff.x -= wind.dx * speed * dt; this.cloudOff.z -= wind.dz * speed * dt;
     }
     setClouds(this.cloudOff.x, this.cloudOff.z, Math.min(0.85, cl * 0.7) * (outdoor ? clamp(this.sun.intensity / 1.5, 0, 1) * (1 - night) * (1 - 0.7 * rain) : 0));
-    this.atmosphere.update(dt, this.camTarget, this.elapsed, (x, z) => this.map.surfaceY(x, z), {
+    this.atmosphere.update(dt, center, this.elapsed, (x, z) => ground.surfaceY(x, z), {
       mist: (air?.mist ?? 0) * mistTime, rays: air?.rays ?? 0, skyColor: this.fog.color, sunColor: this.sun.color, sun, sunDir: this.sunUp,
     }, this.camera);
   }

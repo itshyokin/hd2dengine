@@ -46,7 +46,7 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
   const itemState = { sel: 0 }, enemyState = { sel: 0 };
   const combat: CombatData = JSON.parse(JSON.stringify(store.db.combat ?? {}));
   const enemies: EnemyDef[] = JSON.parse(JSON.stringify(store.db.enemies ?? []));
-  const audio: AudioWork = { files: [...(store.db.audio?.files ?? [])], sfx: { ...(store.db.audio?.sfx ?? {}) }, titleMusic: store.db.audio?.titleMusic };
+  const audio: AudioWork = { files: [...(store.db.audio?.files ?? [])], sfx: { ...(store.db.audio?.sfx ?? {}) }, titleMusic: store.db.audio?.titleMusic, victoryMusic: store.db.audio?.victoryMusic };
   const skills: SkillsData = JSON.parse(JSON.stringify(skillsData(store.db.skills)));
   const skillState = { tree: 0, sel: '' };
   const time = { rate: store.db.time?.rate ?? 20, darkness: store.db.time?.darkness ?? 0.85, seasons: { ...store.db.time?.seasons } as SeasonSettings };
