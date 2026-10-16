@@ -356,7 +356,8 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Continue** (the latest save; greyed out without one), **New Game**, **Load Game**, **Options**, **Exit**.
 - **Database → Title & menus**: the game title, the title shown on screen and a subtitle; rename or hide each title
   option and each pause menu entry; *Skip the title screen in playtests* for quick testing.
-- **Pause menu** (Esc / Start): it covers most of the screen, with its tabs across the top: **Party · Items · Map ·
+- **Pause menu** (Esc / Start): one frame in the middle of the screen (the same size for every tab, sized to the
+  Party cards), with its tabs (all the same size) across the top: **Party · Items · Map ·
   Journal · Achievements · Settings · System**. **LB / RB** (Q / E) move between the tabs; tabs inside a tab (the
   bag's pockets, the Journal's pages) move with **LT / RT** (Z / C). The bottom line shows where you are, the time
   played and your gold. The HUD steps aside while it's open. Map shows once there's a World layout, Achievements
@@ -372,6 +373,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 - **Map**: the world map (Pokémon Gold / Silver style), drawn from your maps themselves and laid out as in the
   **World layout** (Map editor toolbar → **World**). Scroll with the arrows / stick or by dragging, zoom with LT / RT
   (Z / C, or the mouse wheel), Space comes back to you (the red pin). Place names show over towns and landmarks.
+  A **crosshair** sits in the middle: move it over the hero, a marker or a place name for its **tooltip** (with a
+  mouse, the tooltip follows the pointer). **Event markers** (below) show as stars, circles, skulls…; an area event's
+  whole area is outlined in its marker's colour, with the symbol in the middle.
   The World layout's **Places not visited yet** setting: *hidden*, *greyed out* or *fully visible*; and **Explore**:
   in maps visited, only the ground walked near shows (the rest stays under a dark fog) — mix them as you like.
 - **Achievements**: each with its icon, name, description and points (Xbox-style G), locked ones greyed with how far
@@ -412,6 +416,22 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   height along the seam. Parts of a seamless side with no map beyond it show nothing (like *Nothing*), so keep the
   other kinds (forest, cliffs, water…) for the world's outer edges, or a dungeon's darkness.
 - The ground under the hero and around them is marked as explored as they walk (kept in saves), for the world map's fog.
+- **Map markers on events**: in the event window, **Map marker** puts the event on the world map as a *Quest
+  location*, *Landmark*, *Town*, *Danger* or any kind you add, with its own tooltip (default: the event's name).
+  **Only while switch** shows it only while a switch is on (or off): turn a quest's switch on when it starts and off
+  when it ends, and its location appears and disappears. Area events (bigger than one tile) are outlined.
+  **Database → Map markers**: each kind's name, symbol (star, circle, diamond, square, triangle, !, ?, flag, skull,
+  house, cross, heart) and colour, and new kinds.
+
+### Word bubbles
+
+- In the event window, each page can have a **Word bubble**: **!** (a quest to take), **?** (ready to hand in) or
+  any short text, **above** the event, **on** it or **at its feet**. Set the text and bubble colours, bold, italic,
+  strikethrough, an outline (and its colour), a glow, the text size and the bubble's size, and whether it bobs.
+  **See-through bubble** shows only the text (a floating gold "!", World of Warcraft style).
+- It shows while that page is the one showing, so quest givers use pages: one with "!" while the quest can be taken
+  (Condition → Quest not started), one with "?" when it's ready to hand in (Condition → Quest ready to hand in).
+  Bubbles hide in menus, battles and on the title screen.
 
 ### Achievements
 
@@ -435,8 +455,12 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 - Press **`** in a playtest (or three fingers on a touch screen, or **Console** in the playtest panel): the game
   freezes and commands can be typed. **Tab** completes commands and names (items, heroes, spells, enemies, maps…),
   ↑ ↓ go through earlier commands, `help` lists everything (`help give` the ones matching), Esc or ` closes.
-- Commands: `give <item> [count]`, `take`, `gold <amount>`, `party_add <hero>`, `party_remove`, `learn_spell <hero|all>
-  <spell> [rank]`, `learn_addition`, `forget_spell`, `forget_addition`, `exp <n>`, `level <n>`, `heal`, `deathless`,
+- **Who it's for**: commands about a character take a hero's name (or id) anywhere in them, or `all`:
+  `level 5 eleanor`, `exp 300 all`, `hp 10 katrina`, `learn_spell fire 2 crowley`. With no name they're for the
+  hero you play (`heal`, `revive` and the `learn` / `forget` commands default to everyone).
+- Commands: `give <item> [count]`, `take`, `gold <amount>`, `party_add <hero>`, `party_remove`, `learn_spell <spell>
+  [rank] [hero]`, `learn_addition`, `forget_spell`, `forget_addition`, `exp <n> [hero]`, `level <n> [hero]`, `heal [hero]`,
+  `hp <n> [hero]`, `mp <n> [hero]`, `ko [hero]`, `revive [hero]`, `deathless`,
   `deathless_party`, `infinite_items`, `infinite_gold`, `god` (all four), `ghost` (through walls, props and cliffs),
   `speed <×>`, `unlock_skills [hero|all]`, `teleport <map> [x z]`, `time <hour>`, `weather <kind> [amount]`,
   `season <name|auto>`, `battle <troop|enemies…>`, `win_battle`, `switch <name> <on|off>`, `var <name> <value>`,

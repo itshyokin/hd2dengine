@@ -56,7 +56,7 @@ import {
   additionBonus, additionList, additionRank, additionToNext, changeClass, classList, findAddition, findClass, findSpell, heroTrees, learnAddition,
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
-import type { AbilityData, Command } from '../world/types';
+import type { AbilityData, Command, EventData } from '../world/types';
 import { WEATHER_KINDS } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
@@ -96,7 +96,9 @@ import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/In
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { PartyScreen, type PartyAction, type PartyMemberView } from '../ui/PartyScreen';
 import { PauseShell } from '../ui/PauseShell';
-import { WorldMapScreen, type WorldMapPiece } from '../ui/WorldMapScreen';
+import { WorldMapScreen, type WorldMapMarker, type WorldMapPiece } from '../ui/WorldMapScreen';
+import { markerKinds } from '../world/landmarks';
+import { BubbleLayer } from '../ui/BubbleLayer';
 import { AchievementsScreen, type AchievementView } from '../ui/AchievementsScreen';
 import { AchievementToast } from '../ui/AchievementToast';
 import { DevConsole, type ConsoleCommand } from '../ui/DevConsole';
@@ -262,6 +264,7 @@ export class Game {
   /** Where the hero stands in the lineup: 0 first; past the first three, on the bench. */
   private heroAt = 0;
   private worldMap!: WorldMapScreen;
+  private bubbles!: BubbleLayer;
   private achScreen!: AchievementsScreen;
   private achToast!: AchievementToast;
   private achBook!: AchievementBook;
@@ -575,8 +578,11 @@ export class Game {
       labels: () => this.db.world?.labels ?? [],
       unvisited: () => this.db.world?.unvisited ?? 'hidden',
       hero: () => { const p = this.db.world?.maps[this.mapName]; return p && this.motion ? { x: p.x + this.motion.x, z: p.z + this.motion.z, map: this.mapName } : null; },
+      heroName: () => mainHero(this.db).name,
+      markers: () => this.worldMarkers(),
       artScale: 4,
     });
+    this.bubbles = new BubbleLayer(this.ui);
     this.achBook = new AchievementBook(`hd2d:${this.db.title || 'game'}${this.isPlaytest ? ':playtest' : ''}:achievements`);
     // Unlocks already earned are passed on to a store's achievements (Steam through a desktop wrapper), if there is one.
     for (const id of this.achBook.all) platformUnlock(id);
@@ -1582,6 +1588,7 @@ export class Game {
       this.fade = { from: 1, to: 0, t: 0, duration: 1.4 };
     }
     this.updateCamera(dt);
+    this.updateBubbles();
     this.updateEnvironment(dt);
     if (!this.onTitle && !fighting) this.combat.updateBack();
     if (this.buildings.length) { const p = this.player.position; fadeBuildings(this.buildings, p.x, p.y, p.z, dt); }
@@ -3322,6 +3329,22 @@ export class Game {
     this.menu.push(label('system'), items, { tabs, onBack: done });
   }
 
+  /** Word bubbles over events ("!" / "?" for quests): only on the field, not in menus, battles or the title. */
+  private updateBubbles(): void {
+    const show = !this.onTitle && !this.battle.active && !this.stage && !this.pauseShell.isOpen && !this.transfer && !this.devConsole.isOpen;
+    this.bubbles.visible = show;
+    if (!show) return;
+    const spots = [];
+    for (const e of this.events) {
+      const b = e.page?.bubble;
+      if (!b || !e.onMap) continue;
+      const sp = e.speakerPoint();
+      const x = sp?.x ?? e.x + e.w / 2, z = sp?.z ?? e.z + e.h / 2;
+      spots.push({ key: e, bubble: b, x, y: sp?.y ?? this.map.surfaceY(x, z), z, height: sp?.height ?? 0.8 });
+    }
+    this.bubbles.update(spots, this.projector, this.elapsed);
+  }
+
   /* ---------------------------------------------------------------- world map */
 
   private readonly worldArt = new Map<string, HTMLCanvasElement>();
@@ -3350,12 +3373,31 @@ export class Game {
         try {
           const data = n === this.mapName ? this.mapData : await this.loadMapData(n);
           this.worldArt.set(n, drawMapArt(data, this.tiles, style, 4));
+          this.worldEvents.set(n, data.events);
           this.worldTitles.set(n, data.name || n);
           if (this.worldMap.isOpen) this.worldMap.show(() => this.closePause(), this.pauseShell.group());
         } catch { /* a map that can't be read stays blank */ }
       }
       this.worldDrawing = false;
     })();
+  }
+
+  /** Each world map's events (for their markers), read as the world map is drawn. */
+  private readonly worldEvents = new Map<string, EventData[]>();
+
+  /** Event markers on the world map, where their switches allow. */
+  private worldMarkers(): WorldMapMarker[] {
+    const kinds = markerKinds(this.db.markers), out: WorldMapMarker[] = [];
+    for (const [name, at] of Object.entries(this.db.world?.maps ?? {})) {
+      const evs = name === this.mapName ? this.mapData.events : this.worldEvents.get(name) ?? [];
+      for (const e of evs) {
+        const m = e.marker, k = m && kinds.find((x) => x.id === m.kind);
+        if (!m || !k) continue;
+        if (m.switch && this.state.getSwitch(m.switch) === !!m.whenOff) continue;
+        out.push({ x: at.x + e.x, z: at.z + e.z, w: Math.max(1, e.w ?? 1), h: Math.max(1, e.h ?? 1), symbol: k.symbol, color: k.color, label: m.label || e.name, kind: k.name });
+      }
+    }
+    return out;
   }
 
   private worldPieces(): WorldMapPiece[] {
@@ -3375,7 +3417,7 @@ export class Game {
   /** Mark where the hero is as seen (a few times a second). */
   private exploreT = 0;
   private updateExplored(dt: number): void {
-    if (this.onTitle || !this.mapData || !this.motion) return;
+    if (this.onTitle || this.transfer || !this.mapData || !this.motion) return;
     this.visited.add(this.mapName);
     this.exploreT -= dt;
     if (this.exploreT > 0) return;
@@ -3452,12 +3494,41 @@ export class Game {
     const num = (v: string | undefined, d: number) => { const n = Number(v); if (v !== undefined && !Number.isFinite(n)) throw new Error(`“${v}” isn’t a number`); return v === undefined ? d : n; };
     const need = (v: string | undefined, what: string) => { if (!v) throw new Error(`Which ${what}?`); return v; };
     const run = (cmds: Command[]) => { this.interpreter.start(cmds); return 'Done (it happens as the console closes).'; };
-    const who = (v: string | undefined) => (!v || v === 'all' ? '@party' : v);
     const toggle = (key: keyof typeof this.cheats, label: string): ConsoleCommand => ({
       name: label.toLowerCase().replace(/ /g, '_'), args: '[on|off]', help: `${label}: toggle`, complete: () => ['on', 'off'],
       run: (a) => { const on = onOff(a[0], !!this.cheats[key]); (this.cheats as Record<string, unknown>)[key] = on; if (on) this.cheat(); return `${label}: ${on ? 'on' : 'off'}`; },
     });
-    const learnable = (i: number, kind: 'spell' | 'addition') => (i === 0 ? heroes() : kind === 'spell' ? spellList(this.db).map((x) => x.id) : additionList(this.db).map((x) => x.id));
+    const learnable = (i: number, kind: 'spell' | 'addition') => [...(kind === 'spell' ? spellList(this.db).map((x) => x.id) : additionList(this.db).map((x) => x.id)), ...(i > 0 ? ['all', ...this.members().map((m) => m.def.name.toLowerCase()), mainHero(this.db).name.toLowerCase()] : [])];
+    /**
+     * Who a command is for: a hero's id or name anywhere in it (any case: "level 5 eleanor"), "all" / "party" for
+     * everyone, or (none named) the hero you play. Returns them as `who`s (0 the hero) and the other words.
+     */
+    const target = (a: string[], dflt: 'hero' | 'all' = 'hero'): { whos: number[]; rest: string[] } => {
+      const ms = this.members(), hero = mainHero(this.db), low = (x: string) => x.toLowerCase();
+      const idx = a.findIndex((w) => /^(all|party|everyone)$/i.test(w) || low(w) === low(hero.id) || low(w) === low(hero.name) || ms.some((m) => low(w) === low(m.def.id) || low(w) === low(m.def.name)));
+      if (idx < 0) return { whos: dflt === 'all' ? [0, ...ms.map((_, k) => k + 1)] : [0], rest: a };
+      const w = low(a[idx]), rest = a.filter((_, k) => k !== idx);
+      if (/^(all|party|everyone)$/.test(w)) return { whos: [0, ...ms.map((_, k) => k + 1)], rest };
+      if (w === low(hero.id) || w === low(hero.name)) return { whos: [0], rest };
+      return { whos: [ms.findIndex((m) => w === low(m.def.id) || w === low(m.def.name)) + 1], rest };
+    };
+    const nameOf = (who: number) => (who ? this.members()[who - 1]?.def.name ?? '?' : mainHero(this.db).name);
+    const party = () => ['all', mainHero(this.db).name.toLowerCase(), ...this.members().map((m) => m.def.name.toLowerCase())];
+    const giveXp = (who: number, n: number) => {
+      if (!who) { this.gainXp(n, false); return; }
+      const m = this.members()[who - 1];
+      if (m) memberGainXp(m.data, n, this.combatCfg, this.combatCfg.statPointsPerLevel, this.combatCfg.pointsPerLevel);
+    };
+    const levelOf = (who: number) => (who ? this.members()[who - 1]?.data.level ?? 1 : this.progress.level);
+    const maxOf = (who: number) => (who ? this.allyNumbers(this.members()[who - 1].data, this.members()[who - 1].def).max : this.stats.cfg.max);
+    const vitals = (who: number, hp?: number, mp?: number) => {
+      if (!who) { if (hp !== undefined) this.stats.change('hp', 'set', hp); if (mp !== undefined) this.stats.change('mp', 'set', mp); return; }
+      const m = this.members()[who - 1];
+      if (!m) return;
+      const mx = maxOf(who);
+      if (hp !== undefined) { m.data.hp = Math.max(0, Math.min(mx.hp, hp)); m.data.down = m.data.hp <= 0; }
+      if (mp !== undefined) m.data.mp = Math.max(0, Math.min(mx.mp, mp));
+    };
     return [
       { name: 'give', args: '<item> [count]', help: 'Put an item in the bag', complete: (i) => (i === 0 ? items() : []),
         run: (a) => { const id = need(a[0], 'item'); if (!this.items.get(id)) throw new Error(`No item “${id}”`); const n = Math.max(1, Math.round(num(a[1], 1))); this.cheat(); const left = this.inventory.add(id, n); this.refreshRing(); return `+${n - left} ${this.items.get(id)!.name}${left ? ` (${left} didn’t fit)` : ''}`; } },
@@ -3466,20 +3537,50 @@ export class Game {
       { name: 'gold', args: '<amount>', help: 'Add gold (negative takes it)', run: (a) => { this.cheat(); this.inventory.gold = Math.max(0, this.inventory.gold + Math.round(num(a[0], 1000))); return `${this.inventory.gold} G`; } },
       { name: 'party_add', args: '<hero>', help: 'A hero joins the party', complete: () => ids(this.db.heroes).filter((h) => h !== mainHero(this.db).id), run: (a) => { this.cheat(); this.changeParty('add', need(a[0], 'hero')); return 'Joined.'; } },
       { name: 'party_remove', args: '<hero>', help: 'A hero leaves the party', complete: () => this.members().map((m) => m.def.id), run: (a) => { this.changeParty('remove', need(a[0], 'hero')); return 'Left.'; } },
-      { name: 'learn_spell', args: '<hero|all> <spell> [rank]', help: 'Teach a spell', complete: (i) => learnable(i, 'spell'),
-        run: (a) => { this.cheat(); return this.eventLearn({ cmd: 'learn', who: who(a[0]), spell: need(a[1], 'spell'), rank: Math.max(1, Math.round(num(a[2], 1))) }) ?? 'Already known.'; } },
-      { name: 'learn_addition', args: '<hero|all> <addition>', help: 'Teach an Addition', complete: (i) => learnable(i, 'addition'),
-        run: (a) => { this.cheat(); return this.eventLearn({ cmd: 'learn', who: who(a[0]), addition: need(a[1], 'Addition') }) ?? 'Already known.'; } },
-      { name: 'forget_spell', args: '<hero|all> <spell>', help: 'Forget a spell', complete: (i) => learnable(i, 'spell'),
-        run: (a) => { const id = need(a[1], 'spell'); let n = 0; for (const h of this.eventHeroes(who(a[0]))) if (h.a.spells?.[id]) { delete h.a.spells[id]; n++; } return `${n} forgot it.`; } },
-      { name: 'forget_addition', args: '<hero|all> <addition>', help: 'Forget an Addition', complete: (i) => learnable(i, 'addition'),
-        run: (a) => { const id = need(a[1], 'Addition'); let n = 0; for (const h of this.eventHeroes(who(a[0]))) if (h.a.additions && id in h.a.additions) { delete h.a.additions[id]; if (h.a.addition === id) delete h.a.addition; n++; } return `${n} forgot it.`; } },
-      { name: 'exp', args: '<amount>', help: 'Give EXP (the whole party)', run: (a) => { this.cheat(); this.gainXp(Math.max(1, Math.round(num(a[0], 100))), false); return `Level ${this.progress.level}`; } },
-      { name: 'level', args: '<level>', help: 'Level the hero up to this level', run: (a) => {
-        this.cheat(); const want = Math.round(num(a[0], this.progress.level + 1));
-        for (let k = 0; k < 200 && this.progress.level < want && !this.progress.maxed; k++) this.gainXp(Math.max(1, this.progress.toNext - this.progress.xp), false);
-        return `Level ${this.progress.level}`; } },
-      { name: 'heal', help: 'Full rest: health, magic and stamina for everyone, ailments cured', run: () => { this.fullRest(true); for (const m of this.members()) { m.data.down = false; } return 'Everyone restored.'; } },
+      { name: 'learn_spell', args: '<spell> [rank] [hero|all]', help: 'Teach a spell', complete: (i) => learnable(i, 'spell'),
+        run: (a) => { const t = target(a, 'all'); this.cheat(); let out = '';
+          for (const w of t.whos) out = this.eventLearn({ cmd: 'learn', who: w ? this.members()[w - 1].def.id : mainHero(this.db).id, spell: need(t.rest[0], 'spell'), rank: Math.max(1, Math.round(num(t.rest[1], 1))) }) ?? out;
+          return out || 'Already known.'; } },
+      { name: 'learn_addition', args: '<addition> [hero|all]', help: 'Teach an Addition', complete: (i) => learnable(i, 'addition'),
+        run: (a) => { const t = target(a, 'all'); this.cheat(); let out = '';
+          for (const w of t.whos) out = this.eventLearn({ cmd: 'learn', who: w ? this.members()[w - 1].def.id : mainHero(this.db).id, addition: need(t.rest[0], 'Addition') }) ?? out;
+          return out || 'Already known.'; } },
+      { name: 'forget_spell', args: '<spell> [hero|all]', help: 'Forget a spell', complete: (i) => learnable(i, 'spell'),
+        run: (a) => { const t = target(a, 'all'), id = need(t.rest[0], 'spell'); let n = 0; for (const w of t.whos) { const ab = this.abilitiesOf(w); if (ab?.spells?.[id]) { delete ab.spells[id]; n++; } } return `${n} forgot it.`; } },
+      { name: 'forget_addition', args: '<addition> [hero|all]', help: 'Forget an Addition', complete: (i) => learnable(i, 'addition'),
+        run: (a) => { const t = target(a, 'all'), id = need(t.rest[0], 'Addition'); let n = 0; for (const w of t.whos) { const ab = this.abilitiesOf(w); if (ab?.additions && id in ab.additions) { delete ab.additions[id]; if (ab.addition === id) delete ab.addition; n++; } } return `${n} forgot it.`; } },
+      { name: 'exp', args: '<amount> [hero|all]', help: 'Give EXP (you, a hero by name, or all)', complete: (i) => (i === 1 ? party() : []),
+        run: (a) => { const t = target(a), n = Math.max(1, Math.round(num(t.rest[0], 100))); this.cheat(); for (const w of t.whos) giveXp(w, n); return t.whos.map((w) => `${nameOf(w)}: level ${levelOf(w)}`).join(' · '); } },
+      { name: 'level', args: '<level> [hero|all]', help: 'Level up to this level (you, a hero by name, or all)', complete: (i) => (i === 1 ? party() : []),
+        run: (a) => {
+          const t = target(a); this.cheat();
+          for (const w of t.whos) {
+            const want = Math.round(num(t.rest[0], levelOf(w) + 1));
+            for (let k = 0; k < 200 && levelOf(w) < want; k++) {
+              const before = levelOf(w);
+              if (!w) { if (this.progress.maxed) break; this.gainXp(Math.max(1, this.progress.toNext - this.progress.xp), false); }
+              else { const m = this.members()[w - 1], need = xpToNext(this.combatCfg, m.data.level); if (!need) break; giveXp(w, Math.max(1, need - m.data.xp)); }
+              if (levelOf(w) === before) break;
+            }
+          }
+          return t.whos.map((w) => `${nameOf(w)}: level ${levelOf(w)}`).join(' · ');
+        } },
+      { name: 'heal', args: '[hero|all]', help: 'Health, magic and stamina back, ailments cured (everyone, or one hero)', complete: () => party(),
+        run: (a) => {
+          const t = target(a, 'all');
+          if (t.whos.length > 1) { this.fullRest(true); for (const m of this.members()) m.data.down = false; return 'Everyone restored.'; }
+          const w = t.whos[0], mx = maxOf(w);
+          if (!w) { this.stats.refill(); this.combat.heroStatus.clear(); } else vitals(w, mx.hp, mx.mp);
+          return `${nameOf(w)} restored.`;
+        } },
+      { name: 'hp', args: '<amount> [hero|all]', help: 'Set health', complete: (i) => (i === 1 ? party() : []),
+        run: (a) => { const t = target(a); this.cheat(); for (const w of t.whos) vitals(w, num(t.rest[0], maxOf(w).hp)); return `${t.whos.map(nameOf).join(', ')}: HP set.`; } },
+      { name: 'mp', args: '<amount> [hero|all]', help: 'Set magic', complete: (i) => (i === 1 ? party() : []),
+        run: (a) => { const t = target(a); this.cheat(); for (const w of t.whos) vitals(w, undefined, num(t.rest[0], maxOf(w).mp)); return `${t.whos.map(nameOf).join(', ')}: MP set.`; } },
+      { name: 'ko', args: '[hero|all]', help: 'Knock someone out (to test revives)', complete: () => party(),
+        run: (a) => { const t = target(a); for (const w of t.whos) vitals(w, w ? 0 : 1); return `${t.whos.map(nameOf).join(', ')}${t.whos.includes(0) ? ' (the hero you play keeps 1 HP on the field)' : ' knocked out.'}`; } },
+      { name: 'revive', args: '[hero|all]', help: 'Back on their feet at full health', complete: () => party(),
+        run: (a) => { const t = target(a, 'all'); for (const w of t.whos) vitals(w, maxOf(w).hp); return `${t.whos.map(nameOf).join(', ')} revived.`; } },
       toggle('deathless', 'Deathless'),
       { ...toggle('deathlessParty', 'Deathless party'), name: 'deathless_party' },
       { name: 'infinite_items', args: '[on|off]', help: 'Using consumables doesn’t use them up', complete: () => ['on', 'off'],
@@ -3493,9 +3594,9 @@ export class Game {
         run: (a) => {
           this.cheat();
           const nodes = skillsData(this.db.skills).nodes, full = Object.fromEntries(nodes.map((n) => [n.id, Math.max(1, n.ranks ?? 1)]));
-          const target = a[0] ?? 'all';
-          if (target === 'all' || target === mainHero(this.db).id) { Object.assign(this.progress.ranks, full); this.syncSkills(); }
-          for (const m of this.members()) if (target === 'all' || m.def.id === target) m.data.skills = { ...full };
+          const t = target(a, 'all');
+          if (t.whos.includes(0)) { Object.assign(this.progress.ranks, full); this.syncSkills(); }
+          for (const w of t.whos) if (w) this.members()[w - 1].data.skills = { ...full };
           return `${nodes.length} skills unlocked.`;
         } },
       { name: 'teleport', args: '<map> [x z]', help: 'Go to a map (its start, or a tile)', complete: (i) => (i === 0 ? Object.keys(this.db.world?.maps ?? {}).concat(this.handedMaps ? Object.keys(this.handedMaps) : []) : []),

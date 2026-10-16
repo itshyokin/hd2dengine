@@ -17,6 +17,7 @@ import { BRICKS } from '../world/tiles';
 import { type WaterCell, autoRampDir, autoCornerMask, formatHeights, formatWater, parseHeights, parseWater } from '../world/heights';
 import { openPropImporter } from './PropImporter';
 import type { EditorStore } from './store';
+import { markerIcon, markerKinds } from '../world/landmarks';
 import { CORNER_NAMES, type CornerName, type RampData, WEATHER_KINDS, type MistWhen, type BuildingData, type BuildingSide, type WeatherKind } from '../world/types';
 import { BUILDING_DEFAULTS, doorstep, resolveBuilding } from '../world/buildingShape';
 import { ROOF_CHOICES, WALL_CHOICES } from './buildingPresets';
@@ -722,6 +723,61 @@ export class Inspector {
     ];
   }
 
+  /** A word bubble over the event while this page shows ("!" and "?" for quests, or short text). */
+  private bubbleFields(page: EventPage): HTMLElement[] {
+    const b = page.bubble;
+    const out: HTMLElement[] = [h('div', { class: 'section-label' }, 'Word bubble'),
+      field('Show', select([['', 'No bubble'], ['!', '! (a quest to take)'], ['?', '? (ready to hand in)'], ['text', 'Text…']], b ? (b.text === '!' || b.text === '?' ? b.text : 'text') : '', (v) => this.edit(() => {
+        if (!v) { delete page.bubble; return; }
+        const prev = page.bubble ?? { text: '!', at: 'above' as const, color: '#ffd23f', outline: '#3a2400', transparent: true, size: 30, glow: true };
+        page.bubble = { ...prev, text: v === 'text' ? (prev.text === '!' || prev.text === '?' ? 'Hello!' : prev.text) : v };
+      }, true)))];
+    if (!b) return out;
+    const color = (value: string, set: (v: string) => void, label: string) => {
+      const i = h('input', { type: 'color', value, 'aria-label': label });
+      i.addEventListener('change', () => this.edit(() => set(i.value), true));
+      return i;
+    };
+    if (b.text !== '!' && b.text !== '?') out.push(field('Text', textInput(b.text, (v) => this.edit(() => (b.text = v || '…'), true))));
+    out.push(
+      h('div', { class: 'field-row' },
+        field('Where', select([['above', 'Above it'], ['on', 'On it'], ['below', 'At its feet']], b.at ?? 'above', (v) => this.edit(() => (b.at = v as 'above' | 'on' | 'below'), true))),
+        field('Text size', numberInput(b.size ?? 22, (v) => this.edit(() => (b.size = Math.max(8, Math.min(96, Math.round(v)))), true), { min: 8, max: 96, step: 2 })),
+        field('Bubble size ×', numberInput(b.scale ?? 1, (v) => this.edit(() => (b.scale = Math.max(0.4, Math.min(4, v))), true), { min: 0.4, max: 4, step: 0.1 }))),
+      h('div', { class: 'field-row bubble-colors' },
+        field('Text', color(b.color ?? '#ffd23f', (v) => (b.color = v), 'Text colour')),
+        field('Bubble', color(b.bubble ?? '#ffffff', (v) => (b.bubble = v), 'Bubble colour')),
+        field('Outline', color(b.outline ?? '#000000', (v) => (b.outline = v), 'Outline colour'))),
+      h('div', { class: 'checks' },
+        checkbox('See-through bubble (just the text)', !!b.transparent, (v) => this.edit(() => (b.transparent = v || undefined), true)),
+        checkbox('Bold', b.bold !== false, (v) => this.edit(() => (b.bold = v ? undefined : false), true)),
+        checkbox('Italic', !!b.italic, (v) => this.edit(() => (b.italic = v || undefined), true)),
+        checkbox('Strikethrough', !!b.strike, (v) => this.edit(() => (b.strike = v || undefined), true)),
+        checkbox('Outlined', !!b.outline, (v) => this.edit(() => { if (v) b.outline ??= '#000000'; else delete b.outline; }, true)),
+        checkbox('Glowing', !!b.glow, (v) => this.edit(() => (b.glow = v || undefined), true)),
+        checkbox('Bob up and down', !b.still, (v) => this.edit(() => (b.still = v ? undefined : true), true))),
+      h('p', { class: 'hint' }, 'Shown while this page is the one showing: give a quest giver a page with “!” while the quest can be taken and one with “?” when it’s ready to hand in (Condition → Quest).'));
+    return out;
+  }
+
+  /** The event's marker on the world map (every page): its kind, its tooltip, and a switch that shows it. */
+  private markerFields(ev: EventData): HTMLElement[] {
+    const kinds = markerKinds(this.store.db.markers), m = ev.marker;
+    const out: HTMLElement[] = [h('div', { class: 'section-label' }, 'Map marker'),
+      field('On the world map', select([['', 'None'], ...kinds.map((k) => [k.id, k.name] as [string, string])], m?.kind ?? '', (v) => this.edit(() => {
+        if (v) ev.marker = { ...(ev.marker ?? {}), kind: v }; else delete ev.marker;
+      }, true)))];
+    if (!m) return out;
+    const k = kinds.find((x) => x.id === m.kind);
+    if (k) out.push(h('div', { class: 'marker-preview' }, h('img', { src: markerIcon(k.symbol, k.color, 26), alt: '' }), h('span', {}, `${k.name}${eventW(ev) > 1 || eventH(ev) > 1 ? ' · its area is outlined on the map' : ''}`)));
+    out.push(field('Tooltip', textInput(m.label ?? '', (v) => this.edit(() => { if (v.trim()) m.label = v.trim(); else delete m.label; }, true), { placeholder: ev.name })),
+      h('div', { class: 'field-row' },
+        field('Only while switch', textInput(m.switch ?? '', (v) => this.edit(() => { if (v.trim()) m.switch = v.trim(); else { delete m.switch; delete m.whenOff; } }, true), { placeholder: '(always)', list: 'dl-switches' })),
+        m.switch ? field('is', select([['on', 'ON'], ['off', 'OFF']], m.whenOff ? 'off' : 'on', (v) => this.edit(() => { if (v === 'off') m.whenOff = true; else delete m.whenOff; }, true))) : h('span')),
+      h('p', { class: 'hint' }, 'Show a quest location only while its quest is on: turn a switch on when the quest starts and off when it ends. Kinds, symbols and colours: Database → Map markers.'));
+    return out;
+  }
+
   /** Open the event editor window (like RPG Maker's): page tabs on top, settings on the left, commands on the right. */
   openEventWindow(ev: EventData): void {
     this.eventWin?.close();
@@ -836,7 +892,9 @@ export class Inspector {
               if (v === dflt) delete page.wall; else page.wall = v;
             }))] : []),
             page.trigger === 'touch' ? h('p', { class: 'hint' }, 'Player touch runs when the player steps onto it, or walks into it when they can’t step there (it’s solid, or it’s up on a cliff, like a cave mouth on the wall).') : null,
-            checkbox('Is respawn point (after losing all health, the player comes back here)', !!page.respawn, (v) => this.edit(() => (page.respawn = v || undefined)))])),
+            checkbox('Is respawn point (after losing all health, the player comes back here)', !!page.respawn, (v) => this.edit(() => (page.respawn = v || undefined)))]),
+          ...this.bubbleFields(page),
+          ...this.markerFields(ev)),
         h('div', { class: 'ev-commands' },
           h('div', { class: 'section-label' }, page.enemy !== undefined ? 'When defeated' : page.breakable ? 'When it breaks' : 'Commands'),
           this.commands.render(page.commands),
