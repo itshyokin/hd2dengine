@@ -4279,8 +4279,8 @@
       "look": {
         "character": "bandit_archer"
       },
-      "hp": 30,
-      "damage": 9,
+      "hp": 10,
+      "damage": 5,
       "speed": 2.4,
       "behaviour": "ranged",
       "attackRange": 7,
@@ -5522,6 +5522,44 @@
       "color": "#9dffb0",
       "maxRank": 3,
       "description": "Closes wounds on one of the party."
+    }
+  ],
+  "markers": [
+    {
+      "id": "quest",
+      "name": "Quest location",
+      "symbol": "star",
+      "color": "#ffd23f"
+    },
+    {
+      "id": "landmark",
+      "name": "Landmark",
+      "symbol": "circle",
+      "color": "#6ab8ff"
+    },
+    {
+      "id": "town",
+      "name": "Town",
+      "symbol": "house",
+      "color": "#f3ead8"
+    },
+    {
+      "id": "danger",
+      "name": "Danger",
+      "symbol": "skull",
+      "color": "#ff5a4a"
+    },
+    {
+      "id": "marker",
+      "name": "Tower/Fort",
+      "symbol": "triangle",
+      "color": "#ffffff"
+    },
+    {
+      "id": "marker_2",
+      "name": "Monolith",
+      "symbol": "square",
+      "color": "#000000"
     }
   ]
 }

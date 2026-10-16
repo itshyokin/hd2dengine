@@ -174,11 +174,6 @@
   ],
   "ramps": [
     {
-      "x": 28,
-      "z": 9,
-      "style": "ramp"
-    },
-    {
       "x": 26,
       "z": 16,
       "style": "corner"
@@ -404,7 +399,16 @@
               "switch": "chest_map005_5",
               "value": true
             }
-          ]
+          ],
+          "bubble": {
+            "text": "!",
+            "at": "above",
+            "color": "#ffd23f",
+            "outline": "#3a2400",
+            "transparent": true,
+            "size": 30,
+            "glow": true
+          }
         },
         {
           "condition": {
@@ -416,13 +420,19 @@
           "solid": true,
           "commands": []
         }
-      ]
+      ],
+      "marker": {
+        "kind": "quest",
+        "switch": "pickup_map005_6",
+        "whenOff": true,
+        "label": "Treasure Chest"
+      }
     },
     {
       "id": 6,
       "name": "Item",
       "x": 29,
-      "z": 12,
+      "z": 9,
       "pages": [
         {
           "sprite": "sparkle",
@@ -475,42 +485,33 @@
     {
       "id": 8,
       "name": "Event 008",
-      "x": 16,
-      "z": 12,
-      "w": 1,
-      "h": 2,
+      "x": 13,
+      "z": 37,
       "pages": [
         {
           "trigger": "touch",
           "commands": [
             {
-              "cmd": "sound",
-              "sound": "target"
-            },
-            {
-              "cmd": "text",
-              "text": "Running, Jumping, and Swimming all consume Stamina.",
-              "bubble": "plain",
-              "speaker": "TUTORIAL"
-            },
-            {
-              "cmd": "text",
-              "text": "You regain Stamina automatically over time.",
-              "bubble": "plain",
-              "speaker": "TUTORIAL"
-            },
-            {
               "cmd": "setSwitch",
-              "switch": "tutorial_02",
+              "switch": "tutorial_ladder",
               "value": true
             }
-          ]
+          ],
+          "bubble": {
+            "text": "!",
+            "at": "above",
+            "color": "#ffd23f",
+            "outline": "#3a2400",
+            "transparent": true,
+            "size": 30,
+            "glow": true
+          }
         },
         {
-          "trigger": "touch",
+          "trigger": "none",
           "commands": [],
           "condition": {
-            "switch": "tutorial_02",
+            "switch": "tutorial_ladder",
             "is": true
           }
         }
@@ -519,181 +520,29 @@
     {
       "id": 9,
       "name": "Event 009",
-      "x": 26,
-      "z": 30,
-      "w": 4,
-      "pages": [
-        {
-          "trigger": "touch",
-          "commands": [
-            {
-              "cmd": "text",
-              "text": "You can jump up and down across different leveled terrain.",
-              "speaker": "TUTORIAL"
-            },
-            {
-              "cmd": "text",
-              "text": "Jumping too far results in Fall Damage.",
-              "speaker": "TUTORIAL"
-            },
-            {
-              "cmd": "text",
-              "text": "...or even a KO!",
-              "speaker": "TUTORIAL"
-            },
-            {
-              "cmd": "text",
-              "text": "Look before you leap!",
-              "speaker": "TUTORIAL"
-            },
-            {
-              "cmd": "setSwitch",
-              "switch": "tutorial_01",
-              "value": true
-            },
-            {
-              "cmd": "quest",
-              "quest": "explore_the_woods",
-              "op": "start"
-            }
-          ]
-        },
-        {
-          "trigger": "touch",
-          "commands": [],
-          "condition": {
-            "switch": "tutorial_01",
-            "is": true
-          }
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "name": "Event 010",
-      "x": 27,
-      "z": 9,
-      "w": 1,
-      "h": 7,
-      "pages": [
-        {
-          "trigger": "touch",
-          "commands": [
-            {
-              "cmd": "text",
-              "text": "Items can be found in the overworld and inside treasure chests!",
-              "speaker": "TUTORIAL",
-              "bubble": "plain"
-            },
-            {
-              "cmd": "setSwitch",
-              "switch": "tutorial_03",
-              "value": true
-            }
-          ]
-        },
-        {
-          "trigger": "touch",
-          "commands": [],
-          "condition": {
-            "switch": "tutorial_03",
-            "is": true
-          }
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "name": "Event 011",
-      "x": 35,
-      "z": 39,
-      "w": 1,
-      "h": 7,
-      "pages": [
-        {
-          "trigger": "touch",
-          "commands": [
-            {
-              "cmd": "text",
-              "text": "Hostile monsters and bandits lurk in the woods.",
-              "speaker": "TUTORIAL",
-              "bubble": "plain"
-            },
-            {
-              "cmd": "text",
-              "text": "Use your Melee attack to defeat the bandits up ahead.",
-              "speaker": "TUTORIAL",
-              "bubble": "plain"
-            },
-            {
-              "cmd": "setSwitch",
-              "switch": "tutorial_04",
-              "value": true
-            },
-            {
-              "cmd": "quest",
-              "quest": "explore_the_woods",
-              "op": "objective",
-              "objective": "explore_the_woods"
-            }
-          ]
-        },
-        {
-          "trigger": "touch",
-          "commands": [],
-          "respawn": true,
-          "condition": {
-            "switch": "tutorial_04",
-            "is": true
-          }
-        }
-      ]
-    },
-    {
-      "id": 12,
-      "name": "Bandit1",
       "x": 28,
-      "z": 42,
-      "pages": [
-        {
-          "enemy": "bandit_archer",
-          "trigger": "none",
-          "commands": []
-        }
-      ]
-    },
-    {
-      "id": 13,
-      "name": "Bandit2",
-      "x": 22,
-      "z": 44,
-      "pages": [
-        {
-          "enemy": "bandit_archer",
-          "trigger": "none",
-          "commands": []
-        }
-      ]
-    },
-    {
-      "id": 14,
-      "name": "Event 014",
-      "x": 12,
-      "z": 38,
-      "w": 2,
-      "h": 1,
+      "z": 41,
+      "w": 1,
+      "h": 4,
       "pages": [
         {
           "trigger": "touch",
           "commands": [
             {
-              "cmd": "text",
-              "text": "You can climb ladders, vines, and more! Just walk into it!",
-              "speaker": "TUTORIAL"
+              "cmd": "battle",
+              "enemies": [
+                "bandit_archer",
+                "bandit_archer"
+              ],
+              "resultVar": "1"
+            },
+            {
+              "cmd": "achievement",
+              "id": "FIRST_BLOOD"
             },
             {
               "cmd": "setSwitch",
-              "switch": "tutorial_05",
+              "switch": "tutorial_bandits",
               "value": true
             }
           ]
@@ -702,7 +551,7 @@
           "trigger": "touch",
           "commands": [],
           "condition": {
-            "switch": "tutorial_05",
+            "switch": "tutorial_ladder",
             "is": true
           }
         }
