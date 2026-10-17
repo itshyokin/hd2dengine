@@ -10,7 +10,7 @@ import type { PlayerStats } from '../game/stats';
 const BARS: ['mp' | 'hp' | 'xp', string][] = [['mp', 'MP'], ['hp', 'HP'], ['xp', 'EXP']];
 type BarKey = typeof BARS[number][0];
 
-export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string }
+export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string; /** The real moon's phase: a picture and its name. */ moon?: { svg: string; name: string; key: string } }
 export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string; /** Disabled by an event (indoors): greyed with a red ✕. */ blocked?: boolean }
 
 /** The HUD pieces a player can move and scale. */
@@ -71,6 +71,7 @@ export class StatusBars {
   private readonly clockWeather: HTMLElement;
   private readonly clockDate: HTMLElement;
   private icon = '';
+  private moonKey = '';
   private readonly ring = document.createElement('div');
   private readonly levelEl = document.createElement('div');
   private readonly xpBar = document.createElement('div');
@@ -187,7 +188,7 @@ export class StatusBars {
     this.side.className = 'hud-side';
     const clock = document.createElement('div');
     clock.className = 'hud-clock';
-    clock.innerHTML = '<span class="hud-clock-icon"></span><span class="hud-clock-time"></span><span class="hud-clock-weather"></span><span class="hud-clock-date"></span>';
+    clock.innerHTML = '<span class="hud-clock-icon"></span><span class="hud-clock-time"></span><span class="hud-clock-weather"></span><span class="hud-clock-date"></span><span class="hud-clock-sky"><span class="hud-moon"></span></span>';
     // Behind the clock: a small picture of the season (Settings → HUD → Season picture).
     this.seasonArt.className = 'hud-season';
     this.seasonArt.setAttribute('aria-hidden', 'true');
@@ -376,6 +377,13 @@ export class StatusBars {
       this.clockWeather.textContent = clock.weather;
       const d = clock.date ?? '';
       if (this.clockDate.textContent !== d) this.clockDate.textContent = d;
+      const m = clock.moon, mk = m?.key ?? '';
+      if (mk !== this.moonKey) {
+        this.moonKey = mk;
+        const el = this.side.querySelector<HTMLElement>('.hud-moon')!;
+        el.innerHTML = m ? `${m.svg}<span>${m.name}</span>` : '';
+        el.title = m ? `${m.name} (the real moon tonight)` : '';
+      }
     }
     for (const [g] of BARS) {
       if (g === 'xp') continue;

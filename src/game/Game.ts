@@ -103,6 +103,8 @@ import { PauseShell } from '../ui/PauseShell';
 import { WorldMapScreen, type WorldMapMarker, type WorldMapPiece } from '../ui/WorldMapScreen';
 import { drawMarker, markerKinds } from '../world/landmarks';
 import { tintCanvas, tintObject } from '../render/tint';
+import { SATURN_DIR, Sky } from '../render/Sky';
+import { MOON_NAMES, moonAge, moonIconSvg, moonPhase } from '../world/moon';
 import { BubbleLayer } from '../ui/BubbleLayer';
 import { AchievementsScreen, type AchievementView } from '../ui/AchievementsScreen';
 import { AchievementToast } from '../ui/AchievementToast';
@@ -760,7 +762,8 @@ export class Game {
         if (!list.length) return;
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined });
       },
-      busy: () => this.battle.active || this.battlePending,
+      busy: () => this.battle.active || this.battlePending || !!this.sleeping,
+      sleep: (c) => this.startSleep(c),
       achievement: (id) => { this.unlockAchievement(id); },
       console: (line) => { const r = this.devConsole.exec(line, false); if (r && !/^Done/.test(r)) console.info(`[console] ${line}: ${r}`); },
       learn: (c) => this.eventLearn(c),
@@ -1650,6 +1653,8 @@ export class Game {
       this.battleSound = null;
       this.fade = { from: 1, to: 0, t: 0, duration: 1.4 };
     }
+    this.updateSleep(dt);
+    document.body.classList.toggle('sleeping', this.sleepLook > 0.05);
     this.updateCamera(dt);
     this.updateBubbles();
     this.updateEnvironment(dt);
@@ -1671,6 +1676,7 @@ export class Game {
     // On a battle map the stage is drawn instead (every frame: its fighters move).
     if (!this.titleCovered && (this.stage || this.battleFrames < 4 || this.fade.t < 1)) {
       const scene = this.stage?.stage.scene ?? this.scene;
+      this.sky.attach(scene);
       this.ssao.render(scene, this.camera);
       this.post.render(scene, this.camera);
       if (this.snapWanted) {
@@ -1702,6 +1708,7 @@ export class Game {
       weather: { outdoor: 'Clear', indoor: 'Indoors', dark: 'Underground' }[this.time.environment],
       // The real-world date under the game time (and the season, outdoors).
       date: `${new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}${this.season ? ` · ${SEASON_NAMES[this.season]}` : ''}`,
+      moon: this.moonInfo(),
     });
     this.debug.update(dt, this.time.hour, this.time.label(), this.post.lastDrawCalls, this.state.toJSON());
     this.input.endFrame();
@@ -3821,6 +3828,8 @@ export class Game {
           setTimeout(() => URL.revokeObjectURL(url), 5000);
           return `Downloaded ${list.length} note${list.length === 1 ? '' : 's'}.`;
         } },
+      { name: 'sleep', args: '[morning|night|<hours>]', help: 'Sleep (the sky transition) and rest', complete: () => ['morning', 'night'],
+        run: (a) => { const v = a[0] ?? 'morning', h = parseFloat(v); return run([{ cmd: 'sleep', until: Number.isFinite(h) ? 'hours' : v === 'night' ? 'night' : 'morning', hours: Number.isFinite(h) ? h : undefined, rest: true }]); } },
       { name: 'where', help: 'This map and tile', run: () => `${this.mapName} · ${Math.floor(this.motion.x)}, ${Math.floor(this.motion.z)} · height ${this.map.step(Math.floor(this.motion.x), Math.floor(this.motion.z))}` },
     ];
   }
@@ -5262,6 +5271,16 @@ export class Game {
     t.z = clamp(t.z, o.has('n') ? -1e4 : 5, o.has('s') ? 1e4 : this.map.h - 2);
     this.camera.position.copy(t).add(CAMERA_OFFSET);
     this.camera.lookAt(t.x, t.y + 0.6, t.z);
+    // Sleeping: the camera lifts and tilts up to the sky (smoothly in, and back down after).
+    const k = this.sleepLook;
+    if (k > 0) {
+      const e = k * k * (3 - 2 * k);
+      this.camera.position.y += e * 1.5; this.camera.position.z -= e * 4;
+      // Toward Saturn (and the moon and stars around it).
+      this.skyAim.copy(this.camera.position).addScaledVector(SATURN_DIR, 40);
+      this.skyLook.set(t.x, t.y + 0.6, t.z).lerp(this.skyAim, e);
+      this.camera.lookAt(this.skyLook);
+    }
     const sh = this.combat.shake;
     if (sh > 0) this.camera.position.add(this.projected.set((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh, 0));
     // Keep the player in the sharp band of the tilt-shift.
@@ -5269,6 +5288,7 @@ export class Game {
     this.projected.y += 0.7;
     this.projected.project(this.camera);
     this.post.focus = clamp(this.projected.y * 0.5 + 0.5, 0.25, 0.75);
+    this.post.tiltFade = this.sleepLook;
     // The sun's shadow camera follows the view so shadows stay sharp.
     this.sun.target.position.copy(t);
     this.sun.position.copy(t).addScaledVector(this.time.sunDir, 30);
@@ -5367,5 +5387,96 @@ export class Game {
       f.tex.offset.y += (0.018 - Math.sin(fd) * f.flow * 0.45) * dt;
     }
     this.post.exposure = this.time.exposure * 1.1 * this.settings.brightness;
+    this.updateSky(dt);
+  }
+
+  /* ---------------------------------------------------------------- sleeping */
+
+  /** A sleep under way: up (tilting to the sky), pass (the hours rushing by), down (back to the hero). */
+  private sleeping: { phase: 'up' | 'pass' | 'down'; t: number; from: number; hours: number; rest: boolean } | null = null;
+  /** How far the camera has tilted up to the sky (0 … 1). */
+  private sleepLook = 0;
+  private readonly skyLook = new THREE.Vector3();
+  private readonly skyAim = new THREE.Vector3();
+
+  private startSleep(c: Extract<Command, { cmd: 'sleep' }>): void {
+    const now = this.time.hour;
+    const target = c.until === 'night' ? 21 : c.until === 'hours' ? wrapHour(now + Math.max(0.25, c.hours ?? 8)) : 7;
+    let hours = wrapHour(target - now);
+    if (hours < 0.25) hours += 24;
+    if (c.until === 'hours') hours = Math.max(0.25, c.hours ?? 8);
+    this.sleeping = { phase: 'up', t: 0, from: now, hours, rest: !!c.rest };
+    this.audio.play('menuOk');
+  }
+
+  /** Each frame while sleeping. The clock (fires, seasons, day counts) moves on by the hours slept. */
+  private updateSleep(dt: number): void {
+    const s = this.sleeping;
+    if (!s) { this.sleepLook = Math.max(0, this.sleepLook - dt); return; }
+    s.t += dt;
+    const UP = 2.2, PASS = Math.min(6, 2.5 + s.hours * 0.3), DOWN = 2.2;
+    if (s.phase === 'up') { this.sleepLook = Math.min(1, s.t / UP); if (s.t >= UP + 0.4) { s.phase = 'pass'; s.t = 0; } return; }
+    if (s.phase === 'pass') {
+      const k = Math.min(1, s.t / PASS), e = k * k * (3 - 2 * k), h = wrapHour(s.from + s.hours * e);
+      this.state.clock += wrapHour(h - this.time.hour);
+      this.fireCheck = 0;
+      this.time.set(h, true);
+      this.time.update(0);
+      if (k >= 1) { s.phase = 'down'; s.t = 0; if (s.rest) this.fullRest(); }
+      return;
+    }
+    this.sleepLook = Math.max(0, 1 - s.t / DOWN);
+    if (s.t >= DOWN) { this.sleeping = null; this.sleepLook = 0; }
+  }
+
+  /* ---------------------------------------------------------------- the sky */
+
+  /** The real moon's phase for the clock card (worked out again every half minute). */
+  private moonCache = { t: -1e9, info: undefined as { svg: string; name: string; key: string } | undefined };
+  private moonInfo(): { svg: string; name: string; key: string } | undefined {
+    if (this.elapsed - this.moonCache.t > 30 || !this.moonCache.info) {
+      const age = moonAge(), name = MOON_NAMES[moonPhase()];
+      this.moonCache = { t: this.elapsed, info: { svg: moonIconSvg(age), name, key: `${name}|${Math.round(age * 56)}` } };
+    }
+    return this.moonCache.info;
+  }
+
+  private readonly sky = new Sky();
+  private readonly skyCol = { zenith: new THREE.Color(), horizon: new THREE.Color(), sun: new THREE.Color(), cloud: new THREE.Color(), shade: new THREE.Color() };
+  private static readonly SKY_DAY = new THREE.Color(0.18, 0.36, 0.78);
+  private static readonly SKY_NIGHT = new THREE.Color(0.006, 0.009, 0.03);
+  private static readonly CLOUD = {
+    clear: [new THREE.Color(0.95, 0.95, 0.97), new THREE.Color(0.62, 0.64, 0.72)],
+    rain: [new THREE.Color(0.3, 0.29, 0.36), new THREE.Color(0.12, 0.11, 0.17)],
+    snow: [new THREE.Color(0.72, 0.74, 0.78), new THREE.Color(0.5, 0.52, 0.58)],
+    sand: [new THREE.Color(0.78, 0.6, 0.38), new THREE.Color(0.5, 0.36, 0.22)],
+    night: [new THREE.Color(0.05, 0.06, 0.1), new THREE.Color(0.02, 0.02, 0.04)],
+  };
+
+  /** The sky follows the hour, the moon's real phase and the weather; indoors and underground it isn't there. */
+  private updateSky(dt: number): void {
+    const env = this.stage?.env ?? this.time.environment;
+    this.sky.visible = env === 'outdoor';
+    if (!this.sky.visible) return;
+    const night = this.time.night, dk = night * this.time.darkness, c = this.skyCol, w = this.mapWeather();
+    c.horizon.copy(this.fog.color);
+    // The zenith: a deeper blue by day (from the sky light's colour), near black at night, greyer under cloud.
+    c.zenith.copy(this.hemi.color).lerp(Game.SKY_DAY, 0.45 * (1 - night)).lerp(Game.SKY_NIGHT, Math.min(1, night * 0.7 + dk * 0.3));
+    c.sun.copy(this.sun.color).multiplyScalar(1 - night);
+    const kind = w.kind, amt = w.amount;
+    const look = kind === 'rain' ? 'rain' : kind === 'snow' ? 'snow' : kind === 'sandstorm' || kind === 'dust' ? 'sand' : 'clear';
+    // Clear days: a few puffy clouds, more on some days than others (and thin, wispy ones on some).
+    const day = Math.floor(this.state.clock / 24), v = (Math.sin(day * 12.9898) * 43758.5453) % 1;
+    const base = 0.22 + Math.abs(v) * 0.25, wispy = Math.abs((v * 7.3) % 1) > 0.6 ? 0.8 : 0;
+    const cover = look === 'clear' ? base : look === 'rain' ? 0.65 + 0.3 * amt : look === 'snow' ? 0.7 + 0.25 * amt : 0.5 + 0.3 * amt;
+    const [cl, sh] = Game.CLOUD[look];
+    c.cloud.copy(cl).lerp(Game.CLOUD.night[0], night * 0.9);
+    c.shade.copy(sh).lerp(Game.CLOUD.night[1], night * 0.9);
+    if (look !== 'clear') c.zenith.lerp(c.cloud, 0.5 * amt);
+    this.sky.update({
+      hour: this.time.hour, night, horizon: c.horizon, zenith: c.zenith, sunColor: c.sun, moonAge: moonAge(),
+      cloud: cover, wispy: look === 'clear' ? wispy : 0, cloudColor: c.cloud, cloudShade: c.shade,
+      windDir: THREE.MathUtils.degToRad(w.dir), wind: w.wind, time: this.elapsed,
+    }, this.camera, dt);
   }
 }

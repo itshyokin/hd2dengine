@@ -68,5 +68,13 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] System tab Load / Quit fixed, battle music (game default + overrides), smoother seamless maps (no slow pixel reads, padded lights, the map left kept as the neighbour), Map Properties window and icon layer tabs, audio from the project folders, enemy tint, battle height offsets, combat preview, gold on the HUD, camping props, erase by type / erase all of a type, heals stay on the hero, save screen on the current save, turns start on Attack, default Additions, party on save cards (update 52).
 - [ ] A "Complete the Bestiary" achievement rule (every enemy met / defeated).
 - [ ] Visible wandering enemies per zone (later).
-- [ ] Next: sky (stars, Saturn, the real moon phase, clouds), moon phase and temperature in the clock card, sleep transition; then weather and temperature (°F / °C setting, frost, damp, heat, events, weather spells, water = cold); then stat ranks (A–F progression) with the dice-table creation (Default / Custom → Roll Dice, Point Buy, Standard Array; "Set up stats on joining" per hero).
+- [x] Sky over Titan (stars, Saturn, sun, the real moon's phase with circuit lines, clouds by weather), moon phase in the clock card and as a condition, Sleep command with the sky transition (update 53).
+- [ ] Next: weather and temperature (°F / °C setting, frost, damp, heat, events, weather spells, water = cold); then stat ranks (A–F progression) with the dice-table creation (Default / Custom → Roll Dice, Point Buy, Standard Array; "Set up stats on joining" per hero).
+- [ ] Then (playtest notes, Oct 17):
+  - Turn-based: AI allies don't charge enemies (no battles started by them); they follow the hero (toggle) and mirror their moves (jumping over things). A new hero in the first place uses their sprite on the overworld.
+  - Battle poses: Jordan, Eleanor and NPCs set up like Katrina and Crowley.
+  - Achievement pop-up: the name, then the description for a moment, then away. Achievements page: a progress bar with x / max pts.
+  - Event sound (a setting of the event, not a command): plays all the time, loud up close and fading with distance (campfires, shores).
+  - Map Themes (their own tab): surrounding tiles, music, ambience, weather…; map settings show "Theme default" until changed. More map edges (desert, snow, plains, rocky…) and built-in terrain textures (stone, cliffs, snow…).
+  - Built-in sounds and music remade as Game Boy-style chiptune.
 - [ ] Back burner: water freezing / thawing tile by tile with the temperature.
