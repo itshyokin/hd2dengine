@@ -8,10 +8,13 @@
     "kind": "forest",
     "seed": 23
   },
+  "music": "assets/audio/combat_music.wav",
+  "battleMusic": "assets/audio/combat_music.wav",
   "atmosphere": {
     "haze": 0.3,
     "rays": 0.4,
-    "clouds": 1
+    "clouds": 1,
+    "mistWhen": "morning"
   },
   "terrain": [
     "....................",

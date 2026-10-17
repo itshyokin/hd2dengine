@@ -4150,6 +4150,14 @@
       "icon": "builtin:boot",
       "price": 1,
       "description": "Not a fish. Someone lost this a long time ago."
+    },
+    {
+      "id": "fur",
+      "name": "Fur",
+      "kind": "material",
+      "icon": "builtin:fist",
+      "price": 25,
+      "description": "Soft and warm, perfect for a cloak or blanket."
     }
   ],
   "enemies": [
@@ -4206,7 +4214,10 @@
       "id": "ember_slime",
       "name": "Ember Slime",
       "look": {
-        "monster": "slime_red"
+        "image": "assets/enemies/ember_slime_mvbqq5kb.png",
+        "flat": {
+          "height": 1.75
+        }
       },
       "hp": 30,
       "damage": 12,
@@ -4304,31 +4315,48 @@
       ]
     },
     {
-      "id": "pelican",
-      "name": "Evil Pelican of Doom",
+      "id": "enemy",
+      "name": "Dire Beast",
       "look": {
-        "image": "assets/enemies/enemy_mv65p4hz.png",
+        "image": "assets/enemies/enemy_mvbqs576.png",
         "flat": {
-          "move": "fly",
-          "faces": "left"
+          "move": "hop",
+          "faces": "left",
+          "height": 2
         }
       },
-      "hp": 20,
-      "damage": 6,
-      "speed": 1.6,
-      "behaviour": "ranged",
-      "attackRange": 7,
+      "hp": 40,
+      "damage": 10,
+      "speed": 2,
+      "behaviour": "charger",
+      "attackRange": 3.5,
       "cooldown": 1.5,
       "windup": 0.5,
       "sight": 6,
       "fov": 140,
       "hearing": 5,
-      "xp": 10,
+      "xp": 25,
       "gold": [
         0,
-        4
+        15
       ],
-      "drops": []
+      "drops": [
+        {
+          "item": "potion",
+          "chance": 0.25
+        }
+      ],
+      "hpVariance": 10,
+      "elements": [
+        "nature"
+      ],
+      "inflicts": [
+        {
+          "ailment": "stagger",
+          "chance": 20
+        }
+      ],
+      "attackElement": "neutral"
     }
   ],
   "quests": [
@@ -4533,6 +4561,7 @@
     }
   ],
   "audio": {
+    "victoryMusic": "assets/audio/battle_victory_loop.wav",
     "files": [
       "assets/audio/0_step_dirt1.ogg",
       "assets/audio/0_step_grass1.ogg",
@@ -4560,7 +4589,10 @@
       "assets/audio/greatsword_swing.wav",
       "assets/audio/monolithwoods.wav",
       "assets/audio/titlemusic.wav",
-      "assets/audio/forest_birds_day.wav"
+      "assets/audio/forest_birds_day.wav",
+      "assets/audio/battle_victory_loop.wav",
+      "assets/audio/battle_victory_start.wav",
+      "assets/audio/combat_music.wav"
     ],
     "sfx": {
       "stepGrass": "assets/audio/0_step_grass1.ogg",
@@ -4584,7 +4616,8 @@
       "arrowHit": "assets/audio/bow_hit.wav",
       "block": "assets/audio/shield_hit.wav",
       "fire": "assets/audio/fireball_throw.wav",
-      "fireHit": "assets/audio/fireball_hit.wav"
+      "fireHit": "assets/audio/fireball_hit.wav",
+      "victory": "assets/audio/battle_victory_start.wav"
     },
     "titleMusic": "assets/audio/titlemusic.wav"
   },

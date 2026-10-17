@@ -387,25 +387,6 @@
       "image": "assets/props/stump.png"
     },
     {
-      "id": "rock",
-      "name": "Rock",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "shape": "solid",
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "image": "assets/props/rock.png"
-    },
-    {
       "id": "ore_iron",
       "name": "Iron vein (mineable)",
       "w": 2,
@@ -674,6 +655,25 @@
         "flicker": "fire"
       },
       "image": "assets/props/torch.png"
+    },
+    {
+      "id": "rock",
+      "name": "Rock",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "image": "assets/props/rock.png"
     }
   ],
   "tiles": [

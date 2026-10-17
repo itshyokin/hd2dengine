@@ -553,7 +553,8 @@
             {
               "cmd": "text",
               "text": "Ready to get moving?",
-              "speaker": "Katrina"
+              "speaker": "Katrina",
+              "bubble": "speech"
             },
             {
               "cmd": "party",
@@ -567,14 +568,7 @@
             }
           ],
           "character": "katrina",
-          "facePlayer": true,
-          "bubble": {
-            "text": "Hello!",
-            "at": "above",
-            "color": "#000000",
-            "size": 30,
-            "bold": false
-          }
+          "facePlayer": true
         },
         {
           "trigger": "action",
@@ -584,6 +578,19 @@
             "switch": "katrina_party_1",
             "is": true
           }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Event 011",
+      "x": 30,
+      "z": 12,
+      "pages": [
+        {
+          "trigger": "action",
+          "solid": true,
+          "commands": []
         }
       ]
     }
