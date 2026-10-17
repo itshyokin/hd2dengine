@@ -3,6 +3,7 @@
  * and a form dialog for each command type.
  */
 import { WEEKDAYS } from '../world/seasons';
+import { MOON_NAMES, MOON_PHASES, moonPhase } from '../world/moon';
 import { ABILITIES, WEATHER_KINDS, type WeatherKind, type Ailment, type Ability, type Command, type Database, type Condition, type Gauge, type QuestDef, type QuestOp, type QuestStatus } from '../world/types';
 import { AILMENTS, AILMENT_INFO } from '../game/status';
 import { checkbox, field, h, numberInput, openModal, select, textInput } from './dom';
@@ -18,7 +19,7 @@ type Cmd = Command['cmd'];
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['skillPoints', 'Give skill points'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -26,7 +27,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', ability: 'state', fieldWeapons: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', party: 'state', skillPoints: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -43,6 +44,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'fadeOut': return { cmd, seconds: 1 };
     case 'fadeIn': return { cmd, seconds: 1 };
     case 'setTime': return { cmd, hour: 8, instant: true };
+    case 'sleep': return { cmd, until: 'morning', rest: true };
     case 'ability': return { cmd, ability: 'climb', on: true };
     case 'gauge': return { cmd, gauge: 'hp', op: 'fill', value: 0 };
     case 'ailment': return { cmd, op: 'give', ailment: 'poison' };
@@ -132,6 +134,7 @@ export function conditionText(c: Condition): string {
   if ('switch' in c) return `switch ${c.switch || '(unnamed)'} is ${c.is === false ? 'OFF' : 'ON'}`;
   if ('item' in c) return `has ${(c.count ?? 1) > 1 ? `${c.count} × ` : ''}${itemName(c.item)}`;
   if ('gold' in c) return `gold ≥ ${c.gold}`;
+  if ('moon' in c) return `the moon is ${c.moon.length ? c.moon.map((m) => MOON_NAMES[m].toLowerCase()).join(' or ') : '(no phase picked)'} (real world)`;
   if ('weekday' in c) return `it's ${c.weekday.length ? c.weekday.map((d) => WEEKDAYS[d]).join(' or ') : '(no day picked)'} (real world)`;
   return `variable ${c.var || '(unnamed)'} ${c.op} ${c.value}`;
 }
@@ -150,6 +153,7 @@ function summary(c: Command): string {
     case 'wait': return `${c.seconds} s`;
     case 'fadeOut': case 'fadeIn': return `${c.seconds ?? 0.8} s`;
     case 'setTime': return `${hourLabel(c.hour)}${c.instant ? ', instantly' : ''}`;
+    case 'sleep': return `${c.until === 'night' ? 'Until night (21:00)' : c.until === 'hours' ? `For ${c.hours ?? 8} hours` : 'Until morning (7:00)'}${c.rest ? ', and rest' : ''}`;
     case 'ability': return `${ABILITY_NAMES[c.ability]}: ${c.on ? 'learn (on)' : 'lose (off)'}`;
     case 'transfer': return transferSummary(c);
     case 'save': return 'Let the player save (a save point)';
@@ -502,6 +506,11 @@ export class CommandEditor {
       case 'setTime':
         return [field('Hour (0 – 23.75)', numberInput(d.hour, (v) => (d.hour = Math.min(23.75, Math.max(0, v))), { step: 0.25, min: 0, max: 23.75 }), '0 = midnight, 6 = dawn, 12 = noon, 19.5 = dusk, 22 = night. The clock keeps running from there.'),
           field('Change', select([['instant', 'Instantly'], ['ease', 'Gradually']], d.instant ? 'instant' : 'ease', (v) => (d.instant = v === 'instant')))];
+      case 'sleep':
+        return [field('Sleep', select([['morning', 'Until morning (7:00)'], ['night', 'Until night (21:00)'], ['hours', 'For a number of hours']], d.until ?? 'morning', (v) => { d.until = v as typeof d.until; })),
+          field('Hours', numberInput(d.hours ?? 8, (v) => (d.hours = Math.max(0.25, Math.min(48, v))), { step: 0.5, min: 0.25, max: 48 }), 'Used with “For a number of hours”.'),
+          checkbox('Rest too (health, magic and stamina back to full)', !!d.rest, (v) => (d.rest = v || undefined)),
+          h('p', { class: 'hint' }, 'The camera tilts up from the hero to the sky, the hours rush by overhead (sun, clouds, stars, Saturn and the moon go round), then it comes back down. Put it after a choice at a camp or an inn.')];
       case 'ability':
         return [field('Ability', select(ABILITIES.map((a) => [a, ABILITY_NAMES[a]] as [string, string]), d.ability, (v) => (d.ability = v as Ability))),
           field('Player', select([['on', 'Learns it (on)'], ['off', 'Loses it (off)']], d.on ? 'on' : 'off', (v) => (d.on = v === 'on')),
@@ -725,12 +734,12 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
       cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
-        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
+        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
       render();
@@ -764,6 +773,11 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
       parts.push(field('On', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...WEEKDAYS.map((name, d) => checkbox(name.slice(0, 3), c.weekday.includes(d), (on) => {
         c.weekday = on ? [...new Set([...c.weekday, d])].sort() : c.weekday.filter((x) => x !== d); onchange(c);
       }))), 'The player’s own date: an event page that only shows on Saturdays, say (a market, a rare enemy).'));
+    } else if (cur && 'moon' in cur) {
+      const c = cur;
+      parts.push(field('When the moon is', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...MOON_PHASES.map((ph) => checkbox(MOON_NAMES[ph], c.moon.includes(ph), (on) => {
+        c.moon = on ? MOON_PHASES.filter((x) => x === ph || c.moon.includes(x)) : c.moon.filter((x) => x !== ph); onchange(c);
+      }))), `The real moon, from the player’s date (tonight: ${MOON_NAMES[moonPhase()].toLowerCase()}). Full and new moons last about two days.`));
     } else if (cur && 'gold' in cur) {
       const c = cur;
       parts.push(field('At least (gold)', numberInput(c.gold, (v) => { c.gold = Math.max(0, Math.round(v)); onchange(c); }, { step: 1, min: 0 })));

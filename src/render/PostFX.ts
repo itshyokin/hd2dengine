@@ -103,6 +103,8 @@ export class PostFX {
     this.bright.uniforms.texel.value.set(1 / x, 1 / y);
   }
 
+  /** 0 … 1: the tilt-shift eased away (looking up at the sky while sleeping keeps it all sharp). */
+  tiltFade = 0;
   /** Screen-space height (0 bottom … 1 top) that stays sharp under tilt-shift. */
   set focus(v: number) { this.composite.uniforms.focus.value = v; }
   set exposure(v: number) { this.composite.uniforms.exposure.value = v; }
@@ -134,7 +136,7 @@ export class PostFX {
     }
     const u = this.composite.uniforms;
     u.bloomStrength.value = bloomOn ? this.settings.bloomStrength : 0;
-    u.tiltOn.value = this.settings.tiltShift ? 1 : 0;
+    u.tiltOn.value = this.settings.tiltShift ? 1 - this.tiltFade : 0;
     u.tScene.value = this.rtScene.texture;
     u.tBloom.value = this.rtA.texture;
     this.pass(this.composite, null);

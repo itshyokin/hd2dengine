@@ -1625,3 +1625,12 @@ body.ui-dim .hud-gold { opacity: 0 !important; transition: none; }
 body.in-battle .hud-gold, body.pause-open .hud-gold, body.hud-hidden .hud-gold { visibility: hidden; }
 body.pause-open.hud-arranging .hud-gold { visibility: visible; }
 .hud-gold b { display: inline-block; }
+
+/* The clock card's sky row: the real moon's phase (and the temperature, later). */
+.hud-clock-sky { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; font-size: 12px; color: #b8bccb; }
+.hud-clock-sky:empty, .hud-moon:empty { display: none; }
+.hud-moon { display: inline-flex; align-items: center; gap: 6px; }
+.hud-moon svg { width: 16px; height: 16px; flex: none; }
+
+/* Sleeping: the HUD steps aside while the camera looks up at the sky. */
+body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-quick, .hud-quest, .hud-status, .adv-log, .hud-stamina, .hud-minimap, .hud-gold, .touch-controls) { opacity: 0 !important; transition: opacity 0.8s ease; }

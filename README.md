@@ -352,6 +352,27 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   walls; a jump still comes down up to two steps). Never off climbable walls (they're climbed down) or into deep water. From a bank they can walk straight into water at the bank's level, wade, or swim. Props, events
   and lights stand on the ground at whatever height it is.
 
+### The sky, the moon and sleeping
+
+- **The sky over Titan** is drawn behind every outdoor map and battle map, in three layers: far away the stars (fading
+  in at dusk, each twinkling on its own), **Saturn** with its rings (pale behind the daylight, vivid at night), the sun
+  and the moon; then the sky's colour (horizon to zenith, following the hour and the weather, meeting the fog at the
+  horizon); then clouds drifting with the wind: a few puffy ones on clear days (more on some days, thin and wispy on
+  others), thick grey-purple in rain, pale grey in snow (hiding the sun and Saturn), sand-coloured in a sandstorm.
+  Indoors and underground there's no sky. The field camera looks down at the ground, so the sky shows most in
+  battles and while sleeping.
+- **The moon** is artificial (barren, with teal circuit lines that glow on its dark side) and follows the **real
+  moon**: its phase comes from the player's date, so a full moon in the game is a full moon outside. A full moon rises
+  as the sun sets; a new moon travels with the sun.
+- **Clock card**: the moon's phase (a little picture and its name) under the date.
+- **Moon phase condition** (event pages and Conditional branch): *Moon phase (real world)*: new, waxing crescent,
+  first quarter, waxing gibbous, full, waning gibbous, last quarter, waning crescent (any you tick). Full and new moons
+  count for about two days. For werewolves, night markets…
+- **Sleep** (event command): the camera lifts and tilts up from the hero to the sky, the HUD steps aside, the hours
+  rush by overhead (the sky turning from day to night to dawn, the stars and the moon going round), then it comes back
+  down. *Until morning* (7:00), *until night* (21:00) or *for a number of hours*; *Rest too* refills health, magic and
+  stamina. Time slept counts for fires and the calendar. Console: `sleep`, `sleep night`, `sleep 4`.
+
 ### Time, night and map lighting
 
 - **Database → Time**: *Clock speed* from stopped to 60× (1× is real time; the default 20× makes a day last 72

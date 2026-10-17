@@ -1,4 +1,5 @@
 /** Switches and variables, the persistent memory events read and write (as in RPG Maker). */
+import { moonPhase } from '../world/moon';
 import type { ForgeEntry } from './forge';
 import { ABILITIES, type Ability, type Condition, type WeatherKind } from '../world/types';
 import type { Inventory } from './inventory';
@@ -95,6 +96,7 @@ export class GameState {
     if ('item' in c) return (this.inventory?.count(c.item) ?? 0) >= (c.count ?? 1);
     if ('gold' in c) return (this.inventory?.gold ?? 0) >= c.gold;
     if ('weekday' in c) return c.weekday.includes(new Date().getDay());
+    if ('moon' in c) return c.moon.includes(moonPhase());
     const v = this.getVar(c.var);
     switch (c.op) {
       case '>=': return v >= c.value;

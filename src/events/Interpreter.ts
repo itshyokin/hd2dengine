@@ -11,6 +11,8 @@ export interface EventContext {
   readonly state: GameState;
   readonly message: MessageWindow;
   setTime(hour: number, instant: boolean): void;
+  /** Sleep: the sky transition (the event waits while busy() says so). */
+  sleep?(c: Extract<Command, { cmd: 'sleep' }>): void;
   /** Animate the screen fade toward `to` (0 clear, 1 black) over `seconds`. */
   fadeTo(to: number, seconds: number): void;
   isFading(): boolean;
@@ -161,6 +163,7 @@ export class Interpreter {
         message.close();
         this.ctx.tendFire();
         break;
+      case 'sleep': message.close(); this.ctx.sleep?.(c); break;
       case 'fullRest':
         this.ctx.fullRest();
         break;

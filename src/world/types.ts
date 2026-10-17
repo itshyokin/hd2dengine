@@ -227,7 +227,9 @@ export type Condition =
   /** One of a quest's objectives is done (or not, with `done: false`). */
   | { quest: string; objective: string; done?: boolean }
   /** The real world's day of the week is one of these (0 Sunday … 6 Saturday, from the player's date). */
-  | { weekday: number[] };
+  | { weekday: number[] }
+  /** The real moon's phase tonight is one of these (full and new for werewolves…). */
+  | { moon: import('./moon').MoonPhase[] };
 
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
@@ -241,6 +243,11 @@ export type Command =
   | { cmd: 'fadeOut'; seconds?: number }
   | { cmd: 'fadeIn'; seconds?: number }
   | { cmd: 'setTime'; hour: number; instant?: boolean }
+  /**
+   * Sleep (a camp, an inn): the camera tilts up to the sky, the hours rush by overhead, then it comes back down.
+   * Until morning (7:00), until night (21:00), or for some hours; `rest`: health, magic and stamina refill.
+   */
+  | { cmd: 'sleep'; until?: 'morning' | 'night' | 'hours'; hours?: number; rest?: boolean }
   | { cmd: 'ability'; ability: Ability; on: boolean }
   | { cmd: 'gauge'; gauge: Gauge; op: 'add' | 'set' | 'fill'; value: number }
   /** Give the hero an ailment (for `seconds`, 0: its usual time), or cure one ('all': every one but Zombie). */
