@@ -655,6 +655,14 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .db-saved-note.on { opacity: 1; transition: opacity 0.15s ease; }
 .db-saved-note.warn { color: #ffcf7a; }
 .item-list > .item-del { order: -1; position: sticky; top: 40px; z-index: 1; margin: 0 0 8px; background: #3a2124; }
+.item-list > .item-tools { order: -1; position: sticky; top: 40px; z-index: 1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px; margin: 0 0 8px; }
+.item-tools .item-del { margin: 0; background: #3a2124; }
+.item-tools .item-dup { white-space: nowrap; }
+/* Right-click menu on list rows: Duplicate / Copy / Paste. */
+.ctx-menu { position: fixed; z-index: 10000; min-width: 180px; padding: 4px; border-radius: 8px; background: #1d2130; border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: grid; }
+.ctx-menu button { display: flex; justify-content: space-between; gap: 18px; padding: 7px 10px; border: 0; border-radius: 5px; background: none; color: var(--ink, #eee); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.ctx-menu button:hover, .ctx-menu button:focus-visible { background: rgba(255,210,122,0.16); outline: none; }
+.ctx-menu kbd { color: var(--muted, #999); font: 11px var(--f-body, sans-serif); }
 .db-modal .item-list { max-height: calc(100dvh - 250px); }
 .style-swatch { display: inline-grid; place-items: center; width: 30px; height: 22px; border-radius: 5px; font: 700 11px var(--f-body, sans-serif); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
 

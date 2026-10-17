@@ -1139,6 +1139,11 @@ Losing all health now sends the player to the player start even when it's on ano
 
 ### Database: player stats
 
+**Copying entries**: every Database list (items, enemies, heroes, quests, troops, spells, Additions, classes,
+achievements, text boxes) has **Duplicate** beside Delete; right-click a row for **Duplicate / Copy / Paste**, or use
+**Ctrl+D / Ctrl+C / Ctrl+V** (⌘ on a Mac). The copy gets its own id and “(copy)” on its name and lands under the
+original. Copies also go to the system clipboard, so an enemy can be pasted into another project's Database.
+
 **Database** in the top bar opens the game-wide player settings (saved in `database.json`, only values that differ
 from the defaults):
 

@@ -71,7 +71,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Sky over Titan (stars, Saturn, sun, the real moon's phase with circuit lines, clouds by weather), moon phase in the clock card and as a condition, Sleep command with the sky transition (update 53).
 - [x] Dynamic weather (season chances, storms with lightning and thunder, blizzards, haze, rain/snow by temperature), temperature (daily rolls, curve, map climate, Change temperature command, °F/°C), damp / frost / heat on the ground, Temperature and Weather conditions, heat and cold in battle (update 54).
 - [x] Stat ranks (A–F growth per level, set per hero, changed by potions, gear and the Change stat growth rank command, coloured pills on Status), stat setup as Default / Custom → Roll Dice on a 3D dice table, Point Buy, Standard Array, "Set up stats on joining" per hero; level-up stat points removed (update 55).
-- [ ] Database: duplicate entries. A Duplicate button, a right-click menu (Duplicate / Copy / Paste) and Ctrl+C / Ctrl+V in every Database list (enemies, weapons, items, spells, heroes…). The copy gets a fresh id and "(copy)" on its name, and lands right under the original, ready to tweak.
+- [x] Database: Duplicate button, right-click Duplicate / Copy / Paste and Ctrl+D / Ctrl+C / Ctrl+V in every list (update 56).
 - [ ] Then (playtest notes, Oct 17):
   - Turn-based: AI allies don't charge enemies (no battles started by them); they follow the hero (toggle) and mirror their moves (jumping over things). A new hero in the first place uses their sprite on the overworld.
   - Battle poses: Jordan, Eleanor and NPCs set up like Katrina and Crowley.

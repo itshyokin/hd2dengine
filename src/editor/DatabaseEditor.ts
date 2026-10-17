@@ -158,8 +158,111 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     const del = h('button', { type: 'button', class: 'btn item-del', disabled: own.disabled, title: own.title || `Delete ${name}`, onclick: () => {
       confirmModal('Delete', `Are you sure you wish to delete ${name}?`, 'Delete', () => own.click(), true);
     } }, `Delete ${name}`);
-    add.after(del);
+    const tools = h('div', { class: 'item-tools' }, del);
+    if (listOf(tab)) del.textContent = 'Delete';
+    if (listOf(tab)) tools.prepend(h('button', { type: 'button', class: 'btn item-dup', title: `Duplicate ${name} (Ctrl+D; right-click a row for Copy / Paste)`, onclick: () => duplicate() }, 'Duplicate'));
+    add.after(tools);
   };
+
+  /* Duplicate, copy and paste in the lists: the copy gets a fresh id and “(copy)” on its name, under the original. */
+  type Entry = { id: string; name: string } & Record<string, unknown>;
+  const listOf = (t: DbTab): { list: Entry[]; state: { sel: number }; kind: string; tidy?: (e: Entry, from: number) => void } | null => {
+    const L = (list: unknown[], state: { sel: number }, tidy?: (e: Entry, from: number) => void) => ({ list: list as Entry[], state, kind: t, tidy });
+    switch (t) {
+      case 'items': return L(work.items, itemState);
+      case 'enemies': return L(enemies, enemyState);
+      case 'heroes': return L(heroes.heroes, heroState, (e) => { delete e.creation; delete e.startsInParty; });
+      case 'quests': return L(quests, questState);
+      case 'troops': return L(troops, troopState);
+      case 'spells': return L(spells, spellState);
+      case 'additions': return L(additions, additionState);
+      case 'classes': return L(classes, classState);
+      case 'achievements': return L(achievements, achState);
+      case 'messageStyles': return L(msgStyles, msgState);
+      default: return null;
+    }
+  };
+  const freshId = (list: Entry[], base: string): string => {
+    const stem = base.replace(/_copy\d*$/, '') + '_copy';
+    let id = stem, n = 2;
+    while (list.some((x) => x.id === id)) id = `${stem}${n++}`;
+    return id;
+  };
+  const insertCopy = (src: Entry, at: number) => {
+    const L = listOf(tab);
+    if (!L) return;
+    const e = structuredClone(src);
+    e.id = freshId(L.list, String(src.id || 'entry'));
+    const stem = String(src.name || 'Entry').replace(/ \(copy(?: \d+)?\)$/, '');
+    let nm = `${stem} (copy)`, n = 2;
+    while (L.list.some((x) => x.name === nm)) nm = `${stem} (copy ${n++})`;
+    e.name = nm;
+    L.tidy?.(e, at);
+    L.list.splice(at, 0, e);
+    L.state.sel = at;
+    render();
+    flash(`Added ${e.name}. Remember to Apply.`);
+  };
+  const duplicate = () => {
+    const L = listOf(tab), src = L?.list[L.state.sel];
+    if (L && src) insertCopy(src, L.state.sel + 1);
+  };
+  let clip: { kind: string; entry: Entry } | null = null;
+  const copy = () => {
+    const L = listOf(tab), src = L?.list[L.state.sel];
+    if (!L || !src) return;
+    clip = { kind: L.kind, entry: structuredClone(src) };
+    void navigator.clipboard?.writeText(JSON.stringify({ hd2d: L.kind, entry: src }, null, 2)).catch(() => {});
+    flash(`Copied ${src.name}.`);
+  };
+  const paste = async () => {
+    const L = listOf(tab);
+    if (!L) return;
+    let got = clip && clip.kind === L.kind ? clip.entry : null;
+    // Also from the system clipboard (copied in another window or project).
+    if (!got) try {
+      const j = JSON.parse(await navigator.clipboard.readText()) as { hd2d?: string; entry?: Entry };
+      if (j.hd2d === L.kind && j.entry) got = j.entry;
+    } catch { /* nothing usable */ }
+    if (!got) { flash(clip ? `What’s copied is from ${clip.kind}, not this list.` : 'Nothing copied yet.', 'warn'); return; }
+    insertCopy(got, Math.min(L.list.length, L.state.sel + 1));
+  };
+  const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  const onKey = (e: KeyboardEvent) => {
+    if (!body.isConnected) { removeEventListener('keydown', onKey, true); return; }
+    // Only when the Database is the window on top (not a confirm box over it).
+    const modals = document.querySelectorAll('.modal');
+    if (modals.length && !modals[modals.length - 1].contains(body)) return;
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || typing(e.target) || !listOf(tab)) return;
+    if (window.getSelection()?.toString()) return;
+    const k = e.key.toLowerCase();
+    if (k === 'c') { e.preventDefault(); copy(); }
+    else if (k === 'v') { e.preventDefault(); void paste(); }
+    else if (k === 'd') { e.preventDefault(); duplicate(); }
+  };
+  addEventListener('keydown', onKey, true);
+  let menuEl: HTMLElement | null = null;
+  const closeMenu = () => { menuEl?.remove(); menuEl = null; };
+  body.addEventListener('contextmenu', (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.item-list .item-row');
+    const L = listOf(tab);
+    if (!row || !L) return;
+    e.preventDefault();
+    const rows = [...content.querySelectorAll<HTMLElement>('.item-list .item-row')];
+    const i = rows.indexOf(row);
+    if (i >= 0 && i !== L.state.sel) { L.state.sel = i; render(); }
+    closeMenu();
+    const item = (label: string, keys: string, run: () => void, disabled = false) => h('button', { type: 'button', role: 'menuitem', disabled, onclick: () => { closeMenu(); run(); } }, h('span', {}, label), h('kbd', {}, keys));
+    menuEl = h('div', { class: 'ctx-menu', role: 'menu' },
+      item('Duplicate', 'Ctrl+D', duplicate), item('Copy', 'Ctrl+C', copy), item('Paste', 'Ctrl+V', () => void paste()));
+    document.body.append(menuEl);
+    const r = menuEl.getBoundingClientRect();
+    menuEl.style.left = `${Math.min(e.clientX, innerWidth - r.width - 6)}px`;
+    menuEl.style.top = `${Math.min(e.clientY, innerHeight - r.height - 6)}px`;
+    (menuEl.querySelector('button') as HTMLElement | null)?.focus();
+    menuEl.addEventListener('keydown', (k) => { if (k.key === 'Escape') { k.stopPropagation(); closeMenu(); } });
+  });
+  addEventListener('pointerdown', (e) => { if (menuEl && !menuEl.contains(e.target as Node)) closeMenu(); }, true);
   const renderTab = () => {
     if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
     if (tab === 'characters') { content.replaceChildren(...charactersTab(store, people, render)); return; }
