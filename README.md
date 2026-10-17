@@ -423,7 +423,12 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   green, Items gold, Danger red, and any you add): `[name]Lord Varn[/name]`. Change a named colour once and every
   message follows. The typewriter skips the tags, so they never show half-typed. In the Show text window, select
   words and click **B**, **I**, **S**, **U**, **Glow**, **Outline**, a colour dot or ◼ (the picked colour) to wrap them.
-- **A message's own look** (Show text → *Give this message its own look*): text and box colours, text size, bold,
+- **Text box styles** (**Database → Text boxes**): ready-made looks for messages, set up once. Built in: **Speech**
+  (people talking), **Sign** (signs, chests and other objects), **Narration** (nobody speaking), **Item received**,
+  **Gold received** and **System** (learned a spell, changed class, no room in the bag); add your own (a villain's
+  red box, a ghost's see-through text…). Show text → **Style** picks one; *Automatic* uses Speech, Sign or Narration
+  by who's talking. Change a style and every message using it follows; each has a preview.
+- **A message's own look** (Show text → *Change the look just for this message*, starting from its style's): text and box colours, text size, bold,
   italic, strikethrough, an outline (and its colour), a glow, and a see-through box (just the text): the same
   settings as word bubbles, with a preview.
 - **Tap to walk** (tap or click the ground to walk there, or a person to go and talk to them) is off unless the player

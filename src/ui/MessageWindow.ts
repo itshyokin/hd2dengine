@@ -8,7 +8,7 @@
  */
 import type { Input } from '../game/Input';
 import type { TextBoxPlace } from '../game/settings';
-import { applyLook, parseRich, richHTML, type RichSeg, type TextLook } from './richText';
+import { applyLook, messageStyles, parseRich, richHTML, type MessageStyle, type RichSeg, type TextLook } from './richText';
 
 /** Who is talking: where their head and feet are on screen (null when off screen), and whether they're a character (tail). */
 export interface Speaker { head(): { x: number; y: number } | null; feet(): { x: number; y: number } | null; character: boolean }
@@ -70,14 +70,26 @@ export class MessageWindow {
     return this.choosing;
   }
 
+  private styles = new Map<string, MessageStyle>(messageStyles().map((x) => [x.id, x]));
+  /** The project's text box styles (Database → Text boxes). */
+  setStyles(list?: MessageStyle[]): void { this.styles = new Map(messageStyles(list).map((x) => [x.id, x])); }
+
   /** Where text boxes go (a player setting). */
   setPlace(p: TextBoxPlace): void { this.place = p; }
   /** Who the next messages come from (an event), or null. */
   setSpeaker(s: Speaker | null): void { this.speaker = s; }
 
-  showText(text: string, speaker?: string, holdForChoice = false, style?: 'speech' | 'plain', look?: TextLook): void {
+  /**
+   * Show a message. `styleId`: a text box style (unset: Speech for a character, Sign for an object, Narration with
+   * nobody); `style` and `look` override the style's box and look.
+   */
+  showText(text: string, speaker?: string, holdForChoice = false, style?: 'speech' | 'plain', look?: TextLook, styleId?: string): void {
     this.root.hidden = false;
-    this.style = style;
+    const id = styleId && this.styles.has(styleId) ? styleId : this.speaker ? (this.speaker.character ? 'speech' : 'sign') : speaker ? 'speech' : 'narration';
+    const st = this.styles.get(id);
+    this.style = style ?? (st?.box === 'speech' || st?.box === 'plain' ? st.box : undefined);
+    look = look ?? st?.look;
+    this.root.dataset.style = id;
     this.clearChoices();
     this.nameEl.textContent = speaker ?? '';
     this.nameEl.hidden = !speaker;

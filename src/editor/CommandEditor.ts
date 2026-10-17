@@ -11,7 +11,7 @@ import { AMBIENCE_NAMES, MUSIC_NAMES, SFX_LABELS, SFX_NAMES } from '../audio/syn
 import { loopChoices } from '../audio/sfx';
 import { additionList, classList, findAddition, findClass, findSpell, rankName, spellList, spellMaxRank } from '../game/abilities';
 import type { EditorStore } from './store';
-import { applyLook, parseRich, richHTML, setTextColors, textColors, type TextLook } from '../ui/richText';
+import { applyLook, messageStyles, parseRich, richHTML, setTextColors, textColors, type TextLook } from '../ui/richText';
 
 type Cmd = Command['cmd'];
 
@@ -140,7 +140,8 @@ function summary(c: Command): string {
   switch (c.cmd) {
     case 'text': {
       const first = c.text.split('\n')[0] || '(empty)';
-      return `${c.speaker ? c.speaker + ': ' : ''}${first}${c.text.includes('\n') ? ' …' : ''}`;
+      const st = c.style ? messageStyles(dbNow?.().messageStyles).find((x) => x.id === c.style)?.name.replace(/ \(.*\)$/, '') : '';
+      return `${st ? `[${st}] ` : ''}${c.speaker ? c.speaker + ': ' : ''}${first}${c.text.includes('\n') ? ' …' : ''}`;
     }
     case 'choice': return c.options.join(' / ');
     case 'if': return conditionText(c.condition);
@@ -456,15 +457,19 @@ export class CommandEditor {
         queueMicrotask(() => preview());
         const sp = textInput(d.speaker ?? '', (v) => (d.speaker = v.trim() || undefined), { list: 'dl-speakers', placeholder: 'Nobody (narration)' });
         sp.addEventListener('input', () => (d.speaker = sp.value.trim() || undefined));
+        const styles = messageStyles(dbNow?.().messageStyles);
+        const styleOf = () => styles.find((x) => x.id === td.style);
         return [field('Speaker', sp), formatBar(ta, () => { d.text = ta.value; preview(); }), field('Text', ta, 'Use new lines to break the text. \\v[name] shows a variable, \\s[name] a switch. Select words and use the buttons above to bold or colour just them.'),
-          field('Box', select([['auto', 'Automatic (speech bubble for characters, plain for signs and objects)'], ['speech', 'Speech bubble (with a tail)'], ['plain', 'Plain box (no tail)']],
+          field('Style', select([['', 'Automatic (Speech for people, Sign for signs and objects, Narration with nobody)'], ...styles.map((x) => [x.id, x.name] as [string, string])], d.style ?? '',
+            (v) => { if (v) td.style = v; else delete td.style; preview(); }), 'Text box styles are set up in Database → Text boxes, so every message using one changes together.'),
+          field('Box', select([['auto', 'From the style'], ['speech', 'Speech bubble (with a tail)'], ['plain', 'Plain box (no tail)']],
             d.bubble ?? 'auto', (v) => (d.bubble = v === 'auto' ? undefined : (v as 'speech' | 'plain'))), 'Players choose where boxes go (over the speaker, or fixed on screen) in Settings.'),
-          ...lookFields(d, () => preview()), previewBox];
+          ...lookFields(d, () => preview(), 'Change the look just for this message', () => ({ ...(styleOf()?.look ?? { color: '#fff6dc', bubble: '#0e1222' }) })), previewBox];
         function preview(): void {
           setTextColors(dbNow?.().textColors);
           const t = previewBox.querySelector('.msg-text') as HTMLElement;
           t.innerHTML = richHTML(parseRich(td.text || '…'));
-          applyLook(previewBox, td.look, t);
+          applyLook(previewBox, td.look ?? styleOf()?.look, t);
         }
       }
       case 'choice': {
@@ -796,11 +801,11 @@ function formatBar(ta: HTMLTextAreaElement, changed: () => void): HTMLElement {
 }
 
 /** A message's own look (the same settings word bubbles have): off by default, so the window's style shows. */
-function lookFields(d: { look?: TextLook }, changed: () => void): HTMLElement[] {
+export function lookFields(d: { look?: TextLook }, changed: () => void, label = 'Give this message its own look', seed: () => TextLook = () => ({ color: '#fff6dc', bubble: '#0e1222' })): HTMLElement[] {
   const box = h('div', { class: 'look-fields' });
   const draw = () => {
     const l = d.look;
-    box.replaceChildren(checkbox('Give this message its own look', !!l, (v) => { if (v) d.look = { color: '#fff6dc', bubble: '#0e1222' }; else delete d.look; draw(); changed(); }));
+    box.replaceChildren(checkbox(label, !!l, (v) => { if (v) d.look = seed(); else delete d.look; draw(); changed(); }));
     if (!l) return;
     const color = (value: string, set: (v: string) => void, label: string) => {
       const i = h('input', { type: 'color', value, 'aria-label': label }) as HTMLInputElement;

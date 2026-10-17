@@ -465,6 +465,7 @@ export class Game {
     this.scene.add(this.cursor);
 
     this.message = new MessageWindow(this.ui, this.input);
+    this.message.setStyles(this.db.messageStyles);
     this.message.tick = () => { if (this.settings.textTicks !== false) this.audio.play('textTick', undefined, undefined, 0.8); };
     this.touch = new TouchControls(this.ui, this.input);
     this.hud = new StatusBars(this.ui);

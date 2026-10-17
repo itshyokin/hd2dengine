@@ -232,7 +232,7 @@ export type Condition =
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
   /** `bubble`: a speech bubble with a tail pointing at the speaker, or a plain box (default: a tail when the event shows a character). */
-  | { cmd: 'text'; text: string; speaker?: string; bubble?: 'speech' | 'plain'; /** Its own look: colours, size, bold… (like word bubbles). */ look?: import('../ui/richText').TextLook }
+  | { cmd: 'text'; text: string; speaker?: string; bubble?: 'speech' | 'plain'; /** A text box style (Database → Text boxes; unset: automatic). */ style?: string; /** Its own look: colours, size, bold… (like word bubbles), over the style's. */ look?: import('../ui/richText').TextLook }
   | { cmd: 'choice'; options: string[]; branches: Command[][]; cancel?: number }
   | { cmd: 'if'; condition: Condition; then: Command[]; else?: Command[] }
   | { cmd: 'setSwitch'; switch: string; value: boolean }
@@ -743,6 +743,8 @@ export interface Database {
   markers?: import('./landmarks').MarkerKind[];
   /** Named text colours for messages: [id]words[/id] (Database → Text colours). */
   textColors?: import('../ui/richText').TextColor[];
+  /** Text box styles for messages (Database → Text boxes): Speech, Sign, Item received… and your own. */
+  messageStyles?: import('../ui/richText').MessageStyle[];
   /** Achievements (Database → Achievements). */
   achievements?: import('../game/achievements').AchievementDef[];
   /** The developer console (the ` key): in playtests only (default), always, or never. */
