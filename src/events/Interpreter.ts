@@ -117,7 +117,7 @@ export class Interpreter {
     switch (c.cmd) {
       case 'text':
         // When choices follow, keep the text on screen and show the choices under it.
-        message.showText(state.format(c.text), c.speaker, next?.cmd === 'choice', c.bubble);
+        message.showText(state.format(c.text), c.speaker, next?.cmd === 'choice', c.bubble, c.look);
         break;
       case 'choice':
         message.showChoices(c.options.map((o) => state.format(o)), c.cancel);

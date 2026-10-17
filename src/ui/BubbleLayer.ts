@@ -5,6 +5,8 @@
  * that follow the events on screen.
  */
 
+import { parseRich, richHTML } from './richText';
+
 export interface EventBubble {
   text: string;
   at?: 'above' | 'on' | 'below';
@@ -71,7 +73,7 @@ export class BubbleLayer {
     el.style.setProperty('--bb-pad', `${Math.round(3 * k)}px ${Math.round(9 * k)}px`);
     el.style.setProperty('--bb-radius', `${Math.round(12 * k)}px`);
     const t = document.createElement('span');
-    t.textContent = b.text;
+    t.innerHTML = richHTML(parseRich(b.text));
     t.style.color = color;
     t.style.fontSize = `${size}px`;
     t.style.fontWeight = b.bold === false ? '400' : '900';

@@ -41,3 +41,21 @@ function exportDialog(store: EditorStore, files: [string, string][]): void {
     }));
   openModal('Export map', body, [{ label: 'Done', primary: true, onClick: () => { store.dirty = false; store.dbDirty = false; store.emit('meta'); } }]);
 }
+
+/**
+ * Save just database.json (the Database window's Apply). 'saved': written; 'export': this copy can't write files
+ * (Save shows the export dialog); 'failed': writing went wrong (a toast says why).
+ */
+export async function saveDatabase(store: EditorStore): Promise<'saved' | 'export' | 'failed'> {
+  if (!store.project.canSave) return 'export';
+  try {
+    await store.project.write('database.json', formatDatabase(store.db));
+    store.dbDirty = false;
+    store.emit('meta');
+    return 'saved';
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    toast(`Couldn’t save the database: ${msg}`, 'error');
+    return 'failed';
+  }
+}

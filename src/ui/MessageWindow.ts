@@ -2,10 +2,13 @@
  * RPG-style message window: speaker name, typewriter text, and a choice list. It can float as a bubble
  * above (or below) whoever is talking, with a tail pointing at them, or sit at the top, bottom or centre
  * of the screen (Settings → Gameplay → Text boxes). Bubbles size themselves to the text.
- * Works with keyboard (Enter/Space, arrows, Esc/X) and with taps/clicks.
+ * Works with keyboard (Enter/Space, arrows, Esc/X) and with taps/clicks. Words can be styled with tags ([b], [i],
+ * [color=#…], the Database's named colours: see richText.ts), and a message can have a look of its own (box and
+ * text colours, size, bold, outline, glow, a see-through box), like the word bubbles over events.
  */
 import type { Input } from '../game/Input';
 import type { TextBoxPlace } from '../game/settings';
+import { applyLook, parseRich, richHTML, type RichSeg, type TextLook } from './richText';
 
 /** Who is talking: where their head and feet are on screen (null when off screen), and whether they're a character (tail). */
 export interface Speaker { head(): { x: number; y: number } | null; feet(): { x: number; y: number } | null; character: boolean }
@@ -21,6 +24,8 @@ export class MessageWindow {
   private readonly nextEl: HTMLDivElement;
   private readonly choicesEl: HTMLDivElement;
   private fullText = '';
+  private segs: RichSeg[] = [];
+  private drawn = -1;
   /** A soft tick as letters appear (Settings → Sound → Letter ticks); set by the game. */
   tick: (() => void) | null = null;
   private ticked = 0;
@@ -70,13 +75,16 @@ export class MessageWindow {
   /** Who the next messages come from (an event), or null. */
   setSpeaker(s: Speaker | null): void { this.speaker = s; }
 
-  showText(text: string, speaker?: string, holdForChoice = false, style?: 'speech' | 'plain'): void {
+  showText(text: string, speaker?: string, holdForChoice = false, style?: 'speech' | 'plain', look?: TextLook): void {
     this.root.hidden = false;
     this.style = style;
     this.clearChoices();
     this.nameEl.textContent = speaker ?? '';
     this.nameEl.hidden = !speaker;
-    this.fullText = text;
+    this.segs = parseRich(text);
+    this.fullText = this.segs.map((x) => x.text).join('');
+    this.drawn = -1;
+    applyLook(this.root, look, this.textEl);
     this.shown = 0;
     this.textEl.textContent = '';
     this.typing = true;
@@ -98,7 +106,7 @@ export class MessageWindow {
       const b = document.createElement('button');
       b.className = 'msg-choice';
       b.type = 'button';
-      b.textContent = label;
+      b.innerHTML = richHTML(parseRich(label));
       b.setAttribute('role', 'option');
       b.addEventListener('pointerenter', () => this.highlight(i));
       b.addEventListener('click', () => this.pick(i));
@@ -160,7 +168,8 @@ export class MessageWindow {
           if (this.ticked >= 2 && gap > 45) { this.ticked = 0; this.lastTick = performance.now(); this.tick(); }
         }
       }
-      this.textEl.textContent = this.fullText.slice(0, Math.floor(this.shown));
+      const n = Math.floor(this.shown);
+      if (n !== this.drawn) { this.drawn = n; this.textEl.innerHTML = richHTML(this.segs, n); }
       if (this.shown >= this.fullText.length) {
         this.typing = false;
         this.awaitingConfirm = !this.holdForChoice;

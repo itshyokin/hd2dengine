@@ -157,12 +157,8 @@ export class BattleStage implements StageHooks {
   addFighters(list: StageFighterSpec[]): void {
     const counts = { party: 0, enemy: 0 };
     for (const s of list) this.makeFighter(s, this.spot(s.side, counts[s.side]++));
-    // Everyone faces the other side.
-    const pc = this.centre('party'), ec = this.centre('enemy');
-    for (const f of this.fighters.values()) {
-      const to = f.side === 'party' ? ec : pc;
-      this.face(f, to.x - f.home.x, to.z - f.home.z);
-    }
+    // Everyone faces the other side (all the same way, so their frames match).
+    for (const f of this.fighters.values()) this.faceFoes(f);
     this.frameCamera();
   }
 
@@ -462,23 +458,27 @@ export class BattleStage implements StageHooks {
     f.ring.scale.setScalar(Math.max(0.6, f.wide * sc * 0.62));
   }
 
+  /** Face the other side: along the line from one side's middle to the other's, the same for the whole side. */
   private faceFoes(f: Fighter): void {
-    const c = this.centre(f.side === 'party' ? 'enemy' : 'party');
-    this.face(f, c.x - f.home.x, c.z - f.home.z);
+    const mine = this.centre(f.side), c = this.centre(f.side === 'party' ? 'enemy' : 'party');
+    this.face(f, c.x - mine.x, c.z - mine.z);
   }
 
   /** Face this way in the world (the frame shown is worked out against the camera each frame). */
   private face(f: Fighter, dx: number, dz: number): void { if (dx || dz) f.facing.set(dx, dz); }
 
-  /** Each sprite turns to the camera, showing the frame for the way they face as seen from where the camera is. */
+  /**
+   * Each sprite turns to the camera, showing the frame for the way they face as seen from the camera. Everyone uses
+   * the camera's own direction (not their own line to it), so fighters standing off to one side show the same frame
+   * as the ones in the middle: three backs from behind the party, never two backs and a side view.
+   */
   private faceCamera(camera: THREE.Camera): void {
-    const back = this.v.set(camera.position.x, 0, camera.position.z);
+    const back = camera.getWorldDirection(this.v).setY(0).negate();
+    if (back.lengthSq() < 1e-6) back.set(0, 0, 1);
+    back.normalize();
+    const yaw = Math.atan2(back.x, back.z), rx = back.z, rz = -back.x; // right = up × back
     for (const f of this.fighters.values()) {
-      const m = f.sprite.mesh;
-      m.rotation.y = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z);
-      // The camera's own back and right, at this fighter.
-      back.set(camera.position.x - m.position.x, 0, camera.position.z - m.position.z).normalize();
-      const rx = back.z, rz = -back.x; // right = up × back
+      f.sprite.mesh.rotation.y = yaw;
       const x = f.facing.x * rx + f.facing.y * rz, z = f.facing.x * back.x + f.facing.y * back.z;
       f.sprite.faceVector(x, z);
     }

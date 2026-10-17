@@ -168,6 +168,9 @@ export function tagAOMeshes(root: THREE.Object3D): void {
     const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
     if (!m) return;
     const mats = Array.isArray(m) ? m : [m];
+    // Sprites (cut-out pictures) are tinted like the world but must stay out of the AO: the depth pass draws whole
+    // quads, so a sprite would shade a box on the ground around itself (the haze around fighters in battle).
+    if (mats.some((x) => x.alphaTest > 0 || x.userData?.noAO)) return;
     if (!mats.some((x) => x.userData?.hdArea)) return;
     for (const x of mats) if (x.userData?.hdArea) patchSSAO(x);
     o.layers.enable(AO_LAYER);

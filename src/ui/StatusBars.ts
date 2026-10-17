@@ -1,19 +1,25 @@
 /**
- * The HUD. Across the top: the level, magic, a big health bar in the centre, and stamina. Top right: the
- * clock and the worn ring. Bottom left: the selected weapon (with the other two under it). Bottom: EXP.
+ * The HUD. Across the top: the level, magic, a big health bar in the centre, and EXP. Stamina is a ring of its own
+ * (with a dash icon) that shows while it's being used and fades once full. Top right: the clock and the worn ring,
+ * and a round mini-map under them. Top left: the selected weapon. Each party member's card is its own piece.
  * Low health pulses red around the screen edges, and a hit flashes it, so a draining bar is hard to miss.
  */
 import type { PlayerStats } from '../game/stats';
-import type { Gauge } from '../world/types';
 
-const BARS: [Gauge, string][] = [['mp', 'MP'], ['hp', 'HP'], ['sp', 'SP']];
+/** The stats piece: magic, health, EXP (stamina has its own ring). */
+const BARS: ['mp' | 'hp' | 'xp', string][] = [['mp', 'MP'], ['hp', 'HP'], ['xp', 'EXP']];
+type BarKey = typeof BARS[number][0];
 
 export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string }
 export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string; /** Disabled by an event (indoors): greyed with a red ✕. */ blocked?: boolean }
 
 /** The HUD pieces a player can move and scale. */
-export type HudWidget = 'stats' | 'party' | 'clock' | 'weapons' | 'xp' | 'log' | 'quest' | 'quick';
-export const HUD_WIDGETS: [HudWidget, string][] = [['stats', 'Health, magic & stamina'], ['party', 'Party members'], ['clock', 'Time & spell'], ['weapons', 'Weapons'], ['xp', 'EXP bar'], ['log', 'Adventure log'], ['quest', 'Quest tracker'], ['quick', 'Quick items']];
+export type HudWidget = 'stats' | 'party' | 'party2' | 'party3' | 'stamina' | 'minimap' | 'clock' | 'weapons' | 'xp' | 'log' | 'quest' | 'quick';
+export const HUD_WIDGETS: [HudWidget, string][] = [['stats', 'Health, magic & EXP'], ['stamina', 'Stamina ring'], ['party', 'Party: first card'], ['party2', 'Party: second card'], ['party3', 'Party: third card'],
+  ['clock', 'Time & spell'], ['minimap', 'Mini-map'], ['weapons', 'Weapons'], ['xp', 'EXP bar'], ['log', 'Adventure log'], ['quest', 'Quest tracker'], ['quick', 'Quick items']];
+/** How many party cards the HUD has (one movable piece each). */
+export const PARTY_SLOTS = 3;
+const SLOT_WIDGETS: HudWidget[] = ['party', 'party2', 'party3'];
 /** How a piece is laid out: its bars side by side or stacked, a face beside them, the log's background. */
 export interface HudPieceStyle {
   /** Bars side by side ('h') or stacked ('v'). The stats default to side by side, the party to stacked. */
@@ -22,14 +28,16 @@ export interface HudPieceStyle {
   face?: boolean;
   /** The adventure log: one box behind it, a strip behind each line (default), or none. */
   bg?: 'box' | 'lines' | 'none';
+  /** The clock: a little picture of the season behind it (blossom, sun, leaves, snow). */
+  art?: boolean;
   /** The hero's bars: condensed into a card like the party's (first in the party piece) instead of across the top. */
   compact?: boolean;
   /** Not shown at all. */
   hidden?: boolean;
 }
 /** Which pieces have which options. */
-export const HUD_OPTIONS: Partial<Record<HudWidget, (keyof HudPieceStyle)[]>> = { stats: ['stack', 'face'], party: ['stack', 'face'], log: ['bg'] };
-export const HUD_DEFAULT_STACK: Partial<Record<HudWidget, 'h' | 'v'>> = { stats: 'h', party: 'v' };
+export const HUD_OPTIONS: Partial<Record<HudWidget, (keyof HudPieceStyle)[]>> = { stats: ['stack', 'face'], party: ['face'], log: ['bg'], clock: ['art'] };
+export const HUD_DEFAULT_STACK: Partial<Record<HudWidget, 'h' | 'v'>> = { stats: 'h' };
 /** Where a piece goes (its centre, as a share of the screen), how big it is, and its style. Missing: the default. */
 export type HudLayout = Partial<Record<HudWidget, { x?: number; y?: number; scale?: number } & HudPieceStyle>>;
 
@@ -42,6 +50,11 @@ const ICONS = {
 
 interface Row { fill: HTMLElement; ghost: HTMLElement; num: HTMLElement; row: HTMLElement; shown: number; last: number }
 
+/** One party card's numbers. */
+export interface PartyCard { name: string; level?: number; face?: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean; xp?: number; toNext?: number }
+
+const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
+
 export class StatusBars {
   private readonly top = document.createElement('div');
   private readonly side = document.createElement('div');
@@ -52,7 +65,7 @@ export class StatusBars {
   private quickKey = '';
   /** A quick slot was tapped (touch screens). */
   onQuick: (k: number) => void = () => {};
-  private readonly rows = new Map<Gauge, Row>();
+  private readonly rows = new Map<BarKey, Row>();
   private readonly clockIcon: HTMLElement;
   private readonly clockTime: HTMLElement;
   private readonly clockWeather: HTMLElement;
@@ -69,23 +82,40 @@ export class StatusBars {
   private readonly statusRow = document.createElement('div');
   private statusKey = '';
 
-  /** Party members (their own movable piece): face, name, health and magic (dimmed when knocked out). */
+  /**
+   * Party members: a card each (face, name, health, magic and EXP; dimmed when knocked out). The cards stack under
+   * the weapons by default; each is its own piece, so any of them can be moved or resized on its own.
+   */
   private readonly partyEl = document.createElement('div');
+  private readonly slots: HTMLElement[] = [];
   private partyKey = '';
   private partyCount = 0;
-  setParty(list: { name: string; level?: number; face?: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean; sp?: number; maxSp?: number }[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), Math.round(m.sp ?? -1), m.down]));
+  setParty(list: PartyCard[]): void {
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
     this.partyEl.hidden = this.hiddenAll || !list.length;
     this.partyEl.dataset.empty = list.length ? '' : '1';
-    this.partyEl.innerHTML = list.map((m) => `<div class="hud-ally${m.down ? ' down' : ''}">${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
+    this.slots.forEach((el, k) => {
+      const m = list[k];
+      el.hidden = !m;
+      el.dataset.empty = m ? '' : '1';
+      el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}">${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <small>Lv ${m.level}</small>` : ''}</span>
-      <span class="hud-ally-bar hp"><i style="width:${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%"></i></span>
-      <span class="hud-ally-bar mp"><i style="width:${Math.max(0, Math.min(100, (m.mp / m.maxMp) * 100))}%"></i></span>${m.sp !== undefined && m.maxSp ? `
-      <span class="hud-ally-bar sp"><i style="width:${Math.max(0, Math.min(100, (m.sp / m.maxSp) * 100))}%"></i></span>` : ''}</div>`).join('');
+      <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
+      <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
+      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}</div>` : '';
+    });
   }
+
+  /** Stamina: a green ring around a dash icon, emptying as it's used; it fades out once full. */
+  private readonly stamina = document.createElement('div');
+  private staminaFull = 0;
+
+  /** The mini-map: a round, north-up view of the map around the hero (drawn by the game). */
+  readonly minimap = document.createElement('div');
+  readonly minimapCanvas = document.createElement('canvas');
 
   /** The hero's face (shown beside the stats when the player turns it on). */
   setFace(url: string): void {
@@ -118,11 +148,35 @@ export class StatusBars {
     this.partyEl.setAttribute('aria-label', 'Party');
     this.partyEl.hidden = true;
     this.partyEl.dataset.empty = '1';
+    for (let k = 0; k < PARTY_SLOTS; k++) {
+      const el = document.createElement('div');
+      el.className = 'hud-pslot';
+      el.dataset.slot = String(k + 1);
+      el.dataset.empty = '1';
+      el.hidden = true;
+      this.slots.push(el);
+      this.partyEl.append(el);
+    }
+
+    this.stamina.className = 'hud-stamina';
+    this.stamina.setAttribute('role', 'meter');
+    this.stamina.setAttribute('aria-label', 'Stamina');
+    this.stamina.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle class="hs-track" cx="24" cy="24" r="20"/><circle class="hs-fill" cx="24" cy="24" r="20" pathLength="100"/>
+      <path class="hs-dash" d="M27 12l-9 13h6l-3 11 10-14h-6z"/><path class="hs-lines" d="M9 20h6M7 25h7M9 30h6"/></svg>`;
+
+    this.minimap.className = 'hud-minimap';
+    this.minimap.setAttribute('aria-label', 'Mini-map');
+    this.minimapCanvas.width = this.minimapCanvas.height = 176;
+    this.minimap.append(this.minimapCanvas);
 
     this.side.className = 'hud-side';
     const clock = document.createElement('div');
     clock.className = 'hud-clock';
     clock.innerHTML = '<span class="hud-clock-icon"></span><span class="hud-clock-time"></span><span class="hud-clock-weather"></span><span class="hud-clock-date"></span>';
+    // Behind the clock: a small picture of the season (Settings → HUD → Season picture).
+    this.seasonArt.className = 'hud-season';
+    this.seasonArt.setAttribute('aria-hidden', 'true');
+    this.side.append(this.seasonArt);
     this.clockIcon = clock.querySelector('.hud-clock-icon')!;
     this.clockTime = clock.querySelector('.hud-clock-time')!;
     this.clockWeather = clock.querySelector('.hud-clock-weather')!;
@@ -146,7 +200,7 @@ export class StatusBars {
       e.stopPropagation();
       this.onQuick(Number(b.dataset.q));
     });
-    parent.append(this.vignette, this.top, this.partyEl, this.side, this.weapons, this.quick, this.xpBar);
+    parent.append(this.vignette, this.top, this.partyEl, this.stamina, this.side, this.minimap, this.weapons, this.quick, this.xpBar);
   }
 
   /** The readied spell shard (icon and name, with the key that casts it), or null for none. */
@@ -225,7 +279,19 @@ export class StatusBars {
   private hiddenAll = false;
 
   /** The movable pieces. */
-  get widgets(): Record<HudWidget, HTMLElement> { return { stats: this.top, party: this.partyEl, clock: this.side, weapons: this.weapons, xp: this.xpBar, log: this.logEl, quest: this.questEl, quick: this.quick }; }
+  get widgets(): Record<HudWidget, HTMLElement> {
+    return { stats: this.top, party: this.slots[0], party2: this.slots[1], party3: this.slots[2], stamina: this.stamina, minimap: this.minimap, clock: this.side, weapons: this.weapons, xp: this.xpBar, log: this.logEl, quest: this.questEl, quick: this.quick };
+  }
+
+  /** The season picture behind the clock. */
+  private readonly seasonArt = document.createElement('div');
+  private season = '';
+  setSeason(season: string): void {
+    if (season === this.season) return;
+    this.season = season;
+    this.seasonArt.dataset.season = season;
+    this.seasonArt.innerHTML = seasonSvg(season);
+  }
 
   /** The adventure log's feed, arranged with the rest of the HUD. */
   logEl: HTMLElement = document.createElement('div');
@@ -249,11 +315,17 @@ export class StatusBars {
       el.classList.toggle('hud-off', !!l?.hidden);
       el.classList.toggle('hud-compact', !!l?.compact);
       if (k === 'log') for (const b of ['box', 'lines', 'none']) el.classList.toggle(`bg-${b}`, (l?.bg ?? 'lines') === b);
+      if (k === 'clock') el.classList.toggle('with-art', l?.art !== false);
     }
+    // The party's own settings (faces, shown or not) are kept on the first card and go for every card.
+    const p = layout?.party;
+    this.partyEl.classList.toggle('with-face', !!p?.face);
+    this.partyEl.classList.toggle('hud-off', !!p?.hidden);
+    for (const w of SLOT_WIDGETS.slice(1)) this.widgets[w].classList.remove('with-face');
   }
 
   setHidden(hidden: boolean): void {
-    for (const el of [this.top, this.side, this.xpBar, this.weapons, this.vignette]) el.hidden = hidden;
+    for (const el of [this.top, this.side, this.xpBar, this.weapons, this.vignette, this.stamina, this.minimap]) el.hidden = hidden;
     this.hiddenAll = hidden;
     this.partyEl.hidden = hidden || !this.partyCount;
     this.quick.hidden = hidden || this.quick.dataset.empty === '1';
@@ -274,6 +346,10 @@ export class StatusBars {
     this.xpBar.setAttribute('aria-valuenow', String(max ? 1 : xp));
     this.xpBar.setAttribute('aria-valuemax', String(max ? 1 : next));
     this.xpBar.setAttribute('aria-label', max ? `Experience: level ${level}, the highest level` : `Experience: level ${level}, ${xp} of ${next}`);
+    // The EXP gauge in the stats piece.
+    const r = this.rows.get('xp')!, f = max ? 1 : Math.min(1, xp / next);
+    r.fill.style.width = r.ghost.style.width = `${f * 100}%`;
+    r.num.textContent = max ? 'MAX' : `${xp} / ${next}`;
   }
 
   update(dt: number, s: PlayerStats, clock?: ClockInfo): void {
@@ -287,6 +363,7 @@ export class StatusBars {
       if (this.clockDate.textContent !== d) this.clockDate.textContent = d;
     }
     for (const [g] of BARS) {
+      if (g === 'xp') continue;
       const r = this.rows.get(g)!, max = s.cfg.max[g], f = max > 0 ? s[g] / max : 0;
       r.fill.style.width = `${f * 100}%`;
       // A pale "ghost" trails behind drops, so a hit is easy to read.
@@ -304,7 +381,14 @@ export class StatusBars {
       r.last = s[g];
       r.row.classList.toggle('low', f < 0.3);
     }
-    this.rows.get('sp')!.row.classList.toggle('exhausted', s.exhausted);
+    // Stamina ring: shows while stamina is below full (or while arranging), fades a moment after it fills.
+    const sp = s.cfg.max.sp > 0 ? Math.max(0, Math.min(1, s.sp / s.cfg.max.sp)) : 1;
+    this.stamina.style.setProperty('--sp', sp.toFixed(3));
+    this.staminaFull = sp >= 0.999 ? this.staminaFull + dt : 0;
+    this.stamina.classList.toggle('idle', this.staminaFull > 1.2);
+    this.stamina.classList.toggle('exhausted', s.exhausted);
+    this.stamina.classList.toggle('low', !s.exhausted && sp < 0.25);
+    this.stamina.setAttribute('aria-valuenow', String(Math.round(s.sp)));
     const hp = s.cfg.max.hp > 0 ? s.hp / s.cfg.max.hp : 1;
     const danger = s.drowning || hp < 0.3;
     this.rows.get('hp')!.row.classList.toggle('danger', danger);
@@ -314,5 +398,18 @@ export class StatusBars {
     this.vignette.style.setProperty('--low', low.toFixed(2));
     this.vignette.style.setProperty('--flash', (this.flashT / 0.35).toFixed(2));
     this.vignette.classList.toggle('pulse', low > 0);
+  }
+}
+
+/** Little pixel-style pictures of the seasons for behind the clock: blossom, sun, falling leaves, snow. */
+function seasonSvg(season: string): string {
+  const px = (cells: [number, number, string][]) => cells.map(([x, y, c]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`).join('');
+  const branch = '<path d="M0 3h7l3 2h6l4-2h8" stroke="#5b3d29" stroke-width="1" fill="none" shape-rendering="crispEdges"/>';
+  switch (season) {
+    case 'spring': return `<svg viewBox="0 0 32 16" preserveAspectRatio="xMaxYMin meet">${branch}${px([[4, 2, '#ffb7d0'], [5, 1, '#ffd7e6'], [9, 4, '#ffb7d0'], [10, 3, '#ff9ec0'], [13, 6, '#ffd7e6'], [15, 5, '#ffb7d0'], [19, 2, '#ff9ec0'], [20, 1, '#ffd7e6'], [24, 2, '#ffb7d0'], [27, 3, '#ffd7e6'], [8, 10, '#ffc4d8'], [17, 12, '#ffd7e6'], [25, 9, '#ffb7d0'], [6, 7, '#9be07a'], [21, 5, '#9be07a']])}</svg>`;
+    case 'summer': return `<svg viewBox="0 0 32 16" preserveAspectRatio="xMaxYMin meet"><circle cx="26" cy="5" r="3.2" fill="#ffd36b"/>${px([[26, 0, '#ffe7a3'], [21, 5, '#ffe7a3'], [31, 5, '#ffe7a3'], [22, 1, '#ffe7a3'], [30, 1, '#ffe7a3'], [22, 9, '#ffe7a3'], [30, 9, '#ffe7a3']])}<path d="M0 15c4-3 8-3 12 0s8 3 12 0" stroke="#6fbf5a" stroke-width="1.2" fill="none"/></svg>`;
+    case 'autumn': return `<svg viewBox="0 0 32 16" preserveAspectRatio="xMaxYMin meet">${branch}${px([[3, 2, '#e8743a'], [6, 4, '#d9452e'], [10, 2, '#f2a93b'], [14, 5, '#e8743a'], [18, 2, '#d9452e'], [23, 4, '#f2a93b'], [27, 2, '#e8743a'], [8, 9, '#f2a93b'], [9, 10, '#f2a93b'], [16, 11, '#e8743a'], [17, 12, '#e8743a'], [24, 9, '#d9452e'], [25, 10, '#d9452e'], [12, 14, '#f2a93b']])}</svg>`;
+    case 'winter': return `<svg viewBox="0 0 32 16" preserveAspectRatio="xMaxYMin meet">${branch}<path d="M0 2h7l3 2h6l4-2h8" stroke="#f4f8ff" stroke-width="1" fill="none" shape-rendering="crispEdges"/>${px([[4, 7, '#ffffff'], [9, 11, '#dfe9ff'], [13, 8, '#ffffff'], [18, 13, '#dfe9ff'], [22, 7, '#ffffff'], [27, 11, '#dfe9ff'], [30, 6, '#ffffff'], [6, 13, '#ffffff'], [15, 4, '#dfe9ff']])}</svg>`;
+    default: return '';
   }
 }

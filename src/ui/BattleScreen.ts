@@ -497,6 +497,8 @@ export class BattleScreen {
 
   /** A list to pick from (commands, spells, items). */
   choose(title: string, items: ChoiceItem[], pick: (i: number) => void, back?: () => void, hover?: (i: number) => void, start = 0, bar = false): void {
+    // A choice means the fight is on: no results panel can still be showing (one was seen over a later turn).
+    if (!this.vic) { for (const el of this.root.querySelectorAll('.battle-victory')) el.remove(); this.leftover = null; }
     const first = items[start] && !items[start].disabled ? start : Math.max(0, items.findIndex((i) => !i.disabled));
     this.mode = { kind: 'list', title, items, index: first, pick, back, hover, bar };
     this.renderList();

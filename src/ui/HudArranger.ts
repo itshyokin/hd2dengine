@@ -1,5 +1,6 @@
 /**
- * Settings → HUD → Arrange: move and resize the HUD pieces (stats, time & ring, weapons, EXP bar).
+ * Settings → HUD → Arrange: move and resize the HUD pieces (stats, stamina ring, each party card, time & ring,
+ * mini-map, weapons, EXP bar, log, quest tracker, quick items).
  * Drag a piece with the mouse (wheel resizes it), or pick one with Q / E (LB / RB), move it with the arrows
  * (D-pad / stick) and press Enter (A) to step through sizes. Some pieces have a style too: the stats and the party
  * stack their bars side by side or on top of each other (Y / R), and can show faces (X / Shift); the adventure log
@@ -107,12 +108,13 @@ export class HudArranger {
   }
 
   /** Step one of the piece's style options: stacking, faces, or the log's background. */
-  private cycle(opt: 'stack' | 'face' | 'bg'): void {
+  private cycle(opt: 'stack' | 'face' | 'bg' | 'art'): void {
     const l = (this.layout[this.current] ??= {});
     if (opt === 'stack') {
       const now = l.stack ?? HUD_DEFAULT_STACK[this.current] ?? 'h', next = now === 'h' ? 'v' : 'h';
       if (next === HUD_DEFAULT_STACK[this.current]) delete l.stack; else l.stack = next;
     } else if (opt === 'face') { if (l.face) delete l.face; else l.face = true; }
+    else if (opt === 'art') { if (l.art === false) delete l.art; else l.art = false; }
     else {
       const order = ['lines', 'box', 'none'] as const, next = order[(order.indexOf(l.bg ?? 'lines') + 1) % order.length];
       if (next === 'lines') delete l.bg; else l.bg = next;
@@ -135,7 +137,7 @@ export class HudArranger {
     if (i.consume('tabNext')) { this.sel = (this.sel + 1) % HUD_WIDGETS.length; uiSound('menuMove'); this.render(); }
     if (i.consume('tabPrev')) { this.sel = (this.sel + HUD_WIDGETS.length - 1) % HUD_WIDGETS.length; uiSound('menuMove'); this.render(); }
     const opts = HUD_OPTIONS[this.current] ?? [];
-    if (i.consume('switchWeapon') && opts.length) this.cycle(opts.includes('stack') ? 'stack' : 'bg');
+    if (i.consume('switchWeapon') && opts.length) this.cycle(opts.includes('stack') ? 'stack' : opts.includes('art') ? 'art' : 'bg');
     if (i.consume('run') && opts.includes('face')) this.cycle('face');
     if (i.confirm()) {
       // Step up through the sizes, wrapping back to the smallest.
@@ -163,6 +165,7 @@ export class HudArranger {
     const optRow = opts.length ? `<div class="ha-row ha-opts">${[
       opts.includes('stack') ? `<button type="button" data-a="stack">Bars: ${stack === 'v' ? 'stacked ↕' : 'side by side ↔'} <kbd>Y / R</kbd></button>` : '',
       opts.includes('face') ? `<button type="button" data-a="face">Faces: ${l?.face ? 'shown' : 'hidden'} <kbd>X / Shift</kbd></button>` : '',
+      opts.includes('art') ? `<button type="button" data-a="art">Season picture: ${l?.art === false ? 'off' : 'on'} <kbd>Y / R</kbd></button>` : '',
       opts.includes('bg') ? `<button type="button" data-a="bg">Background: ${{ lines: 'behind each line', box: 'one box', none: 'none' }[l?.bg ?? 'lines']} <kbd>Y / R</kbd></button>` : '',
     ].join('')}</div>` : '';
     this.panel.innerHTML = `<h2>Arrange the HUD</h2>
@@ -180,7 +183,7 @@ export class HudArranger {
       else if (a === 'bigger') this.resize(1);
       else if (a === 'reset') { delete this.layout[this.current]; this.commit(); }
       else if (a === 'resetAll') { this.layout = {}; this.commit(); }
-      else if (a === 'stack' || a === 'face' || a === 'bg') this.cycle(a);
+      else if (a === 'stack' || a === 'face' || a === 'bg' || a === 'art') this.cycle(a);
       else this.close();
     }));
   }

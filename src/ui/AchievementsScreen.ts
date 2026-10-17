@@ -22,7 +22,7 @@ export class AchievementsScreen {
   private tabs: TabGroup | undefined;
   private onClose: () => void = () => {};
 
-  constructor(parent: HTMLElement, private readonly input: Input, private readonly list: () => AchievementView[], private readonly note: () => string) {
+  constructor(parent: HTMLElement, private readonly input: Input, private readonly all: () => AchievementView[], private readonly note: () => string) {
     this.root.className = 'inv ach-screen';
     this.root.hidden = true;
     this.root.setAttribute('role', 'dialog');
@@ -31,6 +31,18 @@ export class AchievementsScreen {
   }
 
   get isOpen(): boolean { return this.open; }
+
+  /** Newest unlocks first, then the rest unlocked, then locked ones by how close they are (secret ones last). */
+  private list(): AchievementView[] {
+    const frac = (a: AchievementView) => (a.need ? Math.min(1, (a.have ?? 0) / a.need) : 0);
+    return this.all().map((a, k) => ({ a, k })).sort((p, q) => {
+      const A = p.a, B = q.a;
+      if (A.unlocked !== B.unlocked) return A.unlocked ? -1 : 1;
+      if (A.unlocked) return (B.when ?? 0) - (A.when ?? 0) || p.k - q.k;
+      if (A.hidden !== B.hidden) return A.hidden ? 1 : -1;
+      return frac(B) - frac(A) || p.k - q.k;
+    }).map((x) => x.a);
+  }
 
   show(onClose: () => void, tabs?: TabGroup): void {
     this.open = true; this.onClose = onClose; this.tabs = tabs;

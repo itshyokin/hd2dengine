@@ -10,7 +10,7 @@ import { DEFAULT_PLAYER, type PlayerConfig, playerConfig } from '../game/stats';
 import { ABILITIES, type Gauge, type MenuConfig, type PlayerConfigData } from '../world/types';
 import { PAUSE_OPTIONS, TITLE_OPTIONS } from '../game/menus';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
-import { checkbox, field, h, numberInput, openModal, select, textInput } from './dom';
+import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
 import type { EditorStore } from './store';
 import { cleanInventory, inventoryTab, itemsTab, type ItemsWork } from './ItemsEditor';
 import type { CombatData, EnemyDef, ItemDef } from '../world/types';
@@ -23,6 +23,9 @@ import type { AdditionDef, ClassDef, SpellEntry, TroopDef } from '../world/types
 import { troopsTab } from './TroopsEditor';
 import { achievementsTab } from './AchievementsEditor';
 import { markersTab } from './MarkersEditor';
+import { textColorsTab } from './TextColorsEditor';
+import { textColors, type TextColor } from '../ui/richText';
+import { saveDatabase } from './io';
 import { markerKinds, type MarkerKind } from '../world/landmarks';
 import type { AchievementDef } from '../game/achievements';
 import { expSection, trimExpTable } from './ExpEditor';
@@ -43,9 +46,45 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' = 'player'): void {
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors';
+
+/** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
+const DB_GROUPS: [string, [DbTab, string, string][]][] = [
+  ['People', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['characters', 'Characters', 'sprite'], ['classes', 'Classes', 'badge']]],
+  ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
+  ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group'], ['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
+  ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
+  ['World', [['time', 'Time & seasons', 'clock'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note']]],
+  ['System', [['saving', 'Saving', 'disk'], ['menus', 'Title & menus', 'menu'], ['credits', 'Credits', 'heart']]],
+];
+const ICON_PATHS: Record<string, string> = {
+  person: '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  sprite: '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="9" r="2.5"/><path d="M8 17c1-2.5 7-2.5 8 0"/>',
+  badge: '<circle cx="12" cy="9" r="5"/><path d="M9 13.5L7 21l5-2.5 5 2.5-2-7.5"/>',
+  potion: '<path d="M10 3h4M10.5 3v5L6 15.5A4 4 0 0 0 9.5 21h5a4 4 0 0 0 3.5-5.5L13.5 8V3"/><path d="M7.5 14h9"/>',
+  bag: '<path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+  swords: '<path d="M4 4l10 10M14 14l2 2M17 13l-4 4M20 4L10 14M10 14l-2 2M7 13l4 4"/>',
+  skull: '<path d="M5 11a7 7 0 0 1 14 0c0 2.5-1.2 3.8-2 4.5V19H7v-3.5C6.2 14.8 5 13.5 5 11z"/><circle cx="9.5" cy="11" r="1.5"/><circle cx="14.5" cy="11" r="1.5"/>',
+  group: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 19c0-3 2.7-5 6-5s6 2 6 5M12 15c1-.7 2.4-1 4-1 3.3 0 6 2 6 5"/>',
+  tree: '<circle cx="12" cy="4.5" r="2"/><circle cx="6" cy="13" r="2"/><circle cx="18" cy="13" r="2"/><circle cx="12" cy="20" r="2"/><path d="M11 6.5L7 11M13 6.5l4 4.5M7 15l4 3.5M17 15l-4 3.5"/>',
+  spark: '<path d="M12 2l2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2z"/>',
+  combo: '<path d="M4 17l5-5-5-5M11 17l5-5-5-5M18 7v10"/>',
+  scroll: '<path d="M7 3h11v15a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-1h11"/><path d="M7 3a2 2 0 0 0-2 2v12M10 8h5M10 12h5"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  pin: '<path d="M12 21s-7-6.3-7-12a7 7 0 0 1 14 0c0 5.7-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+  palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-1.3-1-1.7-1-2.7 0-1 .8-1.5 1.8-1.5H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/>',
+  note: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  disk: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
+  menu: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
+  heart: '<path d="M12 20s-8-4.7-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6.3-8 11-8 11z"/>',
+};
+const dbIcon = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] ?? ''}</svg>`;
+
+export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): void {
   const cfg: PlayerConfig = playerConfig(store.db.stats);
-  let tab: 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' = startTab;
+  let tab: DbTab = startTab;
   const work: ItemsWork = { items: JSON.parse(JSON.stringify(store.db.items ?? [])) as ItemDef[], inventory: JSON.parse(JSON.stringify(store.db.inventory ?? {})) };
   const itemState = { sel: 0 }, enemyState = { sel: 0 };
   const combat: CombatData = JSON.parse(JSON.stringify(store.db.combat ?? {}));
@@ -73,18 +112,47 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
   const achievements: AchievementDef[] = JSON.parse(JSON.stringify(store.db.achievements ?? []));
   const achState = { sel: 0 };
   const markers: MarkerKind[] = structuredClone(markerKinds(store.db.markers));
+  const textCols: TextColor[] = structuredClone(textColors(store.db.textColors));
   let devConsole = store.db.devConsole ?? 'playtest';
 
   const num = (value: number, set: (v: number) => void, min = 0, step = 1, label = '') =>
     numberInput(value, (v) => set(Math.max(min, v)), { min: String(min), step: String(step), 'aria-label': label, class: 'db-num' });
 
-  const tabs = h('div', { class: 'db-tabs', role: 'tablist' });
+  const tabs = h('div', { class: 'db-tabs db-icon-tabs', role: 'tablist' });
+  const tabName = h('div', { class: 'db-tab-name' });
   const content = h('div', { class: 'db-editor' });
   body.className = 'db-wrap';
-  body.append(tabs, content);
+  body.append(h('div', { class: 'db-tabbar' }, tabs, tabName), content);
   const render = () => {
-    tabs.replaceChildren(...([['player', 'Player'], ['heroes', 'Heroes'], ['characters', 'Characters'], ['items', 'Items'], ['inventory', 'Inventory'], ['quests', 'Quests'], ['combat', 'Combat'], ['enemies', 'Enemies'], ['troops', 'Troops'], ['skills', 'Skills'], ['spells', 'Spells'], ['additions', 'Additions'], ['classes', 'Classes'], ['audio', 'Audio'], ['time', 'Time'], ['saving', 'Saving'], ['menus', 'Title & menus'], ['achievements', 'Achievements'], ['markers', 'Map markers'], ['credits', 'Credits']] as const).map(([id, label]) =>
-      h('button', { type: 'button', role: 'tab', class: 'db-tab', 'aria-selected': String(tab === id), onclick: () => { (document.activeElement as HTMLElement | null)?.blur?.(); tab = id; render(); } }, label)));
+    tabs.replaceChildren(...DB_GROUPS.map(([group, list]) => h('div', { class: 'db-tab-group', role: 'group', 'aria-label': group },
+      h('span', { class: 'db-group-label' }, group),
+      h('div', { class: 'db-group-icons' }, ...list.map(([id, label, icon]) => {
+        const b = h('button', { type: 'button', role: 'tab', class: 'db-tab', title: label, 'aria-label': label, 'aria-selected': String(tab === id), onclick: () => { (document.activeElement as HTMLElement | null)?.blur?.(); tab = id; render(); } });
+        b.innerHTML = dbIcon(icon);
+        return b;
+      })))));
+    const cur = DB_GROUPS.flatMap(([, l]) => l).find(([id]) => id === tab);
+    tabName.textContent = cur ? cur[1] : '';
+    renderTab();
+    addTopDelete();
+  };
+  /**
+   * Every list (items, enemies, heroes, quests…): a red Delete under its “+ New”, for the selected entry, asking
+   * first. It runs the tab's own delete (which also warns when the entry is used elsewhere).
+   */
+  const addTopDelete = () => {
+    const add = content.querySelector<HTMLElement>('.item-list > .item-add');
+    const own = content.querySelector<HTMLButtonElement>('.item-foot .btn.danger');
+    if (!add || !own) return;
+    own.closest('.item-foot')?.classList.add('moved');
+    const sel = content.querySelector<HTMLElement>('.item-list .item-row[aria-selected="true"]');
+    const name = (sel?.querySelector('span:not(.item-sub):not(.quest-mark):not(.hero-tag)')?.childNodes[0]?.textContent ?? sel?.textContent ?? 'this').trim() || 'this';
+    const del = h('button', { type: 'button', class: 'btn item-del', disabled: own.disabled, title: own.title || `Delete ${name}`, onclick: () => {
+      confirmModal('Delete', `Are you sure you wish to delete ${name}?`, 'Delete', () => own.click(), true);
+    } }, `Delete ${name}`);
+    add.after(del);
+  };
+  const renderTab = () => {
     if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
     if (tab === 'characters') { content.replaceChildren(...charactersTab(store, people, render)); return; }
     if (tab === 'credits') { content.replaceChildren(...creditsTab(credits, people.chars, render, [...store.assets.props, ...store.assets.tiles].map((d) => d.credits ?? []))); return; }
@@ -93,6 +161,7 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
     if (tab === 'skills') { content.replaceChildren(...skillsTab(skills, skillState, render, work.items, { spells, additions })); return; }
     if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audio.files, troopState, render)); return; }
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
+    if (tab === 'textColors') { content.replaceChildren(...textColorsTab(textCols, render)); return; }
     if (tab === 'achievements') { content.replaceChildren(...achievementsTab(store, store.db, achievements, achState, render)); return; }
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
     if (tab === 'additions') { content.replaceChildren(...additionsTab(additions, additionState, render)); return; }
@@ -144,6 +213,20 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
             h('span', { class: 'db-unit' }, 'tiles / s'),
           ])),
         h('p', { class: 'note' }, `Defaults: walk ${DEFAULT_PLAYER.speed.walk}, run ${DEFAULT_PLAYER.speed.run}. Jump height is fixed so a jump always clears one step.`)),
+
+      h('section', { class: 'db-section' },
+        h('h3', {}, 'Ledges'),
+        h('div', { class: 'db-table costs' },
+          h('span', { class: 'db-name' }, 'Ledge behaviour'),
+          select([['limited', 'Walk off, except into pits'], ['walk', 'Walk off any ledge'], ['collision', 'Collision (jump down)']], cfg.ledges.mode, (v) => { cfg.ledges.mode = v as typeof cfg.ledges.mode; }, { 'aria-label': 'Ledge behaviour' }),
+          h('span', { class: 'db-unit' }, ''),
+          h('span', { class: 'db-name' }, 'Pits: heights from'),
+          numberInput(cfg.ledges.min, (v) => (cfg.ledges.min = Math.round(v)), { step: '1', class: 'db-num', 'aria-label': 'Lowest pit height' }),
+          h('span', { class: 'db-unit' }, 'steps'),
+          h('span', { class: 'db-name' }, 'to'),
+          numberInput(cfg.ledges.max, (v) => (cfg.ledges.max = Math.round(v)), { step: '1', class: 'db-num', 'aria-label': 'Highest pit height' }),
+          h('span', { class: 'db-unit' }, 'steps')),
+        h('p', { class: 'note' }, 'Walk off: the hero walks straight off an edge and drops to the ground below, any height. “Except into pits” also walks off, but cells whose height is in the range above act as a wall at their edge (chasms, the void). Collision: drops are walls; a jump still comes down up to two steps. Climbable walls are always climbed, not walked off.')),
 
       h('section', { class: 'db-section' },
         h('h3', {}, 'Starting abilities'),
@@ -248,9 +331,8 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
     render();
   } }, 'Reset to defaults');
 
-  openModal('Database', body, [
-    { label: 'Cancel' },
-    { label: 'Apply', primary: true, onClick: () => {
+  /** Put the window's changes into the database. 'same': nothing had changed. */
+  const commit = (): 'same' | 'applied' => {
       // Commit any number field still being typed in.
       (document.activeElement as HTMLElement | null)?.blur?.();
       const stats = diffFromDefaults(cfg);
@@ -282,6 +364,7 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
       const achOut = achievements.length ? achievements : null;
       const dcOut = devConsole === 'playtest' ? null : devConsole;
       const markersOut = JSON.stringify(markers) === JSON.stringify(markerKinds(undefined)) ? null : markers;
+      const textColorsOut = JSON.stringify(textCols) === JSON.stringify(textColors(undefined)) ? null : textCols;
       if (JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
         JSON.stringify(mOut ?? null) === JSON.stringify(db.menus ?? null) && gameTitle === db.title && JSON.stringify(tFinal) === JSON.stringify(db.time ?? null) &&
         JSON.stringify(Object.keys(ab).length ? ab : null) === JSON.stringify(db.abilities && Object.keys(db.abilities).length ? db.abilities : null) &&
@@ -295,36 +378,83 @@ export function openDatabase(store: EditorStore, startTab: 'player' | 'heroes' |
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null)) return;
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null)) return 'same';
       store.checkpoint();
-      if (stats) db.stats = stats; else delete db.stats;
-      if (Object.keys(ab).length) db.abilities = ab; else delete db.abilities;
-      if (svOut) db.saving = svOut; else delete db.saving;
-      if (mOut) db.menus = mOut; else delete db.menus;
+      // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
+      const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+      if (stats) db.stats = C(stats); else delete db.stats;
+      if (Object.keys(ab).length) db.abilities = C(ab); else delete db.abilities;
+      if (svOut) db.saving = C(svOut); else delete db.saving;
+      if (mOut) db.menus = C(mOut); else delete db.menus;
       db.title = gameTitle;
-      if (tFinal) db.time = tFinal; else delete db.time;
-      if (itemsOut) db.items = itemsOut; else delete db.items;
-      if (invOut) db.inventory = invOut; else delete db.inventory;
-      if (combatOut) db.combat = combatOut; else delete db.combat;
-      if (enemiesOut) db.enemies = enemiesOut; else delete db.enemies;
-      if (audioOut) db.audio = audioOut; else delete db.audio;
-      if (skillsOut) db.skills = skillsOut; else delete db.skills;
-      if (questsOut) db.quests = questsOut; else delete db.quests;
-      if (heroesOut) db.heroes = heroesOut; else delete db.heroes;
-      if (spellsOut) db.spells = spellsOut; else delete db.spells;
-      if (additionsOut) db.additions = additionsOut; else delete db.additions;
-      if (classesOut) db.classes = classesOut; else delete db.classes;
-      if (troopsOut) db.troops = troopsOut; else delete db.troops;
-      if (achOut) db.achievements = achOut; else delete db.achievements;
+      if (tFinal) db.time = C(tFinal); else delete db.time;
+      if (itemsOut) db.items = C(itemsOut); else delete db.items;
+      if (invOut) db.inventory = C(invOut); else delete db.inventory;
+      if (combatOut) db.combat = C(combatOut); else delete db.combat;
+      if (enemiesOut) db.enemies = C(enemiesOut); else delete db.enemies;
+      if (audioOut) db.audio = C(audioOut); else delete db.audio;
+      if (skillsOut) db.skills = C(skillsOut); else delete db.skills;
+      if (questsOut) db.quests = C(questsOut); else delete db.quests;
+      if (heroesOut) db.heroes = C(heroesOut); else delete db.heroes;
+      if (spellsOut) db.spells = C(spellsOut); else delete db.spells;
+      if (additionsOut) db.additions = C(additionsOut); else delete db.additions;
+      if (classesOut) db.classes = C(classesOut); else delete db.classes;
+      if (troopsOut) db.troops = C(troopsOut); else delete db.troops;
+      if (achOut) db.achievements = C(achOut); else delete db.achievements;
       if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
-      if (markersOut) db.markers = markersOut; else delete db.markers;
-      db.characters = people.chars;
+      if (markersOut) db.markers = C(markersOut); else delete db.markers;
+      if (textColorsOut) db.textColors = C(textColorsOut); else delete db.textColors;
+      db.characters = C(people.chars);
       const cr = cleanCredits(credits);
-      if (cr) db.credits = cr; else delete db.credits;
+      if (cr) db.credits = C(cr); else delete db.credits;
       if (people.chars[people.player]) db.player = people.player;
       store.changedDb('ui');
-    } },
-  ], undefined, { wide: true, footStart: reset });
+      return 'applied';
+  };
+
+  /** A note at the bottom left of the window, fading after a few seconds. */
+  const note = h('div', { class: 'db-saved-note', role: 'status', 'aria-live': 'polite' });
+  let noteTimer = 0;
+  const flash = (text: string, kind: 'ok' | 'warn' = 'ok') => {
+    note.textContent = text; note.className = `db-saved-note on ${kind}`;
+    clearTimeout(noteTimer);
+    noteTimer = window.setTimeout(() => note.classList.remove('on'), 2800);
+  };
+  /** Apply also saves database.json, so nothing is lost when the window (or the editor) closes. */
+  const applyAndSave = async (): Promise<void> => {
+    const r = commit();
+    if (r === 'same' && !store.dbDirty) { flash('No changes to save.'); return; }
+    const saved = await saveDatabase(store);
+    if (saved === 'saved') flash('Changes saved. It’s safe to close the Database.');
+    else if (saved === 'export') flash('Applied. This copy can’t write files: press Save to export them.', 'warn');
+    else flash('Applied, but saving failed: press Save to try again.', 'warn');
+  };
+  const foot = h('div', { class: 'db-foot-start' }, reset, note);
+  const close = openModal('Database', body, [
+    { label: 'Close', onClick: () => { confirmClose(); return false; } },
+    { label: 'Apply', primary: true, onClick: () => { void applyAndSave(); return false; } },
+  ], () => {}, { wide: true, footStart: foot, cls: 'db-modal', beforeDismiss: () => { confirmClose(); return false; } });
+  /** Does the window hold changes the database doesn't have? (A trial commit, undone straight away.) */
+  function dirtyCheck(): boolean {
+    const snap = JSON.stringify(store.db), st = store as unknown as Record<string, unknown>;
+    st.checkpoint = () => {}; st.changedDb = () => {};
+    let r: 'same' | 'applied';
+    try { r = commit(); } finally { delete st.checkpoint; delete st.changedDb; }
+    if (r === 'same') return false;
+    const db = store.db as unknown as Record<string, unknown>, back = JSON.parse(snap) as Record<string, unknown>;
+    for (const k of Object.keys(db)) delete db[k];
+    Object.assign(db, back);
+    return true;
+  }
+  /** Closing with changes not applied yet: apply and save them, or let them go. */
+  function confirmClose(): void {
+    if (!dirtyCheck()) { close(); return; }
+    openModal('Unsaved changes', h('p', { class: 'modal-text' }, 'You have changes in the Database that aren’t applied yet.'), [
+      { label: 'Discard them', danger: true, onClick: () => close() },
+      { label: 'Keep editing' },
+      { label: 'Apply and save', primary: true, onClick: () => { void applyAndSave().then(() => close()); } },
+    ]);
+  }
 }
 
 /** A checkbox with no text (its label is for screen readers). */

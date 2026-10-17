@@ -11,6 +11,7 @@ import { AMBIENCE_NAMES, MUSIC_NAMES, SFX_LABELS, SFX_NAMES } from '../audio/syn
 import { loopChoices } from '../audio/sfx';
 import { additionList, classList, findAddition, findClass, findSpell, rankName, spellList, spellMaxRank } from '../game/abilities';
 import type { EditorStore } from './store';
+import { applyLook, parseRich, richHTML, setTextColors, textColors, type TextLook } from '../ui/richText';
 
 type Cmd = Command['cmd'];
 
@@ -449,12 +450,22 @@ export class CommandEditor {
       case 'text': {
         const ta = h('textarea', { rows: 4, class: 'text-area' });
         ta.value = d.text;
-        ta.addEventListener('input', () => (d.text = ta.value));
+        const td = d;
+        const previewBox = h('div', { class: 'msg cmd-msg-preview', 'aria-label': 'Preview' }, h('div', { class: 'msg-box' }, h('div', { class: 'msg-text' })));
+        ta.addEventListener('input', () => { d.text = ta.value; preview(); });
+        queueMicrotask(() => preview());
         const sp = textInput(d.speaker ?? '', (v) => (d.speaker = v.trim() || undefined), { list: 'dl-speakers', placeholder: 'Nobody (narration)' });
         sp.addEventListener('input', () => (d.speaker = sp.value.trim() || undefined));
-        return [field('Speaker', sp), field('Text', ta, 'Use new lines to break the text. \\v[name] shows a variable, \\s[name] a switch.'),
+        return [field('Speaker', sp), formatBar(ta, () => { d.text = ta.value; preview(); }), field('Text', ta, 'Use new lines to break the text. \\v[name] shows a variable, \\s[name] a switch. Select words and use the buttons above to bold or colour just them.'),
           field('Box', select([['auto', 'Automatic (speech bubble for characters, plain for signs and objects)'], ['speech', 'Speech bubble (with a tail)'], ['plain', 'Plain box (no tail)']],
-            d.bubble ?? 'auto', (v) => (d.bubble = v === 'auto' ? undefined : (v as 'speech' | 'plain'))), 'Players choose where boxes go (over the speaker, or fixed on screen) in Settings.')];
+            d.bubble ?? 'auto', (v) => (d.bubble = v === 'auto' ? undefined : (v as 'speech' | 'plain'))), 'Players choose where boxes go (over the speaker, or fixed on screen) in Settings.'),
+          ...lookFields(d, () => preview()), previewBox];
+        function preview(): void {
+          setTextColors(dbNow?.().textColors);
+          const t = previewBox.querySelector('.msg-text') as HTMLElement;
+          t.innerHTML = richHTML(parseRich(td.text || '…'));
+          applyLook(previewBox, td.look, t);
+        }
       }
       case 'choice': {
         const ta = h('textarea', { rows: 4 });
@@ -762,4 +773,55 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   };
   render();
   return wrap;
+}
+
+/** Buttons over a message's text: wrap the selected words in a style or colour tag (see ui/richText.ts). */
+function formatBar(ta: HTMLTextAreaElement, changed: () => void): HTMLElement {
+  const wrap = (open: string, close: string) => {
+    const a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a, sel = ta.value.slice(a, b) || 'text';
+    ta.value = ta.value.slice(0, a) + open + sel + close + ta.value.slice(b);
+    ta.focus();
+    ta.setSelectionRange(a + open.length, a + open.length + sel.length);
+    changed();
+  };
+  const btn = (label: string, title: string, tag: string, style = '') => h('button', { type: 'button', class: 'fmt-btn', title, style, onmousedown: (e: Event) => e.preventDefault(), onclick: () => wrap(`[${tag}]`, `[/${tag}]`) }, label);
+  const custom = h('input', { type: 'color', value: '#5ab8ff', title: 'Any colour: pick it, then click ◼', 'aria-label': 'Custom colour' }) as HTMLInputElement;
+  const named = textColors(dbNow?.().textColors).map((c) => h('button', { type: 'button', class: 'fmt-swatch', title: `${c.name}: [${c.id}]…[/${c.id}]`, style: `background:${c.color}`, onmousedown: (e: Event) => e.preventDefault(), onclick: () => wrap(`[${c.id}]`, `[/${c.id}]`) }));
+  return h('div', { class: 'fmt-bar', role: 'toolbar', 'aria-label': 'Style the selected words' },
+    btn('B', 'Bold', 'b', 'font-weight:900'), btn('I', 'Italic', 'i', 'font-style:italic'), btn('S', 'Strikethrough', 's', 'text-decoration:line-through'), btn('U', 'Underline', 'u', 'text-decoration:underline'),
+    btn('Glow', 'Glowing', 'glow'), btn('Outline', 'Outlined', 'outline'),
+    h('span', { class: 'fmt-sep' }), ...named,
+    h('span', { class: 'fmt-sep' }), custom,
+    h('button', { type: 'button', class: 'fmt-btn', title: 'Colour the selected words with the picked colour', onmousedown: (e: Event) => e.preventDefault(), onclick: () => wrap(`[color=${custom.value}]`, '[/color]') }, '◼'));
+}
+
+/** A message's own look (the same settings word bubbles have): off by default, so the window's style shows. */
+function lookFields(d: { look?: TextLook }, changed: () => void): HTMLElement[] {
+  const box = h('div', { class: 'look-fields' });
+  const draw = () => {
+    const l = d.look;
+    box.replaceChildren(checkbox('Give this message its own look', !!l, (v) => { if (v) d.look = { color: '#fff6dc', bubble: '#0e1222' }; else delete d.look; draw(); changed(); }));
+    if (!l) return;
+    const color = (value: string, set: (v: string) => void, label: string) => {
+      const i = h('input', { type: 'color', value, 'aria-label': label }) as HTMLInputElement;
+      i.addEventListener('input', () => { set(i.value); changed(); });
+      return i;
+    };
+    const tick = (label: string, on: boolean, set: (v: boolean) => void) => checkbox(label, on, (v) => { set(v); draw(); changed(); });
+    box.append(
+      h('div', { class: 'field-row bubble-colors' },
+        field('Text', color(l.color ?? '#fff6dc', (v) => (l.color = v), 'Text colour')),
+        field('Box', color(l.bubble ?? '#0e1222', (v) => (l.bubble = v), 'Box colour')),
+        field('Outline', color(l.outline ?? '#000000', (v) => (l.outline = v), 'Outline colour')),
+        field('Text size', numberInput(l.size ?? 21, (v) => { l.size = Math.max(8, Math.min(96, Math.round(v))); changed(); }, { min: 8, max: 96, step: 1 }))),
+      h('div', { class: 'checks' },
+        tick('See-through box (just the text)', !!l.transparent, (v) => (l.transparent = v || undefined)),
+        tick('Bold', !!l.bold, (v) => (l.bold = v || undefined)),
+        tick('Italic', !!l.italic, (v) => (l.italic = v || undefined)),
+        tick('Strikethrough', !!l.strike, (v) => (l.strike = v || undefined)),
+        tick('Outlined', !!l.outline, (v) => { if (v) l.outline ??= '#000000'; else delete l.outline; }),
+        tick('Glowing', !!l.glow, (v) => (l.glow = v || undefined))));
+  };
+  draw();
+  return [h('div', { class: 'section-label' }, 'Look'), box];
 }

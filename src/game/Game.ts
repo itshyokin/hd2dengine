@@ -14,6 +14,7 @@ import { fadeBuildings } from '../world/buildings';
 import { makeTexture, setMaxAnisotropy, setNormalMapsEnabled, unregisterNormalMap } from '../render/textures';
 import { DebugPanel } from '../ui/DebugPanel';
 import { MessageWindow, setTextSpeed } from '../ui/MessageWindow';
+import { setTextColors } from '../ui/richText';
 import { Fireflies } from '../world/Fireflies';
 import { Weather } from '../render/Weather';
 import { Atmosphere } from '../render/Atmosphere';
@@ -94,10 +95,13 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
+import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
+import { ELEMENT_LIST, ELEMENT_NAMES, elementResult } from './elements';
+import type { Element as Elem } from '../world/types';
 import { PartyScreen, type PartyAction, type PartyMemberView } from '../ui/PartyScreen';
 import { PauseShell } from '../ui/PauseShell';
 import { WorldMapScreen, type WorldMapMarker, type WorldMapPiece } from '../ui/WorldMapScreen';
-import { markerKinds } from '../world/landmarks';
+import { drawMarker, markerKinds } from '../world/landmarks';
 import { BubbleLayer } from '../ui/BubbleLayer';
 import { AchievementsScreen, type AchievementView } from '../ui/AchievementsScreen';
 import { AchievementToast } from '../ui/AchievementToast';
@@ -115,7 +119,7 @@ import { GameState } from './GameState';
 import { type Action, BINDINGS_VERSION, DEFAULT_BINDINGS, Input } from './Input';
 import { PlayerMotion } from './PlayerMotion';
 import { PlayerStats, configFromDb } from './stats';
-import { StatusBars } from '../ui/StatusBars';
+import { StatusBars, type HudWidget } from '../ui/StatusBars';
 import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
 import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } from './menus';
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
@@ -134,7 +138,7 @@ const INVENTORY_TABS: { id: BagFilter; label: string }[] = [
 /** The key the shared outdoor weather is kept under (events' changes, in the save). */
 const WORLD_WEATHER = '@world';
 /** The Journal's tabs. */
-const JOURNAL_TABS: ['quests' | 'log' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['records', 'Records']];
+const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['records', 'Records']];
 const INTERACT_RANGE = 1.3;
 
 type Start = { x: number; z: number; dir?: Dir };
@@ -283,6 +287,7 @@ export class Game {
   private log!: AdventureLog;
   private logScreen!: AdventureLogScreen;
   private recordsScreen!: RecordsScreen;
+  private bestiaryScreen!: BestiaryScreen;
   /** How long the player has pushed into a touch event they can't walk onto. */
   private bumpT = 0;
   /** Party members (saved) and their figures on this map, and the hero's trail they follow. */
@@ -386,6 +391,7 @@ export class Game {
     this.resolveFile = resolve;
     migrateMap(mapData);
     migrateItems(this.db);
+    setTextColors(this.db.textColors);
     this.sprites = new SpriteLibrary(new PropCatalog(assets));
     alignFootProps(mapData, (t) => this.sprites.def(t));
     this.tiles = new TileCatalog(assets);
@@ -600,6 +606,7 @@ export class Game {
     this.hud.logEl = this.log.el;
     this.logScreen = new AdventureLogScreen(this.ui, this.input);
     this.recordsScreen = new RecordsScreen(this.ui, this.input);
+    this.bestiaryScreen = new BestiaryScreen(this.ui, this.input);
     this.tracker = new QuestTracker(this.ui);
     this.hud.questEl = this.tracker.el;
     this.questScreen = new QuestLogScreen(this.ui, this.input);
@@ -839,6 +846,7 @@ export class Game {
       // Out of stamina: only walking (and crawling, so nobody gets stuck in a tunnel) until it refills.
       has: (a) => this.state.has(a) && (a === 'crawl' || !this.stats.exhausted),
       speed: this.stats.cfg.speed,
+      ledges: this.stats.cfg.ledges,
       waterWalk: () => this.rings.waterWalk,
       current: (cx, cz) => {
         const w = this.map.waterAt(cx, cz);
@@ -1411,12 +1419,12 @@ export class Game {
   private bindPointer(): void {
     // Three fingers at once on a touch screen: the developer console (no ` key on a tablet).
     this.canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 3 && this.devConsole.enabled) { e.preventDefault(); this.devConsole.toggle(); } }, { passive: false });
-    this.canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') this.showCursor(this.pick(e)); });
+    this.canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && this.settings.tapToWalk) this.showCursor(this.pick(e)); });
     this.canvas.addEventListener('pointerleave', () => (this.cursor.visible = false));
     this.canvas.addEventListener('pointerdown', (e) => {
       // While a message is up, a tap anywhere advances it.
       if (this.message.isOpen) { if (!this.message.isChoosing) this.input.press('ok'); return; }
-      if (this.interpreter.running) return;
+      if (this.interpreter.running || !this.settings.tapToWalk) return;
       const p = this.pick(e);
       if (!p) return;
       this.showCursor(p);
@@ -1509,7 +1517,7 @@ export class Game {
     this.updateFps(raw);
     const dt = Math.min(raw, 0.05);
     this.elapsed += dt;
-    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen;
+    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen;
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
@@ -1537,6 +1545,7 @@ export class Game {
       else if (this.creditsScreen.isOpen) this.creditsScreen.update(dt);
       else if (this.logScreen.isOpen) this.logScreen.update(dt);
       else if (this.recordsScreen.isOpen) this.recordsScreen.update(dt);
+      else if (this.bestiaryScreen.isOpen) this.bestiaryScreen.update();
       else if (this.questScreen.isOpen) this.questScreen.update();
       else if (this.arranger.isOpen) this.arranger.update(dt);
       else if (this.controls.isOpen) this.controls.update();
@@ -1626,6 +1635,8 @@ export class Game {
       return d ? { icon: this.itemIcon(d.id), name: d.name, count: this.inventory.count(d.id) } : null;
     }), [1, 2, 3].map((n) => this.input.label(`quick${n}` as Action)), this.quickDown());
     this.hud.setLevel(this.progress.level, this.progress.xp, this.progress.toNext);
+    this.hud.setSeason(this.season ?? '');
+    this.updateMinimap(dt);
     this.overlay.update(dt);
     this.hud.update(dt, this.stats, {
       time: this.time.label(this.settings.clock12), night: this.time.night, hour: this.time.hour,
@@ -1854,6 +1865,17 @@ export class Game {
     if (ok && !quiet) this.audio.play('save');
     if (!quiet || !ok) this.menu.notice(ok ? `Saved to ${slotLabel(slot)}` : 'Couldn’t save: the browser refused to store it');
     return ok;
+  }
+
+  /** Bug notes from the console (kept in this browser until downloaded and cleared). */
+  private bugNotes(): Record<string, unknown>[] {
+    try { const v = JSON.parse(localStorage.getItem('hd2d.bugNotes') ?? '[]') as unknown; return Array.isArray(v) ? v as Record<string, unknown>[] : []; } catch { return []; }
+  }
+  private saveBugNotes(list: Record<string, unknown>[]): void {
+    // Pictures are dropped from the oldest notes if the browser runs out of room.
+    for (let k = 0; k <= list.length; k++) {
+      try { localStorage.setItem('hd2d.bugNotes', JSON.stringify(list)); return; } catch { if (list[k]) delete list[k].shot; }
+    }
   }
 
   /** A small picture of the scene right now (no menus or HUD: they're not in the 3D view), for the save screen. */
@@ -3286,8 +3308,10 @@ export class Game {
 
   /** Put away whatever pause tab is showing (another tab is taking over, or the menu is closing). */
   private hidePauseScreens(): void {
-    this.partyScreen.hide(); this.bag.hide(); this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide();
+    this.partyScreen.hide(); this.bag.hide(); this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide(); this.bestiaryScreen.hide();
     this.worldMap.hide(); this.achScreen.hide();
+    // A page opened from a tab (a hero's Status, Equipment, Stats, Skill Tree) goes too when another tab is clicked.
+    this.statusScreen.hide(); this.equipScreen.hide(); this.charScreen.hide(); this.skillScreen.hide();
     this.menu.close();
   }
 
@@ -3423,6 +3447,70 @@ export class Game {
     if (this.exploreT > 0) return;
     this.exploreT = 0.3;
     this.exploredFor(this.mapName, this.mapData.width, this.mapData.height).reveal(this.motion.x, this.motion.z, 7);
+  }
+
+  /* ---------------------------------------------------------------- mini-map */
+
+  /** The current map drawn from above for the mini-map (redrawn when the map changes). */
+  private miniArt: { name: string; art: HTMLCanvasElement } | null = null;
+  private miniT = 0;
+
+  /**
+   * The HUD's round mini-map: north up, the hero in the middle, the map drawn like the world map (with the same
+   * fog where the world map has it), the map's markers and the party as dots.
+   */
+  private updateMinimap(dt: number): void {
+    const el = this.hud.minimap;
+    if (this.onTitle || !this.mapData || !this.motion || el.hidden || el.classList.contains('hud-off')) return;
+    if ((this.miniT -= dt) > 0) return;
+    this.miniT = 0.1;
+    const PX = 4;
+    if (this.miniArt?.name !== this.mapName) {
+      const style = { tile: (k: string) => this.tileColor(k), prop: (t: string) => propMark(this.sprites.def(t)) };
+      try { this.miniArt = { name: this.mapName, art: drawMapArt(this.mapData, this.tiles, style, PX) }; } catch { return; }
+    }
+    const c = this.hud.minimapCanvas, g = c.getContext('2d')!, S = c.width, zoom = 1.5, tile = PX * zoom;
+    const px = this.motion.x, pz = this.motion.z;
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = '#0b0e16';
+    g.fillRect(0, 0, S, S);
+    g.save();
+    g.translate(S / 2 - px * tile, S / 2 - pz * tile);
+    g.scale(zoom, zoom);
+    g.drawImage(this.miniArt.art, 0, 0);
+    g.restore();
+    // Fog: unexplored cells in view stay dark, as on the world map.
+    const view = Math.ceil(S / tile / 2) + 1, x0 = Math.floor(px) - view, z0 = Math.floor(pz) - view;
+    if (this.db.world?.explore !== false) {
+      const ex = this.exploredFor(this.mapName, this.mapData.width, this.mapData.height);
+      g.fillStyle = 'rgba(11, 14, 22, 0.92)';
+      for (let z = z0; z <= z0 + view * 2; z++)
+        for (let x = x0; x <= x0 + view * 2; x++)
+          if (!ex.has(x, z)) g.fillRect(Math.floor(S / 2 + (x - px) * tile), Math.floor(S / 2 + (z - pz) * tile), Math.ceil(tile), Math.ceil(tile));
+    }
+    const at = (x: number, z: number): [number, number] => [S / 2 + (x - px) * tile, S / 2 + (z - pz) * tile];
+    // The map's markers (where their switches allow).
+    const kinds = markerKinds(this.db.markers);
+    for (const e of this.mapData.events) {
+      const m = e.marker, k = m && kinds.find((x) => x.id === m.kind);
+      if (!m || !k || (m.switch && this.state.getSwitch(m.switch) === !!m.whenOff)) continue;
+      const [mx, mz] = at(e.x + Math.max(1, e.w ?? 1) / 2, e.z + Math.max(1, e.h ?? 1) / 2);
+      const r = S / 2 - 10, d = Math.hypot(mx - S / 2, mz - S / 2);
+      // Off the edge: pinned to the rim, pointing the way.
+      const k2 = d > r ? r / d : 1;
+      drawMarker(g, k.symbol, S / 2 + (mx - S / 2) * k2, S / 2 + (mz - S / 2) * k2, 7, k.color);
+    }
+    for (const a of this.allies) {
+      const [ax, az] = at(a.x, a.z);
+      g.fillStyle = a.down ? '#7a7f8f' : '#8fd0ff'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(ax, az, 3.5, 0, Math.PI * 2); g.fill(); g.stroke();
+    }
+    // The hero: an arrow the way they face.
+    const ang = ({ up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 } as Record<string, number>)[this.player.dir] ?? Math.PI / 2;
+    g.save(); g.translate(S / 2, S / 2); g.rotate(ang);
+    g.fillStyle = '#ffd23f'; g.strokeStyle = '#000'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(8, 0); g.lineTo(-6, -6); g.lineTo(-3, 0); g.lineTo(-6, 6); g.closePath(); g.stroke(); g.fill();
+    g.restore();
   }
 
   /* ---------------------------------------------------------------- achievements */
@@ -3628,6 +3716,26 @@ export class Game {
         run: (a) => (this.unlockAchievement(need(a[0], 'achievement'), true) ? 'Unlocked.' : 'Already unlocked, or no such achievement.') },
       { name: 'achievements_reset', help: 'Lock every achievement again (in this browser)', run: () => { this.achBook.reset(); return 'All achievements locked again.'; } },
       { name: 'explore_all', help: 'Reveal the whole world map', run: () => { for (const [n, p] of Object.entries(this.db.world?.maps ?? {})) { this.visited.add(n); this.exploredFor(n, p.w, p.h).reveal(p.w / 2, p.h / 2, Math.hypot(p.w, p.h)); } return 'The world map is revealed.'; } },
+      { name: 'bug', args: '<note…>', help: 'Note a bug here: map, tile, party and a picture (bugs: download the list)', run: (a) => {
+          const note = a.join(' ').trim();
+          if (!note) throw new Error('Write what went wrong: bug the door won’t open');
+          const list = this.bugNotes();
+          list.push({ when: new Date().toISOString(), note, map: this.mapName, x: Math.floor(this.motion.x), z: Math.floor(this.motion.z), height: this.map.step(Math.floor(this.motion.x), Math.floor(this.motion.z)),
+            hour: Math.round(this.time.hour * 100) / 100, party: [mainHero(this.db).name, ...this.members().map((m) => m.def.name)], level: this.progress.level, battle: this.battle.active || undefined, shot: this.captureShot() ?? undefined });
+          this.saveBugNotes(list);
+          return `Noted (${list.length} so far). Type bugs to download them, bugs clear to start over.`;
+        } },
+      { name: 'bugs', args: '[clear]', help: 'Download the bug notes (or clear them)', complete: () => ['clear'], run: (a) => {
+          const list = this.bugNotes();
+          if (a[0] === 'clear') { this.saveBugNotes([]); return `Cleared ${list.length} note${list.length === 1 ? '' : 's'}.`; }
+          if (!list.length) return 'No bug notes yet: bug <what went wrong>';
+          const url = URL.createObjectURL(new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' }));
+          const link = document.createElement('a');
+          link.href = url; link.download = `bug-notes-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.append(link); link.click(); link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          return `Downloaded ${list.length} note${list.length === 1 ? '' : 's'}.`;
+        } },
       { name: 'where', help: 'This map and tile', run: () => `${this.mapName} · ${Math.floor(this.motion.x)}, ${Math.floor(this.motion.z)} · height ${this.map.step(Math.floor(this.motion.x), Math.floor(this.motion.z))}` },
     ];
   }
@@ -3842,7 +3950,7 @@ export class Game {
 
   /** The Journal: quests, the adventure log and records, as tabs. */
   private openJournal(k: number, onClose: () => void = () => {}): void {
-    this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide();
+    this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide(); this.bestiaryScreen.hide();
     const m = this.db.menus, n = JOURNAL_TABS.length;
     k = ((k % n) + n) % n;
     this.journalTab = k;
@@ -3851,6 +3959,7 @@ export class Game {
     const id = JOURNAL_TABS[k][0];
     if (id === 'quests') this.questScreen.show(title, this.quests, { item: (i) => this.items.get(i)?.name ?? i }, onClose, tabs);
     else if (id === 'log') this.logScreen.show(title, this.log.history, onClose, tabs);
+    else if (id === 'bestiary') this.bestiaryScreen.show(title, this.bestiary(), onClose, tabs);
     else this.recordsScreen.show(title, this.records(), onClose, tabs);
   }
 
@@ -3859,6 +3968,31 @@ export class Game {
     // Inside the pause menu: these are inner tabs (LT / RT), LB / RB being the menu's own.
     if (this.pauseShell.isOpen) return this.pauseShell.group({ labels, index, keys: [this.input.label('subPrev'), this.input.label('subNext')], go });
     return { labels, index, keys: [this.input.label('tabPrev'), this.input.label('tabNext')], go };
+  }
+
+  /** The Journal's Bestiary: every enemy (but those left out), in the Database's order. */
+  private bestiary(): BestiaryEntry[] {
+    const B = this.combatCfg.bestiary, r = (k: string) => this.state.record(k);
+    const mapTitle = (n: string) => (n === this.mapName ? this.mapData?.name : this.worldTitles.get(n)) || n;
+    return (this.db.enemies ?? []).filter((d) => !d.noBestiary).map((d) => {
+      const won = r(`kill:${d.id}`), seen = won > 0 || r(`seen:${d.id}`) > 0;
+      const places = [...this.state.records].filter(([k, v]) => v > 0 && k.startsWith(`seenAt:${d.id}:`)).map(([k]) => mapTitle(k.slice(`seenAt:${d.id}:`.length)));
+      const v = Math.max(0, d.hpVariance ?? 0), hp = v ? `${Math.max(1, Math.round(d.hp * (1 - v / 100)))}–${Math.round(d.hp * (1 + v / 100))}` : String(d.hp);
+      const chip = (e: Elem) => ({ name: ELEMENT_NAMES[e], icon: elementIconUrl(e) });
+      const groups = { weak: [] as Elem[], resist: [] as Elem[], immune: [] as Elem[], absorb: [] as Elem[] };
+      for (const e of ELEMENT_LIST) {
+        const x = elementResult(e, d);
+        if (x.kind === 'absorb') groups.absorb.push(e); else if (x.kind === 'immune') groups.immune.push(e);
+        else if (x.mult > 1) groups.weak.push(e); else if (x.mult < 1) groups.resist.push(e);
+      }
+      const gate = <T,>(n: number, make: () => T): T | { need: number } => (won >= n ? make() : { need: n - won });
+      return {
+        id: d.id, name: d.name, seen, defeated: won, picture: this.enemyPicture(d).icon, description: d.description, places,
+        stats: gate(B.stats, () => ({ hp, attack: d.damage, defence: d.defense ?? 0, magicDefence: d.magicDefense ?? d.defense ?? 0, exp: d.xp, gold: d.gold ? (d.gold[0] === d.gold[1] ? `${d.gold[0]}` : `${d.gold[0]}–${d.gold[1]}`) : '0', boss: d.boss })),
+        elements: gate(B.elements, () => ({ weak: groups.weak.map(chip), resist: groups.resist.map(chip), immune: groups.immune.map(chip), absorb: groups.absorb.map(chip), attack: ELEMENT_NAMES[enemyElement(d) ?? 'neutral'] })),
+        drops: gate(B.drops, () => (d.drops ?? []).filter((x) => this.items.has(x.item)).map((x) => ({ name: this.items.get(x.item)!.name, icon: this.itemIcon(x.item), chance: x.chance }))),
+      };
+    });
   }
 
   /** The Journal's Records: the tallies, in sections. */
@@ -4158,8 +4292,11 @@ export class Game {
       const d = x.def, pic = this.enemyPicture(d), k = seen.get(d.id) ?? 0;
       seen.set(d.id, k + 1);
       const name = (counts.get(d.id) ?? 0) > 1 ? `${d.name} ${String.fromCharCode(65 + k)}` : d.name;
+      // Health rolled either side of the database's (Health ± %), so no two slimes are quite the same.
+      const v = Math.max(0, Math.min(0.9, (d.hpVariance ?? 0) / 100)), maxHp = Math.max(1, Math.round(d.hp * (1 - v + Math.random() * 2 * v)));
+      const hp = x.hp >= d.hp ? maxHp : Math.min(maxHp, x.hp);
       const battler: Battler = {
-        key: `e${i}`, side: 'enemy', name, hp: Math.max(1, x.hp), maxHp: Math.max(1, d.hp), mp: 0, maxMp: 0,
+        key: `e${i}`, side: 'enemy', name, hp: Math.max(1, hp), maxHp, mp: 0, maxMp: 0, spread: (d.damageVariance ?? 10) / 100,
         attack: d.damage, attackElement: enemyElement(d), attackMagic: d.attackType === 'magic',
         armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), baseAgility: enemyAgility(d), crit: 5,
         defence: d, spells: [], ct: 0, guarding: false, boss: d.boss,
@@ -4171,6 +4308,8 @@ export class Game {
     });
     if (stageData) this.openStage(stageData, specs);
     this.audio.play('crit');
+    // The Bestiary: each kind met, and where.
+    for (const id of new Set(list.map((x) => x.def.id))) { this.state.tally(`seen:${id}`); if (this.mapName) this.state.tally(`seenAt:${id}:${this.mapName}`); }
     this.battle.start(entries, this.combatCfg.turnBased, opening, { canRun: rules.canRun });
   }
 
@@ -4613,8 +4752,9 @@ export class Game {
     for (const a of this.allies) a.update(dt, host);
     if (this.calmFor > 2.5) for (const a of this.allies) if (a.data.pendingXp) this.allyXp(a);
     // Condensed hero bars (Settings → HUD): the hero's card leads the party's.
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: this.progress.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, sp: this.stats.sp, maxSp: this.stats.cfg.max.sp, down: false }] : [];
-    this.hud.setParty([...heroCard, ...this.allies.map((a) => { const n = this.allyNumbers(a.data, a.def); return { name: a.def.name, level: a.data.level, face: a.def.face ? this.resolveFile(a.def.face) : this.memberPortrait(a.def), hp: a.data.hp, maxHp: n.max.hp, mp: a.data.mp, maxMp: n.max.mp, down: a.down }; })]);
+    const pr = this.progress;
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false }] : [];
+    this.hud.setParty([...heroCard, ...this.allies.map((a) => { const n = this.allyNumbers(a.data, a.def); return { name: a.def.name, level: a.data.level, face: a.def.face ? this.resolveFile(a.def.face) : this.memberPortrait(a.def), hp: a.data.hp, maxHp: n.max.hp, mp: a.data.mp, maxMp: n.max.mp, xp: a.data.xp, toNext: xpToNext(this.combatCfg, a.data.level), down: a.down }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -4750,6 +4890,7 @@ export class Game {
       { label: 'Sneak / crouch', detail: 'Hold: sneak while the button is held. Toggle: press once to start, again to stop.', choice: { value: st.crouch, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('crouch')(v as Settings['crouch']) } },
       { label: 'Sprint', detail: 'Hold: run while the run button is held (X on a controller, Shift on a keyboard). Toggle: press once to start running, again to stop (controller and touch button).', choice: { value: st.sprint, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('sprint')(v as Settings['sprint']) } },
       { label: 'Run with a full stick push', detail: 'Controller: push the stick all the way to run.', toggle: { value: st.stickRun, set: set('stickRun') } },
+      { label: 'Tap to walk', detail: 'Tap or click the ground to walk there, or a person to go and talk to them.', toggle: { value: !!st.tapToWalk, set: (v) => { set('tapToWalk')(v || undefined); if (!v) { this.cursor.visible = false; this.moveTarget = null; } } } },
       { label: 'Clock', choice: { value: st.clock12 ? '12' : '24', options: [['24', '24-hour'], ['12', '12-hour']], set: (v) => set('clock12')(v === '12') } },
     ], { note: 'Left / right change a setting.' });
     const controls = () => this.controls.show(this.input.current, (b) => { st.bindings = b; st.bindingsVersion = BINDINGS_VERSION; this.applySettings(); this.settingsStore.save(st); }, () => {});
@@ -4762,11 +4903,14 @@ export class Game {
       { label: 'Hero bars', detail: 'Long: across the top. Condensed: a card like the party’s (with them).', choice: { value: st.hud?.stats?.compact ? 'compact' : 'long', options: [['long', 'Long'], ['compact', 'Condensed']], set: (v) => piece('stats', { compact: v === 'compact' || undefined }) } },
       { label: 'Show hero bars', toggle: { value: !st.hud?.stats?.hidden, set: (v) => piece('stats', { hidden: v ? undefined : true }) } },
       { label: 'Show party bars', toggle: { value: !st.hud?.party?.hidden, set: (v) => piece('party', { hidden: v ? undefined : true }) } },
+      { label: 'Stamina ring', detail: 'A green ring that shows while stamina is used and fades once it’s full.', toggle: { value: !st.hud?.stamina?.hidden, set: (v) => piece('stamina', { hidden: v ? undefined : true }) } },
+      { label: 'Mini-map', detail: 'A round map of where you are, under the clock.', toggle: { value: !st.hud?.minimap?.hidden, set: (v) => piece('minimap', { hidden: v ? undefined : true }) } },
+      { label: 'Season picture', detail: 'Blossom, sun, falling leaves or snow behind the clock.', toggle: { value: st.hud?.clock?.art !== false, set: (v) => piece('clock', { art: v ? undefined : false }) } },
       { label: 'Faces', detail: 'Faces beside the hero’s and the party’s bars.', toggle: { value: !!st.hud?.party?.face, set: (v) => { piece('stats', { face: v || undefined }); piece('party', { face: v || undefined }); } } },
       { label: 'Put the HUD back', detail: 'Default places and sizes.', pick: () => { delete st.hud; this.applySettings(); this.settingsStore.save(st); this.menu.notice('HUD reset'); } },
     ]);
     // Change one piece's style (Settings → HUD), keeping where it was put.
-    const piece = (w: 'stats' | 'party', change: Record<string, unknown>) => {
+    const piece = (w: HudWidget, change: Record<string, unknown>) => {
       const hud = (st.hud ??= {}), p = { ...(hud[w] ?? {}), ...change } as Record<string, unknown>;
       for (const k of Object.keys(p)) if (p[k] === undefined) delete p[k];
       if (Object.keys(p).length) hud[w] = p; else delete hud[w];

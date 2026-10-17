@@ -51,6 +51,8 @@ export class CharacterScreen {
   }
 
   private close(): void { this.open = false; this.root.hidden = true; uiSound('menuBack'); this.onClose(); }
+  /** Put away without going back (another pause tab was picked). */
+  hide(): void { this.open = false; this.root.hidden = true; }
 
   update(): void {
     if (!this.open) return;

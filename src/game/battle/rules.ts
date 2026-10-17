@@ -66,6 +66,8 @@ export interface Battler {
   baseAgility: number;
   /** Critical hit chance, %. */
   crit: number;
+  /** How much its hits vary either side (0.1 = ±10%, the default). */
+  spread?: number;
   defence: ElementalDefence;
   spells: BattleSpell[];
   /** CTB: ticks until this fighter's next turn. */
@@ -183,10 +185,11 @@ export interface HitResult {
 }
 
 /** One hit: element, a little spread, a critical, defence (or magic defence), guarding, then the damage scale. */
-export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit'>, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
+export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'>, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
   const el = elementResult(element, target.defence);
   if (el.kind === 'immune') return { kind: 'immune', amount: 0, crit: false, label: null };
-  let dmg = power * scale * (0.9 + rng() * 0.2);
+  const sp = Math.max(0, Math.min(0.9, by.spread ?? 0.1));
+  let dmg = power * scale * (1 - sp + rng() * 2 * sp);
   if (el.kind === 'absorb' && !target.status.zombie) return { kind: 'absorb', amount: finalDamage(dmg), crit: false, label: null };
   const mult = el.kind === 'hit' ? el.mult : 1;
   dmg *= mult;

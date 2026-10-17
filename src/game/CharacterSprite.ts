@@ -211,7 +211,7 @@ export class CharacterSprite {
     list.forEach((w, i) => {
       const make = (side: 'back' | 'front') => {
         const g = new THREE.PlaneGeometry(1, 1);
-        const n = g.attributes.normal, base = this.mesh.geometry.attributes.normal;
+        const n = g.attributes.normal as THREE.BufferAttribute, base = this.mesh.geometry.attributes.normal as THREE.BufferAttribute;
         for (let k = 0; k < n.count; k++) n.setXYZ(k, base.getX(0), base.getY(0), base.getZ(0));
         const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: w.map, alphaTest: 0.5, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }), false);
         const m = new THREE.Mesh(g, mat);
@@ -325,7 +325,7 @@ export class CharacterSprite {
     if (o.trail && key !== o.last[side]) {
       if (o.last[side]) {
         const hist = o.history[side];
-        hist.unshift({ pos: Float32Array.from(g.attributes.position.array as Float32Array), uv: Float32Array.from(g.attributes.uv.array as Float32Array), t: performance.now() / 1000 });
+        hist.unshift({ pos: Float32Array.from((g.attributes.position as THREE.BufferAttribute).array as Float32Array), uv: Float32Array.from((g.attributes.uv as THREE.BufferAttribute).array as Float32Array), t: performance.now() / 1000 });
         hist.length = Math.min(hist.length, o.echoes[side].length);
       }
       o.last[side] = key;

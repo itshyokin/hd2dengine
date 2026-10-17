@@ -2,8 +2,8 @@
  * Keyboard and controller input with "held" and "just pressed" states, mapped to game actions.
  *
  * Bindings belong to the player (Settings → Controls) and can be changed. Menus always also answer to the
- * arrow keys, Enter and Escape, and on a controller to the D-pad / left stick, A (confirm), B (back) and
- * LB / RB (switch tabs), whatever the field bindings are. Pointer / touch input is handled by the Game.
+ * arrow keys, Enter and Escape, and on a controller to the D-pad / left stick, A (confirm), B (back), X / Y
+ * (screen extras) and LB / RB (switch tabs), whatever the field bindings are. Pointer / touch input is handled by the Game.
  */
 export type Action = 'up' | 'down' | 'left' | 'right' | 'ok' | 'cancel' | 'run' | 'jump' | 'ring'
   | 'melee' | 'bow' | 'magic' | 'attack' | 'switchWeapon' | 'block' | 'lock' | 'target' | 'targetPrev' | 'sneak'
@@ -62,7 +62,8 @@ const MENU_KEYS: Record<string, Action> = {
   KeyZ: 'subPrev', KeyC: 'subNext', BracketLeft: 'subPrev', BracketRight: 'subNext',
 };
 /** Controller buttons menus always understand. */
-const MENU_PAD: Record<number, Action> = { 0: 'ok', 1: 'cancel', 9: 'cancel', 8: 'cancel', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 4: 'tabPrev', 5: 'tabNext', 6: 'subPrev', 7: 'subNext' };
+// X and Y give menus their extra buttons (Y deletes a save, swaps lists, rerolls; X cycles options).
+const MENU_PAD: Record<number, Action> = { 0: 'ok', 1: 'cancel', 2: 'run', 3: 'switchWeapon', 9: 'cancel', 8: 'cancel', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 4: 'tabPrev', 5: 'tabNext', 6: 'subPrev', 7: 'subNext' };
 /** Bumped when the default controller layout changes, so old saved layouts are replaced. */
 export const BINDINGS_VERSION = 2;
 

@@ -48,6 +48,9 @@ export class SkillTreeScreen {
 
   get isOpen(): boolean { return this.open; }
 
+  /** Put away without going back (another pause tab was picked). */
+  hide(): void { this.open = false; this.root.hidden = true; }
+
   show(onClose: () => void): void {
     this.open = true;
     this.onClose = onClose;

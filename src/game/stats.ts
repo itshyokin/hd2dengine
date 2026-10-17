@@ -3,6 +3,7 @@
  * exhaustion and drowning. No three.js, so it can be tested on its own.
  */
 import type { Database, Gauge, PlayerConfigData } from '../world/types';
+import { DEFAULT_LEDGES, type LedgeRules } from './PlayerMotion';
 
 export interface PlayerConfig {
   max: Record<Gauge, number>;
@@ -13,6 +14,7 @@ export interface PlayerConfig {
   recoverPercent: number;
   regenDelay: number;
   drownDamage: number;
+  ledges: LedgeRules;
 }
 
 export const DEFAULT_PLAYER: PlayerConfig = {
@@ -25,6 +27,7 @@ export const DEFAULT_PLAYER: PlayerConfig = {
   recoverPercent: 30,
   regenDelay: 0.8,
   drownDamage: 10,
+  ledges: { ...DEFAULT_LEDGES },
 };
 
 /** The database's settings with defaults filled in. */
@@ -39,6 +42,7 @@ export function playerConfig(data?: PlayerConfigData): PlayerConfig {
     recoverPercent: s.recoverPercent ?? d.recoverPercent,
     regenDelay: s.regenDelay ?? d.regenDelay,
     drownDamage: s.drownDamage ?? d.drownDamage,
+    ledges: { ...d.ledges, ...s.ledges },
   };
 }
 

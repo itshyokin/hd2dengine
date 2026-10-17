@@ -63,9 +63,9 @@ export function canvasCopy(src: HTMLCanvasElement, cls = 'thumb'): HTMLCanvasEle
 export interface ModalAction { label: string; primary?: boolean; danger?: boolean; onClick?: () => boolean | void }
 
 /** Opens a modal. An action returning false keeps the modal open. Returns a close function. */
-export function openModal(title: string, body: Node, actions: ModalAction[], onDismiss?: () => void, opts: { wide?: boolean; footStart?: Node } = {}): () => void {
+export function openModal(title: string, body: Node, actions: ModalAction[], onDismiss?: () => void, opts: { wide?: boolean; footStart?: Node; cls?: string; /** Esc, ✕ or a click outside: return false to keep it open. */ beforeDismiss?: () => boolean } = {}): () => void {
   const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); };
-  const dismiss = () => { close(); onDismiss?.(); };
+  const dismiss = () => { if (opts.beforeDismiss?.() === false) return; close(); onDismiss?.(); };
   const onKey = (e: KeyboardEvent) => {
     // Only the topmost dialog answers (Esc in a command's settings mustn't close the event window under it too).
     const all = document.querySelectorAll('.overlay');
@@ -74,7 +74,7 @@ export function openModal(title: string, body: Node, actions: ModalAction[], onD
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(actions.find((a) => a.primary)); }
   };
   const run = (a?: ModalAction) => { if (!a) return; if (a.onClick?.() === false) return; close(); };
-  const dialog = h('div', { class: `modal${opts.wide ? ' wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+  const dialog = h('div', { class: `modal${opts.wide ? ' wide' : ''}${opts.cls ? ` ${opts.cls}` : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('header', { class: 'modal-head' }, h('h2', {}, title), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: dismiss }, '✕')),
     h('div', { class: 'modal-body' }, body),
     h('footer', { class: 'modal-foot' }, opts.footStart ?? null, ...actions.map((a) =>

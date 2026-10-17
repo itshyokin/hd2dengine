@@ -237,6 +237,13 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
 
 - **Save** (Ctrl+S) writes `public/data/maps/<map>.json` (and `database.json` when the player start or
   starting hour or abilities changed). A hosted or preview copy that can't reach your project offers an export instead.
+- **Database** (toolbar): fills the screen and stays the same size on every tab. The tabs are icons in groups
+  (People, Items, Battle, Story, World, System): hover one for its name; the open tab's name shows at the right.
+  **Apply** puts the changes into the project **and saves `database.json`** straight away: "Changes saved. It's
+  safe to close the Database." shows at the bottom left for a few seconds (or "No changes to save"). The window
+  stays open; **Close** with changes not applied asks whether to apply and save them or let them go. Every list
+  (items, heroes, enemies, troops, quests, spells, Additions, classes, skills, achievements) has a red **Delete**
+  under **+ New**, which asks "Are you sure you wish to delete …?" first (and warns again if it's used elsewhere).
 - **▶ Playtest** opens the game in a new tab with the map exactly as it is in the editor, unsaved changes included.
   Under the dev server you can also open a saved map directly with `index.html?map=map002`.
 - **Layers** (1–7): Terrain, Height, Passage, Props, Lights, Events, Buildings. Objects from other layers are dimmed.
@@ -326,8 +333,11 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   and the water's inner corners are filled round, with a natural wobble (the cliff wall curves with them), and water at a bank's level
   laps a little over it. This only applies where flat ground meets water; other cliffs keep square corners.
 - In the game the player walks up ramps, stairs and corner slopes, can jump up one step, and climbs only walls marked Climbable
-  (Passage layer). Walking off a ledge up to a tile high (one or two steps) the hero **hops down** by themselves
-  after a moment's push (not off climbable walls, which are climbed down, or into deep water). From a bank they can walk straight into water at the bank's level, wade, or swim. Props, events
+  (Passage layer): walking into one starts the climb at once, even with the stick held a little off straight.
+  **Database → Player → Ledges** decides what happens at a drop: **Walk off, except into pits** (the default: the
+  hero walks straight off any edge and drops to the ground below, except into cells whose height is between the two
+  numbers, -10 to -5 steps by default, whose edges stay walls), **Walk off any ledge**, or **Collision** (drops are
+  walls; a jump still comes down up to two steps). Never off climbable walls (they're climbed down) or into deep water. From a bank they can walk straight into water at the bank's level, wade, or swim. Props, events
   and lights stand on the ground at whatever height it is.
 
 ### Time, night and map lighting
@@ -356,8 +366,8 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Continue** (the latest save; greyed out without one), **New Game**, **Load Game**, **Options**, **Exit**.
 - **Database → Title & menus**: the game title, the title shown on screen and a subtitle; rename or hide each title
   option and each pause menu entry; *Skip the title screen in playtests* for quick testing.
-- **Pause menu** (Esc / Start): one frame in the middle of the screen (the same size for every tab, sized to the
-  Party cards), with its tabs (all the same size) across the top: **Party · Items · Map ·
+- **Pause menu** (Esc / Start): one frame from the top of the screen to the bottom (the same size for every tab),
+  with its tabs (all the same size) across the top: **Party · Items · Map ·
   Journal · Achievements · Settings · System**. **LB / RB** (Q / E) move between the tabs; tabs inside a tab (the
   bag's pockets, the Journal's pages) move with **LT / RT** (Z / C). The bottom line shows where you are, the time
   played and your gold. The HUD steps aside while it's open. Map shows once there's a World layout, Achievements
@@ -369,28 +379,55 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   have more than one) and **Swap**: the rest of the party appears (Legend of Dragoon style), pick who takes this card's
   place. Anyone can be swapped out, the hero too (they still lead on the map; the others fighting follow them).
   **Database → Combat → The hero always fights** keeps the hero in the three. Anyone with points to spend has a gold
-  outline and a **LEVEL UP** badge.
+  outline and a **LEVEL UP** badge; the selected card has an arrow above and below it, pointing at it.
 - **Map**: the world map (Pokémon Gold / Silver style), drawn from your maps themselves and laid out as in the
-  **World layout** (Map editor toolbar → **World**). Scroll with the arrows / stick or by dragging, zoom with LT / RT
-  (Z / C, or the mouse wheel), Space comes back to you (the red pin). Place names show over towns and landmarks.
+  **World layout** (Map editor toolbar → **World**). The **stick glides** across it (faster the further it's pushed);
+  the **D-pad** (arrow keys) moves the crosshair **one tile** a press, repeating while held, to fine-tune; or drag it.
+  Zoom with LT / RT (Z / C, or the mouse wheel), nine steps, up close to whole regions. **A** (Enter / Space) jumps
+  to the next marker and **Y** (R) to the previous one, starting at you (the red pin), nearest first. Place names show over towns and landmarks.
   A **crosshair** sits in the middle: move it over the hero, a marker or a place name for its **tooltip** (with a
   mouse, the tooltip follows the pointer). **Event markers** (below) show as stars, circles, skulls…; an area event's
   whole area is outlined in its marker's colour, with the symbol in the middle.
   The World layout's **Places not visited yet** setting: *hidden*, *greyed out* or *fully visible*; and **Explore**:
   in maps visited, only the ground walked near shows (the rest stays under a dark fog) — mix them as you like.
-- **Achievements**: each with its icon, name, description and points (Xbox-style G), locked ones greyed with how far
-  along they are, hidden ones as "???" until unlocked; your total at the top.
+- **Journal**: Quests, Adventure Log, **Bestiary** and Records (LT / RT). The **Bestiary** lists every enemy (the
+  Database's order, numbered), the ones not met yet as "???". Each shows its picture, its description (Database →
+  Enemies → Bestiary), the maps it was met on and how many were defeated; its numbers (HP, attack, defences, EXP,
+  gold), its elements (weak to, resists, immune to, absorbs, and what it attacks with) and its drops show once enough
+  of its kind have been defeated (Database → Combat → Bestiary: 1, 3 and 5 by default). *Leave it out of the
+  Bestiary* hides an enemy (a training dummy, a story-only foe).
+- **Achievements**: each with its icon, name, description and points (Xbox-style G), the newest unlocks at the top,
+  then the rest unlocked, then locked ones (greyed, with how far along they are) closest first; hidden ones as "???"
+  until unlocked; your total at the top.
 - **Playtest panel**: drag the *2.5D Engine* panel by its title bar to move it anywhere (remembered in this browser).
-- **HUD**: level, magic, health and stamina (all the same size) across the top; the clock and readied shard top right;
-  the selected weapon top left; party members under it; EXP along the bottom. A hit shakes the bar and flashes the screen edges red, and
+- **HUD**: level, magic, health and EXP (all the same size) across the top; the clock and readied shard top right,
+  with a little picture of the season behind it (blossom, sun, falling leaves, snow; Settings → HUD → Season
+  picture) and a round **mini-map** under it (north up, you in the middle, drawn like the world map with the same fog,
+  the map's markers, party members as dots); the selected weapon top left; a card per party member under it (face,
+  name, HP, MP and EXP); EXP along the bottom; and **stamina** as a green ring with a dash icon (Halo Reach style),
+  shown while stamina is used and fading out a moment after it's full again (orange when it ran out). A hit shakes the bar and flashes the screen edges red, and
   below 30% health the edges pulse red. **Settings → HUD → Arrange and resize** lets each player drag the pieces
   anywhere (or pick one with Q / E or LB / RB and move it with the arrows / stick) and change their size; it's saved
-  per player. The stats and the **party members** (their own piece) can have their bars **side by side or stacked**
-  (Y / R) and show **faces** (X / Shift: the hero's where the level is, each member's left of their name); the
+  per player. While arranging, the pause menu steps aside and comes back on the same tab afterwards. Each party card is
+  a piece of its own (first, second, third card: by place, so swapping people doesn't scatter them), and so are the
+  stamina ring and the mini-map. The stats can have their bars **side by side or stacked** (Y / R) and show
+  **faces** (X / Shift: the hero's where the level is; the first party card's setting goes for every card); the clock's
+  season picture turns on and off with Y / R; the
   adventure log can have **one box** behind it, a strip behind each line, or **no background** (Y / R). In playtests the debug panel sits under the weapons and can be hidden.
 - **Text boxes**: by default a speech bubble over whoever is talking, sized to the text, with a tail pointing at
   characters (signs and objects get a plain box). **Settings → Gameplay → Text boxes**: above speaker, below speaker,
   top, bottom or centre of the screen. The Show text command can force a speech bubble or a plain box.
+- **Styled words**: tags colour or style just some words in a message, a choice or a word bubble: `[b]bold[/b]`,
+  `[i]italic[/i]`, `[s]struck through[/s]`, `[u]underlined[/u]`, `[glow]glowing[/glow]`, `[outline]outlined[/outline]`,
+  `[color=#5ab8ff]any colour[/color]`, and the **named colours** of **Database → Text colours** (Names blue, Places
+  green, Items gold, Danger red, and any you add): `[name]Lord Varn[/name]`. Change a named colour once and every
+  message follows. The typewriter skips the tags, so they never show half-typed. In the Show text window, select
+  words and click **B**, **I**, **S**, **U**, **Glow**, **Outline**, a colour dot or ◼ (the picked colour) to wrap them.
+- **A message's own look** (Show text → *Give this message its own look*): text and box colours, text size, bold,
+  italic, strikethrough, an outline (and its colour), a glow, and a see-through box (just the text): the same
+  settings as word bubbles, with a preview.
+- **Tap to walk** (tap or click the ground to walk there, or a person to go and talk to them) is off unless the player
+  turns it on in Settings → Gameplay (or the title's Options); tablets have the on-screen stick.
 - **Settings** (the title's Options and the pause menu's Settings are the same screen): **Picture** (brightness,
   bloom, depth of field, shadows, lamp/fire shadows, detailed lighting), **Sound** (music, effects, background
   volumes), **HUD** (arrange and resize), **Controls** (keyboard and controller bindings) and **Gameplay** (text boxes, text speed,
@@ -429,6 +466,7 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   any short text, **above** the event, **on** it or **at its feet**. Set the text and bubble colours, bold, italic,
   strikethrough, an outline (and its colour), a glow, the text size and the bubble's size, and whether it bobs.
   **See-through bubble** shows only the text (a floating gold "!", World of Warcraft style).
+- Its text can use the same style tags as messages (`Hello [name]Varn[/name]!`).
 - It shows while that page is the one showing, so quest givers use pages: one with "!" while the quest can be taken
   (Condition → Quest not started), one with "?" when it's ready to hand in (Condition → Quest ready to hand in).
   Bubbles hide in menus, battles and on the title screen.
@@ -465,7 +503,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   `speed <×>`, `unlock_skills [hero|all]`, `teleport <map> [x z]`, `time <hour>`, `weather <kind> [amount]`,
   `season <name|auto>`, `battle <troop|enemies…>`, `win_battle`, `switch <name> <on|off>`, `var <name> <value>`,
   `debug_menu <show|hide>` (the playtest panel), `fps`, `hud <on|off>` (screenshots), `achievement <id>`,
-  `achievements_reset`, `explore_all`, `where`.
+  `achievements_reset`, `explore_all`, `where`, `bug <what went wrong>` (notes the map, tile, height, time, party,
+  level and a small picture, kept in this browser) and `bugs` (downloads every note as a `.json`; `bugs clear` starts
+  over): handy for playtesting.
 - **Database → Title & menus → Developer console**: in playtests only (default), always, or never.
 - The **Run console command** event command runs any of them from an event (handy for test events).
 
@@ -607,6 +647,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   and the enemies near it (*Enemies who join*, up to *Most enemies in a battle*). Hitting it first on the map, with a
   sword, an arrow or a spell, gives the party the first turns (*You caught … off guard!*); being hit from behind is an
   **ambush** (the enemies go first). Stealth still matters: sneak up on an enemy to strike first.
+- **Damage and health vary**: every hit varies a little (Database → Enemies → *Damage ± %*, 10 by default) and is
+  then cut down by the target's Defence (or Magic Defence for magic) and guarding. *Health ± %* rolls each enemy's
+  health either side of its Health, so no two slimes are quite the same.
+- **On the battle map** every fighter shows the frame for the camera's direction (from behind the party: three backs,
+  never two backs and a side view), and ambient occlusion leaves the fighters alone (no shaded box around them).
 - **Random battles**: paint encounter zones on a map's **Spawns** layer and give each zone its troops (below). Maps
   made before zones may still have an older *random encounters* list (shown in map settings → Random battles, with a
   button to remove it); it only applies outside painted zones. Works alongside enemies placed on the map.

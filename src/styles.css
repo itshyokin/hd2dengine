@@ -1349,7 +1349,7 @@ body.in-battle.staged-battle #view { filter: none; }
 body.ui-dim :is(.hud-top, .hud-side, .hud-xp, .hud-weapons, .hud-quick, .hud-party, .hud-quest, .hud-status, .touch-controls, .loot-feed, .combat-overlay) { opacity: 0 !important; transition: none; }
 
 /* ---------------- Pause menu (update 48): a frame over most of the screen, tabs across the top ---------------- */
-:root { --ps-w: min(980px, calc(100vw - 24px)); --ps-h: min(580px, calc(100vh - 24px)); --ps-x: calc((100vw - var(--ps-w)) / 2); --ps-y: calc((100vh - var(--ps-h)) / 2); }
+:root { --ps-w: min(1120px, calc(100vw - 24px)); --ps-h: calc(100vh - 28px); --ps-x: calc((100vw - var(--ps-w)) / 2); --ps-y: calc((100vh - var(--ps-h)) / 2); }
 .pause-shell { position: fixed; left: var(--ps-x); top: var(--ps-y); width: var(--ps-w); height: var(--ps-h); box-sizing: border-box; z-index: 7; border-radius: 18px; background: #0b0d16;
   border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 100vmax rgba(4, 5, 10, 0.55); display: flex; flex-direction: column; pointer-events: auto; }
 .ps-bar { display: flex; align-items: center; gap: 4px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); overflow-x: auto; scrollbar-width: none; }
@@ -1374,6 +1374,12 @@ body.pause-open .inv > .inv-box { max-width: 100%; }
   border: 1px solid rgba(255,255,255,0.1); background: linear-gradient(180deg, color-mix(in srgb, var(--hero, #6a7390) 16%, transparent), rgba(255,255,255,0.025) 55%); cursor: pointer; }
 .pc-card.sel { border-color: var(--ember); box-shadow: 0 0 0 2px rgba(255,176,74,0.35); }
 .pc-card.lvlup { border: 2px solid #f2c64a; }
+/* The selected card: an arrow above and below pointing at it (a level-up outline alone made it hard to tell). */
+.pc-card.sel::before, .pc-card.sel::after { content: ''; position: absolute; left: 50%; width: 0; height: 0; margin-left: -10px; border: 10px solid transparent; z-index: 3; pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.6)); animation: pc-point 1.1s ease-in-out infinite; }
+.pc-card.sel::before { top: -16px; border-bottom: 0; border-top: 12px solid var(--ember); }
+.pc-card.sel::after { bottom: -16px; border-top: 0; border-bottom: 12px solid var(--ember); --dir: -1; }
+@keyframes pc-point { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(3px * var(--dir, 1))); } }
 .pc-card.down .pc-art img { filter: grayscale(1) brightness(0.6); }
 .pc-art { flex: 1 1 auto; min-height: 90px; display: grid; place-items: center; border-radius: 10px; overflow: hidden;
   background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.1), rgba(0,0,0,0.3)); }
@@ -1400,6 +1406,9 @@ body.pause-open .inv > .inv-box { max-width: 100%; }
 @media (max-width: 640px) { .pc-cards { gap: 8px; } .pc-card { padding: 8px; } .pc-name b { font-size: 14px; } }
 /* The HUD steps aside while the pause menu is up. */
 body.pause-open :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-quick, .hud-quest, .hud-status, .adv-log, .hud-vignette) { visibility: hidden; }
+/* Arranging the HUD from the pause menu: the menu steps aside (and comes back on the same tab afterwards). */
+body.hud-arranging .pause-shell, body.hud-arranging .inv { display: none !important; }
+body.pause-open.hud-arranging :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-quick, .hud-quest, .hud-status, .adv-log) { visibility: visible; }
 body.pause-open .inv > *, body.pause-open .menu > .menu-box { box-sizing: border-box; max-height: 100%; min-height: 0; }
 body.pause-open .inv:has(> .inv-party) { align-items: flex-start; }
 body.pause-open .inv-party { flex: none; max-height: 100%; }
@@ -1473,11 +1482,13 @@ body.pause-open .inv:has(> .inv-party) > .inv-box { width: auto; flex: 1 1 auto;
 body.pause-open .inv:has(> .inv-party) { flex-direction: column; align-items: stretch; }
 body.pause-open .inv-party { order: 0; width: 100%; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); }
 body.pause-open .pc-box { width: 100%; }
-body.pause-open .pc-cards { padding-top: 14px; }
+body.pause-open .pc-cards { padding-top: 20px; padding-bottom: 18px; }
 body.pause-open .pc-box { gap: 8px; }
 .pc-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; }
 .pc-foot .menu-note { margin: 0; text-align: right; }
-.ps-tab { padding: 9px 6px; gap: 6px; font-size: 12px; letter-spacing: 0.02em; }
+.ps-tab { padding: 0 6px; gap: 6px; font-size: 12px; letter-spacing: 0.02em; height: 42px; overflow-x: clip; overflow-y: visible; }
+/* The pixel font sits low in its line: room above and below so labels (Settings, Journal) aren't cut off. */
+.ps-tab > span:not(.menu-icon) { line-height: 1.5; padding: 2px 0; }
 
 /* ---------------- Word bubbles over events ---------------- */
 .bubble-layer { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
@@ -1490,3 +1501,108 @@ body.pause-open .pc-box { gap: 8px; }
 .wm-cross { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; pointer-events: none;
   background: linear-gradient(#fff, #fff) center / 2px 9px no-repeat, linear-gradient(#fff, #fff) center / 9px 2px no-repeat; border: 2px solid rgba(255,255,255,0.85); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.5); opacity: 0.85; }
 .wm-tip { position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap; font: 700 12.5px var(--f-body); color: #fff6dc; padding: 5px 10px; border-radius: 8px; background: rgba(10, 12, 20, 0.92); border: 1px solid rgba(255, 210, 122, 0.6); box-shadow: 0 4px 14px rgba(0,0,0,0.5); z-index: 2; }
+
+/* ---------------- HUD (update 50): EXP in the stats, a stamina ring, a card per party member, mini-map, season picture ---------------- */
+.hud-gauge.xp .hud-fill, .hud-gauge.xp .hud-ghost { background: linear-gradient(#c8f59a, #5aa83c); }
+.hud-gauge.xp .hud-label { color: #d8f0c0; }
+.hud-gauge.xp .hud-bar { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.6), 0 0 0 1px rgba(150,220,110,0.25); }
+.hud-top.stack-v .hud-gauge.xp { grid-row: 3; }
+.hud-ally-bar.xp { height: 4px; }
+.hud-ally-bar.xp i { background: linear-gradient(90deg, #8fd867, #c8f59a); }
+
+/* Party cards: stacked in the party's place by default; one the player moved is placed on its own. */
+.hud-party { scale: none; }
+.hud-pslot { scale: var(--hud-scale, 1); transform-origin: top left; }
+.hud-pslot[hidden] { display: none; }
+.hud-pslot.hud-placed { position: fixed; z-index: 3; }
+.hud-party.hud-off { display: none !important; }
+body.hud-arranging .hud-party { display: flex !important; }
+body.hud-arranging .hud-party[data-empty="1"]::before { content: none; }
+body.hud-arranging .hud-pslot[data-empty="1"] { display: block !important; min-width: 150px; min-height: 40px; border-radius: 8px; outline: 1px dashed rgba(255,255,255,0.35); background: rgba(10,12,20,0.5); }
+body.hud-arranging .hud-pslot[data-empty="1"]::before { content: 'Party card ' attr(data-slot); display: block; padding: 10px; font-size: 12px; color: #e9e2d2; }
+
+/* Stamina: a green ring with a dash icon (Halo Reach's armour ability meter), shown while it's used. */
+.hud-stamina { position: fixed; left: 50%; bottom: calc(46px + env(safe-area-inset-bottom, 0px)); translate: -50% 0; z-index: 3; pointer-events: none;
+  width: 54px; height: 54px; scale: var(--hud-scale, 1); transform-origin: bottom center; transition: opacity 0.5s ease; opacity: 1; }
+.hud-stamina[hidden] { display: none; }
+.hud-stamina.idle { opacity: 0; transition: opacity 1.2s ease; }
+body.hud-arranging .hud-stamina { opacity: 1 !important; }
+.hud-stamina svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)); }
+.hs-track { fill: rgba(8, 12, 10, 0.62); stroke: rgba(255,255,255,0.14); stroke-width: 5; }
+.hs-fill { fill: none; stroke: #7be04f; stroke-width: 5; stroke-linecap: round; stroke-dasharray: calc(var(--sp, 1) * 100) 100; transform: rotate(-90deg); transform-origin: 24px 24px; transition: stroke-dasharray 0.12s linear, stroke 0.3s; }
+.hs-dash { fill: #9df07a; }
+.hs-lines { stroke: #9df07a; stroke-width: 1.6; stroke-linecap: round; opacity: 0.8; }
+.hud-stamina.low .hs-fill { stroke: #d6e04f; }
+.hud-stamina.exhausted .hs-fill { stroke: #c9823a; }
+.hud-stamina.exhausted :is(.hs-dash) { fill: #c9823a; } .hud-stamina.exhausted .hs-lines { stroke: #c9823a; }
+.hud-stamina.exhausted { animation: hs-out 0.8s ease-in-out infinite alternate; }
+@keyframes hs-out { to { filter: brightness(1.35); } }
+
+/* Mini-map: round, under the clock (top right). */
+.hud-minimap { position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(118px + env(safe-area-inset-top, 0px)); z-index: 3; pointer-events: none;
+  width: 150px; height: 150px; border-radius: 50%; overflow: hidden; scale: var(--hud-scale, 1); transform-origin: top right;
+  background: #0b0e16; border: 3px solid rgba(255, 210, 122, 0.75); box-shadow: 0 0 0 2px rgba(0,0,0,0.6), 0 6px 18px rgba(0,0,0,0.45); }
+.hud-minimap[hidden], .hud-minimap.hud-off { display: none; }
+.hud-minimap canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.hud-minimap::after { content: 'N'; position: absolute; top: 3px; left: 50%; translate: -50% 0; font: 700 10px var(--f-mono); color: #ffd27a; text-shadow: 0 1px 0 #000; }
+@media (max-width: 1200px) { .hud-minimap { top: calc(132px + env(safe-area-inset-top, 0px)); width: 120px; height: 120px; } }
+
+/* The season picture behind the clock. */
+.hud-side { position: fixed; overflow: hidden; }
+.hud-season { display: none; position: absolute; right: 0; bottom: 0; width: 60%; height: 100%; pointer-events: none; z-index: 0; opacity: 0.5;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 45%); mask-image: linear-gradient(90deg, transparent, #000 45%); }
+.hud-side.with-art .hud-season { display: block; }
+.hud-season svg { position: absolute; right: 2px; bottom: 0; height: 62%; width: auto; shape-rendering: crispEdges; }
+.hud-side > :not(.hud-season) { position: relative; z-index: 1; }
+/* The new pieces come and go with the rest of the HUD (title, battles, the pause menu, hidden HUD). */
+:is(.hud-stamina, .hud-minimap) { transition: opacity 1.1s ease; }
+body.ui-dim :is(.hud-stamina, .hud-minimap) { opacity: 0 !important; transition: none; }
+body.in-battle :is(.hud-stamina, .hud-minimap), body.pause-open :is(.hud-stamina, .hud-minimap), body.hud-hidden :is(.hud-stamina, .hud-minimap) { visibility: hidden; }
+body.pause-open.hud-arranging :is(.hud-stamina, .hud-minimap) { visibility: visible; }
+/* The mini-map sits under the clock; the quest tracker moves down under the mini-map. */
+.hud-quest { top: calc(284px + env(safe-area-inset-top, 0px)); }
+@media (max-width: 1200px) { .hud-quest { top: calc(266px + env(safe-area-inset-top, 0px)); } }
+body:has(.hud-minimap.hud-off) .hud-quest { top: calc(128px + env(safe-area-inset-top, 0px)); }
+.hud-stamina { bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+
+/* A message's own look (Show Text → Look): box colour, or no box at all. */
+.msg.looked .msg-box { background: var(--look-bg, var(--window)); --window: var(--look-bg, rgb(14, 18, 34)); }
+.msg.look-clear .msg-box { background: none; border-color: transparent; box-shadow: none; }
+.msg.look-clear .msg-box::before, .msg.look-clear .msg-box::after { display: none; }
+.msg.looked.tail .msg-box::after { --window: var(--look-bg, rgb(14, 18, 34)); }
+
+/* ---------------- Journal → Bestiary ---------------- */
+.bs-box { display: flex; flex-direction: column; gap: 10px; width: min(980px, 100%); max-height: 100%; min-height: 0; }
+.bs-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 14px; }
+.bs-list { overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 6px; border-right: 1px solid rgba(255,255,255,0.08); scrollbar-width: thin; min-height: 0; }
+.bs-row { display: grid; grid-template-columns: 34px 30px 1fr auto; align-items: center; gap: 8px; padding: 5px 8px; border: 1px solid transparent; border-radius: 8px; background: none; color: #e9e2d2; text-align: left; cursor: pointer; }
+.bs-row img { width: 28px; height: 28px; object-fit: contain; image-rendering: pixelated; }
+.bs-row .bs-no { font: 600 11px var(--f-mono); color: #8f95a8; }
+.bs-row .bs-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bs-row small { color: #b8bccb; font: 600 11px var(--f-mono); }
+.bs-row.sel { border-color: var(--ember); background: rgba(255,176,74,0.12); }
+.bs-row.unseen { color: #6e7386; }
+.bs-q { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; background: rgba(255,255,255,0.05); color: #6e7386; font-weight: 700; }
+.bs-detail { overflow-y: auto; min-height: 0; padding-right: 6px; scrollbar-width: thin; display: grid; align-content: start; gap: 10px; }
+.bs-head { display: grid; grid-template-columns: 116px 1fr; gap: 14px; align-items: center; }
+.bs-pic { width: 116px; height: 116px; border-radius: 12px; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.12), rgba(0,0,0,0.35)); border: 1px solid rgba(255,255,255,0.1); }
+.bs-pic img { width: 92px; height: 92px; object-fit: contain; image-rendering: pixelated; }
+.bs-pic.unseen span { font: 700 44px var(--f-display); color: #4a4f60; }
+.bs-head h3 { margin: 0 0 4px; font-size: 20px; color: #f3ead8; }
+.bs-boss { font-size: 11px; padding: 2px 7px; border-radius: 5px; background: #8a2a22; color: #ffd7cf; vertical-align: middle; }
+.bs-count, .bs-places { margin: 2px 0; color: #b8bccb; font-size: 13px; }
+.bs-count b { color: #ffd27a; }
+.bs-desc { margin: 0; color: #e0d9c8; line-height: 1.5; }
+.bs-detail section { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; }
+.bs-detail h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #ffb04a; }
+.bs-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 14px; margin: 0; }
+.bs-stats div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .bs-stats dt { color: #b8bccb; } .bs-stats dd { margin: 0; color: #f3ead8; font: 600 13px var(--f-mono); }
+.bs-el { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; } .bs-el b { min-width: 76px; font-size: 13px; color: #b8bccb; }
+.bs-el.weak b { color: #ff9a7a; } .bs-el.resist b { color: #8fc8ff; } .bs-el.immune b { color: #d0d0d0; } .bs-el.absorb b { color: #9be07a; }
+.bs-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 4px; border-radius: 999px; background: rgba(255,255,255,0.06); font-size: 12.5px; }
+.bs-chip img { width: 18px; height: 18px; image-rendering: pixelated; }
+.bs-atk, .bs-none, .bs-locked { margin: 2px 0; color: #9ea3b6; font-size: 13px; } .bs-locked { font-style: italic; }
+.bs-drops { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bs-drops li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; } .bs-drops img { width: 24px; height: 24px; image-rendering: pixelated; } .bs-drops small { color: #b8bccb; font: 600 12px var(--f-mono); }
+@media (max-width: 720px) { .bs-body { grid-template-columns: 1fr; grid-template-rows: 160px 1fr; } .bs-list { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.08); } }
+body.pause-open .bs-box { width: 100%; height: 100%; }

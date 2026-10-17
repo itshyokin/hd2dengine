@@ -1,7 +1,8 @@
 /**
  * Pause → Map: the world map (Pokémon Gold / Silver style), drawn from the maps themselves and laid out as in the
- * Map editor's World layout. Scroll with the arrows / stick (or drag), zoom with LT / RT (Z / C, or the wheel), Space
- * centres on the hero. Places not visited yet are hidden, greyed or shown (Database → World map); inside visited maps
+ * Map editor's World layout. The stick glides across it (faster the further it's pushed); the D-pad (arrow keys)
+ * steps the crosshair one tile at a time, repeating while held, to fine-tune. Drag with the mouse; zoom with LT / RT
+ * (Z / C, or the wheel). A (Enter / Space) jumps to the next marker and Y (R) to the previous one, starting at the hero. Places not visited yet are hidden, greyed or shown (Database → World map); inside visited maps
  * only the ground walked near shows, if exploring is on.
  */
 import type { Input } from '../game/Input';
@@ -37,7 +38,7 @@ export interface WorldMapHost {
   artScale: number;
 }
 
-const ZOOMS = [1, 2, 3, 4, 6, 8];
+const ZOOMS = [1, 2, 3, 4, 6, 8, 12, 16, 24];
 
 export class WorldMapScreen {
   private readonly root = document.createElement('div');
@@ -55,6 +56,11 @@ export class WorldMapScreen {
   private cx = 0; private cz = 0; private zoom = 3;
   private drag: { x: number; y: number; cx: number; cz: number } | null = null;
   private fogCache = new Map<string, HTMLCanvasElement>();
+  /** Gliding to a marker (A / Y): where to, and which one (-1: the hero). */
+  private goal: { x: number; z: number } | null = null;
+  private pick = -1;
+  /** The D-pad held: the direction and the time to the next repeated step. */
+  private rep = { dir: '' as '' | 'left' | 'right' | 'up' | 'down', t: 0 };
 
   constructor(parent: HTMLElement, private readonly input: Input, private readonly host: WorldMapHost) {
     this.root.className = 'inv world-map-screen';
@@ -91,6 +97,7 @@ export class WorldMapScreen {
     this.root.hidden = false;
     this.fogCache.clear();
     this.centre();
+    this.goal = null; this.pick = -1;
     requestAnimationFrame(() => this.draw());
   }
 
@@ -113,6 +120,22 @@ export class WorldMapScreen {
     this.zoom = z; uiSound('menuMove'); this.draw();
   }
 
+  /** The hero, then every marker by how far it is from the hero: what A / Y step through. */
+  private stops(): { x: number; z: number }[] {
+    const h = this.host.hero(), ms = this.host.markers().map((m) => ({ x: m.x + m.w / 2, z: m.z + m.h / 2 }));
+    if (h) ms.sort((a, b) => Math.hypot(a.x - h.x, a.z - h.z) - Math.hypot(b.x - h.x, b.z - h.z));
+    return h ? [{ x: h.x, z: h.z }, ...ms] : ms;
+  }
+
+  private step(dir: 1 | -1): void {
+    const list = this.stops();
+    if (!list.length) return;
+    this.pick = ((this.pick + dir) % list.length + list.length) % list.length;
+    this.goal = list[this.pick];
+    this.hover = null;
+    uiSound('menuMove');
+  }
+
   update(dt: number): void {
     if (!this.open) return;
     const i = this.input;
@@ -120,15 +143,39 @@ export class WorldMapScreen {
     if (tabKeys(i, this.tabs)) return;
     if (i.consume('subPrev')) this.zoomBy(-1);
     if (i.consume('subNext')) this.zoomBy(1);
-    if (i.confirm()) { this.centre(); uiSound('menuOk'); this.draw(); }
-    const speed = (14 / ZOOMS[this.zoom]) * 30 * dt;
+    // A / Enter / Space: the next marker (the hero first); Y / R: the previous one.
+    if (i.confirm()) this.step(1);
+    if (i.consume('switchWeapon')) this.step(-1);
     let moved = false;
-    if (i.isHeld('left')) { this.cx -= speed; moved = true; }
-    if (i.isHeld('right')) { this.cx += speed; moved = true; }
-    if (i.isHeld('up')) { this.cz -= speed; moved = true; }
-    if (i.isHeld('down')) { this.cz += speed; moved = true; }
-    // Menu presses (D-pad, arrows) nudge too.
-    for (const [a, dx, dz] of [['left', -1, 0], ['right', 1, 0], ['up', 0, -1], ['down', 0, 1]] as const) if (i.consume(a)) { this.cx += dx * 2; this.cz += dz * 2; moved = true; }
+    // The stick glides, faster the further it's pushed (and faster zoomed out).
+    const st = i.stick, amt = i.stickAmount;
+    const dirs = ['left', 'right', 'up', 'down'] as const;
+    if (amt > 0.25) {
+      for (const a of dirs) i.consume(a); // its menu "presses" aren't tile steps
+      const k = ((amt - 0.25) / 0.75) ** 1.6, speed = (22 / ZOOMS[this.zoom]) * 30 * k * dt;
+      this.cx += (st.x / Math.max(amt, 1e-3)) * speed;
+      this.cz += (st.y / Math.max(amt, 1e-3)) * speed;
+      moved = true; this.goal = null; this.rep.dir = '';
+    } else {
+      // The D-pad / arrows: one tile per press (snapping the crosshair onto the tile grid), repeating while held.
+      const stepTile = (a: typeof dirs[number]) => {
+        const dx = a === 'left' ? -1 : a === 'right' ? 1 : 0, dz = a === 'up' ? -1 : a === 'down' ? 1 : 0;
+        this.cx = Math.floor(this.cx) + 0.5 + dx; this.cz = Math.floor(this.cz) + 0.5 + dz;
+        moved = true; this.goal = null;
+      };
+      for (const a of dirs) if (i.consume(a)) { stepTile(a); this.rep = { dir: a, t: 0.32 }; }
+      if (this.rep.dir) {
+        if (!i.isHeld(this.rep.dir)) this.rep.dir = '';
+        else if ((this.rep.t -= dt) <= 0) { this.rep.t = 0.07; stepTile(this.rep.dir); }
+      }
+    }
+    // Gliding to the picked marker.
+    if (this.goal) {
+      const k = 1 - Math.exp(-dt * 10);
+      this.cx += (this.goal.x - this.cx) * k; this.cz += (this.goal.z - this.cz) * k;
+      if (Math.hypot(this.goal.x - this.cx, this.goal.z - this.cz) < 0.02) { this.cx = this.goal.x; this.cz = this.goal.z; this.goal = null; }
+      moved = true;
+    }
     if (moved) { this.hover = null; this.draw(); }
   }
 
@@ -217,6 +264,7 @@ export class WorldMapScreen {
     this.tip.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y - 18)}px) translate(-50%, -100%)`;
     this.cross.hidden = !!this.hover;
     const here = pieces.find((p) => p.name === hero?.map);
-    this.info.textContent = `${here ? here.title : ''}${here ? ' · ' : ''}Arrows / stick: scroll · ${this.input.label('subPrev')} / ${this.input.label('subNext')}: zoom · Space: back to you · Esc: close`;
+    const pad = this.input.lastDevice === 'pad';
+    this.info.textContent = `${here ? here.title : ''}${here ? ' · ' : ''}${pad ? 'Stick: glide · D-pad: one tile' : 'Arrows: one tile · drag: scroll'} · ${this.input.label('subPrev')} / ${this.input.label('subNext')}: zoom · ${pad ? 'A / Y' : 'Space / R'}: next / previous marker · ${pad ? 'B' : 'Esc'}: close`;
   }
 }

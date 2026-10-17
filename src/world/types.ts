@@ -232,7 +232,7 @@ export type Condition =
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
   /** `bubble`: a speech bubble with a tail pointing at the speaker, or a plain box (default: a tail when the event shows a character). */
-  | { cmd: 'text'; text: string; speaker?: string; bubble?: 'speech' | 'plain' }
+  | { cmd: 'text'; text: string; speaker?: string; bubble?: 'speech' | 'plain'; /** Its own look: colours, size, bold… (like word bubbles). */ look?: import('../ui/richText').TextLook }
   | { cmd: 'choice'; options: string[]; branches: Command[][]; cancel?: number }
   | { cmd: 'if'; condition: Condition; then: Command[]; else?: Command[] }
   | { cmd: 'setSwitch'; switch: string; value: boolean }
@@ -741,6 +741,8 @@ export interface Database {
   world?: import('./worldLayout').WorldData;
   /** Kinds of world-map marker for events (Database → Map markers; default: Quest location, Landmark, Town, Danger). */
   markers?: import('./landmarks').MarkerKind[];
+  /** Named text colours for messages: [id]words[/id] (Database → Text colours). */
+  textColors?: import('../ui/richText').TextColor[];
   /** Achievements (Database → Achievements). */
   achievements?: import('../game/achievements').AchievementDef[];
   /** The developer console (the ` key): in playtests only (default), always, or never. */
@@ -1020,6 +1022,8 @@ export interface PlayerConfigData {
   regenDelay?: number;
   /** Health lost per second while swimming with no stamina left. */
   drownDamage?: number;
+  /** Walking off ledges: collide, walk off any, or walk off except into cells of height `min` … `max` (steps). */
+  ledges?: Partial<{ mode: 'collision' | 'walk' | 'limited'; min: number; max: number }>;
 }
 
 /* ------------------------------------------------------------------ combat */
@@ -1029,6 +1033,10 @@ export type EnemyBehaviour = 'melee' | 'ranged' | 'charger';
 export interface EnemyDef {
   id: string;
   name: string;
+  /** What the Journal's Bestiary says about it. */
+  description?: string;
+  /** Left out of the Bestiary (a story-only foe, a training dummy). */
+  noBestiary?: boolean;
   /**
    * How it looks: a character from the database (a sheet, like the player's), a flat image (one picture, brought to
    * life with generic motion: breathing, sliding, hopping or flying), or a built-in monster sheet.
@@ -1037,6 +1045,10 @@ export interface EnemyDef {
   hp: number;
   /** Damage of its attack, and its defence (reduces damage like the player's armor). */
   damage: number;
+  /** Turn-based battles: each one's health is rolled this many percent either side of `hp` (0: always the same). */
+  hpVariance?: number;
+  /** How much each of its hits varies, percent either side (default 10). */
+  damageVariance?: number;
   defense?: number;
   /** Defence against spells (default: the same as its defence). */
   magicDefense?: number;
@@ -1180,6 +1192,8 @@ export interface TurnBasedData {
 export interface CombatData {
   /** Battle system (default action). */
   mode?: BattleMode;
+  /** The Journal's Bestiary: defeats needed before an enemy's numbers, elements and drops show. */
+  bestiary?: Partial<{ stats: number; elements: number; drops: number }>;
   turnBased?: TurnBasedData;
   /** Forges: how many times one item can be upgraded, and the percent of damage or defence each upgrade adds. */
   forge?: { maxLevel?: number; percent?: number; enchantPercent?: number };

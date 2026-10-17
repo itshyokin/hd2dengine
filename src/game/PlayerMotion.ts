@@ -22,10 +22,15 @@ const JUMP_SPEED = Math.sqrt(2 * GRAVITY * 0.8);
 /** A jump may land at most this far below where it started (two steps); further is a fall. */
 const MAX_FALL = 1.0;
 /** Seconds of pushing against a climbable wall before the player starts climbing it. */
-const CLIMB_PUSH = 0.18;
-/** Seconds of walking into a low ledge before hopping down it, and the hop's little lift. */
-const HOP_PUSH = 0.1;
-const HOP_SPEED = 3.6;
+const CLIMB_PUSH = 0.1;
+
+/**
+ * Walking off ledges (Database → Player → Ledges). Collision: a drop is a wall (jump down, at most two steps).
+ * Walk off: the hero walks off any edge and drops to the ground below. Limited: walk off anywhere except into
+ * cells whose height (in steps) is between `min` and `max` (pits and chasms, -10 to -5 by default).
+ */
+export interface LedgeRules { mode: 'collision' | 'walk' | 'limited'; min: number; max: number }
+export const DEFAULT_LEDGES: LedgeRules = { mode: 'limited', min: -10, max: -5 };
 
 export interface MotionWorld {
   map: TileMap;
@@ -34,6 +39,8 @@ export interface MotionWorld {
   /** Can the player use this ability right now (learned, and not out of stamina)? */
   has(a: Ability): boolean;
   speed?: Speeds;
+  /** Walking off ledges (default: limited, -10 … -5). */
+  ledges?: LedgeRules;
   /** A ring power lets the player walk on water (any depth) as if it were ground. */
   waterWalk?(): boolean;
   /** The current at a cell (tiles per second, east and south): rivers carry swimmers along. */
@@ -70,8 +77,11 @@ export interface MotionResult {
 type V3 = [number, number, number];
 type State =
   | { kind: 'ground' }
-  /** In the air: a jump, or a hop down a low ledge (`auto`: the way it carries the hero, whatever is held). */
-  | { kind: 'air'; vy: number; speed: number; from: V3; auto?: [number, number] }
+  /**
+   * In the air: a jump, or walking off a ledge (`auto`: the way it carries the hero until clear of the edge, whatever
+   * is held; `drop`: walked off, so any height is fine where the ledge rules allow it).
+   */
+  | { kind: 'air'; vy: number; speed: number; from: V3; auto?: [number, number]; drop?: boolean }
   | { kind: 'climb'; path: V3[]; seg: number; face: Dir }
   | { kind: 'dash'; dx: number; dz: number; speed: number; left: number };
 
@@ -192,13 +202,17 @@ export class PlayerMotion {
       const step = speed * (inp.speedScale ?? 1) * dt;
       const fromY = this.stand(this.x, this.z);
       const nx = this.x + inp.dx * step, nz = this.z + inp.dz * step;
-      if (inp.dx && this.groundFree(nx, this.z, fromY)) { this.x = nx; res.moving = true; }
-      if (inp.dz && this.groundFree(this.x, nz, fromY)) { this.z = nz; res.moving = true; }
+      const horiz = Math.abs(inp.dx) >= Math.abs(inp.dz);
+      let mainBlocked = false;
+      if (inp.dx) { if (this.groundFree(nx, this.z, fromY)) { this.x = nx; res.moving = true; } else if (horiz) mainBlocked = true; }
+      if (inp.dz) { if (this.groundFree(this.x, nz, fromY)) { this.z = nz; res.moving = true; } else if (!horiz) mainBlocked = true; }
       res.face = faceOf(inp.dx, inp.dz);
-      if (!res.moving) {
-        res.blocked = true;
+      // Stopped the way the stick mostly points (even while sliding along the wall the other way): a climbable wall
+      // is climbed, a ledge walked off. Without needing the stick held perfectly straight.
+      if (mainBlocked || !res.moving) {
+        if (!res.moving) res.blocked = true;
         if (this.tryClimb(dt, inp)) { res.blocked = false; res.moving = true; res.face = (this.state as { face: Dir }).face; }
-        else if (this.tryHop(dt, inp, speed)) return { ...this.updateAir(dt, inp, this.state as Extract<State, { kind: 'air' }>), face: res.face, jumped: true };
+        else if (this.tryWalkOff(inp, speed)) return { ...this.updateAir(dt, inp, this.state as Extract<State, { kind: 'air' }>), face: res.face };
       } else this.push = { t: 0, key: '' };
     } else this.push = { t: 0, key: '' };
     // A river's current carries a swimmer (and, more gently, a wader) along: slower against it, faster with it.
@@ -263,9 +277,12 @@ export class PlayerMotion {
 
   private updateAir(dt: number, inp: MotionInput, st: Extract<State, { kind: 'air' }>): MotionResult {
     const m = this.map, res: MotionResult = { moving: true, blocked: false, fell: false, face: null };
-    st.vy -= GRAVITY * dt;
+    // Walking off: carried over the edge at walking pace, then falling (steering as usual) once clear of it.
+    const edging = !!st.drop && !!st.auto;
+    if (!edging) st.vy -= GRAVITY * dt;
     const feet = this.y + st.vy * dt;
     const [mx, mz] = st.auto ?? [inp.dx, inp.dz];
+    const ox = this.x, oz = this.z;
     if (mx || mz) {
       const step = st.speed * dt;
       const nx = this.x + mx * step, nz = this.z + mz * step;
@@ -274,6 +291,7 @@ export class PlayerMotion {
       res.face = faceOf(mx, mz);
     }
     this.y = feet;
+    if (edging && (probes(this.x, this.z).every(([px, pz]) => this.stand(px, pz) < st.from[1] - MAX_STEP) || (this.x === ox && this.z === oz))) st.auto = undefined;
 
     // Into deep water: splash, and back to where the jump started.
     const wtr = m.waterAt(Math.floor(this.x), Math.floor(this.z));
@@ -282,17 +300,17 @@ export class PlayerMotion {
     if (st.vy < 0) {
       const ground = Math.max(...probes(this.x, this.z).map(([px, pz]) => this.stand(px, pz)));
       if (this.y <= ground) {
-        if (st.from[1] - ground > MAX_FALL) return this.fall(st, res);
+        if (!this.landOK(ground, st)) return this.fall(st, res);
         // Land on the highest ground under the footprint (catching a ledge with a toe), then
         // shuffle to the nearest spot where the whole footprint fits.
         if (!this.settle(ground) && !this.settle(this.stand(this.x, this.z))) return this.fall(st, res);
-        if (st.from[1] - this.stand(this.x, this.z) > MAX_FALL) return this.fall(st, res);
+        if (!this.landOK(this.stand(this.x, this.z), st)) return this.fall(st, res);
         this.state = { kind: 'ground' };
         this.y = this.groundY();
         this.crawling = this.inLow(this.x, this.z);
       }
     }
-    if (this.y < st.from[1] - 8) return this.fall(st, res);
+    if (this.y < st.from[1] - (st.drop ? 60 : 8)) return this.fall(st, res);
     return res;
   }
 
@@ -313,33 +331,48 @@ export class PlayerMotion {
     return false;
   }
 
-  /* ---------------------------------------------------------------- hopping down */
+  /* ---------------------------------------------------------------- walking off ledges */
+
+  private get ledges(): LedgeRules { return this.w.ledges ?? DEFAULT_LEDGES; }
+
+  /** May the hero come down into this cell from higher up (the ledge rules)? */
+  private dropAllowed(cx: number, cz: number): boolean {
+    const r = this.ledges;
+    if (r.mode === 'collision') return false;
+    if (r.mode === 'walk') return true;
+    const h = this.map.step(cx, cz), lo = Math.min(r.min, r.max), hi = Math.max(r.min, r.max);
+    return h < lo || h > hi;
+  }
+
+  /** Can a jump or a drop end at height `y` here? A jump may always come down two steps; further needs the rules. */
+  private landOK(y: number, st: Extract<State, { kind: 'air' }>): boolean {
+    const down = st.from[1] - y;
+    if (down <= MAX_FALL) return true;
+    return probes(this.x, this.z).every(([px, pz]) => this.dropAllowed(Math.floor(px), Math.floor(pz)));
+  }
 
   /**
-   * Walking off a ledge no more than a tile high (one or two steps): after a moment's push the hero hops down by
-   * themselves, no jump button needed. Not off climbable walls (those are climbed), into deep water or into a gap.
+   * Walking into a drop: the hero walks straight off it (no pause, no hop) and falls to the ground below, if the
+   * ledge rules allow coming down there. Not off climbable walls (those are climbed), into deep water or a gap.
    */
-  private tryHop(dt: number, inp: MotionInput, speed: number): boolean {
+  private tryWalkOff(inp: MotionInput, speed: number): boolean {
     const m = this.map;
-    if (this.crawling || this.waterHere()?.kind === 'swim') return false;
+    if (this.crawling || this.waterHere()?.kind === 'swim' || this.ledges.mode === 'collision') return false;
     const horiz = Math.abs(inp.dx) >= Math.abs(inp.dz);
     const ddx = horiz ? Math.sign(inp.dx) : 0, ddz = horiz ? 0 : Math.sign(inp.dz);
     const cx = Math.floor(this.x), cz = Math.floor(this.z), nx = cx + ddx, nz = cz + ddz;
     if (!m.inMap(nx, nz) || m.isClimbable(cx, cz) || m.isClimbable(nx, nz) || this.cellBlocked(nx, nz, false)) return false;
     const gap = ddx > 0 ? cx + 1 - this.x : ddx < 0 ? this.x - cx : ddz > 0 ? cz + 1 - this.z : this.z - cz;
     if (gap > (ddx ? PLAYER_RADIUS : RZ) + 0.1) return false;
-    // Where the hero would land: just past the edge, the whole footprint on the lower ground.
-    const tx = ddx > 0 ? nx + PLAYER_RADIUS + 0.12 : ddx < 0 ? nx + 1 - PLAYER_RADIUS - 0.12 : clampIn(this.x, nx, PLAYER_RADIUS);
-    const tz = ddz > 0 ? nz + RZ + 0.12 : ddz < 0 ? nz + 1 - RZ - 0.12 : clampIn(this.z, nz, RZ);
-    const fromY = this.stand(this.x, this.z), toY = this.stand(tx, tz), drop = fromY - toY;
-    if (drop <= MAX_STEP || drop > MAX_FALL + 1e-3 || !this.groundFree(tx, tz, toY)) return false;
+    // Where the hero comes down: just past the edge, the whole footprint on the lower ground.
+    const tx = ddx > 0 ? nx + PLAYER_RADIUS + 0.06 : ddx < 0 ? nx + 1 - PLAYER_RADIUS - 0.06 : clampIn(this.x, nx, PLAYER_RADIUS);
+    const tz = ddz > 0 ? nz + RZ + 0.06 : ddz < 0 ? nz + 1 - RZ - 0.06 : clampIn(this.z, nz, RZ);
+    const fromY = this.stand(this.x, this.z), toY = this.stand(tx, tz);
+    if (fromY - toY <= MAX_STEP || !this.groundFree(tx, tz, toY)) return false;
     if (m.waterAt(Math.floor(tx), Math.floor(tz))?.kind === 'deep' && !this.onWater) return false;
-    const key = `hop${nx},${nz}`;
-    if (this.push.key !== key) this.push = { t: 0, key };
-    this.push.t += dt;
-    if (this.push.t < HOP_PUSH) return false;
+    if (fromY - toY > MAX_FALL && !probes(tx, tz).every(([px, pz]) => this.dropAllowed(Math.floor(px), Math.floor(pz)))) return false;
     this.push = { t: 0, key: '' };
-    this.state = { kind: 'air', vy: HOP_SPEED, speed: Math.max(speed, this.sp.walk), from: [this.x, fromY, this.z], auto: [ddx, ddz] };
+    this.state = { kind: 'air', vy: 0, speed: Math.max(speed, this.sp.walk * 0.8), from: [this.x, fromY, this.z], auto: [ddx, ddz], drop: true };
     this.y = fromY;
     return true;
   }

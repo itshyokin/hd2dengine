@@ -54,6 +54,8 @@ export interface CombatConfig {
   startPoints: number;
   /** Stat points each level up. */
   statPointsPerLevel: number;
+  /** The Journal's Bestiary: how many of a kind must be defeated before its numbers, its elements and its drops show. */
+  bestiary: { stats: number; elements: number; drops: number };
 }
 
 export const DEFAULT_COMBAT: CombatConfig = {
@@ -80,6 +82,7 @@ export const DEFAULT_COMBAT: CombatConfig = {
   pointsPerLevel: 1,
   startPoints: 1,
   statPointsPerLevel: ATTR_POINTS_PER_LEVEL,
+  bestiary: { stats: 1, elements: 3, drops: 5 },
 };
 
 /** Base time of one melee swing (at speed 1), in seconds. */
@@ -114,6 +117,7 @@ export function combatConfig(data?: CombatData): CombatConfig {
     pointsPerLevel: s.pointsPerLevel ?? d.pointsPerLevel,
     startPoints: s.startPoints ?? d.startPoints,
     statPointsPerLevel: Math.max(0, Math.round(s.statPointsPerLevel ?? d.statPointsPerLevel)),
+    bestiary: { ...d.bestiary, ...s.bestiary },
   };
 }
 

@@ -65,7 +65,7 @@ export interface SpriteOpts {
 export function spriteGeometry(w: number, h: number): THREE.BufferGeometry {
   const g = new THREE.PlaneGeometry(w, h);
   g.translate(0, h / 2, 0);
-  const n = g.attributes.normal;
+  const n = g.attributes.normal as THREE.BufferAttribute;
   for (let i = 0; i < n.count; i++) n.setXYZ(i, SPRITE_NORMAL.x, SPRITE_NORMAL.y, SPRITE_NORMAL.z);
   return g;
 }
