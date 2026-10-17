@@ -137,10 +137,14 @@ export interface AllyHost {
   float(text: string, x: number, y: number, z: number, kind: 'dmg' | 'heal' | 'info' | 'hurt'): void;
   sound(name: 'hurt' | 'swing' | 'heal' | 'save', x: number, z: number): void;
   log(text: string): void;
+  /** Where the hero jumped lately (party members hop there too). */
+  jumps(): { id: number; x: number; z: number }[];
   sparkle(x: number, y: number, z: number, color: string): void;
 }
 
 const RUN = 4.6, WALK = 3.2;
+/** How long a party member's hop lasts (s). */
+const HOP_TIME = 0.55;
 
 export class Ally implements AllyFighter {
   readonly sprite: CharacterSprite;
@@ -151,6 +155,8 @@ export class Ally implements AllyFighter {
   private downFor = 0;
   /** Order behind the hero (0 = right behind). */
   slot = 0;
+  /** Only walks along (the hero you play, following whoever leads the lineup): never fights on the map. */
+  passive = false;
 
   constructor(readonly data: MemberData, readonly def: HeroDef, sprites: SpriteLibrary, look: Parameters<SpriteLibrary['forCharacter']>[0], parent: THREE.Object3D, x: number, z: number, map: TileMap) {
     this.sprite = new CharacterSprite(sprites, sprites.forCharacter(look), 'down');
@@ -226,7 +232,7 @@ export class Ally implements AllyFighter {
     if (h.calm) this.data.hp = Math.min(n.max.hp, this.data.hp + dt * 0.5);
 
     let moving = false, running = false;
-    const threats = h.threats();
+    const threats = this.passive ? [] : h.threats();
     if (this.target && (this.target.dead || !threats.includes(this.target))) this.target = null;
     if (!this.target && threats.length) {
       let bd = 10;
@@ -234,7 +240,7 @@ export class Ally implements AllyFighter {
     }
     const style = fightingStyle(this.def, this.data, n);
     // A healer looks after the party first.
-    if ((style === 'healer') && this.data.mp >= HEAL_MP) {
+    if (style === 'healer' && !this.passive && this.data.mp >= HEAL_MP) {
       const hurt = h.healTargets().filter((t) => t.hp > 0 && t.hp < t.max * 0.5).sort((a, b) => a.hp / a.max - b.hp / b.max)[0];
       if (hurt) {
         const d = Math.hypot(hurt.x - this.x, hurt.z - this.z);
@@ -290,7 +296,13 @@ export class Ally implements AllyFighter {
       this.finish(dt, moving, running);
       return;
     }
-    // Following: a spot on the hero's trail.
+    // Following: a spot on the hero's trail, hopping where the hero jumped.
+    if (this.hopT <= 0) for (const j of h.jumps()) {
+      if (j.id <= this.lastJump || Math.hypot(j.x - this.x, j.z - this.z) > 0.45) continue;
+      this.lastJump = j.id; this.hopT = HOP_TIME;
+      this.sprite.play('jump', HOP_TIME);
+      break;
+    }
     const spot = h.trailPoint(1.1 * (this.slot + 1));
     if (spot) {
       const far = Math.hypot(spot.x - this.x, spot.z - this.z);
@@ -308,8 +320,15 @@ export class Ally implements AllyFighter {
     if (moving) this.stuck = 0;
     this.sprite.animate(dt, this.sprite.animated ? { moving, running, combat: !!this.target } : moving);
     this.swimT += dt;
-    this.sprite.mesh.position.set(this.x, this.feetY(), this.z);
+    // A hop: up and down in an arc (as high as the hero's jump).
+    let hop = 0;
+    if (this.hopT > 0) { this.hopT = Math.max(0, this.hopT - dt); const k = 1 - this.hopT / HOP_TIME; hop = Math.sin(k * Math.PI) * 0.8; }
+    this.sprite.mesh.position.set(this.x, this.feetY() + hop, this.z);
   }
+
+  private hopT = 0;
+  /** The last of the hero's jumps copied. */
+  private lastJump = 0;
 
   private swimT = Math.random() * 6;
   /** In water too deep to wade: they sink in up to the chest like the hero (bobbing). */

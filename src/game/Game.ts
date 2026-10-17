@@ -302,7 +302,11 @@ export class Game {
   /** Party members (saved) and their figures on this map, and the hero's trail they follow. */
   private readonly party = new PartyState();
   private allies: Ally[] = [];
+  /** Party members fighting on the map (not the hero walking behind someone else leading). */
+  private get fighters(): Ally[] { return this.allies.filter((a) => !a.passive); }
   private trail: { x: number; z: number }[] = [];
+  private jumpMarks: { id: number; x: number; z: number }[] = [];
+  private jumpCount = 0;
   private quests!: QuestBook;
   private questScreen!: QuestLogScreen;
   private tracker!: QuestTracker;
@@ -1144,7 +1148,8 @@ export class Game {
       solidEventAt: (x, z) => this.events.some((e) => e.solid && e.covers(x, z)),
       defeated: (e) => this.enemyDefeated(e),
       ignite: (x, y, z, r) => this.ignite(x, y, z, r),
-      allies: () => this.allies,
+      // Turn-based: foes on the map only ever go for the hero (touching them starts the battle), never the party.
+      allies: () => (this.combatCfg.mode === 'turnBased' ? [] : this.allies.filter((a) => !a.passive)),
       heroLit: () => this.heroLit(),
       safeZones: () => this.safeZones(),
       tally: (k, n, best) => this.state.tally(k, n, best),
@@ -1184,7 +1189,7 @@ export class Game {
     }
     this.pickups?.drop(e.x, e.y, e.z, Math.max(0, d.xp), gold, items);
     // Party members standing when it fell get its EXP once the fight is over (the orbs are the hero's to collect).
-    for (const a of this.allies) if (!a.down && d.xp > 0) a.data.pendingXp = (a.data.pendingXp ?? 0) + d.xp;
+    for (const a of this.fighters) if (!a.down && d.xp > 0) a.data.pendingXp = (a.data.pendingXp ?? 0) + d.xp;
     this.refreshEvents();
     const ev = e.key as GameEvent;
     if (ev.page?.commands.length && !this.interpreter.running) this.interpreter.start(ev.page.commands);
@@ -1820,7 +1825,12 @@ export class Game {
         this.menu.notice(`${this.rings.ring?.name ?? 'Water Walk'} off: back on land`);
       }
     }
-    if (res.jumped) { this.audio.play('jump'); this.state.tally('jumps'); }
+    if (res.jumped) {
+      this.audio.play('jump'); this.state.tally('jumps');
+      // Where the jump started: party members following hop there too.
+      this.jumpMarks.push({ id: ++this.jumpCount, x: m.x, z: m.z });
+      if (this.jumpMarks.length > 12) this.jumpMarks.shift();
+    }
     if (m.swimming && !this.wasSwimming) this.audio.play('splash', m.x, m.z);
     this.wasSwimming = m.swimming;
     this.combat.setMoving(res.moving);
@@ -1900,7 +1910,7 @@ export class Game {
   /** A full rest: health, magic and stamina to full, ailments cured (Zombie needs its own cure). */
   private fullRest(quiet = false): void {
     this.stats.refill();
-    for (const a of this.allies) { const n = this.allyNumbers(a.data, a.def); a.data.hp = n.max.hp; a.data.mp = n.max.mp; a.data.down = false; a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
+    for (const a of this.fighters) { const n = this.allyNumbers(a.data, a.def); a.data.hp = n.max.hp; a.data.mp = n.max.mp; a.data.down = false; a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
     for (const m of this.party.members) if (!this.allies.some((a) => a.data === m)) { m.down = false; m.hp = this.stats.cfg.max.hp; m.mp = this.stats.cfg.max.mp; }
     this.combat.heroStatus.cure(['all']);
     const p = this.player.position;
@@ -3673,7 +3683,7 @@ export class Game {
     if (!a || this.achBook.has(id) || (this.state.cheated && !force)) return false;
     this.achBook.unlock(id);
     platformUnlock(id);
-    this.achToast.show({ name: a.name, points: a.points, icon: this.achIcon(a.icon) });
+    this.achToast.show({ name: a.name, points: a.points, icon: this.achIcon(a.icon), description: a.description });
     this.log.add(`Achievement unlocked: ${a.name} (${a.points}G)`, 'level');
     return true;
   }
@@ -4857,24 +4867,62 @@ export class Game {
 
   /** Put the party members on this map, lined up behind the hero. */
   private spawnAllies(): void {
+    this.refreshLeader();
     for (const a of this.allies) a.dispose();
     this.allies = [];
+    this.jumpMarks = [];
     if (!this.level || this.onTitle) return;
+    if (this.combatCfg.mode === 'turnBased' && !this.combatCfg.turnBased.partyFollows) return;
     const p = this.motion, [bx, bz] = DIR_VECTOR[this.player.dir];
     this.trail = [];
     for (let k = 12; k >= 0; k--) this.trail.push({ x: p.x - bx * k * 0.3, z: p.z - bz * k * 0.3 });
     // Only the lineup's front follows the hero (the rest of the party isn't shown walking along).
-    this.activeWhos().filter((w) => w > 0).map((w) => this.party.members[w - 1]).filter((m) => !!m).forEach((m, i) => {
-      const def = this.db.heroes?.find((h) => h.id === m.id);
-      if (!def) return;
-      const look = this.db.characters[def.look ?? ''] ?? this.db.characters[this.db.player];
+    // Whoever leads the lineup is drawn as the hero; the rest of the three walk behind (the hero you play too, when
+    // someone else leads: just walking along).
+    this.activeWhos().slice(1).forEach((w, i) => {
+      let m: MemberData | undefined, def: HeroDef | undefined, look;
+      if (w > 0) {
+        m = this.party.members[w - 1];
+        def = m && this.db.heroes?.find((h) => h.id === m!.id);
+        look = this.db.characters[def?.look ?? ''] ?? this.db.characters[this.db.player];
+      } else {
+        def = mainHero(this.db);
+        m = { id: def.id, stats: this.progress.stats, statPoints: 0, level: this.progress.level, xp: this.progress.xp, equip: this.inventory.equip, skills: {}, skillPoints: 0, hp: this.stats.hp, mp: this.stats.mp, sp: this.stats.sp, abilities: {} };
+        look = this.db.characters[this.db.player];
+      }
+      if (!m || !def) return;
       const a = new Ally(m, def, this.sprites, look, this.level!, p.x, p.z, this.map);
+      a.passive = w === 0;
       a.slot = i;
       const spot = this.trailPoint(1.1 * (i + 1));
       if (spot && !this.map.isBlocked(Math.floor(spot.x), Math.floor(spot.z))) a.place(spot.x, spot.z, this.map);
       a.face(this.player.dir);
       this.allies.push(a);
     });
+  }
+
+  private leaderKey = '';
+  /**
+   * The first of the lineup walks the map: a party member put first is drawn in place of the hero (with their own
+   * sprite), and the hero you play walks behind. Only the look changes; the controls and numbers stay the hero's.
+   */
+  private refreshLeader(): void {
+    if (!this.player) return;
+    const who = this.lineupWhos()[0] ?? 0, def = who ? this.members()[who - 1]?.def : undefined;
+    const key = def ? `member:${def.id}:${def.look ?? ''}` : `hero:${this.db.player}`;
+    if (key === this.leaderKey) return;
+    const first = !this.leaderKey;
+    this.leaderKey = key;
+    if (first && !def) return;
+    const look = def ? this.db.characters[def.look ?? ''] ?? this.db.characters[this.db.player] : this.db.characters[this.db.player];
+    const old = this.player, s = new CharacterSprite(this.sprites, this.sprites.forCharacter(look), old.dir);
+    s.mesh.position.copy(old.mesh.position);
+    s.mesh.scale.copy(old.mesh.scale);
+    s.mesh.visible = old.mesh.visible;
+    s.mesh.castShadow = old.mesh.castShadow;
+    old.mesh.parent?.add(s.mesh);
+    old.mesh.removeFromParent();
+    this.player = s;
   }
 
   /** A point on the hero's trail, `dist` tiles back along it. */
@@ -4891,17 +4939,18 @@ export class Game {
   }
 
   private updateParty(dt: number): void {
-    if (!this.allies.length) return;
     // The trail: where the hero has walked on the ground (jumps and climbs are smoothed over).
     const m = this.motion, last = this.trail[this.trail.length - 1];
     if (!last || Math.hypot(m.x - last.x, m.z - last.z) > 0.2) { this.trail.push({ x: m.x, z: m.z }); if (this.trail.length > 120) this.trail.shift(); }
     const host = this.allyHost();
     for (const a of this.allies) a.update(dt, host);
-    if (this.calmFor > 2.5) for (const a of this.allies) if (a.data.pendingXp) this.allyXp(a);
+    if (this.calmFor > 2.5) for (const a of this.fighters) if (a.data.pendingXp) this.allyXp(a);
     // Condensed hero bars (Settings → HUD): the hero's card leads the party's.
     const pr = this.progress;
     const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false }] : [];
-    this.hud.setParty([...heroCard, ...this.allies.map((a) => { const n = this.allyNumbers(a.data, a.def); return { name: a.def.name, level: a.data.level, face: a.def.face ? this.resolveFile(a.def.face) : this.memberPortrait(a.def), hp: a.data.hp, maxHp: n.max.hp, mp: a.data.mp, maxMp: n.max.mp, xp: a.data.xp, toNext: xpToNext(this.combatCfg, a.data.level), down: a.down }; })]);
+    // The party's cards: the others of the three fighting (whoever leads the map).
+    const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -4927,6 +4976,8 @@ export class Game {
       trailPoint: (d) => this.trailPoint(d),
       get leader() { return g.player.position as unknown as { x: number; y: number; z: number }; },
       threats: () => {
+        // Turn-based: party members don't fight on the map (the battle starts when a foe reaches the hero).
+        if (this.combatCfg.mode === 'turnBased') return [];
         const p = this.player.position;
         return this.combat.enemies.filter((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 13);
       },
@@ -4936,11 +4987,12 @@ export class Game {
       shoot: (a, kind, tx, ty, tz, dmg, color, el) => this.combat.allyShoot(a, kind, tx, ty, tz, dmg, color, el),
       healTargets: () => [
         { name: mainHero(this.db).name, x: this.player.position.x, z: this.player.position.z, hp: this.stats.hp, max: this.stats.cfg.max.hp, heal: (n: number) => this.stats.change('hp', 'add', n) },
-        ...this.allies.filter((a) => !a.down).map((a) => ({ name: a.def.name, x: a.x, z: a.z, hp: a.data.hp, max: this.allyNumbers(a.data, a.def).max.hp, heal: (n: number) => { a.data.hp = Math.min(this.allyNumbers(a.data, a.def).max.hp, a.data.hp + n); } })),
+        ...this.fighters.filter((a) => !a.down).map((a) => ({ name: a.def.name, x: a.x, z: a.z, hp: a.data.hp, max: this.allyNumbers(a.data, a.def).max.hp, heal: (n: number) => { a.data.hp = Math.min(this.allyNumbers(a.data, a.def).max.hp, a.data.hp + n); } })),
       ],
       float: (t, x, y, z, k) => this.overlay.float(t, x, y, z, k),
       sound: (n, x, z) => this.audio.play(n === 'swing' ? 'swing' : n === 'heal' ? 'ringOn' : n, x, z),
       log: (t) => this.log.add(t, 'info'),
+      jumps: () => this.jumpMarks,
       sparkle: (x, y, z, color) => this.bursts.spawn(x, y, z, { color, n: 14, speed: 1, up: 2, life: 0.6, size: 0.08, additive: true }),
     });
   }

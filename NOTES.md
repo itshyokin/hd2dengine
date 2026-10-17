@@ -72,10 +72,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Dynamic weather (season chances, storms with lightning and thunder, blizzards, haze, rain/snow by temperature), temperature (daily rolls, curve, map climate, Change temperature command, °F/°C), damp / frost / heat on the ground, Temperature and Weather conditions, heat and cold in battle (update 54).
 - [x] Stat ranks (A–F growth per level, set per hero, changed by potions, gear and the Change stat growth rank command, coloured pills on Status), stat setup as Default / Custom → Roll Dice on a 3D dice table, Point Buy, Standard Array, "Set up stats on joining" per hero; level-up stat points removed (update 55).
 - [x] Database: Duplicate button, right-click Duplicate / Copy / Paste and Ctrl+D / Ctrl+C / Ctrl+V in every list (update 56).
+- [x] Turn-based party on the map: never fights or starts battles, follows (toggle in Combat) and hops where the hero jumped; the lineup's leader walks the map with their own sprite; achievement pop-up shows the description; points bar on the Achievements page (update 57).
 - [ ] Then (playtest notes, Oct 17):
-  - Turn-based: AI allies don't charge enemies (no battles started by them); they follow the hero (toggle) and mirror their moves (jumping over things). A new hero in the first place uses their sprite on the overworld.
   - Battle poses: Jordan, Eleanor and NPCs set up like Katrina and Crowley.
-  - Achievement pop-up: the name, then the description for a moment, then away. Achievements page: a progress bar with x / max pts.
   - Event sound (a setting of the event, not a command): plays all the time, loud up close and fading with distance (campfires, shores).
   - Map Themes (their own tab): surrounding tiles, music, ambience, weather…; map settings show "Theme default" until changed. More map edges (desert, snow, plains, rocky…) and built-in terrain textures (stone, cliffs, snow…).
   - Built-in sounds and music remade as Game Boy-style chiptune.

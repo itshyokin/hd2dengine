@@ -25,9 +25,11 @@ export interface TurnBasedConfig {
   layout: 'dragon' | 'fantasy';
   /** The hero always fights (can't be swapped onto the bench). */
   heroLocked: boolean;
+  /** Party members walk behind the hero on the map (off: only the hero is shown; the party appears in battles). */
+  partyFollows: boolean;
 }
 
-export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon', heroLocked: false };
+export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon', heroLocked: false, partyFollows: true };
 
 export interface CombatConfig {
   /** Action combat on the map, or turn-based battles. */

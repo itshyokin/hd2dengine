@@ -77,6 +77,7 @@ export class AchievementsScreen {
     }).join('');
     this.root.innerHTML = `<div class="inv-box ach-box">
       <div class="inv-head"><span class="menu-title">Achievements</span><span class="ach-total">${got.length} / ${list.length} · <b>${pts}</b> / ${all}G</span></div>
+      ${list.length ? `<div class="ach-prog ach-total-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${all}" aria-valuenow="${pts}" aria-label="Achievement points"><i style="width:${all ? Math.min(100, (pts / all) * 100) : 0}%"></i><span>${pts.toLocaleString()} / ${all.toLocaleString()} pts</span></div>` : ''}
       <div class="ach-list">${rows || '<p class="pc-empty">No achievements in this game yet.</p>'}</div>
       <div class="menu-note">${esc(this.note())}</div>
     </div>`;

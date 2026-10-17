@@ -51,6 +51,7 @@ export function combatTab(data: CombatData): HTMLElement[] {
       field('Battle screen layout', select([['dragon', 'Dragon Legend: faces and numbers in a row, lists in the middle'], ['fantasy', 'Forbidden Fantasy: health bars in a box, lists at the side']], T.layout, (v) => { if (v === 'fantasy') tb.layout = 'fantasy'; else delete tb.layout; }),
         'Dragon Legend shows each hero’s face (their Face art in Database → Heroes), name and HP / MP as numbers that turn yellow at half and red at a quarter.'),
       checkbox('The hero always fights (can’t be swapped onto the bench)', !!tb.heroLocked, (v) => { if (v) tb.heroLocked = true; else delete tb.heroLocked; }),
+      checkbox('The party follows the hero on the map (they walk behind and copy jumps; they never start fights)', tb.partyFollows !== false, (v) => { if (v) delete tb.partyFollows; else tb.partyFollows = false; }),
       h('p', { class: 'note' }, 'Three fight at a time; the rest of the party (up to eight) wait on the bench. Swap them in Menu → Party → Swap, or with Swap in battle. Off: anyone can be swapped out, the hero too (they still lead on the map).'),
       h('div', { class: 'field-row' },
         field('Party damage ×', num(T.partyDamage, (v) => (tb.partyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Party damage')),

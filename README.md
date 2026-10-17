@@ -373,6 +373,15 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   down. *Until morning* (7:00), *until night* (21:00) or *for a number of hours*; *Rest too* refills health, magic and
   stamina. Time slept counts for fires and the calendar. Console: `sleep`, `sleep night`, `sleep 4`.
 
+### The party on the map (turn-based)
+
+- In turn-based games party members never fight on the map: foes only go for the hero, and touching the hero starts the
+  battle (so a party member can't start one by wandering into a foe). They walk behind the hero and **hop where the
+  hero jumped**, over gaps and fences. **Database → Combat → The party follows the hero on the map** (on by default);
+  off, only the hero walks the map and the party appears in battles.
+- **Whoever leads the lineup walks the map**: put Katrina first in Party → Swap and she's drawn in the hero's place,
+  with the hero you play walking behind (controls, stats and gear stay the hero's).
+
 ### Stats and growth ranks
 
 - **Growth ranks**: each hero's five stats (Strength, Dexterity, Defence, Magic, Magic Defence) have a level 1 value
@@ -563,8 +572,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   switch turning on, defeating enemies (one kind or any, how many), performing Additions (one or any), casting spells,
   reaching a level, completing a quest, holding gold, having an item, the party's size, or any **Journal record**
   reaching a number (steps, fish caught, battles won, battles won without anyone taking damage…).
-- Unlocking shows the pop-up (a badge pops in at the bottom, opens into "Achievement unlocked · 20G – Name", holds, and
-  fades) with its own sound (Database → Audio → *Achievement unlocked*), and a line in the adventure log.
+- Unlocking shows the pop-up (a badge pops in at the bottom, opens into "Achievement unlocked · 20G – Name", the name
+  gives way to the description for a few seconds, then it closes and fades) with its own sound (Database → Audio → *Achievement unlocked*), and a line in the adventure log.
+- The Achievements page has a bar across the top: points earned out of the total ("35 / 180 pts").
 - Unlocks belong to the player in this browser and count for every save (like Xbox and Steam). Playtests keep their own.
 - **Steam**: *Export for Steam (.csv)* lists the API names, names, descriptions and hidden flags for setting them up in
   Steamworks (Steam has no points; theirs stay in the game). A desktop build that talks to Steam (Electron with

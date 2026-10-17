@@ -1222,6 +1222,8 @@ export interface TurnBasedData {
   layout?: 'dragon' | 'fantasy';
   /** The hero always fights: can't be swapped onto the bench (default: anyone can). */
   heroLocked?: boolean;
+  /** Party members follow the hero on the map (default on). Off: only the hero walks the map. */
+  partyFollows?: boolean;
 }
 
 export interface CombatData {
