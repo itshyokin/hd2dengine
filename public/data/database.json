@@ -4157,7 +4157,8 @@
       "id": "slime",
       "name": "Green Slime",
       "look": {
-        "monster": "slime"
+        "image": "assets/enemies/slime_mvbnipsk.png",
+        "flat": {}
       },
       "hp": 22,
       "damage": 6,
