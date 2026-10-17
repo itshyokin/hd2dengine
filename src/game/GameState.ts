@@ -6,7 +6,8 @@ import type { Inventory } from './inventory';
 import type { QuestBook } from './quests';
 
 /** Weather an event set for a map. */
-export interface MapWeather { kind: WeatherKind; amount?: number; wind?: number }
+/** `spell`: set by an event during this spell of dynamic weather (it lasts until the weather next changes by itself). */
+export interface MapWeather { kind: WeatherKind; amount?: number; wind?: number; spell?: number }
 
 export class GameState {
   readonly switches = new Map<string, boolean>();
@@ -15,6 +16,8 @@ export class GameState {
   inventory: Inventory | null = null;
   /** Quests (for quest conditions). */
   quests: QuestBook | null = null;
+  /** The temperature (°F) and weather where the player is (for those conditions). */
+  env: { temp(): number; weather(): WeatherKind } | null = null;
   /** Movement abilities the player has right now. */
   readonly abilities = new Map<Ability, boolean>(ABILITIES.map((a) => [a, true]));
   /** "Overworld weapons: off" (an event, for indoors or restricted areas): the field sword and bow can't be used. */
@@ -97,6 +100,8 @@ export class GameState {
     if ('gold' in c) return (this.inventory?.gold ?? 0) >= c.gold;
     if ('weekday' in c) return c.weekday.includes(new Date().getDay());
     if ('moon' in c) return c.moon.includes(moonPhase());
+    if ('temp' in c) { const t = this.env?.temp() ?? 70; return c.op === '<=' ? t <= c.temp : t >= c.temp; }
+    if ('weather' in c) return c.weather.includes(this.env?.weather() ?? 'none');
     const v = this.getVar(c.var);
     switch (c.op) {
       case '>=': return v >= c.value;
@@ -131,7 +136,7 @@ export class GameState {
     this.forge.clear();
     for (const [k, v] of Object.entries(d.forge ?? {})) if (v && typeof v === 'object') this.forge.set(k, { ...(v.level ? { level: Math.max(0, Math.round(Number(v.level) || 0)) } : {}), ...(typeof v.shard === 'string' ? { shard: v.shard } : {}) });
     for (const [k, v] of Object.entries(d.records ?? {})) if (Number.isFinite(Number(v))) this.records.set(k, Number(v));
-    for (const [m, w] of Object.entries(d.weather ?? {})) if (w && typeof w.kind === 'string') this.weather.set(m, { kind: w.kind, amount: w.amount, wind: w.wind });
+    for (const [m, w] of Object.entries(d.weather ?? {})) if (w && typeof w.kind === 'string') this.weather.set(m, { kind: w.kind, amount: w.amount, wind: w.wind, ...(w.spell !== undefined ? { spell: w.spell } : {}) });
     this.clock = Math.max(0, d.clock ?? 0);
     for (const [m, f] of Object.entries(d.fires ?? {})) this.fires.set(m, new Map(Object.entries(f).map(([k, v]) => [k, Number(v) || 0])));
     for (const [m, keys] of Object.entries(d.cut ?? {})) this.cut.set(m, new Set(keys));

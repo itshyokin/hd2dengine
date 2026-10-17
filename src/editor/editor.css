@@ -668,3 +668,7 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .map-win-body .db-section { max-width: 900px; }
 .erase-type { display: grid; gap: 6px; padding: 8px; border-radius: 8px; background: rgba(214, 64, 52, 0.08); border: 1px solid rgba(214, 64, 52, 0.3); }
 .audio-folders { display: grid; gap: 2px; } .audio-folder { display: flex; justify-content: space-between; gap: 12px; } .audio-folder span { color: var(--muted); font-size: 12px; }
+.climate-temps { grid-template-columns: max-content 80px auto 80px auto; }
+.climate-chances { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; margin: 8px 0; }
+.climate-chance { display: grid; grid-template-columns: 1fr 64px 38px; align-items: center; gap: 6px; font-size: 13px; }
+.climate-chance small { color: var(--muted); text-align: right; }

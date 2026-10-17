@@ -12,7 +12,7 @@ export const SFX_NAMES = [
   'textTick', 'swim', 'fishCast', 'fishBite', 'fishCatch',
   'encounter', 'battleSwell', 'shatter', 'victory', 'expFill', 'expDing',
   'lootGold', 'lootPotion', 'lootKey', 'lootMaterial', 'lootGear', 'lootItem',
-  'achievement',
+  'achievement', 'thunder',
 ] as const;
 export type SfxName = typeof SFX_NAMES[number];
 
@@ -27,7 +27,7 @@ export const SFX_LABELS: Record<SfxName, string> = {
   textTick: 'Letter tick (message text)',
   swim: 'Swimming stroke',
   fishCast: 'Fishing: cast', fishBite: 'Fishing: a bite', fishCatch: 'Fishing: caught one',
-  encounter: 'Battle: encounter sting', battleSwell: 'Battle: transition swell', shatter: 'Battle: shatter transition',
+  thunder: 'Thunder', encounter: 'Battle: encounter sting', battleSwell: 'Battle: transition swell', shatter: 'Battle: shatter transition',
   victory: 'Battle: victory fanfare', expFill: 'Battle: EXP filling', expDing: 'Battle: EXP bar full',
   lootGold: 'Loot: gold', lootPotion: 'Loot: potion / consumable', lootKey: 'Loot: key item', lootMaterial: 'Loot: material', lootGear: 'Loot: weapon / armour', lootItem: 'Loot: other item', achievement: 'Achievement unlocked',
 };
@@ -166,6 +166,12 @@ export function makeSfx(name: SfxName): Float32Array {
       const hit = t > 1.25 ? (Math.sin(2 * Math.PI * 55 * after) * 0.7 + noise() * 0.4) * env(after, 0.002, 0.12) : 0;
       return ((t < 1.25 ? rush + chord : (rush + chord) * Math.exp(-after * 20)) + hit) * 0.6;
     });
+    // Thunder: a sharp crack, then a long low rumble rolling away.
+    case 'thunder': return lowpass(make(4.2, (t) => {
+      const crack = noise() * env(t, 0.003, 0.08) * 0.9;
+      const roll = noise() * (0.55 + 0.45 * Math.sin(t * 7 + Math.sin(t * 2.3) * 3)) * env(t, 0.25, 1.3) * 0.8;
+      return crack + roll;
+    }), 420);
     // Glass breaking: a crack, then shards tinkling down.
     case 'shatter': {
       const shards = Array.from({ length: 22 }, () => ({ at: 0.03 + R() ** 1.6 * 0.8, f: 2200 + R() * 4200, g: 0.08 + R() * 0.12 }));

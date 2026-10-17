@@ -10,7 +10,7 @@ import type { PlayerStats } from '../game/stats';
 const BARS: ['mp' | 'hp' | 'xp', string][] = [['mp', 'MP'], ['hp', 'HP'], ['xp', 'EXP']];
 type BarKey = typeof BARS[number][0];
 
-export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string; /** The real moon's phase: a picture and its name. */ moon?: { svg: string; name: string; key: string } }
+export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string; /** The real moon's phase: a picture and its name. */ moon?: { svg: string; name: string; key: string }; /** The temperature here, "72°F". */ temp?: string }
 export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string; /** Disabled by an event (indoors): greyed with a red ✕. */ blocked?: boolean }
 
 /** The HUD pieces a player can move and scale. */
@@ -48,6 +48,9 @@ const ICONS = {
   moon: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.8 2.2a6 6 0 1 0 3 9.6 5 5 0 0 1-3-9.6z" fill="#cfd8ff"/><circle cx="3.2" cy="3.4" r="0.7" fill="#cfd8ff"/><circle cx="13.6" cy="4.2" r="0.6" fill="#cfd8ff"/></svg>',
 };
 
+/** A little thermometer for the clock card. */
+const THERMO = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6.2" y="1.5" width="3.6" height="9.5" rx="1.8" fill="#2a3048" stroke="#9aa6c4" stroke-width="0.8"/><circle cx="8" cy="12" r="2.8" fill="#e85a4a" stroke="#9aa6c4" stroke-width="0.8"/><rect x="7.2" y="5" width="1.6" height="6.5" fill="#e85a4a"/></svg>';
+
 interface Row { fill: HTMLElement; ghost: HTMLElement; num: HTMLElement; row: HTMLElement; shown: number; last: number }
 
 /** One party card's numbers. */
@@ -72,6 +75,7 @@ export class StatusBars {
   private readonly clockDate: HTMLElement;
   private icon = '';
   private moonKey = '';
+  private tempShown = '';
   private readonly ring = document.createElement('div');
   private readonly levelEl = document.createElement('div');
   private readonly xpBar = document.createElement('div');
@@ -188,7 +192,7 @@ export class StatusBars {
     this.side.className = 'hud-side';
     const clock = document.createElement('div');
     clock.className = 'hud-clock';
-    clock.innerHTML = '<span class="hud-clock-icon"></span><span class="hud-clock-time"></span><span class="hud-clock-weather"></span><span class="hud-clock-date"></span><span class="hud-clock-sky"><span class="hud-moon"></span></span>';
+    clock.innerHTML = '<span class="hud-clock-icon"></span><span class="hud-clock-time"></span><span class="hud-clock-weather"></span><span class="hud-clock-date"></span><span class="hud-clock-sky"><span class="hud-temp"></span><span class="hud-moon"></span></span>';
     // Behind the clock: a small picture of the season (Settings → HUD → Season picture).
     this.seasonArt.className = 'hud-season';
     this.seasonArt.setAttribute('aria-hidden', 'true');
@@ -377,6 +381,13 @@ export class StatusBars {
       this.clockWeather.textContent = clock.weather;
       const d = clock.date ?? '';
       if (this.clockDate.textContent !== d) this.clockDate.textContent = d;
+      const tp = clock.temp ?? '';
+      if (tp !== this.tempShown) {
+        this.tempShown = tp;
+        const el = this.side.querySelector<HTMLElement>('.hud-temp')!;
+        el.innerHTML = tp ? `${THERMO}<span>${tp}</span>` : '';
+        el.title = tp ? `Temperature: ${tp}` : '';
+      }
       const m = clock.moon, mk = m?.key ?? '';
       if (mk !== this.moonKey) {
         this.moonKey = mk;

@@ -23,6 +23,9 @@ interface Style {
 
 const STYLES: Record<Exclude<WeatherKind, 'none'>, Style> = {
   rain: { height: 12, count: 1400, fall: 15, push: 2.5, wander: 0, color: ['#a8c4e8', '#c8dcf4'], size: 0, streak: 0.55, opacity: 0.55 },
+  storm: { height: 12, count: 2400, fall: 21, push: 6, wander: 0, color: ['#9cb4d8', '#b8cce8'], size: 0, streak: 0.75, opacity: 0.6 },
+  blizzard: { height: 9, count: 1800, fall: 1.8, push: 7, wander: 1.1, color: ['#ffffff', '#e8f0ff'], size: 0.5, opacity: 0.95 },
+  haze: { height: 4, count: 220, fall: 0.05, push: 0.4, wander: 0.3, color: ['#d8dce4', '#c4c8d0'], size: 0.22, opacity: 0.35 },
   snow: { height: 9, count: 900, fall: 1.1, push: 1.2, wander: 0.6, color: ['#ffffff', '#e8f0ff'], size: 0.45, opacity: 0.95 },
   sandstorm: { height: 6, count: 1800, fall: 0.6, push: 9, wander: 1.2, color: ['#e8c28a', '#d8a868', '#f4d8a0'], size: 0, streak: 0.7, opacity: 0.8 },
   pollen: { height: 4, count: 260, fall: 0.15, push: 0.6, wander: 0.5, color: ['#fff2a0', '#ffe070', '#f8f8d0'], size: 0.26, opacity: 0.9 },
@@ -159,7 +162,11 @@ export class Weather {
   }
 
   /** How much it's raining (or snowing…) right now, 0 … 1, for sounds and gloom. */
-  get rain(): number { return this.layers.filter((l) => l.kind === 'rain').reduce((s, l) => s + l.level * Math.min(1, l.amount), 0); }
+  get rain(): number { return this.layers.filter((l) => l.kind === 'rain' || l.kind === 'storm').reduce((s, l) => s + l.level * Math.min(1, l.amount * (l.kind === 'storm' ? 1.4 : 1)), 0); }
+  /** Grey murk: haze, and a blizzard's whiteout. */
+  get mist(): number { return this.layers.filter((l) => l.kind === 'haze' || l.kind === 'blizzard').reduce((s, l) => s + l.level * Math.min(1, l.amount * (l.kind === 'haze' ? 0.7 : 0.9)), 0); }
+  /** A storm right now (thunder and lightning), 0 … 1. */
+  get storm(): number { return this.layers.filter((l) => l.kind === 'storm').reduce((s, l) => s + l.level, 0); }
   get haze(): number { return this.layers.filter((l) => l.kind === 'sandstorm').reduce((s, l) => s + l.level * Math.min(1, l.amount), 0); }
 
   update(dt: number, center: THREE.Vector3, time: number, ground: (x: number, z: number) => number): void {

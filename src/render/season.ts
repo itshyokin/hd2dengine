@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { Season } from '../world/seasons';
 
-const uniforms = { uHdSeason: { value: new THREE.Vector4(0, 0, 0, 0) } };
+const uniforms = { uHdSeason: { value: new THREE.Vector4(0, 0, 0, 0) }, uHdWeather: { value: new THREE.Vector4(0, 0, 0, 0) } };
 
 /** How a material changes: ground (grass turns to snow), leaves (snow on them), bare (leaves gone in winter). */
 export type SeasonMode = 'ground' | 'leaves' | 'bare';
@@ -22,6 +22,19 @@ const VERT = `#include <project_vertex>
 
 const HEAD = `
 uniform vec4 uHdSeason;
+uniform vec4 uHdWeather;
+/** The weather's mark on the ground: damp (darker, richer), frost (white-blue on grass and leaves), heat (grass parched). */
+vec3 hdWeatherLook(vec3 c, float ground) {
+  float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float leaf = smoothstep(0.004, 0.05, c.g - max(c.r, c.b));
+  float wet = uHdWeather.x;
+  c = mix(vec3(lum), c, 1.0 + 0.3 * wet) * (1.0 - 0.22 * wet);
+  float frost = uHdWeather.y * (ground > 0.5 ? 0.55 + 0.35 * leaf : 0.25 + 0.45 * leaf);
+  c = mix(c, vec3(0.84, 0.9, 1.0) * (0.55 + lum * 0.6), frost);
+  float heat = uHdWeather.z * leaf * (ground > 0.5 ? 0.6 : 0.25);
+  c = mix(c, vec3(lum * 1.35, lum * 1.12, lum * 0.5), heat);
+  return c;
+}
 float hdSeasonHash(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 15731.743); }
 varying vec2 vHdOrigin;
 vec3 hdSeasonColor(vec3 c, vec2 world, vec2 origin, float ground, float bare, out float gone) {
@@ -58,14 +71,19 @@ export function patchSeason<T extends THREE.Material>(mat: T, mode: SeasonMode):
     // Where each prop stands (instanced props share one mesh), so a whole tree turns one colour in autumn.
     shader.vertexShader = 'varying vec2 vHdOrigin;\n' + shader.vertexShader.replace('#include <project_vertex>', VERT);
     shader.fragmentShader = HEAD + shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
-  { float hdGone; diffuseColor.rgb = hdSeasonColor(diffuseColor.rgb, vHdWorld, vHdOrigin, ${mode === 'ground' ? '1.0' : '0.0'}, ${mode === 'bare' ? '1.0' : '0.0'}, hdGone); if (hdGone > 0.5) discard; }`);
+  { float hdGone; diffuseColor.rgb = hdSeasonColor(diffuseColor.rgb, vHdWorld, vHdOrigin, ${mode === 'ground' ? '1.0' : '0.0'}, ${mode === 'bare' ? '1.0' : '0.0'}, hdGone); if (hdGone > 0.5) discard; diffuseColor.rgb = hdWeatherLook(diffuseColor.rgb, ${mode === 'ground' ? '1.0' : '0.0'}); }`);
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season2:${mode}`;
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season3:${mode}`;
   return mat;
 }
 
 /** Show this season everywhere (null: as drawn, no seasons). */
 export function setSeason(s: Season | null): void {
   uniforms.uHdSeason.value.set(s === 'spring' ? 1 : 0, s === 'summer' ? 1 : 0, s === 'autumn' ? 1 : 0, s === 'winter' ? 1 : 0);
+}
+
+/** The weather's mark on grass and leaves: how damp (0 … 1), frosted and parched. */
+export function setWeatherLook(wet: number, frost: number, heat: number): void {
+  uniforms.uHdWeather.value.set(wet, frost, heat, 0);
 }

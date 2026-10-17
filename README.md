@@ -373,6 +373,28 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   down. *Until morning* (7:00), *until night* (21:00) or *for a number of hours*; *Rest too* refills health, magic and
   stamina. Time slept counts for fires and the calendar. Console: `sleep`, `sleep night`, `sleep 4`.
 
+### Weather and temperature
+
+- **Dynamic weather** (**Database → Weather & temperature**): the shared outdoor weather changes by itself every few
+  game hours (*Each spell lasts*), picked from each season's chances: clear, rain, **thunderstorms** (heavy rain,
+  lightning flashes, thunder), snow, **blizzards** (whiteout and wind), **haze**, pollen, dust, falling leaves,
+  sandstorms. Rain falls as snow below freezing and snow as rain above it. Maps with *Unique weather* keep their own.
+  A Change weather command (from an event, a spell or an item's event) changes it until the next change. The
+  adventure log says when the weather turns; the clock card names it. Off: the weather stays as set, as before.
+- **Temperature**: each season has a range for the morning low and the afternoon high (°F). Every day rolls its own
+  (one summer day 67°, the next 102°), coolest around dawn and warmest mid-afternoon. Rain and storms cool it, haze
+  warms it, **Map Properties → Weather → Climate** makes a map warmer or colder (a desert +15, a peak −20), and the
+  **Change temperature** command sets it (or warms / cools it) until the player leaves the map. Indoors it's 68°.
+  The clock card shows it with a thermometer, beside the moon; **Settings → Gameplay → Temperature**: °F or °C.
+- **The ground follows it**: rain leaves it damp (darker and richer, drying over a couple of game hours), below
+  freezing grass and leaves frost over white-blue, and in a heat wave grass turns straw-coloured, coming back as the
+  evening cools.
+- **Conditions**: *Temperature* (at least / at most °F) and *Weather* (any of the kinds you tick), for events that
+  happen in the heat, the cold or the rain.
+- **Battles**: heat makes fire attacks stronger and water-type foes softer; cold makes water (the cold element)
+  stronger and fire-type foes softer (*Heat and cold in battle*, 25% at most by default).
+- Console: `temperature` shows it (and the weather), `temperature add -30`, `temperature set 100`, `temperature reset`.
+
 ### Time, night and map lighting
 
 - **Database → Time**: *Clock speed* from stopped to 60× (1× is real time; the default 20× makes a day last 72

@@ -104,6 +104,9 @@ import { WorldMapScreen, type WorldMapMarker, type WorldMapPiece } from '../ui/W
 import { drawMarker, markerKinds } from '../world/landmarks';
 import { tintCanvas, tintObject } from '../render/tint';
 import { SATURN_DIR, Sky } from '../render/Sky';
+import { type ClimateConfig, WEATHER_TEMP, climateConfig, formatTemp, temperatureAt, weatherAt } from '../world/climate';
+import { setWeatherLook } from '../render/season';
+import { combatClimate } from './battle/rules';
 import { MOON_NAMES, moonAge, moonIconSvg, moonPhase } from '../world/moon';
 import { BubbleLayer } from '../ui/BubbleLayer';
 import { AchievementsScreen, type AchievementView } from '../ui/AchievementsScreen';
@@ -479,6 +482,7 @@ export class Game {
 
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
+    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind };
     this.message.tick = () => { if (this.settings.textTicks !== false) this.audio.play('textTick', undefined, undefined, 0.8); };
     this.touch = new TouchControls(this.ui, this.input);
     this.hud = new StatusBars(this.ui);
@@ -750,8 +754,8 @@ export class Game {
       weather: (kind, amount, wind, scope) => {
         // Here: this map's weather (the shared outdoor weather, its zone's or its own); world: the shared outdoor weather.
         const key = scope === 'world' ? WORLD_WEATHER : this.weatherKey();
-        const prev = this.state.weather.get(key);
-        this.state.weather.set(key, { kind, ...(amount !== undefined ? { amount } : {}), ...(wind !== undefined ? { wind } : prev?.wind !== undefined ? { wind: prev.wind } : {}) });
+        const prev = this.state.weather.get(key), dyn = key === WORLD_WEATHER ? this.dynamicWeather() : null;
+        this.state.weather.set(key, { kind, ...(amount !== undefined ? { amount } : {}), ...(wind !== undefined ? { wind } : prev?.wind !== undefined ? { wind: prev.wind } : {}), ...(dyn ? { spell: dyn.spell } : {}) });
         const w = this.mapWeather();
         this.weather.set(w.kind, w.amount, this.camTarget);
       },
@@ -764,6 +768,7 @@ export class Game {
       },
       busy: () => this.battle.active || this.battlePending || !!this.sleeping,
       sleep: (c) => this.startSleep(c),
+      temperature: (op, value) => { this.tempHere = op === 'reset' ? null : { op, value: value ?? 0 }; },
       achievement: (id) => { this.unlockAchievement(id); },
       console: (line) => { const r = this.devConsole.exec(line, false); if (r && !/^Done/.test(r)) console.info(`[console] ${line}: ${r}`); },
       learn: (c) => this.eventLearn(c),
@@ -805,6 +810,8 @@ export class Game {
     this.leaveMap();
     this.mapName = name;
     this.cutThisVisit.clear();
+    // An event's change of temperature lasts while the player stays on its map.
+    this.tempHere = null;
     this.mineHits.clear();
     data = this.visitData(name, data);
     this.mapData = data;
@@ -1705,10 +1712,11 @@ export class Game {
     this.overlay.update(dt);
     this.hud.update(dt, this.stats, {
       time: this.time.label(this.settings.clock12), night: this.time.night, hour: this.time.hour,
-      weather: { outdoor: 'Clear', indoor: 'Indoors', dark: 'Underground' }[this.time.environment],
+      weather: this.time.environment === 'outdoor' ? WEATHER_LABEL[this.weather.kind] : { indoor: 'Indoors', dark: 'Underground' }[this.time.environment],
       // The real-world date under the game time (and the season, outdoors).
       date: `${new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}${this.season ? ` · ${SEASON_NAMES[this.season]}` : ''}`,
       moon: this.moonInfo(),
+      temp: formatTemp(this.temperature(), this.settings.tempUnit ?? 'F'),
     });
     this.debug.update(dt, this.time.hour, this.time.label(), this.post.lastDrawCalls, this.state.toJSON());
     this.input.endFrame();
@@ -3370,11 +3378,12 @@ export class Game {
     a.music(battle ?? this.musicOverride ?? d.music ?? '', battle ? 0.6 : fade);
     const night = this.time.environment === 'outdoor' && this.time.night > 0.5 && d.ambienceNight;
     // Rain brings its own sound (unless an event chose one).
-    const rainy = this.time.environment === 'outdoor' && this.weather.kind === 'rain' && this.weather.amount > 0;
+    const rainy = this.time.environment === 'outdoor' && (this.weather.kind === 'rain' || this.weather.kind === 'storm') && this.weather.amount > 0;
+    const blowing = this.time.environment === 'outdoor' && this.weather.kind === 'blizzard' && this.weather.amount > 0;
     // Autumn and winter: the map's cold-season sound, or birdsong gives way to wind in bare branches.
     const cold = this.season === 'autumn' || this.season === 'winter';
     const day = cold && !night ? d.ambienceCold ?? (d.ambience === 'builtin:forest' ? 'builtin:chill' : d.ambience) : d.ambience;
-    a.ambience(this.ambienceOverride ?? (rainy ? 'builtin:rain' : night ? d.ambienceNight! : day ?? ''));
+    a.ambience(this.ambienceOverride ?? (rainy ? 'builtin:rain' : blowing ? 'builtin:wind' : night ? d.ambienceNight! : day ?? ''));
   }
 
   /* ------------------------------------------------------------------ menus */
@@ -3827,6 +3836,13 @@ export class Game {
           document.body.append(link); link.click(); link.remove();
           setTimeout(() => URL.revokeObjectURL(url), 5000);
           return `Downloaded ${list.length} note${list.length === 1 ? '' : 's'}.`;
+        } },
+      { name: 'temperature', args: '[set|add|reset] [°F]', help: 'Show or change the temperature on this map', complete: () => ['set', 'add', 'reset'],
+        run: (a) => {
+          if (a[0] === 'reset') this.tempHere = null;
+          else if (a[0] === 'set' || a[0] === 'add') this.tempHere = { op: a[0], value: num(a[1], 0) };
+          const dyn = this.dynamicWeather();
+          return `${formatTemp(this.temperature(), 'F')} (${formatTemp(this.temperature(), 'C')}) · weather ${this.weather.kind}${dyn ? ` (spell ${dyn.spell})` : ''}`;
         } },
       { name: 'sleep', args: '[morning|night|<hours>]', help: 'Sleep (the sky transition) and rest', complete: () => ['morning', 'night'],
         run: (a) => { const v = a[0] ?? 'morning', h = parseFloat(v); return run([{ cmd: 'sleep', until: Number.isFinite(h) ? 'hours' : v === 'night' ? 'night' : 'morning', hours: Number.isFinite(h) ? h : undefined, rest: true }]); } },
@@ -4988,6 +5004,7 @@ export class Game {
       { label: 'Sprint', detail: 'Hold: run while the run button is held (X on a controller, Shift on a keyboard). Toggle: press once to start running, again to stop (controller and touch button).', choice: { value: st.sprint, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('sprint')(v as Settings['sprint']) } },
       { label: 'Run with a full stick push', detail: 'Controller: push the stick all the way to run.', toggle: { value: st.stickRun, set: set('stickRun') } },
       { label: 'Tap to walk', detail: 'Tap or click the ground to walk there, or a person to go and talk to them.', toggle: { value: !!st.tapToWalk, set: (v) => { set('tapToWalk')(v || undefined); if (!v) { this.cursor.visible = false; this.moveTarget = null; } } } },
+      { label: 'Temperature', choice: { value: st.tempUnit ?? 'F', options: [['F', '°F'], ['C', '°C']], set: (v) => set('tempUnit')(v === 'C' ? 'C' : undefined) } },
       { label: 'Clock', choice: { value: st.clock12 ? '12' : '24', options: [['24', '24-hour'], ['12', '12-hour']], set: (v) => set('clock12')(v === '12') } },
     ], { note: 'Left / right change a setting.' });
     const controls = () => this.controls.show(this.input.current, (b) => { st.bindings = b; st.bindingsVersion = BINDINGS_VERSION; this.applySettings(); this.settingsStore.save(st); }, () => {});
@@ -5311,8 +5328,11 @@ export class Game {
     const o = this.state.weather.get(key) ?? (shared ? undefined : this.state.weather.get(this.mapName));
     const start = shared ? this.db.weather : d.weather;
     const show = !shared || outdoor;
-    const kind = show ? o?.kind ?? start?.kind ?? 'none' : 'none';
-    const amount = kind === 'none' ? 0 : o ? o.amount ?? 1 : start?.amount ?? 1;
+    // The shared outdoor weather changes by itself (Database → Weather); an event's change lasts until it next does.
+    const dyn = shared && outdoor ? this.dynamicWeather() : null;
+    const ov = dyn && o && o.spell !== dyn.spell ? undefined : o;
+    const kind = show ? ov?.kind ?? dyn?.kind ?? start?.kind ?? 'none' : 'none';
+    const amount = kind === 'none' ? 0 : ov ? ov.amount ?? 1 : dyn ? dyn.amount : start?.amount ?? 1;
     const wind = (show ? o?.wind : undefined) ?? d.wind?.strength ?? (outdoor ? 0.3 : 0);
     return { kind, amount, wind, dir: d.wind?.dir ?? 15 };
   }
@@ -5325,15 +5345,24 @@ export class Game {
       this.weather.attach(this.level, w.kind, w.amount, this.camTarget);
       this.atmosphere.attach(this.level, this.camTarget);
     }
+    // Dynamic weather: when the spell changes, the old weather fades out as the new comes in.
+    if (!this.weatherPending && (w.kind !== this.weather.kind || Math.abs(w.amount - this.weather.amount) > 0.05)) {
+      this.weather.set(w.kind, w.amount, this.stage ? this.stage.look : this.camTarget);
+      if (w.kind !== this.lastWeatherKind && !this.onTitle && this.lastWeatherKind) this.log.add(weatherLine(w.kind), 'info');
+    }
+    this.lastWeatherKind = w.kind;
+    this.updateClimate(dt);
     // In a battle on a battle map, the weather falls around the battle.
     const center = this.stage ? this.stage.look : this.camTarget, ground = this.stage ? this.stage.map : this.map;
     this.weather.update(dt, center, this.elapsed, (x, z) => ground.surfaceY(x, z));
     // Rain dims the day; a sandstorm closes in the view.
-    const rain = this.weather.rain, haze = this.weather.haze;
-    this.time.gloom = rain;
+    const rain = this.weather.rain, haze = this.weather.haze, mist = this.weather.mist;
+    this.time.gloom = Math.min(1.3, rain + mist * 0.4);
     this.time.haze = haze;
+    this.time.mist = mist;
+    this.updateLightning(dt);
     const air = this.stage?.stage.data.atmosphere ?? this.mapData.atmosphere, outdoor = this.time.environment === 'outdoor';
-    const thick = Math.min(1, Math.max(air?.haze ?? 0, outdoor ? haze * 0.75 + rain * 0.25 : 0));
+    const thick = Math.min(1, Math.max(air?.haze ?? 0, outdoor ? haze * 0.75 + rain * 0.25 + mist * 0.7 : 0));
     this.fog.near = 22 - 16 * thick;
     this.fog.far = 50 - 30 * thick;
     // Mist (perhaps only around dawn or after dark) and sun rays (only while the sun is out).
@@ -5386,9 +5415,87 @@ export class Game {
       f.tex.offset.x += (0.03 - Math.cos(fd) * f.flow * 0.45) * dt;
       f.tex.offset.y += (0.018 - Math.sin(fd) * f.flow * 0.45) * dt;
     }
-    this.post.exposure = this.time.exposure * 1.1 * this.settings.brightness;
+    this.post.exposure = this.time.exposure * 1.1 * this.settings.brightness * (1 + this.lightFlash * 1.8);
     this.updateSky(dt);
   }
+
+  /* ---------------------------------------------------------------- weather and temperature */
+
+  private climateCache: { src: unknown; cfg: ClimateConfig } | null = null;
+  private get climate(): ClimateConfig {
+    let c = this.climateCache;
+    if (!c || c.src !== this.db.climate) c = this.climateCache = { src: this.db.climate, cfg: climateConfig(this.db.climate) };
+    return c.cfg;
+  }
+  /** An event's change of temperature on this map (cleared on leaving it). */
+  private tempHere: { op: 'set' | 'add'; value: number } | null = null;
+  private lastWeatherKind: WeatherKind | '' = '';
+  /** How wet the ground is (rain soaks it; it dries over a couple of game hours), and the frost and heat shown. */
+  private wet = 0;
+  private frost = 0;
+  private heat = 0;
+
+  /** The season the climate follows on a day (a map's own season, the playtest pick, or the calendar's). */
+  private climateSeason(day: number, onMap = true): Season {
+    if (onMap && this.mapData?.season) return this.mapData.season;
+    if (this.seasonTest) return this.seasonTest;
+    const cfg = this.db.time?.seasons;
+    if (cfg?.off || (cfg?.mode ?? 'real') !== 'days') return realSeason(new Date(), cfg?.mode === 'realSouth');
+    return seasonOn(day, cfg);
+  }
+
+  /** The outdoor temperature now from the season and the hour alone (°F). */
+  private baseTemp(onMap = true): number {
+    const day = Math.floor(this.state.clock / 24);
+    return temperatureAt(day, this.time.hour, (d) => this.climate.seasons[this.climateSeason(d, onMap)]);
+  }
+
+  /** The shared outdoor weather's current spell (null: dynamic weather is off). */
+  private dynamicWeather(): { spell: number; kind: WeatherKind; amount: number } | null {
+    const c = this.climate;
+    if (!c.dynamic) return null;
+    return weatherAt(this.state.clock, c, (d) => this.climateSeason(d, false), () => this.baseTemp(false));
+  }
+
+  /** The temperature where the player is (°F): season and hour, weather, the map's climate, an event's change. */
+  temperature(): number {
+    const env = this.stage?.env ?? this.time.environment;
+    if (env !== 'outdoor') return env === 'indoor' ? 68 : 55;
+    let t = this.baseTemp() + (WEATHER_TEMP[this.weather.kind] ?? 0) * Math.min(1, this.weather.amount || 0) + (this.mapData?.tempOffset ?? 0);
+    if (this.tempHere) t = this.tempHere.op === 'set' ? this.tempHere.value : t + this.tempHere.value;
+    return t;
+  }
+
+  /** The ground's look follows the weather: damp after rain, frosted below freezing, parched in a heat wave. */
+  private updateClimate(dt: number): void {
+    const outdoor = (this.stage?.env ?? this.time.environment) === 'outdoor';
+    const t = this.temperature(), raining = this.weather.rain, k = Math.min(1, dt * 0.6);
+    // Soaks in within a minute or so of rain; dries over about two game hours (sooner when it's hot).
+    const gameHours = (dt * Math.max(1, this.time.rate)) / 3600;
+    this.wet = raining > 0.05 ? Math.min(1, this.wet + raining * dt * 0.05) : Math.max(0, this.wet - gameHours * (t > 80 ? 1 : 0.5));
+    const frost = outdoor ? clamp((34 - t) / 10, 0, 1) : 0, heat = outdoor ? clamp((t - 88) / 16, 0, 1) : 0;
+    this.frost += (frost - this.frost) * k * 0.3;
+    this.heat += (heat - this.heat) * k * 0.3;
+    setWeatherLook(outdoor ? this.wet : 0, this.frost, this.heat);
+    if (combatClimate.temp !== t) combatClimate.temp = t;
+    combatClimate.strength = this.climate.battle / 100;
+  }
+
+  /** Thunderstorms: now and then the sky flashes, and thunder rolls in a moment later. */
+  private lightning = { next: 4, flash: 0, thunder: -1 };
+  private updateLightning(dt: number): void {
+    const s = this.weather.storm, L = this.lightning;
+    if (s > 0.3 && (this.stage?.env ?? this.time.environment) === 'outdoor') {
+      L.next -= dt;
+      if (L.next <= 0) { L.next = 6 + Math.random() * 14; L.flash = 1; L.thunder = 0.4 + Math.random() * 1.6; }
+    }
+    if (L.thunder > 0 && (L.thunder -= dt) <= 0) { L.thunder = -1; this.audio.play('thunder'); }
+    L.flash = Math.max(0, L.flash - dt * 3.5);
+    // Two quick flickers.
+    this.lightFlash = L.flash > 0 ? (L.flash > 0.7 ? 1 : L.flash > 0.5 ? 0.2 : L.flash > 0.35 ? 0.8 : L.flash * 0.6) : 0;
+  }
+  /** Lightning brightening the scene (0 … 1). */
+  private lightFlash = 0;
 
   /* ---------------------------------------------------------------- sleeping */
 
@@ -5444,6 +5551,7 @@ export class Game {
   private readonly sky = new Sky();
   private readonly skyCol = { zenith: new THREE.Color(), horizon: new THREE.Color(), sun: new THREE.Color(), cloud: new THREE.Color(), shade: new THREE.Color() };
   private static readonly SKY_DAY = new THREE.Color(0.18, 0.36, 0.78);
+  private static readonly FLASH = new THREE.Color(0.85, 0.85, 1.0);
   private static readonly SKY_NIGHT = new THREE.Color(0.006, 0.009, 0.03);
   private static readonly CLOUD = {
     clear: [new THREE.Color(0.95, 0.95, 0.97), new THREE.Color(0.62, 0.64, 0.72)],
@@ -5464,19 +5572,32 @@ export class Game {
     c.zenith.copy(this.hemi.color).lerp(Game.SKY_DAY, 0.45 * (1 - night)).lerp(Game.SKY_NIGHT, Math.min(1, night * 0.7 + dk * 0.3));
     c.sun.copy(this.sun.color).multiplyScalar(1 - night);
     const kind = w.kind, amt = w.amount;
-    const look = kind === 'rain' ? 'rain' : kind === 'snow' ? 'snow' : kind === 'sandstorm' || kind === 'dust' ? 'sand' : 'clear';
+    const look = kind === 'rain' || kind === 'storm' ? 'rain' : kind === 'snow' || kind === 'blizzard' ? 'snow' : kind === 'sandstorm' || kind === 'dust' ? 'sand' : kind === 'haze' ? 'haze' : 'clear';
     // Clear days: a few puffy clouds, more on some days than others (and thin, wispy ones on some).
     const day = Math.floor(this.state.clock / 24), v = (Math.sin(day * 12.9898) * 43758.5453) % 1;
     const base = 0.22 + Math.abs(v) * 0.25, wispy = Math.abs((v * 7.3) % 1) > 0.6 ? 0.8 : 0;
-    const cover = look === 'clear' ? base : look === 'rain' ? 0.65 + 0.3 * amt : look === 'snow' ? 0.7 + 0.25 * amt : 0.5 + 0.3 * amt;
-    const [cl, sh] = Game.CLOUD[look];
+    const heavy = kind === 'storm' || kind === 'blizzard' ? 0.25 : 0;
+    const cover = look === 'clear' ? base : look === 'haze' ? 0.3 : look === 'rain' ? 0.65 + 0.3 * amt + heavy : look === 'snow' ? 0.7 + 0.25 * amt + heavy : 0.5 + 0.3 * amt;
+    const [cl, sh] = Game.CLOUD[look === 'haze' ? 'snow' : look];
     c.cloud.copy(cl).lerp(Game.CLOUD.night[0], night * 0.9);
     c.shade.copy(sh).lerp(Game.CLOUD.night[1], night * 0.9);
-    if (look !== 'clear') c.zenith.lerp(c.cloud, 0.5 * amt);
+    if (look !== 'clear') c.zenith.lerp(c.cloud, look === 'haze' ? 0.45 : 0.5 * amt + heavy);
+    if (kind === 'storm') { c.cloud.multiplyScalar(0.75); c.shade.multiplyScalar(0.7); }
+    // Lightning lights the clouds from inside.
+    if (this.lightFlash > 0) { c.cloud.lerp(Game.FLASH, this.lightFlash * 0.7); c.zenith.lerp(Game.FLASH, this.lightFlash * 0.4); }
     this.sky.update({
       hour: this.time.hour, night, horizon: c.horizon, zenith: c.zenith, sunColor: c.sun, moonAge: moonAge(),
       cloud: cover, wispy: look === 'clear' ? wispy : 0, cloudColor: c.cloud, cloudShade: c.shade,
       windDir: THREE.MathUtils.degToRad(w.dir), wind: w.wind, time: this.elapsed,
     }, this.camera, dt);
   }
+}
+
+/** The weather's name for the clock card. */
+const WEATHER_LABEL: Record<WeatherKind, string> = { none: 'Clear', rain: 'Rain', storm: 'Storm', snow: 'Snow', blizzard: 'Blizzard', haze: 'Hazy', sandstorm: 'Sandstorm', pollen: 'Pollen', dust: 'Dusty', leaves: 'Windy' };
+
+/** The adventure log's line when the weather turns. */
+function weatherLine(k: WeatherKind): string {
+  return ({ none: 'The sky clears.', rain: 'It starts to rain.', storm: 'A thunderstorm rolls in.', snow: 'Snow begins to fall.', blizzard: 'A blizzard sweeps in.',
+    haze: 'A haze settles over everything.', sandstorm: 'A sandstorm whips up.', pollen: 'Pollen drifts on the air.', dust: 'Dust hangs in the air.', leaves: 'Leaves blow past on the wind.' } as Record<WeatherKind, string>)[k];
 }

@@ -323,6 +323,8 @@ export class Inspector {
       ...(unique ? [field('Weather zone', textInput(m.weatherZone ?? '', (v) => this.edit(() => { if (v.trim()) m.weatherZone = v.trim(); else delete m.weatherZone; })),
         'Optional. Maps with the same zone name share their weather with each other (desert, mountains): a change on one shows on all of them. Blank: this map alone.')] : []),
       weatherRow,
+      field('Climate (°F warmer or colder)', numberInput(m.tempOffset ?? 0, (v) => this.edit(() => { const r = Math.round(v); if (r) m.tempOffset = r; else delete m.tempOffset; }), { step: 1 }),
+        'A desert +15, a mountain top −20: added to the season’s temperature here. The shared weather still changes by itself (Database → Weather) unless this map has Unique weather.'),
       h('p', { class: 'hint' }, unique
         ? 'This map keeps its own weather (or its zone’s), whatever the weather is on other maps. Good for deserts, mountaintops, a magic storm.'
         : outdoor ? 'Shared: every outdoor map without Unique weather has the same weather, so it’s still raining when the player steps into the next map. This is the weather a new game starts with (it’s the same setting on every shared map). Events change it with “Change weather”.'

@@ -69,7 +69,8 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [ ] A "Complete the Bestiary" achievement rule (every enemy met / defeated).
 - [ ] Visible wandering enemies per zone (later).
 - [x] Sky over Titan (stars, Saturn, sun, the real moon's phase with circuit lines, clouds by weather), moon phase in the clock card and as a condition, Sleep command with the sky transition (update 53).
-- [ ] Next: weather and temperature (°F / °C setting, frost, damp, heat, events, weather spells, water = cold); then stat ranks (A–F progression) with the dice-table creation (Default / Custom → Roll Dice, Point Buy, Standard Array; "Set up stats on joining" per hero).
+- [x] Dynamic weather (season chances, storms with lightning and thunder, blizzards, haze, rain/snow by temperature), temperature (daily rolls, curve, map climate, Change temperature command, °F/°C), damp / frost / heat on the ground, Temperature and Weather conditions, heat and cold in battle (update 54).
+- [ ] Next: stat ranks (A–F progression) with the dice-table creation (Default / Custom → Roll Dice, Point Buy, Standard Array; "Set up stats on joining" per hero).
 - [ ] Then (playtest notes, Oct 17):
   - Turn-based: AI allies don't charge enemies (no battles started by them); they follow the hero (toggle) and mirror their moves (jumping over things). A new hero in the first place uses their sprite on the overworld.
   - Battle poses: Jordan, Eleanor and NPCs set up like Katrina and Crowley.

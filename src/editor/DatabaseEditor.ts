@@ -26,6 +26,8 @@ import { markersTab } from './MarkersEditor';
 import { textColorsTab } from './TextColorsEditor';
 import { messageStyles, textColors, type MessageStyle, type TextColor } from '../ui/richText';
 import { messageStylesTab } from './MessageStylesEditor';
+import { cleanClimate, climateTab } from './ClimateEditor';
+import { climateConfig, type ClimateConfig } from '../world/climate';
 import { saveDatabase } from './io';
 import { beforeCombatPreview } from './combatPreview';
 import { markerKinds, type MarkerKind } from '../world/landmarks';
@@ -48,7 +50,7 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
@@ -56,7 +58,7 @@ const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
   ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group'], ['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
-  ['World', [['time', 'Time & seasons', 'clock'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['messageStyles', 'Text boxes', 'bubble'], ['audio', 'Audio', 'note']]],
+  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['messageStyles', 'Text boxes', 'bubble'], ['audio', 'Audio', 'note']]],
   ['System', [['saving', 'Saving', 'disk'], ['menus', 'Title & menus', 'menu'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
@@ -81,6 +83,7 @@ const ICON_PATHS: Record<string, string> = {
   disk: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
   menu: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
   bubble: '<path d="M4 5h16v11H10l-4 4v-4H4z"/><path d="M8 9h8M8 12h5"/>',
+  cloud: '<path d="M7 18a4 4 0 0 1-.5-8 5.5 5.5 0 0 1 10.6 1.4A3.4 3.4 0 0 1 17 18z"/><path d="M12 2v2M5 5l1.4 1.4M19 5l-1.4 1.4"/>',
   heart: '<path d="M12 20s-8-4.7-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6.3-8 11-8 11z"/>',
 };
 const dbIcon = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] ?? ''}</svg>`;
@@ -116,6 +119,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const achState = { sel: 0 };
   const markers: MarkerKind[] = structuredClone(markerKinds(store.db.markers));
   const textCols: TextColor[] = structuredClone(textColors(store.db.textColors));
+  const climate: ClimateConfig = structuredClone(climateConfig(store.db.climate));
   const msgStyles: MessageStyle[] = structuredClone(messageStyles(store.db.messageStyles)), msgState = { sel: 0 };
   let devConsole = store.db.devConsole ?? 'playtest';
 
@@ -166,6 +170,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audioFiles(store), troopState, render, store.battleMapNames())); return; }
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
     if (tab === 'textColors') { content.replaceChildren(...textColorsTab(textCols, render)); return; }
+    if (tab === 'climate') { content.replaceChildren(...climateTab(climate, render)); return; }
     if (tab === 'messageStyles') { content.replaceChildren(...messageStylesTab(msgStyles, textCols, msgState, render)); return; }
     if (tab === 'achievements') { content.replaceChildren(...achievementsTab(store, store.db, achievements, achState, render)); return; }
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
@@ -371,6 +376,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const markersOut = JSON.stringify(markers) === JSON.stringify(markerKinds(undefined)) ? null : markers;
       const textColorsOut = JSON.stringify(textCols) === JSON.stringify(textColors(undefined)) ? null : textCols;
       const stylesOut = JSON.stringify(msgStyles) === JSON.stringify(messageStyles(undefined)) ? null : msgStyles;
+      const climateOut = cleanClimate(climate) ?? null;
       if (JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
         JSON.stringify(mOut ?? null) === JSON.stringify(db.menus ?? null) && gameTitle === db.title && JSON.stringify(tFinal) === JSON.stringify(db.time ?? null) &&
         JSON.stringify(Object.keys(ab).length ? ab : null) === JSON.stringify(db.abilities && Object.keys(db.abilities).length ? db.abilities : null) &&
@@ -384,7 +390,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null)) return 'same';
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -411,6 +417,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (markersOut) db.markers = C(markersOut); else delete db.markers;
       if (textColorsOut) db.textColors = C(textColorsOut); else delete db.textColors;
       if (stylesOut) db.messageStyles = C(stylesOut); else delete db.messageStyles;
+      if (climateOut) db.climate = C(climateOut) as typeof db.climate; else delete db.climate;
       db.characters = C(people.chars);
       const cr = cleanCredits(credits);
       if (cr) db.credits = C(cr); else delete db.credits;

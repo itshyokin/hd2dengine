@@ -229,7 +229,11 @@ export type Condition =
   /** The real world's day of the week is one of these (0 Sunday … 6 Saturday, from the player's date). */
   | { weekday: number[] }
   /** The real moon's phase tonight is one of these (full and new for werewolves…). */
-  | { moon: import('./moon').MoonPhase[] };
+  | { moon: import('./moon').MoonPhase[] }
+  /** The temperature here (°F) is at least / at most this. */
+  | { temp: number; op: '>=' | '<=' }
+  /** The weather here is one of these. */
+  | { weather: WeatherKind[] };
 
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
@@ -275,6 +279,8 @@ export type Command =
   | { cmd: 'party'; op: 'add' | 'remove'; hero: string; quiet?: boolean }
   /** Change this map's weather (kept for the rest of the game); wind: a new breeze strength (blank: unchanged). */
   | { cmd: 'weather'; kind: WeatherKind; amount?: number; wind?: number; scope?: 'here' | 'world' }
+  /** Change the temperature on this map (set to, or warmer / colder by, °F) until the player leaves it; reset: back to normal. */
+  | { cmd: 'temperature'; op: 'set' | 'add' | 'reset'; value?: number }
   /** Give skill points (a quest reward). */
   | { cmd: 'skillPoints'; value: number }
   /** Overworld weapons (the field sword and bow) on or off: off indoors or in restricted areas (greyed out on the HUD). */
@@ -604,6 +610,8 @@ export interface MapData {
    */
   uniqueWeather?: boolean;
   weatherZone?: string;
+  /** Climate: this many °F warmer (+) or colder (−) than the season says (a desert, a mountain top). */
+  tempOffset?: number;
   /** Its own weather at the start, when unique (a "Change weather" command can change it for the rest of the game). */
   weather?: { kind: WeatherKind; amount?: number };
   /** Air: distance haze, low ground mist (all day, mornings or nights only) and shafts of sunlight; each 0 … 1. */
@@ -612,8 +620,8 @@ export interface MapData {
 
 export type MistWhen = 'always' | 'morning' | 'night';
 
-export type WeatherKind = 'none' | 'rain' | 'snow' | 'sandstorm' | 'pollen' | 'dust' | 'leaves';
-export const WEATHER_KINDS: WeatherKind[] = ['none', 'rain', 'snow', 'sandstorm', 'pollen', 'dust', 'leaves'];
+export type WeatherKind = 'none' | 'rain' | 'storm' | 'snow' | 'blizzard' | 'haze' | 'sandstorm' | 'pollen' | 'dust' | 'leaves';
+export const WEATHER_KINDS: WeatherKind[] = ['none', 'rain', 'storm', 'snow', 'blizzard', 'haze', 'sandstorm', 'pollen', 'dust', 'leaves'];
 
 /** Palette for a generated character sprite sheet (stand-in until real sheets are imported). */
 export interface CharacterPalette {
@@ -765,6 +773,8 @@ export interface Database {
   startHour: number;
   /** The shared outdoor weather when a new game starts (outdoor maps without their own weather all share it). */
   weather?: { kind: WeatherKind; amount?: number };
+  /** Dynamic weather and temperature (Database → Weather); anything left out uses the defaults (world/climate.ts). */
+  climate?: Partial<Omit<import('./climate').ClimateConfig, 'seasons'>> & { seasons?: Partial<Record<import('./seasons').Season, Partial<import('./climate').SeasonClimate>>> };
   player: string;
   characters: Record<string, CharacterDef>;
   /** Which movement abilities the player starts with (all of them when omitted). Events can change them. */

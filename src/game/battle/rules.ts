@@ -184,12 +184,32 @@ export interface HitResult {
   label: 'Weak!' | 'Resist' | null;
 }
 
+/**
+ * The weather's heat and cold in battle (set by the game each frame): fire hits harder in a heat wave and water (the
+ * cold element) in the cold; foes of water are softer in the heat and foes of fire in the cold. `strength`: the most
+ * it changes a hit (0.25 = 25%).
+ */
+export const combatClimate = { temp: 70, strength: 0.25 };
+
+function climateFactor(element: Element, target: Battler): number {
+  const s = combatClimate.strength, t = combatClimate.temp;
+  if (!s) return 1;
+  const heat = Math.max(0, Math.min(1, (t - 85) / 20)), cold = Math.max(0, Math.min(1, (40 - t) / 30));
+  const els = target.defence?.elements ?? [];
+  let f = 1;
+  if (element === 'fire') f *= 1 + heat * s - cold * s * 0.6;
+  if (element === 'water') f *= 1 + cold * s - heat * s * 0.6;
+  if (els.includes('water')) f *= 1 + heat * s * 0.6;
+  if (els.includes('fire')) f *= 1 + cold * s * 0.6;
+  return f;
+}
+
 /** One hit: element, a little spread, a critical, defence (or magic defence), guarding, then the damage scale. */
 export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'>, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
   const el = elementResult(element, target.defence);
   if (el.kind === 'immune') return { kind: 'immune', amount: 0, crit: false, label: null };
   const sp = Math.max(0, Math.min(0.9, by.spread ?? 0.1));
-  let dmg = power * scale * (1 - sp + rng() * 2 * sp);
+  let dmg = power * scale * (1 - sp + rng() * 2 * sp) * climateFactor(element, target);
   if (el.kind === 'absorb' && !target.status.zombie) return { kind: 'absorb', amount: finalDamage(dmg), crit: false, label: null };
   const mult = el.kind === 'hit' ? el.mult : 1;
   dmg *= mult;

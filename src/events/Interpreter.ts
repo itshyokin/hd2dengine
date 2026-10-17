@@ -13,6 +13,8 @@ export interface EventContext {
   setTime(hour: number, instant: boolean): void;
   /** Sleep: the sky transition (the event waits while busy() says so). */
   sleep?(c: Extract<Command, { cmd: 'sleep' }>): void;
+  /** Change the temperature on this map until the player leaves it. */
+  temperature?(op: 'set' | 'add' | 'reset', value?: number): void;
   /** Animate the screen fade toward `to` (0 clear, 1 black) over `seconds`. */
   fadeTo(to: number, seconds: number): void;
   isFading(): boolean;
@@ -164,6 +166,7 @@ export class Interpreter {
         this.ctx.tendFire();
         break;
       case 'sleep': message.close(); this.ctx.sleep?.(c); break;
+      case 'temperature': this.ctx.temperature?.(c.op, c.value); break;
       case 'fullRest':
         this.ctx.fullRest();
         break;

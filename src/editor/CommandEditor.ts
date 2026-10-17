@@ -21,7 +21,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
   ['setSwitch', 'Set switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
   ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
-  ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['skillPoints', 'Give skill points'], ['party', 'Change party'],
+  ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['party', 'Change party'],
   ['quest', 'Quest'],
   ['battle', 'Start battle'], ['learn', 'Teach spell / Addition'], ['heroClass', 'Change class'],
 ];
@@ -29,7 +29,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 const CATEGORY: Record<Cmd, string> = {
   text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
-  sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', party: 'state', skillPoints: 'state', quest: 'quest',
+  sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
 };
 
@@ -60,6 +60,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'music': return { cmd, music: 'builtin:field', fade: 1.5 };
     case 'ambience': return { cmd, ambience: 'builtin:wind' };
     case 'weather': return { cmd, kind: 'rain', amount: 1 };
+    case 'temperature': return { cmd, op: 'add', value: 20 };
     case 'party': return { cmd, op: 'add', hero: heroList()[0]?.[0] ?? '' };
     case 'skillPoints': return { cmd, value: 1 };
     case 'fieldWeapons': return { cmd, on: false };
@@ -94,7 +95,7 @@ function itemChoices(store: EditorStore, current: string): [string, string][] {
   return out;
 }
 
-export const WEATHER_NAMES: Record<WeatherKind, string> = { none: 'Clear', rain: 'Rain', snow: 'Snow', sandstorm: 'Sandstorm', pollen: 'Pollen', dust: 'Dust motes', leaves: 'Falling leaves' };
+export const WEATHER_NAMES: Record<WeatherKind, string> = { none: 'Clear', rain: 'Rain', storm: 'Thunderstorm', snow: 'Snow', blizzard: 'Blizzard', haze: 'Haze', sandstorm: 'Sandstorm', pollen: 'Pollen', dust: 'Dust motes', leaves: 'Falling leaves' };
 export const GAUGE_NAMES: Record<Gauge, string> = { hp: 'Health', mp: 'Magic', sp: 'Stamina' };
 export const ABILITY_NAMES: Record<Ability, string> = { run: 'Run', jump: 'Jump', climb: 'Climb', crawl: 'Crawl' };
 
@@ -135,6 +136,8 @@ export function conditionText(c: Condition): string {
   if ('item' in c) return `has ${(c.count ?? 1) > 1 ? `${c.count} × ` : ''}${itemName(c.item)}`;
   if ('gold' in c) return `gold ≥ ${c.gold}`;
   if ('moon' in c) return `the moon is ${c.moon.length ? c.moon.map((m) => MOON_NAMES[m].toLowerCase()).join(' or ') : '(no phase picked)'} (real world)`;
+  if ('temp' in c) return `it's ${c.op === '<=' ? 'at most' : 'at least'} ${c.temp}°F here`;
+  if ('weather' in c) return `the weather is ${c.weather.length ? c.weather.map((k) => WEATHER_NAMES[k].toLowerCase()).join(' or ') : '(none picked)'}`;
   if ('weekday' in c) return `it's ${c.weekday.length ? c.weekday.map((d) => WEEKDAYS[d]).join(' or ') : '(no day picked)'} (real world)`;
   return `variable ${c.var || '(unnamed)'} ${c.op} ${c.value}`;
 }
@@ -167,6 +170,7 @@ function summary(c: Command): string {
     case 'sound': return soundName(c.sound);
     case 'music': return c.music === undefined ? 'Back to the map’s music' : c.music ? loopName(c.music) : 'Stop the music';
     case 'ambience': return c.ambience === undefined ? 'Back to the map’s sound' : c.ambience ? loopName(c.ambience) : 'Silence';
+    case 'temperature': return c.op === 'reset' ? 'Back to normal' : c.op === 'set' ? `${c.value ?? 70}°F on this map` : `${(c.value ?? 0) >= 0 ? '+' : ''}${c.value ?? 0}°F on this map`;
     case 'weather': return `${c.kind === 'none' ? 'Clear skies' : `${WEATHER_NAMES[c.kind]}${c.amount !== undefined && c.amount !== 1 ? ` × ${c.amount}` : ''}`}${c.wind !== undefined ? `, wind ${c.wind}` : ''}${c.scope === 'world' ? ' (shared outdoor weather)' : ''}`;
     case 'party': return `${heroList().find(([id]) => id === c.hero)?.[1] ?? (c.hero || '(no hero)')} ${c.op === 'add' ? 'joins' : 'leaves'}${c.quiet ? ' (quietly)' : ''}`;
     case 'skillPoints': return `+${c.value} skill point${c.value === 1 ? '' : 's'}`;
@@ -582,6 +586,10 @@ export class CommandEditor {
           h('p', { class: 'hint' }, `Up to ${3} join the hero you play. They follow, fight on their own (their AI style in Database → Heroes) and share the bag, gold and level. Leaving, their equipment goes back in the bag.`),
         ];
       }
+      case 'temperature':
+        return [field('Change', select([['add', 'Warmer / colder by'], ['set', 'Set to'], ['reset', 'Back to normal']], d.op, (v) => (d.op = v as typeof d.op))),
+          field('°F', numberInput(d.value ?? 0, (v) => (d.value = Math.round(v)), { step: 1 }), 'Warmer / colder: + or − degrees (−30: an icy spell). Set to: that temperature.'),
+          h('p', { class: 'hint' }, 'Lasts while the player stays on this map; leaving it puts the temperature back. For a fire spell that warms the air, a frost charm…')];
       case 'weather': {
         const amt = field('How heavy', numberInput(d.amount ?? 1, (v) => (d.amount = Math.max(0.1, Math.min(2, Math.round(v * 10) / 10))), { step: 0.1, min: 0.1, max: 2 }), '1 is normal; 0.3 a light drizzle, 2 a downpour.');
         amt.hidden = d.kind === 'none';
@@ -734,12 +742,12 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
       cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
-        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
+        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
       render();
@@ -773,6 +781,17 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
       parts.push(field('On', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...WEEKDAYS.map((name, d) => checkbox(name.slice(0, 3), c.weekday.includes(d), (on) => {
         c.weekday = on ? [...new Set([...c.weekday, d])].sort() : c.weekday.filter((x) => x !== d); onchange(c);
       }))), 'The player’s own date: an event page that only shows on Saturdays, say (a market, a rare enemy).'));
+    } else if (cur && 'temp' in cur) {
+      const c = cur;
+      parts.push(h('div', { class: 'field-row' },
+        field('Temperature here is', select([['>=', 'at least'], ['<=', 'at most']], c.op, (v) => { c.op = v as '>=' | '<='; onchange(c); })),
+        field('°F', numberInput(c.temp, (v) => { c.temp = Math.round(v); onchange(c); }, { step: 1 }))),
+        h('p', { class: 'hint' }, 'The temperature on the map the player is on (season, time of day, weather and the map’s climate). 32°F is freezing.'));
+    } else if (cur && 'weather' in cur) {
+      const c = cur;
+      parts.push(field('When the weather is', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...WEATHER_KINDS.map((k) => checkbox(WEATHER_NAMES[k], c.weather.includes(k), (on) => {
+        c.weather = on ? WEATHER_KINDS.filter((x) => x === k || c.weather.includes(x)) : c.weather.filter((x) => x !== k); onchange(c);
+      }))), 'The weather on the map the player is on (Clear: none).'));
     } else if (cur && 'moon' in cur) {
       const c = cur;
       parts.push(field('When the moon is', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...MOON_PHASES.map((ph) => checkbox(MOON_NAMES[ph], c.moon.includes(ph), (on) => {

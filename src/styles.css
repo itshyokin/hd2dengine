@@ -1634,3 +1634,6 @@ body.pause-open.hud-arranging .hud-gold { visibility: visible; }
 
 /* Sleeping: the HUD steps aside while the camera looks up at the sky. */
 body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-quick, .hud-quest, .hud-status, .adv-log, .hud-stamina, .hud-minimap, .hud-gold, .touch-controls) { opacity: 0 !important; transition: opacity 0.8s ease; }
+.hud-temp { display: inline-flex; align-items: center; gap: 4px; color: #e9e2d2; font-variant-numeric: tabular-nums; }
+.hud-temp svg { width: 16px; height: 16px; flex: none; }
+.hud-temp:empty { display: none; }

@@ -44,6 +44,8 @@ export interface Settings {
   sprint: 'hold' | 'toggle';
   /** On a controller, pushing the stick all the way runs. */
   stickRun: boolean;
+  /** Temperatures in °F (default) or °C. */
+  tempUnit?: 'F' | 'C';
   /** Tap or click the ground to walk there (off by default; tablets still have the on-screen stick). */
   tapToWalk?: boolean;
   /** Where the HUD pieces are and how big (Settings → HUD → Arrange). */

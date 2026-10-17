@@ -34,6 +34,7 @@ const SUN_AZIMUTH = new THREE.Vector2(-0.45, -0.8).normalize();
 const BLACK = new THREE.Color(0, 0, 0);
 const RAIN_FOG = new THREE.Color(0.52, 0.56, 0.62);
 const SAND_FOG = new THREE.Color(0.85, 0.68, 0.45);
+const MIST_FOG = new THREE.Color(0.7, 0.73, 0.78);
 const INDOOR_SKY = linearColor('#c9c2b4'), INDOOR_GND = linearColor('#3a332c');
 const CAVE_SKY = linearColor('#3a4660'), CAVE_GND = linearColor('#1a1a22');
 
@@ -72,6 +73,8 @@ export class TimeOfDay {
   /** Weather: how rainy (0 … 1) and how sandy the air is (0 … 1). Set each frame by the game. */
   gloom = 0;
   haze = 0;
+  /** Grey murk (haze, a blizzard's whiteout), 0 … 1. */
+  mist = 0;
 
   update(dt: number): void {
     // The clock runs forward; a change of time (event, debug slider) eases there the short way round.
@@ -139,6 +142,11 @@ export class TimeOfDay {
         this.hemi.intensity *= 1 - 0.2 * g;
         this.fog.color.lerp(RAIN_FOG.clone().multiplyScalar(1 - 0.85 * night), 0.45 * g);
         this.exposure *= 1 - 0.08 * g;
+      }
+      if (this.mist > 0) {
+        const m = this.mist;
+        this.sun.intensity *= 1 - 0.35 * m;
+        this.fog.color.lerp(MIST_FOG.clone().multiplyScalar(1 - 0.85 * night), 0.55 * m);
       }
       if (hz > 0) {
         this.sun.intensity *= 1 - 0.4 * hz;
