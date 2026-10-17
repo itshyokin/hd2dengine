@@ -17,6 +17,8 @@ import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { enemyImage, setFlatImage } from './editorArt';
 import { canvasFromBlob } from '../shared/images';
 import { toast } from './dom';
+import { tintCanvas } from '../render/tint';
+import { combatPreviewRow } from './combatPreview';
 import type { EditorStore } from './store';
 
 const num = (v: number, set: (n: number) => void, step = 1, min = 0, label = '') =>
@@ -161,7 +163,7 @@ export function enemiesTab(store: EditorStore, list: EnemyDef[], state: { sel: n
     state.sel = list.length - 1;
     rerender();
   };
-  const thumb = (d: EnemyDef) => { const c = enemyImage(store.db, d.look); return c ? h('img', { src: c.toDataURL(), alt: '', class: 'item-icon' }) : h('span'); };
+  const thumb = (d: EnemyDef) => { const c0 = enemyImage(store.db, d.look), c = c0 && d.tint ? tintCanvas(c0, d.tint) : c0; return c ? h('img', { src: c.toDataURL(), alt: '', class: 'item-icon' }) : h('span'); };
   const side = h('div', { class: 'item-list', role: 'listbox', 'aria-label': 'Enemies' },
     ...list.map((d, i) => h('button', { type: 'button', class: 'item-row', role: 'option', 'aria-selected': String(i === state.sel), onclick: () => { state.sel = i; rerender(); } }, thumb(d), h('span', {}, d.name))),
     h('button', { type: 'button', class: 'btn item-add', onclick: add }, '+ New enemy'));
@@ -236,7 +238,24 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
   ] : [];
   const items = (store.db.items ?? []).map((i) => [i.id, i.name] as [string, string]);
   const drops = (d.drops ??= []);
-  const img = enemyImage(store.db, d.look);
+  const raw = enemyImage(store.db, d.look), img = raw && d.tint ? tintCanvas(raw, d.tint) : raw;
+  const tint = d.tint ?? {};
+  const setTint = (k: keyof NonNullable<EnemyDef['tint']>, v: number | string | undefined) => {
+    const t: NonNullable<EnemyDef['tint']> = { ...tint, [k]: v };
+    if (!t.hue) delete t.hue;
+    if (t.sat === undefined || Math.abs(t.sat - 1) < 0.001) delete t.sat;
+    if (!t.amount) { delete t.amount; delete t.color; }
+    d.tint = Object.keys(t).length ? t : undefined;
+    rerender();
+  };
+  const slider = (value: number, min: number, max: number, step: number, label: string, fmt: (v: number) => string, set: (v: number) => void) => {
+    const out = h('output', { class: 'blend-out' }, fmt(value));
+    const input = h('input', { type: 'range', min: String(min), max: String(max), step: String(step), value: String(value), 'aria-label': label,
+      oninput: () => { out.textContent = fmt(parseFloat(input.value)); }, onchange: () => set(parseFloat(input.value)) }) as HTMLInputElement;
+    return h('div', { class: 'blend-slider' }, input, out);
+  };
+  const tintColor = h('input', { type: 'color', value: tint.color ?? '#ff4040', 'aria-label': 'Tint colour' }) as HTMLInputElement;
+  tintColor.addEventListener('change', () => { tint.color = tintColor.value; if (!tint.amount) tint.amount = 0.5; setTint('color', tintColor.value); });
   return [
     h('div', { class: 'item-head' }, img ? h('img', { src: img.toDataURL(), alt: '', class: 'item-icon big' }) : h('span'),
       field('Name', textInput(d.name, (v) => { d.name = v.trim() || d.name; rerender(); }, { 'aria-label': 'Enemy name' })),
@@ -253,6 +272,20 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
       field('Holds', select([['@auto', d.look.character ? `Automatic (${d.behaviour === 'ranged' ? 'bow' : 'sword'})` : 'Automatic (nothing)'], ['', 'Nothing'],
         ...['sword', 'dagger', 'greatsword', 'axe', 'bow'].map((k) => [k, ITEM_ICONS[k]?.name ?? k] as [string, string])],
         d.weapon === undefined ? '@auto' : d.weapon, (v) => { if (v === '@auto') delete d.weapon; else d.weapon = v; rerender(); }), 'Shown in its hand while it attacks.')),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Tint'),
+      h('div', { class: 'field-row' },
+        field('Hue', slider(tint.hue ?? 0, -180, 180, 5, 'Hue', (v) => `${v > 0 ? '+' : ''}${v}°`, (v) => setTint('hue', v)), 'Turns its colours round the colour wheel: a green slime becomes a blue or red one.'),
+        field('Colourfulness', slider(Math.round((tint.sat ?? 1) * 100), 0, 200, 5, 'Saturation', (v) => `${v}%`, (v) => setTint('sat', v / 100)), '0%: grey; 200%: vivid.')),
+      h('div', { class: 'field-row' },
+        field('Mix in a colour', tintColor),
+        field('How much', slider(Math.round((tint.amount ?? 0) * 100), 0, 100, 5, 'Tint amount', (v) => `${v}%`, (v) => { tint.color ??= tintColor.value; setTint('amount', v / 100); }))),
+      h('div', { class: 'stack row' },
+        h('button', { type: 'button', class: 'btn ghost', disabled: !d.tint, onclick: () => { d.tint = undefined; rerender(); } }, 'No tint'),
+        h('span', { class: 'hint' }, 'Make new monsters from old art: the picture above shows the result, on the map and in battle too.'))),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Battle'),
+      h('div', { class: 'field-row' },
+        field('Height offset (tiles)', n(d.battleOffset ?? 0, (v) => { const r = Math.round(v * 100) / 100; d.battleOffset = r ? r : undefined; }, 0.05, -5), 'Raise (+) or lower (−) it on battle maps, for art with space under its feet (floating) or cut off at the bottom (sinking).')),
+      combatPreviewRow(store.battleMapNames(), () => [d.id, d.id, d.id])),
     ...(d.look.character && store.db.characters[d.look.character]?.anim ? [h('div', { class: 'field-row' },
       field('Weapon sprite', weaponSpriteField(store, {
         value: d.weaponSprite, auto: enemyWeaponSprites({ ...d, weaponSprite: undefined, shieldSprite: '' }, d.weapon ?? (d.behaviour === 'ranged' ? 'bow' : 'sword'))[0] ?? '',

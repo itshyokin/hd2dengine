@@ -8,7 +8,7 @@ import { uiSound } from '../audio/sfx';
 import { formatPlayTime, type SaveData, type SlotId } from '../game/saves';
 import { esc } from './InventoryScreen';
 
-export interface SaveSlotView { slot: SlotId; label: string; data: SaveData | null; shot: string | null }
+export interface SaveSlotView { slot: SlotId; label: string; data: SaveData | null; shot: string | null; /** The party standing, the three fighting first. */ party?: { img: string; name: string; active: boolean }[] }
 
 export interface SaveScreenHost {
   /** The slots this screen shows (saving: the numbered slots; loading: the autosave too). */
@@ -38,7 +38,8 @@ export class SaveScreen {
 
   get isOpen(): boolean { return this.open; }
 
-  show(mode: 'save' | 'load', onClose: () => void, note = ''): void {
+  /** `current`: the save this game came from or was last saved to; the screen opens on it. */
+  show(mode: 'save' | 'load', onClose: () => void, note = '', current: SlotId | null = null): void {
     this.open = true;
     this.mode = mode;
     this.onClose = onClose;
@@ -50,7 +51,8 @@ export class SaveScreen {
     let best = -1;
     list.forEach((s, k) => { if (s.data && (best < 0 || s.data.savedAt > list[best].data!.savedAt)) best = k; });
     const empty = list.findIndex((s) => !s.data);
-    this.sel = Math.max(0, mode === 'save' && empty >= 0 ? empty : best);
+    const cur = current ? list.findIndex((s) => s.slot === current && s.data) : -1;
+    this.sel = Math.max(0, cur >= 0 ? cur : mode === 'save' && empty >= 0 ? empty : best);
     this.root.setAttribute('aria-label', mode === 'save' ? 'Save game' : 'Load game');
     this.root.hidden = false;
     this.render();
@@ -127,7 +129,8 @@ export class SaveScreen {
           <b class="sv-label">${esc(s.label)}</b>
           ${d ? `<span class="sv-map">${esc(d.mapTitle)}</span>
           <span class="sv-meta">Level ${level} · ${formatPlayTime(d.playTime)} played</span>
-          <span class="sv-date">${esc(date)}</span>` : `<span class="sv-meta">Empty${this.mode === 'save' ? ': save here' : ''}</span>`}
+          <span class="sv-date">${esc(date)}</span>
+          ${s.party?.length ? `<div class="sv-party">${s.party.map((p) => `<img class="${p.active ? 'on' : 'bench'}" src="${p.img}" alt="${esc(p.name)}" title="${esc(p.name)}${p.active ? '' : ' (reserve)'}">`).join('')}</div>` : ''}` : `<span class="sv-meta">Empty${this.mode === 'save' ? ': save here' : ''}</span>`}
         </div>
         ${d ? `<button type="button" class="sv-del" data-del="${k}" aria-label="Delete ${esc(s.label)}" title="Delete">✕</button>` : ''}
       </div>`;

@@ -57,8 +57,8 @@ export class GameMenu {
   get isOpen(): boolean { return this.stack.length > 0; }
 
   /** Show a screen on top of the current one (or as the first). */
-  push(title: string, items: MenuItem[], opts: { note?: string; canBack?: boolean; style?: 'panel' | 'title'; subtitle?: string; tabs?: TabGroup; onBack?: () => void } = {}): void {
-    const first = Math.max(0, items.findIndex((i) => !i.disabled));
+  push(title: string, items: MenuItem[], opts: { note?: string; canBack?: boolean; style?: 'panel' | 'title'; subtitle?: string; tabs?: TabGroup; onBack?: () => void; /** Start on this item (if it can be picked). */ start?: number } = {}): void {
+    const first = opts.start !== undefined && items[opts.start] && !items[opts.start].disabled ? opts.start : Math.max(0, items.findIndex((i) => !i.disabled));
     this.stack.push({ title, items, note: opts.note, canBack: opts.canBack ?? true, index: first, style: opts.style ?? 'panel', subtitle: opts.subtitle, tabs: opts.tabs, onBack: opts.onBack });
     this.render();
   }

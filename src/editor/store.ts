@@ -86,6 +86,8 @@ export class EditorStore {
   markerTool: 'party' | 'enemy' | 'erase' = 'party';
   propType = 'oak';
   propTool: ObjectTool = 'place';
+  /** Erasing props: only the kind picked in the list (propType), leaving everything else alone. */
+  eraseOnlyType = false;
   lightType: LightType = 'point';
   /** Preset used for newly placed lights, per type. */
   lightPreset: Record<LightType, LightPreset> = { point: LIGHT_PRESETS.point[0], spot: LIGHT_PRESETS.spot[0], area: LIGHT_PRESETS.area[0] };

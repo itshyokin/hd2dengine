@@ -14,7 +14,28 @@ const FOLIAGE_OUTLINE = '#13220f';
 const BARK = ['#3f2614', '#5a3820', '#7a4f2d', '#94673b'];
 const STONE = ['#33343f', '#4b4d5a', '#666a78', '#878b98', '#b2b5bf'];
 
+/** A one-person tent (A-frame) in a colour: lighter and darker canvas, a dark opening, pegs and guy lines. */
+function tentArt(ramp: string[]): HTMLCanvasElement {
+  const p = new Pix(30, 22);
+  const inside = (x: number, y: number) => y >= 3 && y < 21 && Math.abs(x - 15) <= (y - 3) * 0.78 + 1;
+  blob(p, inside, ramp, { maxD: 4, k: 3, tex: 0.25, texS: 2.5, seed: 11 });
+  // The ridge pole and the seam, and the front flap open on a dark inside.
+  for (let y = 3; y < 21; y++) p.set(15, y, ramp[0]);
+  for (let y = 12; y < 21; y++) for (let x = 15 - Math.floor((y - 12) * 0.45); x <= 15 + Math.floor((y - 12) * 0.45); x++) p.set(x, y, y < 14 ? '#2a2420' : '#171310');
+  p.set(15, 2, '#5a3820'); p.set(15, 1, '#7a4f2d');
+  // Guy lines and pegs.
+  for (let k = 0; k < 5; k++) { p.set(4 - k, 16 + k, '#c9bfa8'); p.set(26 + k, 16 + k, '#c9bfa8'); }
+  p.set(0, 21, '#5a3820'); p.set(29, 21, '#5a3820');
+  p.outline(OUTLINE);
+  return p.canvas();
+}
+
 export const PLACEHOLDER_SPRITES: Record<string, () => HTMLCanvasElement> = {
+  tent_red() { return tentArt(['#5a1a1a', '#7e2626', '#a33a32', '#c45a44', '#de8064']); },
+  tent_blue() { return tentArt(['#1a2a5a', '#263c7e', '#3452a3', '#4c70c4', '#7096de']); },
+  tent_green() { return tentArt(['#1c3a1e', '#285428', '#3a7034', '#548e46', '#7aae62']); },
+  tent_tan() { return tentArt(['#5a4a2c', '#7a6640', '#9a8456', '#b8a270', '#d4c290']); },
+  tent_purple() { return tentArt(['#3a1a4a', '#522666', '#6c3684', '#8a50a4', '#ac76c2']); },
   oak() {
     const p = new Pix(32, 40);
     blob(p, (x, y) => (x >= 13 && x < 19 && y >= 24 && y < 39) || (y >= 37 && x >= 12 && x < 20), BARK, { maxD: 2, k: 2 });
@@ -222,6 +243,80 @@ export const PLACEHOLDER_SPRITES: Record<string, () => HTMLCanvasElement> = {
     blob(p, (x, y) => { const cx = 7, top = 1, bot = 17, mid = 7; if (y < top || y > bot) return false; const half = y < mid ? (y - top) * 0.75 + 0.5 : (bot - y) * 0.45 + 0.5; return Math.abs(x + 0.5 - cx) <= half; },
       ['#1f3f8a', '#2f63c4', '#4f8ff0', '#8cc4ff', '#d8f0ff'], { maxD: 4, k: 2, seed: 5 });
     for (let y = 3; y < 15; y++) p.set(6, y, y < 8 ? '#ffffff' : '#a8d8ff');
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A wooden fence: two posts and two rails (one tile wide; line them up). */
+  fence() {
+    const p = new Pix(16, 14), WOOD = ['#4a2d18', '#6b4325', '#8a5a35', '#a8743f'];
+    blob(p, (x, y) => (y >= 4 && y < 6.5) || (y >= 8.5 && y < 11), WOOD, { maxD: 1.5, k: 2, seed: 3 });
+    blob(p, (x, y) => (x >= 1 && x < 4 && y >= 1 && y < 14) || (x >= 12 && x < 15 && y >= 1 && y < 14), WOOD, { maxD: 1.5, k: 2, seed: 5 });
+    for (const x of [1, 12]) p.set(x + 1, 1, '#c08a50');
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A single fence post (the end of a fence, or a corner). */
+  fence_post() {
+    const p = new Pix(6, 15);
+    blob(p, (x, y) => x >= 1.5 && x < 4.5 && y >= 1 && y < 15, ['#4a2d18', '#6b4325', '#8a5a35', '#a8743f'], { maxD: 1.5, k: 2, seed: 9 });
+    p.set(3, 1, '#c08a50');
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A fence gate: a frame with a cross brace. */
+  fence_gate() {
+    const p = new Pix(16, 15), WOOD = ['#4a2d18', '#6b4325', '#8a5a35', '#a8743f'];
+    blob(p, (x, y) => (x >= 0.5 && x < 3 && y >= 0 && y < 15) || (x >= 13 && x < 15.5 && y >= 0 && y < 15), WOOD, { maxD: 1.5, k: 2, seed: 2 });
+    blob(p, (x, y) => (x >= 3 && x < 13) && ((y >= 3 && y < 5) || (y >= 10 && y < 12) || segD(x, y, 3.5, 11, 12.5, 4) < 1.1), WOOD, { maxD: 1.5, k: 2, seed: 4 });
+    p.set(11, 8, '#2a1d18'); p.set(11, 7, '#c9c2b0');
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A bedroll laid out on the ground, a pillow at one end. */
+  bedroll() {
+    const p = new Pix(22, 9);
+    blob(p, (x, y) => x >= 2 && x < 20 && y >= 2 && y < 8, ['#3d4a6b', '#4f6088', '#6478a4', '#8094bf'], { maxD: 2, k: 2, seed: 6 });
+    blob(p, (x, y) => ell(x, y, 5, 4.5, 3, 2.2), ['#b8ac94', '#d4c9b0', '#efe6d0'], { maxD: 2, k: 2, seed: 1 });
+    for (let y = 2; y < 8; y++) p.set(14, y, '#2f3a56');
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A log to sit on by the fire. */
+  log_seat() {
+    const p = new Pix(24, 10);
+    blob(p, (x, y) => segD(x, y, 3.5, 5.5, 20.5, 5.5) < 3.3, ['#3a2213', ...BARK], { maxD: 2.5, k: 2, tex: 0.3, texS: 2, seed: 8 });
+    blob(p, (x, y) => ell(x, y, 21, 5.5, 2.2, 3), ['#a8743f', '#c8955a', '#e0b67a'], { maxD: 2, k: 2, seed: 2 });
+    p.set(21, 5, '#8a5a35');
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A stack of split firewood. */
+  firewood() {
+    const p = new Pix(18, 13);
+    const logs: [number, number][] = [[4, 10], [9, 10], [14, 10], [6.5, 6], [11.5, 6], [9, 2.5]];
+    for (const [cx, cy] of logs) blob(p, (x, y) => ell(x, y, cx, cy, 2.6, 2.3), ['#3a2213', '#5a3820', '#7a4f2d'], { maxD: 2, k: 2, seed: cx * 3 });
+    for (const [cx, cy] of logs) { p.set(Math.floor(cx), Math.floor(cy), '#c8955a'); p.set(Math.floor(cx) - 1, Math.floor(cy), '#e0b67a'); }
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A lantern hanging from a post (lights up at night). */
+  lantern_post() {
+    const p = new Pix(12, 30);
+    blob(p, (x, y) => (x >= 2 && x < 4.5 && y >= 3 && y < 30) || (y >= 3 && y < 5 && x >= 2 && x < 10), ['#3a2213', '#5a3820', '#7a4f2d'], { maxD: 1.5, k: 2, seed: 3 });
+    for (let y = 5; y < 8; y++) p.set(8, y, '#2a2a2a');
+    blob(p, (x, y) => x >= 6 && x < 11 && y >= 8 && y < 15, ['#2c2c34', '#46464f', '#6a6a72'], { maxD: 1.5, k: 2, seed: 1 });
+    for (let y = 10; y < 14; y++) for (let x = 7; x < 10; x++) p.set(x, y, y < 12 ? '#ffe9a0' : '#ffc45a');
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A cooking pot hung over a tripod of sticks. */
+  cooking_pot() {
+    const p = new Pix(18, 18);
+    blob(p, (x, y) => segD(x, y, 2, 17.5, 9, 1) < 0.9 || segD(x, y, 16, 17.5, 9, 1) < 0.9, ['#3a2213', '#5a3820', '#7a4f2d'], { maxD: 1, k: 2, seed: 4 });
+    for (let y = 2; y < 8; y++) p.set(9, y, '#2a2a2a');
+    blob(p, (x, y) => ell(x, y, 9, 11, 5, 4) && y > 7.5, ['#1c1c22', '#2e2e36', '#46464f', '#62626c'], { maxD: 2.5, k: 2, seed: 2 });
+    for (let x = 5; x < 14; x++) p.set(x, 8, '#7a7a84');
+    p.set(8, 7, '#d8d8e0'); p.set(10, 6, '#d8d8e0');
     p.outline(OUTLINE);
     return p.canvas();
   },

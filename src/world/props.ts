@@ -67,6 +67,23 @@ export const BUILTIN_PROPS: PropDef[] = [
   { id: 'square_hole', name: 'Square opening (on wall)', builtin: 'square_hole', w: 16 / T, h: 20 / T, block: [], castShadow: false, wall: true },
   { id: 'wall_door', name: 'Door (on wall)', builtin: 'wall_door', w: 18 / T, h: 26 / T, block: [], castShadow: false, wall: true },
   { id: 'sparkle', name: 'Item sparkle', builtin: 'sparkle', w: 10 / T, h: 10 / T, block: [], castShadow: false },
+  // Woodland and camping.
+  { id: 'fence', name: 'Wooden fence', builtin: 'fence', w: 16 / T, h: 14 / T, block: [0] },
+  { id: 'fence_post', name: 'Fence post', builtin: 'fence_post', w: 6 / T, h: 15 / T, block: [0] },
+  { id: 'fence_gate', name: 'Fence gate', builtin: 'fence_gate', w: 16 / T, h: 15 / T, block: [0] },
+  { id: 'tent_red', name: 'Tent (red)', builtin: 'tent_red', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
+  { id: 'tent_blue', name: 'Tent (blue)', builtin: 'tent_blue', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
+  { id: 'tent_green', name: 'Tent (green)', builtin: 'tent_green', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
+  { id: 'tent_tan', name: 'Tent (tan)', builtin: 'tent_tan', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
+  { id: 'tent_purple', name: 'Tent (purple)', builtin: 'tent_purple', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
+  { id: 'bedroll', name: 'Bedroll', builtin: 'bedroll', w: 22 / T, h: 9 / T, block: [], castShadow: false },
+  { id: 'log_seat', name: 'Log seat', builtin: 'log_seat', w: 24 / T, h: 10 / T, block: [0] },
+  { id: 'firewood', name: 'Firewood stack', builtin: 'firewood', w: 18 / T, h: 13 / T, block: [0] },
+  {
+    id: 'lantern_post', name: 'Lantern post', builtin: 'lantern_post', w: 12 / T, h: 30 / T, block: [0],
+    light: { x: 0.12, y: 1.15, color: '#ffcf7a', intensity: 1.8, radius: 6.5, schedule: 'night', flicker: 'candle' },
+  },
+  { id: 'cooking_pot', name: 'Cooking pot', builtin: 'cooking_pot', w: 18 / T, h: 18 / T, block: [0] },
   // Kept so old maps that placed bare logs still load.
   { id: 'logs', name: 'Fire logs', builtin: 'logs', w: 22 / T, h: 11 / T, block: [0], castShadow: false },
 ];

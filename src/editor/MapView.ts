@@ -1,4 +1,5 @@
 import { blockedTiles, footTiles, propBoxes } from '../world/props';
+import { tintCanvas } from '../render/tint';
 /**
  * The top-down map canvas: draws terrain, props, lights and events, and turns
  * mouse / touch input into editing tools. Pan with middle or right drag, Space+drag,
@@ -746,7 +747,7 @@ export class MapView {
   private eraseProp(w: Pt): void {
     const s = this.store, st = this.stroke;
     if (!st || st.kind !== 'erase') return;
-    const i = this.hitProp(w);
+    const i = this.hitProp(w, s.eraseOnlyType ? s.propType : undefined);
     if (i < 0) return;
     s.map.props.splice(i, 1);
     st.removed++;
@@ -832,11 +833,13 @@ export class MapView {
   }
 
   /** Topmost prop whose sprite covers the point. */
-  private hitProp(w: Pt): number {
+  /** The prop under a point (the front-most); `type`: only props of that kind count. */
+  private hitProp(w: Pt, type?: string): number {
     const props = this.store.map.props;
     let best = -1, bestZ = -Infinity;
     const px = w.x * TS, pz = w.z * TS;
     props.forEach((p, i) => {
+      if (type && p.type !== type) return;
       const sp = propSprite(p.type), sc = p.s ?? 1, iw = sp.w * sc, ih = sp.h * sc;
       const x0 = p.x * TS - iw / 2, y0 = p.z * TS - ih;
       if (px >= x0 && px <= x0 + iw && pz >= y0 && pz <= p.z * TS + 2 && p.z >= bestZ) { best = i; bestZ = p.z; }
@@ -1053,7 +1056,7 @@ export class MapView {
         ctx.globalAlpha = a;
         let img: HTMLCanvasElement | null = null;
         const foe = page?.enemy ? s.db.enemies?.find((d) => d.id === page.enemy) : undefined;
-        if (page?.enemy) img = enemyImage(s.db, foe?.look ?? {});
+        if (page?.enemy) { img = enemyImage(s.db, foe?.look ?? {}); if (img && foe?.tint) img = tintCanvas(img, foe.tint); }
         else if (page?.character && s.db.characters[page.character]) img = characterImage(page.character, s.db.characters[page.character], page.dir ?? 'down');
         let iw = 0, ih = 0;
         if (img) { iw = img.width; ih = img.height; }

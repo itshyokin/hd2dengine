@@ -1,6 +1,7 @@
 /**
- * Sound in the editor: previewing, importing audio files (saved to assets/audio/), the map's music and
- * background sound, and Database → Audio (which file each sound effect uses, the title music).
+ * Sound in the editor: previewing, the project's audio folders (audio/music, audio/ambience, audio/footsteps,
+ * audio/sound_effects/…, audio/voices, audio/spells: any file in them can be picked, no importing), importing single
+ * files (saved to assets/audio/), the map's music and background sound, and Database → Audio.
  */
 import { AudioManager, loopChoices } from '../audio/sfx';
 import { SFX_LABELS, SFX_NAMES } from '../audio/synth';
@@ -24,10 +25,23 @@ export function editorAudio(store: EditorStore): AudioManager {
   return manager;
 }
 
-export const audioFiles = (store: EditorStore): string[] => store.db.audio?.files ?? [];
+/** The files found in the project's audio/ folders (read when the editor opens; Database → Audio → Look again). */
+let library: string[] = [];
+export const audioLibrary = (): string[] => library;
+export async function scanAudioFolders(store: EditorStore): Promise<string[]> {
+  library = (await store.project.listAudio?.().catch(() => [])) ?? [];
+  return library;
+}
 
-/** Read the database's audio files into memory (for previews and playtests). */
+/** Every sound that can be picked: the audio folders' files, then any imported ones. */
+export const audioFiles = (store: EditorStore): string[] => [...library, ...(store.db.audio?.files ?? []).filter((f) => !library.includes(f))];
+
+/** How a file is named in lists: its place in the audio folders ("music/Forest.wav"), or an imported file's name. */
+export const audioLabel = (f: string): string => (f.startsWith('audio/') ? f.slice(6) : f.split('/').pop()!);
+
+/** Read the database's audio files into memory (for previews and playtests), and look in the audio folders. */
 export async function loadAudioFiles(store: EditorStore): Promise<void> {
+  await scanAudioFolders(store);
   await Promise.all(audioFiles(store).map(async (f) => {
     if (store.files.has(f)) return;
     try { store.files.set(f, await store.project.readFile(f)); } catch { console.warn(`Audio file ${f} is missing`); }
@@ -36,6 +50,11 @@ export async function loadAudioFiles(store: EditorStore): Promise<void> {
 
 /** Play a sound, or a few seconds of a loop. */
 export function preview(store: EditorStore, src: string, loop = false): void {
+  // A project folder opened as a file can't be fetched from: read the sound into memory first.
+  if (store.project.kind === 'folder' && src.startsWith('audio/') && !store.files.has(src)) {
+    void store.project.readFile(src).then((b) => { store.files.set(src, b); preview(store, src, loop); }).catch(() => toast(`Couldn’t read ${src}`, 'error'));
+    return;
+  }
   const a = editorAudio(store);
   a.start();
   if (!loop) { a.play(src); return; }
@@ -70,6 +89,7 @@ export function mapAudioFields(store: EditorStore, m: MapData, edit: (fn: () => 
   const files = audioFiles(store);
   const row = (label: string, kind: 'music' | 'ambience', key: 'music' | 'battleMusic' | 'ambience' | 'ambienceNight' | 'ambienceCold', hint?: string) => {
     const opts = loopChoices(kind, files);
+    if (key === 'battleMusic') opts[0] = ['', 'The game’s battle music'];
     const v = m[key] ?? '';
     if (v && !opts.some(([o]) => o === v)) opts.push([v, `${v} (missing)`]);
     return h('div', { class: 'field-row audio-row' },
@@ -78,29 +98,43 @@ export function mapAudioFields(store: EditorStore, m: MapData, edit: (fn: () => 
   };
   return [
     row('Music', 'music', 'music'),
-    row('Battle music', 'music', 'battleMusic', 'Takes over while an enemy is hunting the hero (turn-based battles: during each battle).'),
+    row('Override battle music', 'music', 'battleMusic', 'Only for areas that need their own: battles started here use this instead of the game’s battle music (Database → Audio). A troop, zone or Start battle command can override it again (bosses).'),
     row('Background sound', 'ambience', 'ambience'),
     row('At night', 'ambience', 'ambienceNight', 'Outdoor maps switch to this after dark (crickets, say). None: the same as by day.'),
     row('In autumn & winter', 'ambience', 'ambienceCold', 'Outdoors by day in the cold seasons. None: a forest’s birdsong gives way to cold wind; anything else stays.'),
-    h('p', { class: 'hint' }, 'Import your own music and sounds in Database → Audio.'),
+    h('p', { class: 'hint' }, 'Everything in your project’s audio folders is listed (music/, ambience/, …). Database → Audio sets the game’s battle music.'),
   ];
 }
 
-export interface AudioWork { files: string[]; sfx: Record<string, string>; titleMusic?: string; victoryMusic?: string }
+export interface AudioWork { files: string[]; sfx: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string }
 
 /** Database → Audio. */
 export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void): HTMLElement[] {
-  const fileOpts = w.files.map((f) => [f, f.split('/').pop()!] as [string, string]);
-  const titleOpts = loopChoices('music', w.files);
+  const all = [...library, ...w.files.filter((f) => !library.includes(f))];
+  const fileOpts = all.map((f) => [f, audioLabel(f)] as [string, string]);
+  const titleOpts = loopChoices('music', all);
+  const folders = new Map<string, number>();
+  for (const f of library) { const dir = f.split('/').slice(1, -1).join('/') || '(audio)'; folders.set(dir, (folders.get(dir) ?? 0) + 1); }
   return [
-    h('section', { class: 'db-section' }, h('h3', {}, 'Audio files'),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Audio folders'),
+      library.length
+        ? h('div', { class: 'audio-folders' }, ...[...folders].map(([dir, n]) => h('div', { class: 'audio-folder' }, h('code', {}, `audio/${dir}/`), h('span', {}, `${n} file${n === 1 ? '' : 's'}`))))
+        : h('p', { class: 'note' }, 'No audio folders found. Put sounds in your project’s audio/ folder (audio/music, audio/ambience, audio/footsteps, audio/sound_effects, audio/voices, audio/spells… any subfolders) and they can be picked everywhere, no importing.'),
+      h('button', { type: 'button', class: 'btn', onclick: () => { void scanAudioFolders(store).then(() => { toast(`Found ${library.length} sound${library.length === 1 ? '' : 's'}`); rerender(); }); } }, 'Look again'),
+      h('p', { class: 'note' }, 'Files are used where they are. Music and background sounds loop: use files that loop cleanly.')),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Battle music'),
+      h('div', { class: 'field-row audio-row' },
+        field('Every battle', select([['', 'Built-in battle theme'], ...titleOpts.filter(([v]) => v && v !== 'builtin:battle')], w.battleMusic ?? '', (v) => { w.battleMusic = v || undefined; }),
+          'Maps can override it (map settings → Override battle music), and so can a troop, an encounter zone or a Start battle command (bosses).'),
+        play(() => preview(store, w.battleMusic ?? 'builtin:battle', true)))),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Imported files'),
       ...(w.files.length ? w.files.map((f) => h('div', { class: 'audio-file' },
         play(() => preview(store, f, true)), h('span', {}, f.split('/').pop()!),
         h('button', { type: 'button', class: 'mini-btn', title: 'Remove from the list', 'aria-label': `Remove ${f}`, onclick: () => {
           w.files = w.files.filter((x) => x !== f);
           for (const k of Object.keys(w.sfx)) if (w.sfx[k] === f) delete w.sfx[k];
           rerender();
-        } }, '✕'))) : [h('p', { class: 'note' }, 'No audio files yet. The built-in sounds, music and ambience are made in code; import .ogg, .mp3 or .wav files to use your own.')]),
+        } }, '✕'))) : [h('p', { class: 'note' }, 'None. The audio folders above are the easy way; importing copies a single file into assets/audio/.')]),
       h('button', { type: 'button', class: 'btn', onclick: () => importAudio(store, w.files, (p) => { w.files = [...w.files, p]; rerender(); }) }, 'Import audio file…'),
       h('p', { class: 'note' }, 'Files are saved to assets/audio/. Music and background sounds loop; use files that loop cleanly.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Title screen'),
@@ -126,9 +160,10 @@ export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void)
 }
 
 /** Only what differs from the defaults, for database.json. */
-export function cleanAudio(w: AudioWork): { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string } | undefined {
-  const out: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string } = {};
+export function cleanAudio(w: AudioWork): { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string } | undefined {
+  const out: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string } = {};
   if (w.victoryMusic) out.victoryMusic = w.victoryMusic;
+  if (w.battleMusic) out.battleMusic = w.battleMusic;
   if (w.files.length) out.files = w.files;
   if (Object.keys(w.sfx).length) out.sfx = w.sfx;
   if (w.titleMusic && w.titleMusic !== 'builtin:title') out.titleMusic = w.titleMusic;

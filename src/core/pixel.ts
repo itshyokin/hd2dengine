@@ -18,11 +18,17 @@ export function hexRGB(hex: string): RGB {
   return c;
 }
 
+/** Pixels a canvas was made from (so reading them back, for normal maps, needs no slow read from the GPU). */
+const sourcePixels = new WeakMap<HTMLCanvasElement, Uint8ClampedArray>();
+
 export function canvasFromRGBA(data: Uint8ClampedArray, w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  const ctx = c.getContext('2d')!;
+  // Kept in memory (not on the graphics card): these are read back for normal maps, which is very slow from the GPU
+  // (a whole map's ground took seconds, the freeze on reaching a seamless map).
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  sourcePixels.set(c, data.slice());
   const img = ctx.createImageData(w, h);
   img.data.set(data);
   ctx.putImageData(img, 0, 0);
@@ -162,7 +168,7 @@ export interface NormalOpts {
 /** Generate a tangent-space (OpenGL, green-up) normal map from an image. */
 export function normalMapFrom(src: HTMLCanvasElement, opt: NormalOpts = {}): HTMLCanvasElement {
   const w = src.width, h = src.height, s = opt.strength ?? 2.5, maxD = opt.maxD ?? 4;
-  const px = src.getContext('2d')!.getImageData(0, 0, w, h).data;
+  const px = sourcePixels.get(src) ?? src.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
   const Hm = new Float32Array(w * h);
   let d: Float32Array | null = null;
   if (opt.sprite) {

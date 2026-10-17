@@ -4,6 +4,21 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 
 const DATA_DIR = path.resolve('public/data');
+const AUDIO_DIR = path.resolve('audio');
+const AUDIO_EXT = /\.(ogg|mp3|wav|m4a|flac)$/i;
+
+/** Every sound file under audio/ (music, ambience, footsteps, sound_effects/…, voices, spells), as "audio/…" paths. */
+async function listAudio(dir = AUDIO_DIR, rel = 'audio'): Promise<string[]> {
+  const out: string[] = [];
+  let entries: import('node:fs').Dirent[] = [];
+  try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of entries) {
+    if (e.name.startsWith('.')) continue;
+    if (e.isDirectory()) out.push(...await listAudio(path.join(dir, e.name), `${rel}/${e.name}`));
+    else if (AUDIO_EXT.test(e.name)) out.push(`${rel}/${e.name}`);
+  }
+  return out.sort();
+}
 
 /**
  * Dev-server endpoints that let the editor save straight into public/data/.
@@ -38,6 +53,7 @@ function editorApi(): Plugin {
         try {
           const url = new URL(req.url, 'http://localhost');
           if (url.pathname === '/__editor/ping') return send(res, 200, { ok: true });
+          if (req.method === 'GET' && url.pathname === '/__editor/audio') return send(res, 200, await listAudio());
           if (req.method === 'GET' && url.pathname === '/__editor/maps') {
             const files = await fs.readdir(path.join(DATA_DIR, 'maps'));
             return send(res, 200, files.filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort());
@@ -78,6 +94,10 @@ function mapsManifest(): Plugin {
       const names = (await fs.readdir(path.join(DATA_DIR, 'maps'))).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
       await fs.mkdir(path.resolve('dist/data'), { recursive: true });
       await fs.writeFile(path.resolve('dist/data/maps.json'), JSON.stringify(names) + '\n', 'utf8');
+      // The project's audio folders, and their list (the hosted editor can't look inside folders).
+      const sounds = await listAudio();
+      for (const f of sounds) { const to = path.resolve('dist', f); await fs.mkdir(path.dirname(to), { recursive: true }); await fs.copyFile(path.resolve(f), to); }
+      await fs.writeFile(path.resolve('dist/data/audio.json'), JSON.stringify(sounds) + '\n', 'utf8');
       // The Character Builder (one self-contained page) comes along, for the online editor's toolbar link.
       try { await fs.copyFile(path.resolve('Character Builder.html'), path.resolve('dist/character-builder.html')); } catch { /* not in this project */ }
     },

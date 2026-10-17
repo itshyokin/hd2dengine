@@ -28,6 +28,16 @@ const TRIGGERS: [Trigger, string][] = [
   ['auto', 'Autorun (runs once when page becomes active)'], ['none', 'None'],
 ];
 
+type MapTab = 'general' | 'edges' | 'weather' | 'sound' | 'battles' | 'encounters';
+const MAP_TABS: [MapTab, string, string][] = [
+  ['general', 'General', '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>'],
+  ['edges', 'Beyond the edges', '<path d="M3 3h18v18H3z"/><path d="M7 7h10v10H7z" stroke-dasharray="2 2"/>'],
+  ['weather', 'Wind, weather & air', '<path d="M7 17a4 4 0 0 1 .5-8 5 5 0 0 1 9.5 1.5A3.5 3.5 0 0 1 17 17z"/><path d="M8 20l1-2M12 21l1-2M16 20l1-2"/>'],
+  ['sound', 'Sound', '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'],
+  ['battles', 'Battles', '<path d="M4 4l10 10M14 14l2 2M17 13l-4 4M20 4L10 14M10 14l-2 2M7 13l4 4"/>'],
+  ['encounters', 'Random encounters', '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 19c0-3 2.7-5 6-5s6 2 6 5M12 15c1-.7 2.4-1 4-1 3.3 0 6 2 6 5"/>'],
+];
+
 export class Inspector {
   readonly el: HTMLElement;
   private readonly commands: CommandEditor;
@@ -61,10 +71,11 @@ export class Inspector {
     else if (sel?.kind === 'start') content = this.start();
     else if (sel?.kind === 'tile') content = this.tile(sel.x, sel.z, sel.w ?? 1, sel.h ?? 1);
     else if (sel?.kind === 'ramp' && s.rampAt(sel.x, sel.z)) content = this.ramp(sel.x, sel.z);
-    else content = this.mapProps();
+    else content = this.mapSummary();
     const body = h('div', { class: 'side-body' }, ...content);
     this.el.replaceChildren(body);
     body.scrollTop = scroll;
+    this.drawMapWindow();
     if (this.eventWin) {
       if (sel?.kind === 'event' && sel.id === this.eventWin.id) this.drawEventWindow();
       else this.eventWin.close();
@@ -157,6 +168,54 @@ export class Inspector {
 
   /* ------------------------------------------------------------ map */
 
+  /** Nothing selected: the map's name and counts, and the button for its settings window. */
+  private mapSummary(): HTMLElement[] {
+    const s = this.store;
+    return [
+      this.header('Map', `${s.mapName}.json`),
+      h('button', { type: 'button', class: 'btn primary', onclick: () => this.openMapWindow() }, '⚙ Map Properties'),
+      h('p', { class: 'hint' }, 'Name and size, look and lighting, weather, what lies beyond the edges, sound, battles and random encounters. Select something on the map to edit it here.'),
+      h('p', { class: 'stats-line' }, this.counts()),
+    ];
+  }
+
+  /** The map's settings, in a window with tabs (like the Database). */
+  private mapWin: { tab: MapTab; body: HTMLElement; tabs: HTMLElement; close: () => void } | null = null;
+
+  openMapWindow(tab: MapTab = 'general'): void {
+    if (this.mapWin) { this.mapWin.tab = tab; this.drawMapWindow(); return; }
+    const body = h('div', { class: 'db-editor map-win-body' }), tabs = h('div', { class: 'db-tabs db-icon-tabs map-win-tabs', role: 'tablist' });
+    const close = openModal(`Map Properties: ${this.store.map.name || this.store.mapName}`, h('div', { class: 'db-wrap' }, h('div', { class: 'db-tabbar' }, tabs), body),
+      [{ label: 'Done', primary: true }], () => {}, { wide: true, cls: 'db-modal map-props-modal' });
+    this.mapWin = { tab, body, tabs, close: () => { close(); this.mapWin = null; } };
+    // The window closes itself (Done, Esc, ✕): forget it.
+    const overlay = body.closest('.overlay');
+    new MutationObserver((_, obs) => { if (overlay && !overlay.isConnected) { this.mapWin = null; obs.disconnect(); } }).observe(document.body, { childList: true });
+    this.drawMapWindow();
+  }
+
+  private drawMapWindow(): void {
+    const w = this.mapWin;
+    if (!w || !this.store.map) return;
+    const battle = this.store.map.kind === 'battle';
+    const list = MAP_TABS.filter(([id]) => !(battle && id === 'encounters'));
+    if (!list.some(([id]) => id === w.tab)) w.tab = 'general';
+    w.tabs.replaceChildren(...list.map(([id, label, icon]) => {
+      const b = h('button', { type: 'button', role: 'tab', class: 'db-tab', title: label, 'aria-label': label, 'aria-selected': String(w.tab === id), onclick: () => { w.tab = id; this.drawMapWindow(); } });
+      b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg><span>${label}</span>`;
+      return b;
+    }));
+    const scroll = w.body.scrollTop;
+    const content = w.tab === 'general' ? this.mapProps().slice(1)
+      : w.tab === 'edges' ? [this.borderFields()]
+      : w.tab === 'weather' ? this.weatherFields()
+      : w.tab === 'sound' ? [h('div', { class: 'section-label' }, 'Sound'), ...mapAudioFields(this.store, this.store.map, (fn) => this.edit(fn))]
+      : w.tab === 'battles' ? [h('div', { class: 'section-label' }, 'Battles'), ...this.battleFields()]
+      : [h('div', { class: 'section-label' }, 'Random battles'), ...this.encounterFields()];
+    w.body.replaceChildren(h('section', { class: 'db-section' }, ...content));
+    w.body.scrollTop = scroll;
+  }
+
   private mapProps(): HTMLElement[] {
     const s = this.store, m = s.map;
     let w = m.width, hgt = m.height;
@@ -207,13 +266,6 @@ export class Inspector {
       field('Season', select([['', 'The day’s season (Database → Time)'], ['spring', 'Always spring'], ['summer', 'Always summer'], ['autumn', 'Always autumn'], ['winter', 'Always winter (snow, ice)']],
         m.season ?? '', (v) => this.edit(() => { if (v) m.season = v as Season; else delete m.season; })),
         'Outdoor maps: grass and leaves follow the season. Winter brings snow, bare trees and ice on still water.'),
-      this.borderFields(),
-      ...this.weatherFields(),
-      h('div', { class: 'section-label' }, 'Sound'),
-      ...mapAudioFields(s, m, (fn) => this.edit(fn)),
-      h('div', { class: 'section-label' }, 'Battles'),
-      ...this.battleFields(),
-      ...(m.kind === 'battle' ? [] : [h('div', { class: 'section-label' }, 'Random battles'), ...this.encounterFields()]),
       h('div', { class: 'section-label' }, 'Game start'),
       field('Starting hour', numberInput(s.db.startHour, (v) => { s.checkpoint(); s.db.startHour = Math.min(23.75, Math.max(0, v)); s.changedDb(); }, { min: 0, max: 23.75, step: 0.25 }), 'Time of day when a new game begins (0 – 23.75; 18.5 is 6:30 PM). Clock speed and night darkness are in Database → Time.'),
       h('p', { class: 'hint' }, s.startHere ? 'The player starts on this map. Select it in the Events layer to move it.' : `The player starts on “${s.db.startMap}”. To start here, select a tile in the Events layer and choose “Move player start here”.`),

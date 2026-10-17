@@ -15,7 +15,7 @@ import type { EditorStore } from './store';
 import { cleanInventory, inventoryTab, itemsTab, type ItemsWork } from './ItemsEditor';
 import type { CombatData, EnemyDef, ItemDef } from '../world/types';
 import { cleanCombat, combatTab, enemiesTab } from './CombatEditor';
-import { type AudioWork, audioTab, cleanAudio } from './audioEditor';
+import { type AudioWork, audioFiles, audioTab, cleanAudio } from './audioEditor';
 import { cleanSkills, skillsTab } from './SkillsEditor';
 import { additionsTab, classesTab, spellsTab } from './AbilitiesEditor';
 import { DEFAULT_ADDITIONS, DEFAULT_SPELLS, additionList, spellList } from '../game/abilities';
@@ -27,6 +27,7 @@ import { textColorsTab } from './TextColorsEditor';
 import { messageStyles, textColors, type MessageStyle, type TextColor } from '../ui/richText';
 import { messageStylesTab } from './MessageStylesEditor';
 import { saveDatabase } from './io';
+import { beforeCombatPreview } from './combatPreview';
 import { markerKinds, type MarkerKind } from '../world/landmarks';
 import type { AchievementDef } from '../game/achievements';
 import { expSection, trimExpTable } from './ExpEditor';
@@ -91,7 +92,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const itemState = { sel: 0 }, enemyState = { sel: 0 };
   const combat: CombatData = JSON.parse(JSON.stringify(store.db.combat ?? {}));
   const enemies: EnemyDef[] = JSON.parse(JSON.stringify(store.db.enemies ?? []));
-  const audio: AudioWork = { files: [...(store.db.audio?.files ?? [])], sfx: { ...(store.db.audio?.sfx ?? {}) }, titleMusic: store.db.audio?.titleMusic, victoryMusic: store.db.audio?.victoryMusic };
+  const audio: AudioWork = { files: [...(store.db.audio?.files ?? [])], sfx: { ...(store.db.audio?.sfx ?? {}) }, titleMusic: store.db.audio?.titleMusic, victoryMusic: store.db.audio?.victoryMusic, battleMusic: store.db.audio?.battleMusic };
   const skills: SkillsData = JSON.parse(JSON.stringify(skillsData(store.db.skills)));
   const skillState = { tree: 0, sel: '' };
   const time = { rate: store.db.time?.rate ?? 20, darkness: store.db.time?.darkness ?? 0.85, seasons: { ...store.db.time?.seasons } as SeasonSettings };
@@ -162,7 +163,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'quests') { content.replaceChildren(...questsTab(store, quests, { items: work.items, enemies }, questState, render)); return; }
     if (tab === 'items') { content.replaceChildren(...itemsTab(store, work, itemState, render)); return; }
     if (tab === 'skills') { content.replaceChildren(...skillsTab(skills, skillState, render, work.items, { spells, additions })); return; }
-    if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audio.files, troopState, render)); return; }
+    if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audioFiles(store), troopState, render, store.battleMapNames())); return; }
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
     if (tab === 'textColors') { content.replaceChildren(...textColorsTab(textCols, render)); return; }
     if (tab === 'messageStyles') { content.replaceChildren(...messageStylesTab(msgStyles, textCols, msgState, render)); return; }
@@ -418,6 +419,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       return 'applied';
   };
 
+  // Combat preview plays what's in this window: its changes go into the project first.
+  beforeCombatPreview(() => { commit(); });
   /** A note at the bottom left of the window, fading after a few seconds. */
   const note = h('div', { class: 'db-saved-note', role: 'status', 'aria-live': 'polite' });
   let noteTimer = 0;

@@ -22,6 +22,8 @@ export interface StageFighterSpec {
   weapons?: CarriedWeapon[];
   /** The animation an attack plays (slash, thrust, shoot). */
   attackAnim?: string;
+  /** Raise (+) or lower (−) the picture, in tiles: art with empty space under the feet would float (Database). */
+  lift?: number;
 }
 
 type Step =
@@ -40,6 +42,7 @@ interface Fighter {
   sprite: CharacterSprite | FlatSprite;
   flat: FlatSprite | null;
   scale: number;
+  lift: number;
   /** Height and width of the sprite at scale 1 (tiles). */
   tall: number;
   wide: number;
@@ -185,7 +188,7 @@ export class BattleStage implements StageHooks {
       this.group.add(mesh, ring);
       const flat = s.sprite instanceof FlatSprite ? s.sprite : null;
       const f: Fighter = {
-        key: s.key, side: s.side, sprite: s.sprite, flat, scale: s.scale ?? 1,
+        key: s.key, side: s.side, sprite: s.sprite, flat, scale: s.scale ?? 1, lift: s.lift ?? 0,
         tall: Math.max(0.4, bb.max.y - bb.min.y), wide: Math.max(0.3, bb.max.x - bb.min.x),
         home, at: home.clone(), attackAnim: s.attackAnim ?? 'slash', steps: [], shake: 0, step: 0, active: false, down: false,
         fade: 0, fading: false, ring, ringColor: null, lunge: 0, weak: false, posed: false, facing: new THREE.Vector2(0, s.side === 'party' ? -1 : 1),
@@ -443,7 +446,7 @@ export class BattleStage implements StageHooks {
       m.scale.y *= 0.86 + 0.035 * b;
       m.scale.x *= 1.05 - 0.015 * b;
     }
-    m.position.y -= f.fade * 0.3;
+    m.position.y += f.lift - f.fade * 0.3;
     m.visible = f.fade < 1;
     if (f.flat) f.flat.pose(f.lunge, toward.x, toward.z, !f.down && !f.fading);
     // Lying down (no "hurt" animation to fall with): tipped over.

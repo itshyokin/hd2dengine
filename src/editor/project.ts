@@ -26,6 +26,13 @@ export interface Project {
   /** `path` is relative to public/, e.g. "assets/props/lamp.png". */
   readFile(path: string): Promise<Blob>;
   writeFile(path: string, data: Blob): Promise<void>;
+  /** The sound files in the project's audio/ folders, as "audio/music/x.wav" paths (used where they are). */
+  listAudio?(): Promise<string[]>;
+}
+
+/** The built site's list of its audio files (the hosted editor can't look inside folders). */
+export async function audioManifest(): Promise<string[]> {
+  try { const r = await fetch('data/audio.json', { cache: 'no-store' }); if (!r.ok) return []; const v = (await r.json()) as unknown; return Array.isArray(v) ? (v as string[]) : []; } catch { return []; }
 }
 
 async function fetchBlob(path: string): Promise<Blob> {
@@ -61,6 +68,9 @@ export async function devServerProject(): Promise<Project | null> {
       }
     },
     listMaps: async () => (await list()) ?? [],
+    listAudio: async () => {
+      try { const r = await fetch('/__editor/audio', { cache: 'no-store' }); if (!r.ok) return []; const v = (await r.json()) as unknown; return Array.isArray(v) ? (v as string[]) : []; } catch { return []; }
+    },
     write: async (file, text) => {
       const res = await fetch(`/__editor/save?file=${encodeURIComponent(file)}`, { method: 'POST', body: text, headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) {
@@ -79,6 +89,7 @@ export function staticProject(): Project {
     readDatabase: loadDatabase, readMap: loadMap, readAssets: loadAssets, readFile: fetchBlob,
     writeFile: async () => { throw new Error('This copy of the editor can’t save files.'); },
     listMaps: async () => [],
+    listAudio: audioManifest,
     write: async () => { throw new Error('This copy of the editor can’t save files.'); },
   };
 }
@@ -159,8 +170,10 @@ export function folderProject(root: DirHandle, dirs: ProjectDirs): Project {
       try { return normalizeAssets(await readJSON<AssetRegistry>(data, ['assets.json'])); } catch { return normalizeAssets(null); }
     },
     readFile: async (path) => {
-      if (!pub) throw new Error('Pick the project folder (not the data folder) to use imported images.');
       const parts = path.split('/');
+      // The audio folders sit beside public/, in the project folder itself.
+      if (parts[0] === 'audio' && pub) return (await (await walk(root, parts.slice(0, -1), false)).getFileHandle(parts[parts.length - 1])).getFile();
+      if (!pub) throw new Error('Pick the project folder (not the data folder) to use imported images.');
       return (await (await walk(pub, parts.slice(0, -1), false)).getFileHandle(parts[parts.length - 1])).getFile();
     },
     writeFile: async (path, blob) => {
@@ -169,6 +182,18 @@ export function folderProject(root: DirHandle, dirs: ProjectDirs): Project {
       const w = await (await (await walk(pub, parts.slice(0, -1), true)).getFileHandle(parts[parts.length - 1], { create: true })).createWritable();
       await w.write(blob);
       await w.close();
+    },
+    listAudio: async () => {
+      const out: string[] = [];
+      const scan = async (d: DirHandle, rel: string): Promise<void> => {
+        for await (const e of d.values()) {
+          if (e.name.startsWith('.')) continue;
+          if (e.kind === 'directory') await scan(await d.getDirectoryHandle(e.name), `${rel}/${e.name}`);
+          else if (/\.(ogg|mp3|wav|m4a|flac)$/i.test(e.name)) out.push(`${rel}/${e.name}`);
+        }
+      };
+      if (pub) { try { await scan(await root.getDirectoryHandle('audio'), 'audio'); } catch { /* no audio folder */ } }
+      return out.sort();
     },
     listMaps: async () => {
       const out: string[] = [];

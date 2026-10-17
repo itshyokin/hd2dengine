@@ -37,7 +37,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ogg': 'audio/ogg',
-  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.flac': 'audio/flac', '.woff2': 'font/woff2',
 };
 
 let lastPing = 0;
@@ -72,6 +72,19 @@ const readBody = async (req) => (await readBytes(req)).toString('utf8');
 /** Imported files: images under public/assets/(props|tiles|icons|characters)/, sounds under public/assets/audio/. */
 const ASSET_FILE = /^assets\/(?:(?:props|tiles|icons|characters|enemies|weapons\/custom)\/[A-Za-z0-9_.-]+\.png|audio\/[A-Za-z0-9_.-]+\.(?:ogg|mp3|wav|m4a))$/;
 
+const AUDIO = path.join(ROOT, 'audio');
+/** Every sound under audio/ (any depth), as "audio/…" paths. */
+async function listAudio(dir = AUDIO, rel = 'audio') {
+  const out = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const e of entries) {
+    if (e.name.startsWith('.')) continue;
+    if (e.isDirectory()) out.push(...await listAudio(path.join(dir, e.name), `${rel}/${e.name}`));
+    else if (/\.(ogg|mp3|wav|m4a|flac)$/i.test(e.name)) out.push(`${rel}/${e.name}`);
+  }
+  return out.sort();
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const p = url.pathname;
@@ -81,6 +94,7 @@ const server = http.createServer(async (req, res) => {
       const has = async (f) => fs.access(f).then(() => true, () => false);
       return send(res, 200, { builder: await has(path.join(BUILDER, 'index.html')), library: await has(path.join(LIBRARY, 'catalog.json')) });
     }
+    if (p === '/__editor/audio' && req.method === 'GET') return send(res, 200, await listAudio());
     if (p === '/__editor/maps' && req.method === 'GET') {
       const files = await fs.readdir(path.join(DATA, 'maps')).catch(() => []);
       return send(res, 200, files.filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort());
@@ -115,6 +129,8 @@ const server = http.createServer(async (req, res) => {
     if (p === '/builder/' || p === '/builder/index.html') return serveFile(res, path.join(BUILDER, 'index.html'));
     if (p.startsWith('/builder/weapons/')) { const f = inside(WEAPONS, p.slice('/builder/weapons'.length)); return f ? serveFile(res, f) : send(res, 403, 'Forbidden', 'text/plain; charset=utf-8'); }
     if (p.startsWith('/builder/')) { const f = inside(LIBRARY, p.slice('/builder'.length)); return f ? serveFile(res, f) : send(res, 403, 'Forbidden', 'text/plain; charset=utf-8'); }
+    // The project's audio folders (music, ambience, sound effects…), used where they are.
+    if (p.startsWith('/audio/')) { const f = inside(AUDIO, p.slice('/audio'.length)); return f ? serveFile(res, f) : send(res, 403, 'Forbidden', 'text/plain; charset=utf-8'); }
     const file = inside(PUBLIC, p);
     if (!file) return send(res, 403, 'Forbidden', 'text/plain; charset=utf-8');
     return serveFile(res, file);

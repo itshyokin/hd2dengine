@@ -69,6 +69,12 @@ function flickerFactor(f: Flicker | undefined, t: number, seed: number): number 
   }
 }
 
+/** Lights of each kind, as the shaders count them. */
+export interface ShaderLights { point: number; spot: number; pointShadows: number; spotShadows: number }
+export const maxLights = (a: ShaderLights, b: ShaderLights): ShaderLights => ({
+  point: Math.max(a.point, b.point), spot: Math.max(a.spot, b.spot), pointShadows: Math.max(a.pointShadows, b.pointShadows), spotShadows: Math.max(a.spotShadows, b.spotShadows),
+});
+
 export class Lights {
   private readonly lives: Live[] = [];
   private readonly areas: LiveArea[] = [];
@@ -81,6 +87,52 @@ export class Lights {
   /** Lights that cast shadows (debug panel can switch them off). */
   readonly shadowLights: (THREE.PointLight | THREE.SpotLight)[] = [];
   readonly budget: LightCounts = { point: 0, spot: 0, pointShadows: 0, spotShadows: 0, area: 0 };
+  private scene!: THREE.Object3D;
+  private readonly standIns: THREE.Light[] = [];
+
+  /** How many lights of each kind this map's shaders are built for (its own, before any stand-ins). */
+  get counts(): ShaderLights {
+    const c = { point: 0, spot: 0, pointShadows: 0, spotShadows: 0 };
+    for (const { light: l } of this.lives) {
+      if (!l.parent) continue; // a flame's placeholder, never added
+      if (l instanceof THREE.SpotLight) { if (l.castShadow) c.spotShadows++; else c.spot++; }
+      else if (l.castShadow) c.pointShadows++; else c.point++;
+    }
+    return c;
+  }
+
+  /**
+   * Unlit stand-ins (far away, intensity 0) so the map has at least `want` lights of each kind. Every material's shader
+   * is built for the number of lights in the scene, so walking into a seamless neighbour with a different number made
+   * the whole scene rebuild its shaders (a long freeze). The game pads each map to the most any map around it needs.
+   */
+  padTo(want: ShaderLights): void {
+    const have = { ...this.counts };
+    for (const l of this.standIns) {
+      if (l instanceof THREE.SpotLight) { if (l.castShadow) have.spotShadows++; else have.spot++; }
+      else if (l.castShadow) have.pointShadows++; else have.point++;
+    }
+    const add = (n: number, make: () => THREE.PointLight | THREE.SpotLight, shadow: boolean) => {
+      for (let k = 0; k < n; k++) {
+        const l = make();
+        l.position.set(0, -500, 0);
+        if (shadow) {
+          // A tiny shadow map drawn once: it only has to exist for the shader to match.
+          l.castShadow = true;
+          l.shadow.mapSize.set(8, 8);
+          l.shadow.autoUpdate = false;
+          l.shadow.needsUpdate = true;
+        }
+        this.scene.add(l);
+        if (l instanceof THREE.SpotLight) this.scene.add(l.target);
+        this.standIns.push(l);
+      }
+    };
+    add(want.point - have.point, () => new THREE.PointLight(0x000000, 0, 0.01), false);
+    add(want.spot - have.spot, () => new THREE.SpotLight(0x000000, 0, 0.01), false);
+    add(want.pointShadows - have.pointShadows, () => new THREE.PointLight(0x000000, 0, 0.01), true);
+    add(want.spotShadows - have.spotShadows, () => new THREE.SpotLight(0x000000, 0, 0.01), true);
+  }
 
   constructor(scene: THREE.Object3D, data: MapData, map: TileMap, sprites: SpriteLibrary) {
     this.flameTex = makeTexture(flameStrip());
@@ -158,6 +210,7 @@ export class Lights {
     this.embers.frustumCulled = false;
     this.embers.visible = this.emitters.length > 0;
     scene.add(this.embers);
+    this.scene = scene;
     for (let i = 0; i < EMBERS; i++) { this.spawnEmber(i); this.emberLife[i] *= Math.random(); }
   }
 

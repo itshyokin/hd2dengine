@@ -190,6 +190,8 @@ function stereo(ctx: AudioContext, s: Stereo): AudioBuffer {
 /** Choices for a music or ambience picker: built-ins, then imported files. */
 export function loopChoices(kind: 'music' | 'ambience', files: string[]): [string, string][] {
   const names = kind === 'music' ? MUSIC_NAMES : AMBIENCE_NAMES;
+  // Files from the audio folders: music lists audio/music/…, background sounds audio/ambience/… (imported files: all).
+  const fits = (f: string) => !f.startsWith('audio/') || f.startsWith(`audio/${kind}/`);
   return [['', 'None'], ...Object.entries(names).map(([k, v]) => [`builtin:${k}`, `${v} (built-in)`] as [string, string]),
-    ...files.map((f) => [f, f.split('/').pop()!] as [string, string])];
+    ...files.filter(fits).map((f) => [f, f.startsWith('audio/') ? f.slice(6) : f.split('/').pop()!] as [string, string])];
 }

@@ -5,7 +5,7 @@ import { AILMENTS, AILMENT_INFO } from '../game/status';
 import type { Ailment } from '../world/types';
 import { FOOT_MATERIALS, guessFootstep } from '../world/footsteps';
 import { isBuiltinProp } from '../world/props';
-import { canvasCopy, checkbox, confirmModal, h, numberInput, select } from './dom';
+import { canvasCopy, checkbox, confirmModal, h, numberInput, select, toast } from './dom';
 import { characterImage, paletteProps, propImage, tileNote, tileThumb } from './editorArt';
 import { openTileImporter } from './TileImporter';
 import { openBlendSettings } from './BlendSettings';
@@ -30,6 +30,24 @@ import { TS } from './editorArt';
 const MODES: [Mode, string, string][] = [
   ['terrain', 'Terrain', '1'], ['height', 'Height', '2'], ['passage', 'Passage', '3'], ['props', 'Props', '4'], ['lights', 'Lights', '5'], ['events', 'Events', '6'], ['buildings', 'Buildings', '7'], ['water', 'Water', '8'], ['zones', 'Spawns', '9'],
 ];
+/** Layer icons (24 × 24 line drawings): the tabs show these, the name in a tooltip and beside them. */
+const MODE_ICONS: Record<string, string> = {
+  terrain: '<path d="M3 17l5-6 4 4 3-3 6 5"/><path d="M3 20h18"/>',
+  height: '<path d="M4 20h4v-5h4v-5h4V5h4"/>',
+  passage: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16M12 4v16"/><path d="M7 7l3 3M14 14l3 3"/>',
+  props: '<path d="M12 3l5 8h-3l4 6H6l4-6H7z"/><path d="M12 17v4"/>',
+  lights: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
+  events: '<path d="M4 5h16v11H10l-4 4v-4H4z"/><path d="M12 8v3M12 13.5v.5"/>',
+  buildings: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',
+  water: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
+  zones: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+};
+const iconSvg = (path: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+
+/** Opens the map's settings window (set by the editor once the Inspector exists). */
+let openMapProperties: () => void = () => {};
+export function setMapPropertiesOpener(fn: () => void): void { openMapProperties = fn; }
+
 const TERRAIN_TOOLS: [TerrainTool, string, string][] = [['pencil', 'Pencil', 'B'], ['rect', 'Rectangle', 'R'], ['fill', 'Fill', 'G']];
 const PROP_TOOLS: [ObjectTool, string, string][] = [['place', 'Place', 'P'], ['scatter', 'Scatter', 'S'], ['select', 'Select', 'V'], ['erase', 'Erase', 'E']];
 const HEIGHT_TOOLS: [HeightTool, string, string][] = [['raise', 'Raise', 'R'], ['lower', 'Lower', 'L'], ['set', 'Set', 'S'], ['fill', 'Fill', 'G'], ['ramp', 'Ramp', 'A']];
@@ -55,7 +73,7 @@ export const MODE_HINTS: Record<string, string> = {
   'props:place': 'Click or drag to place, one prop per tile (placing on a taken tile replaces its prop). Turn off “Snap to tiles” for free placement.',
   'props:scatter': 'Drag to scatter props naturally, with varied sizes.',
   'props:select': 'Click a prop to select it, drag to move. Delete removes it.',
-  'props:erase': 'Click or drag over props to remove them.',
+  'props:erase': 'Click or drag over props to remove them (tick “Only erase …” to remove just the kind picked in the list).',
   'lights:place': 'Click a tile to place a light, one per tile. For area lights, drag to draw the area (areas may overlap).',
   'lights:select': 'Click a light to select it, drag to move. Drag an area’s corner handle to resize it.',
   'lights:erase': 'Click a light to remove it.',
@@ -78,8 +96,16 @@ export class Palette {
   render(): void {
     const s = this.store;
     if (!s.map) return;
-    const tabs = h('div', { class: 'tabs', role: 'tablist' }, ...MODES.map(([m, label, key]) =>
-      h('button', { type: 'button', role: 'tab', class: 'tab', 'aria-selected': String(s.mode === m), title: `${label} (${key})`, onclick: () => { s.mode = m; s.select(null); s.emit('ui'); } }, label)));
+    const tabs = h('div', { class: 'tabs icon-tabs', role: 'tablist' }, ...MODES.map(([m, label, key]) => {
+      const b = h('button', { type: 'button', role: 'tab', class: 'tab', 'aria-label': label, 'aria-selected': String(s.mode === m), title: `${label} (${key})`, onclick: () => { s.mode = m; s.select(null); s.emit('ui'); } });
+      b.innerHTML = iconSvg(MODE_ICONS[m] ?? '');
+      return b;
+    }));
+    const current = MODES.find(([m]) => m === s.mode);
+    const head = h('div', { class: 'palette-head' },
+      h('button', { type: 'button', class: 'btn map-props-btn', title: 'Name, size, look, weather, sound, battles and encounters', onclick: () => openMapProperties() }, '⚙ Map Properties'),
+      tabs,
+      h('div', { class: 'layer-name' }, current ? `${current[1]} · key ${current[2]}` : ''));
 
     const body: Node[] = [];
     if (s.mode === 'terrain') {
@@ -236,8 +262,23 @@ export class Palette {
     } else if (s.mode === 'props') {
       body.push(this.tools(PROP_TOOLS, s.propTool, (t) => (s.propTool = t)));
       if (s.propTool === 'scatter') body.push(this.brush());
-      body.push(checkbox('Snap to tiles', s.snap, (v) => { s.snap = v; s.emit('ui'); }));
       const defs = paletteProps();
+      if (s.propTool === 'erase') {
+        // Erase by type: only the kind picked below; or every one of that kind on the map at once.
+        const kind = defs.find((d) => d.id === s.propType), name = kind?.name ?? s.propType;
+        const count = s.map.props.filter((p) => p.type === s.propType).length;
+        body.push(h('div', { class: 'erase-type' },
+          checkbox(`Only erase ${name}`, s.eraseOnlyType, (v) => { s.eraseOnlyType = v; s.emit('ui'); }),
+          h('button', { type: 'button', class: 'btn small danger', disabled: !count, onclick: () => confirmModal(`Erase every ${name}?`, `This removes all ${count} ${name} on this map (Ctrl+Z undoes it).`, 'Erase them all', () => {
+            s.checkpoint();
+            s.map.props = s.map.props.filter((p) => p.type !== s.propType);
+            if (s.selection?.kind === 'prop') s.select(null);
+            s.changed();
+            toast(`Erased ${count} × ${name}`);
+          }, true) }, `Erase all ${name} (${count})`),
+          h('p', { class: 'note' }, 'Pick the kind in the list below (the tool stays on Erase).')));
+      }
+      body.push(checkbox('Snap to tiles', s.snap, (v) => { s.snap = v; s.emit('ui'); }));
       const edit = (id: string) => { const d = s.catalog.get(id); if (d) void openPropImporter(s, d); };
       const remove = (id: string, name: string) => confirmModal('Delete prop?',
         `“${name}” will be removed from the prop list and from this map. Its image files stay in your project.`, 'Delete', () => void deleteProp(s, id), true);
@@ -261,7 +302,7 @@ export class Palette {
       }
 
       const card = (id: string, name: string, lit: boolean) => {
-        const pick = () => { s.propType = id; if (s.propTool === 'select' || s.propTool === 'erase') s.propTool = 'place'; s.emit('ui'); };
+        const pick = () => { s.propType = id; if (s.propTool === 'select') s.propTool = 'place'; s.emit('ui'); };
         return h('div', { class: 'sprite-card' },
           h('button', { type: 'button', class: 'sprite-btn', 'aria-pressed': String(s.propType === id), title: name, onclick: pick },
             h('span', { class: 'sprite-frame' }, spriteThumb(propImage(id))),
@@ -334,7 +375,7 @@ export class Palette {
     }
     body.push(checkbox('Show grid', s.showGrid, (v) => { s.showGrid = v; s.emit('ui'); }));
 
-    this.el.replaceChildren(tabs, h('div', { class: 'side-body' }, ...body));
+    this.el.replaceChildren(head, h('div', { class: 'side-body' }, ...body));
   }
 
   /**

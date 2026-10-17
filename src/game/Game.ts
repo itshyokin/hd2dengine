@@ -28,7 +28,7 @@ import { waterStyle } from '../world/waterStyles';
 import { SEASON_NAMES, type Season, realSeason, seasonOn } from '../world/seasons';
 import { setSeason } from '../render/season';
 import { biteDelay, biteWindow, catchSize, fishingGrid, pickCatch } from '../world/fishing';
-import { Lights, scheduleFactor } from '../world/Lights';
+import { Lights, type ShaderLights, maxLights, scheduleFactor } from '../world/Lights';
 import { PropCatalog, migrateMap } from '../world/props';
 import { TileCatalog } from '../world/tiles';
 import { type TileTexture, loadTileTextures, setTileAnisotropy } from '../render/tileTextures';
@@ -102,6 +102,7 @@ import { PartyScreen, type PartyAction, type PartyMemberView } from '../ui/Party
 import { PauseShell } from '../ui/PauseShell';
 import { WorldMapScreen, type WorldMapMarker, type WorldMapPiece } from '../ui/WorldMapScreen';
 import { drawMarker, markerKinds } from '../world/landmarks';
+import { tintCanvas, tintObject } from '../render/tint';
 import { BubbleLayer } from '../ui/BubbleLayer';
 import { AchievementsScreen, type AchievementView } from '../ui/AchievementsScreen';
 import { AchievementToast } from '../ui/AchievementToast';
@@ -195,6 +196,8 @@ export class Game {
   private dying = 0;
   /** Objects of the current map (removed as a whole on a transfer). */
   private level: THREE.Group | null = null;
+  /** The map's built ground, walls, water and props (inside the level): kept as a neighbour when walking off a seamless edge. */
+  private world: { group: THREE.Group; built: BuiltWorld; origin: THREE.Vector2 } | null = null;
   private mapName = '';
   /** Maps handed over by the editor in a playtest. */
   private handedMaps: Record<string, MapData> | null = null;
@@ -234,7 +237,7 @@ export class Game {
   /** Frames since the battle screen opened (the world behind stops being redrawn after a few). */
   private battleFrames = 0;
   /** A battle on a battle map: its 3D stage (its own scene), the map's lights and water, and the field's lighting to go back to. */
-  private stage: { stage: BattleStage; lights: Lights; built: BuiltWorld; env: TimeOfDay['environment']; map: TileMap; look: THREE.Vector3 } | null = null;
+  private stage: { stage: BattleStage; lights: Lights; built: BuiltWorld; env: TimeOfDay['environment']; map: TileMap; look: THREE.Vector3; /** The battle map's own music (its battle music, else its music). */ music?: string } | null = null;
   /** Battle maps loaded so far (by file name). */
   private readonly battleMaps = new Map<string, MapData>();
   /** A battle map is loading for a battle about to start. */
@@ -415,11 +418,19 @@ export class Game {
     this.settings = this.settingsStore.load();
     this.setup();
     // A playtest that skips the title starts as a new game would: with the starting party.
-    if (pt && this.db.menus?.skipTitleInPlaytest) this.startParty();
+    const preview = pt?.battle?.enemies.length ? pt.battle : null;
+    if (pt && (this.db.menus?.skipTitleInPlaytest || preview)) this.startParty();
     this.enterMap(mapName, mapData, start);
     this.applySettings();
     // The title screen, with the map behind it (playtests can skip it: Database → Title & menus).
-    if (!(pt && this.db.menus?.skipTitleInPlaytest)) this.openTitle();
+    if (!(pt && (this.db.menus?.skipTitleInPlaytest || preview))) this.openTitle();
+    // Combat preview: a full party (the starting one, topped up from the Database's heroes), then straight into battle.
+    if (preview) {
+      for (const hd of this.db.heroes ?? []) { if (this.members().length >= 2) break; if (hd.id !== mainHero(this.db).id && !this.members().some((m) => m.def.id === hd.id)) this.changeParty('add', hd.id); }
+      const defs = new Map((this.db.enemies ?? []).map((e) => [e.id, e]));
+      const list = preview.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).slice(0, MAX_FOES).map((def) => ({ def, hp: def.hp, enemy: null }));
+      setTimeout(() => this.startBattle(list, 'normal', { canRun: true, stage: preview.map || undefined }), 900);
+    }
     this.bindPointer();
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -614,9 +625,9 @@ export class Game {
     this.arranger = new HudArranger(this.ui, this.input, (l) => this.hud.applyLayout(l));
     this.menu = new GameMenu(this.ui, this.input);
     this.saveScreen = new SaveScreen(this.ui, this.input, {
-      slots: (mode) => this.saves.list().filter((s) => mode === 'load' || s.slot !== 'auto').map((s) => ({ slot: s.slot, label: slotLabel(s.slot), data: s.data, shot: s.data ? this.saves.shot(s.slot) : null })),
+      slots: (mode) => this.saves.list().filter((s) => mode === 'load' || s.slot !== 'auto').map((s) => ({ slot: s.slot, label: slotLabel(s.slot), data: s.data, shot: s.data ? this.saves.shot(s.slot) : null, party: s.data ? this.saveParty(s.data) : undefined })),
       act: (mode, slot) => {
-        if (mode === 'load') { const d = this.saves.read(slot); if (d) this.loadSave(d); return false; }
+        if (mode === 'load') { const d = this.saves.read(slot); if (d) { this.currentSlot = slot === 'auto' ? null : slot; this.loadSave(d); } return false; }
         const ok = this.saveTo(slot);
         return !(ok && this.saveFromEvent);
       },
@@ -787,7 +798,7 @@ export class Game {
 
   /** Build a map and put the player on it (or take over a neighbour already built beside it). The previous map goes. */
   private enterMap(name: string, data: MapData, start: Start | null, pre?: Preview): void {
-    if (pre) this.level?.remove(pre.group);
+    if (pre) pre.group.removeFromParent();
     this.leaveMap();
     this.mapName = name;
     this.cutThisVisit.clear();
@@ -795,17 +806,22 @@ export class Game {
     data = this.visitData(name, data);
     this.mapData = data;
     this.time.environment = data.environment ?? 'outdoor';
-    const level = (this.level = pre?.group ?? new THREE.Group());
-    level.position.set(0, 0, 0);
-    pre?.origin.set(0, 0);
+    const level = (this.level = new THREE.Group());
     level.name = `map:${name}`;
     this.scene.add(level);
+    // The built world goes in a group of its own (a neighbour's, already built, when coming from a seamless edge).
+    const worldGroup = pre?.group ?? new THREE.Group(), origin = pre?.origin ?? new THREE.Vector2();
+    worldGroup.position.set(0, 0, 0);
+    origin.set(0, 0);
+    worldGroup.name = `world:${name}`;
+    level.add(worldGroup);
     // Winter freezes still water over (decided as the map is built; a change of season rebuilds it).
     this.season = this.seasonNow();
     setSeason(this.season);
     this.mapWinter = this.season === 'winter';
     this.map = pre?.map ?? new TileMap(data, this.tiles, (style) => this.frozen(style));
-    const built = pre?.built ?? buildWorld(level, this.map, data, this.sprites, this.tileTextures);
+    const built = pre?.built ?? buildWorld(worldGroup, this.map, data, this.sprites, this.tileTextures, origin);
+    this.world = { group: worldGroup, built, origin };
     this.waterNormals = built.waterNormals;
     this.waterFlows = built.waterFlows;
     this.findWetProps();
@@ -815,6 +831,11 @@ export class Game {
     this.buildings = built.buildings;
     this.bursts.attach(level);
     this.lights = new Lights(level, data, this.map, this.sprites);
+    this.lights.shadowLights.forEach((l) => (l.castShadow = this.settings.lightShadows));
+    // Shaders are built for the number of lights in the scene: pad this map to the most any map around it needs, so
+    // walking between seamless neighbours never rebuilds them (kept across seamless steps, fresh after a transfer).
+    this.lightTarget = pre && this.lightTarget ? maxLights(this.lightTarget, this.lights.counts) : this.lights.counts;
+    this.lights.padTo(this.lightTarget);
     this.fireflies = new Fireflies(level, this.map);
     this.weatherPending = true;
     this.events = data.events.map((e) => new GameEvent(e, level, this.sprites, this.db, this.map));
@@ -879,6 +900,8 @@ export class Game {
 
   /** Seamless neighbours drawn past this map's edges (World layout + Seamless sides), built a moment after arriving. */
   private previews: Preview[] = [];
+  /** The lights every map in this seamless region is padded to (see Lights.padTo). */
+  private lightTarget: ShaderLights | null = null;
   private previewToken = 0;
 
   /** Sides of this map with a seamless neighbour (the camera may look past them). */
@@ -895,6 +918,8 @@ export class Game {
         // One at a time, a little apart, so arriving stays smooth.
         await new Promise((r) => setTimeout(r, 150));
         if (token !== this.previewToken || !this.level) return;
+        // The map just left is already here (kept, not rebuilt).
+        if (this.previews.some((p) => p.name === n.map)) continue;
         try {
           const raw = await this.loadMapData(n.map);
           if (token !== this.previewToken || !this.level) return;
@@ -907,6 +932,18 @@ export class Game {
           tagAOMeshes(group);
           this.level.add(group);
           this.previews.push({ name: n.map, n, group, map, built, data, origin });
+          // Its lights, counted (not kept): this map takes on stand-ins now, far from the edge, if the next one needs more.
+          const tmp = new THREE.Group(), counted = new Lights(tmp, data, map, this.sprites);
+          counted.shadowLights.forEach((l) => (l.castShadow = this.settings.lightShadows));
+          const want = maxLights(this.lightTarget ?? counted.counts, counted.counts);
+          // Kept out of sight until the shaders are made, so its flames' shader is ready too.
+          tmp.position.y = -1000;
+          for (const o of [...tmp.children]) if ((o as THREE.Light).isLight || (o as THREE.Object3D).type === 'Object3D') o.removeFromParent();
+          this.level.add(tmp);
+          this.warmupTemp.push(tmp);
+          if (JSON.stringify(want) !== JSON.stringify(this.lightTarget)) { this.lightTarget = want; this.lights.padTo(want); }
+          // Its shaders are made now (next frame), not as it first comes into view.
+          this.warmup = true;
         } catch (e) { console.warn(`Couldn’t draw the map next door (${n.map}):`, e); }
       }
     })();
@@ -925,7 +962,20 @@ export class Game {
     const x = px - p.n.dx, z = pz - p.n.dz, cx = Math.floor(x), cz = Math.floor(z);
     if (!p.map.inMap(cx, cz) || p.map.isBlocked(cx, cz) || Math.abs(p.map.standY(x, z) - m.y) > 0.6) return false;
     const view = this.camTarget.clone().add(new THREE.Vector3(-p.n.dx, 0, -p.n.dz)), dir = this.player.dir;
+    // The map being left stays built: it becomes the new map's neighbour (no rebuilding, no gap behind the hero).
+    const old = this.world ? { name: this.mapName, data: this.mapData, map: this.map, ...this.world } : null;
+    old?.group.removeFromParent();
     this.enterMap(p.name, p.data, { x, z, dir }, p);
+    if (old && this.level) {
+      const back = neighbours(this.db.world, this.mapName).find((q) => q.map === old.name && seamlessSides(this.mapData.border).has(q.side));
+      if (back) {
+        old.group.position.set(back.dx, 0, back.dz);
+        old.origin.set(back.dx, back.dz);
+        old.group.name = `next:${old.name}`;
+        this.level.add(old.group);
+        this.previews.push({ name: old.name, n: back, group: old.group, map: old.map, built: old.built, data: old.data, origin: old.origin });
+      } else this.disposeTree(old.group);
+    }
     // The camera carries on from where it was (the world moved under it, not the view).
     this.camTarget.copy(view);
     return true;
@@ -941,6 +991,7 @@ export class Game {
     this.disposeTree(this.level);
     this.scene.remove(this.level);
     this.level = null;
+    this.world = null;
     this.events = [];
   }
 
@@ -1495,6 +1546,8 @@ export class Game {
   private fps = { el: null as HTMLElement | null, avg: 1 / 60, worst: 0, t: 0, frames: 0 };
   /** Build every shader the map needs before its first frame, so nothing stutters the first time it's seen. */
   private warmup = false;
+  /** Things shown only so their shaders get made (a neighbour's lamps and flames), dropped after. */
+  private readonly warmupTemp: THREE.Object3D[] = [];
   private shadowTick = 0;
 
   private updateFps(raw: number): void {
@@ -1607,7 +1660,11 @@ export class Game {
     const sm = this.renderer.shadowMap;
     if (this.settings.quality === 'performance') { sm.autoUpdate = false; if ((this.shadowTick++ & 1) === 0) sm.needsUpdate = true; }
     else sm.autoUpdate = true;
-    if (this.warmup) { this.warmup = false; try { this.renderer.compile(this.stage?.stage.scene ?? this.scene, this.camera); } catch { /* best effort */ } }
+    if (this.warmup) {
+      this.warmup = false;
+      try { this.renderer.compile(this.stage?.stage.scene ?? this.scene, this.camera); } catch { /* best effort */ }
+      for (const t of this.warmupTemp.splice(0)) { t.removeFromParent(); this.disposeTree(t); }
+    }
     // In a turn-based battle the world behind is frozen: draw it a few times as the battle opens, then leave the
     // last picture on screen (the battle screen draws over it), which keeps tablets cool.
     this.battleFrames = this.battle.active ? this.battleFrames + 1 : 0;
@@ -1637,6 +1694,7 @@ export class Game {
     }), [1, 2, 3].map((n) => this.input.label(`quick${n}` as Action)), this.quickDown());
     this.hud.setLevel(this.progress.level, this.progress.xp, this.progress.toNext);
     this.hud.setSeason(this.season ?? '');
+    this.hud.setGold(this.inventory.gold);
     this.updateMinimap(dt);
     this.overlay.update(dt);
     this.hud.update(dt, this.stats, {
@@ -1858,10 +1916,14 @@ export class Game {
     };
   }
 
+  /** The save this game came from or was last saved to (the save screen opens on it). */
+  private currentSlot: SlotId | null = null;
+
   private saveTo(slot: SlotId, quiet = false): boolean {
     // Anything still on the ground is collected first, so it's in the save.
     this.bankPickups('save');
     const ok = this.saves.write(slot, this.snapshot());
+    if (ok && slot !== 'auto') this.currentSlot = slot;
     if (ok) this.saves.writeShot(slot, this.captureShot());
     if (ok && !quiet) this.audio.play('save');
     if (!quiet || !ok) this.menu.notice(ok ? `Saved to ${slotLabel(slot)}` : 'Couldn’t save: the browser refused to store it');
@@ -1900,6 +1962,8 @@ export class Game {
   private loadSave(d: SaveData): void {
     this.battle.abort();
     this.battleSound = null; this.outro = null;
+    // Loading from the pause menu's System tab: the pause menu goes first (it stayed on top while the scene faded).
+    if (this.pauseShell.isOpen) this.closePause();
     // Loading from the title (Continue or Load Game) leaves the title: hero, status bars and camera come back,
     // the HUD fading in with the picture.
     const fromTitle = this.onTitle;
@@ -2289,6 +2353,23 @@ export class Game {
   private skillHero = 0;
   private portraitUrl: string | null = null;
   private faceShown = false;
+  /** A save's party for its card: each one standing (Legend of Dragoon style), the three fighting first. */
+  private standing = new Map<string, string>();
+  private saveParty(d: SaveData): { img: string; name: string; active: boolean }[] {
+    const main = mainHero(this.db), ids = (d.party ?? []).map((m) => m.id);
+    ids.splice(Math.max(0, Math.min(ids.length, d.heroAt ?? 0)), 0, main.id);
+    return ids.map((id, k) => {
+      const def = id === main.id ? main : this.db.heroes?.find((x) => x.id === id);
+      let img = this.standing.get(id);
+      if (!img) {
+        const look = id === main.id ? this.db.characters[this.db.player] : this.db.characters[def?.look ?? ''] ?? this.db.characters[this.db.player];
+        try { img = this.sprites.standingFrame(`save:${id}`, look, 'down', 2).toDataURL(); } catch { img = ''; }
+        this.standing.set(id, img);
+      }
+      return { img, name: def?.name ?? id, active: k < 3 };
+    }).filter((x) => x.img);
+  }
+
   private memberPortraits = new Map<string, string>();
   private memberPortrait(def: HeroDef): string {
     let u = this.memberPortraits.get(def.id);
@@ -2537,7 +2618,7 @@ export class Game {
       m.scale.setScalar(s);
       const at = propBase(this.map, prop, d);
       m.position.set(prop.x, at.y, prop.z);
-      this.level.add(m);
+      (this.world?.group ?? this.level).add(m);
     }
     if (burnt) return;
     // What it gives tumbles out onto the ground, to be picked up a moment later (not straight into the bag).
@@ -2666,7 +2747,7 @@ export class Game {
       m.scale.setScalar(p.s ?? 1);
       const at = propBase(this.map, p, this.sprites.def(alt) ?? d);
       m.position.set(p.x, at.y, at.z + 0.001);
-      this.level.add(m);
+      (this.world?.group ?? this.level).add(m);
       this.outShown.set(p, { mesh: m, matrix });
     } else if (!out && shown) {
       shown.mesh.removeFromParent();
@@ -3272,7 +3353,10 @@ export class Game {
     // Turn-based: the battle music plays during battles (the built-in theme when the map has none), not while hunted.
     const hunted = turnBased || this.battle.active ? this.battle.active : this.combat.enemies.some((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 16);
     this.calmFor = hunted ? 0 : this.calmFor + dt;
-    const fightMusic = (this.battle.active ? this.battleRules.music : undefined) || d.battleMusic || (turnBased || this.battle.active ? 'builtin:battle' : undefined);
+    // Battle music: a battle's own (Start battle command, troop, zone), the field map's override, the battle map's, then
+    // the game's default (Database → Audio), then the built-in theme.
+    const fightMusic = (this.battle.active ? this.battleRules.music : undefined) || d.battleMusic || (this.battle.active ? this.stage?.music : undefined)
+      || this.db.audio?.battleMusic || (turnBased || this.battle.active ? 'builtin:battle' : undefined);
     const battle = fightMusic && (turnBased || this.battle.active ? this.battle.active : this.calmFor < 4) ? fightMusic : undefined;
     // Build the battle music while things are calm, so it doesn't stall the moment a fight starts.
     if (fightMusic && this.calmFor > 1) a.prepare(fightMusic);
@@ -3901,7 +3985,7 @@ export class Game {
   }
 
   /** Out of battle: cast a healing spell (its highest rank known) on one of the party, or all of them. */
-  private castHealMenu(who: number, spell: string): void {
+  private castHealMenu(who: number, spell: string, at = 0): void {
     const caster = this.partyBattler(who)?.battler, sp = caster?.spells.find((x) => x.id === spell);
     if (!caster || !sp) return;
     const rank = sp.ranks[sp.ranks.length - 1];
@@ -3929,13 +4013,14 @@ export class Game {
       this.audio.play('ringOn');
       this.menu.notice(targets.length === 1 ? `${vit(targets[0]).name} +${got[0]} HP` : `Everyone healed (${rank.name})`);
       this.menu.back();
-      this.castHealMenu(who, spell);
+      // Stay on whoever was just healed (one cast may not be enough).
+      this.castHealMenu(who, spell, targets.length === 1 ? all.indexOf(targets[0]) : 0);
     };
     const all = [0, ...this.members().map((_, k) => k + 1)];
     const items: MenuItem[] = sp.targets === 'all'
       ? [{ label: 'The whole party', detail: all.map((k) => { const v = vit(k); return `${v.name} ${Math.ceil(v.hp)}/${v.max}`; }).join(' · '), pick: () => cast(all) }]
       : all.map((k) => { const v = vit(k); return { label: v.name, detail: v.down ? 'Knocked out (healing can’t wake them)' : `${Math.ceil(v.hp)} / ${v.max} HP`, disabled: v.down, pick: () => cast([k]) }; });
-    this.menu.push(`${rank.name}: ${rank.mp} MP (${Math.floor(mpNow())} left)`, items);
+    this.menu.push(`${rank.name}: ${rank.mp} MP (${Math.floor(mpNow())} left)`, items, { start: at });
   }
 
   /** The Inventory: the bag's tabs (all, by kind), then Equipment and Status. LB / RB move between them. */
@@ -4121,7 +4206,7 @@ export class Game {
 
   /** An enemy's battle picture, facing the party (right), and a small copy for the turn order. */
   private enemyPicture(def: EnemyDef): { picture: HTMLCanvasElement; icon: string; flip: boolean } {
-    const key = `${def.id}|${def.look.character ?? ''}|${def.look.monster ?? ''}|${def.look.image ?? ''}`;
+    const key = `${def.id}|${def.look.character ?? ''}|${def.look.monster ?? ''}|${def.look.image ?? ''}|${JSON.stringify(def.tint ?? '')}`;
     const hit = this.battlePictures.get(key);
     if (hit) return hit;
     let picture: HTMLCanvasElement, flip = false;
@@ -4136,6 +4221,7 @@ export class Game {
       const sheet = (MONSTERS[def.look.monster ?? 'slime'] ?? MONSTERS.slime).draw(), fw = Math.floor(sheet.width / 3), fh = Math.floor(sheet.height / 4);
       picture = SpriteLibrary.trimmed(sheet, fw, fh * 2, fw, fh, Math.max(1, Math.round(64 / fh)));
     }
+    if (def.tint) picture = tintCanvas(picture, def.tint);
     const out = { picture, icon: picture.toDataURL(), flip };
     this.battlePictures.set(key, out);
     return out;
@@ -4184,7 +4270,7 @@ export class Game {
   }
 
   /** The hero's or a party member's numbers for a battle: attack, spells, defences, agility. */
-  private partyBattler(who: number): { battler: Battler; view: FighterView; fig: { look: CharacterDef | undefined; equip: Partial<Record<EquipSlot, string>>; bow: boolean } } | null {
+  private partyBattler(who: number): { battler: Battler; view: FighterView; fig: { look: CharacterDef | undefined; equip: Partial<Record<EquipSlot, string>>; bow: boolean; lift?: number } } | null {
     const pct = (sk: Skills, k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
     if (who === 0) {
       const t = this.heroTotals(), sk = this.skills, gear = this.inventory.equip, cfg = this.combatCfg, hero = mainHero(this.db);
@@ -4208,7 +4294,7 @@ export class Game {
           additions: this.battleAdditions(a), addition: a.addition,
         },
         view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0), face: hero.face ? this.resolveFile(hero.face) : undefined },
-        fig: { look, equip: gear, bow: useBow },
+        fig: { look, equip: gear, bow: useBow, lift: mainHero(this.db).battleOffset },
       };
     }
     const m = this.members()[who - 1];
@@ -4234,7 +4320,7 @@ export class Game {
         additions: this.battleAdditions(ab), addition: ab.addition,
       },
       view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who), face: m.def.face ? this.resolveFile(m.def.face) : undefined },
-      fig: { look, equip: m.data.equip, bow: useBow },
+      fig: { look, equip: m.data.equip, bow: useBow, lift: m.def.battleOffset },
     };
   }
 
@@ -4284,7 +4370,7 @@ export class Game {
       const b = this.partyBattler(who);
       if (!b) continue;
       entries.push({ battler: b.battler, view: b.view, who });
-      if (stageData) specs.push(this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow));
+      if (stageData) specs.push(this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow, b.fig.lift));
     }
     // Several of a kind are told apart: Slime A, Slime B…
     const counts = new Map<string, number>(), seen = new Map<string, number>();
@@ -4357,7 +4443,7 @@ export class Game {
   /* ------------------------------------------------------------------ battle maps (the 3D stage) */
 
   /** A hero on the stage: their sprite (back to the camera), holding their weapon, and how they attack. */
-  private heroFigure(key: string, look: CharacterDef | undefined, equip: Partial<Record<EquipSlot, string>>, bow: boolean): StageFighterSpec {
+  private heroFigure(key: string, look: CharacterDef | undefined, equip: Partial<Record<EquipSlot, string>>, bow: boolean, lift?: number): StageFighterSpec {
     const sprite = new CharacterSprite(this.sprites, this.sprites.forCharacter(look), 'up');
     const weapons: CarriedWeapon[] = [];
     const add = (slot: EquipSlot) => {
@@ -4369,7 +4455,7 @@ export class Game {
     if (sprite.animated) { if (bow) add('ranged'); else { add('shield'); add('weapon'); } }
     const held = weapons.length ? weapons[weapons.length - 1].def : null;
     const attackAnim = bow ? 'shoot' : held ? (['slash', 'slash_reverse', 'thrust'].find((a) => held.anims.includes(a)) ?? 'slash') : 'slash';
-    return { key, side: 'party', sprite, weapons, attackAnim };
+    return { key, side: 'party', sprite, weapons, attackAnim, lift };
   }
 
   /** An enemy on the stage, drawn as it is on the field (a picture, a monster sheet or a person), facing the camera. */
@@ -4388,7 +4474,8 @@ export class Game {
       const held = weapons.length ? weapons[weapons.length - 1].def : null;
       if (held && def.behaviour !== 'ranged') attackAnim = ['slash', 'slash_reverse', 'thrust'].find((a) => held.anims.includes(a)) ?? 'slash';
     }
-    return { key, side: 'enemy', sprite, scale: def.scale ?? 1, weapons, attackAnim };
+    if (def.tint) tintObject(sprite.mesh, def.tint);
+    return { key, side: 'enemy', sprite, scale: def.scale ?? 1, weapons, attackAnim, lift: def.battleOffset };
   }
 
   /** Build a battle map as the stage for the battle about to start, and switch the view to it. */
@@ -4403,7 +4490,7 @@ export class Game {
     stage.scene.background = this.fog.color;
     // The sun and sky light the stage while it's shown.
     stage.scene.add(this.hemi, this.sun, this.sun.target);
-    this.stage = { stage, lights, built, env: this.time.environment, map, look: new THREE.Vector3(data.width / 2, 0, data.height / 2) };
+    this.stage = { stage, lights, built, env: this.time.environment, map, look: new THREE.Vector3(data.width / 2, 0, data.height / 2), music: data.battleMusic || data.music || undefined };
     // The field's weather (rain, snow…) and mist and sun rays carry on over the battle.
     const w = this.mapWeather();
     this.weather.attach(stage.group, w.kind, w.amount, this.stage.look);
@@ -4514,7 +4601,7 @@ export class Game {
         if (!b) return null;
         this.battleWhos.delete(outWho);
         this.battleWhos.add(inWho);
-        if (this.stage) this.stage.stage.replaceFighter(outKey, this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow));
+        if (this.stage) this.stage.stage.replaceFighter(outKey, this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow, b.fig.lift));
         return { battler: b.battler, view: b.view, who: inWho };
       },
       attackVoice: (who) => {
@@ -4846,12 +4933,12 @@ export class Game {
   private readonly cloudOff = { x: 0, z: 0 };
   private openSaveScreen(fromEvent: boolean): void {
     this.saveFromEvent = fromEvent;
-    this.saveScreen.show('save', () => { if (fromEvent) this.menu.close(); }, 'Saving into a slot replaces what’s there.');
+    this.saveScreen.show('save', () => { if (fromEvent) this.menu.close(); }, 'Saving into a slot replaces what’s there.', this.currentSlot);
   }
 
   private openLoadScreen(): void {
     // Back on the title with every save deleted: Load Game is greyed out again.
-    this.saveScreen.show('load', () => { if (this.onTitle && !this.saves.latest()) this.openTitle(); }, this.onTitle ? '' : 'Progress since your last save will be lost.');
+    this.saveScreen.show('load', () => { if (this.onTitle && !this.saves.latest()) this.openTitle(); }, this.onTitle ? '' : 'Progress since your last save will be lost.', this.onTitle ? null : this.currentSlot);
   }
 
   /** Settings: the same screen from the title's Options and the pause menu. Changes apply at once and are kept. */
@@ -4906,6 +4993,7 @@ export class Game {
       { label: 'Show party bars', toggle: { value: !st.hud?.party?.hidden, set: (v) => piece('party', { hidden: v ? undefined : true }) } },
       { label: 'Stamina ring', detail: 'A green ring that shows while stamina is used and fades once it’s full.', toggle: { value: !st.hud?.stamina?.hidden, set: (v) => piece('stamina', { hidden: v ? undefined : true }) } },
       { label: 'Mini-map', detail: 'A round map of where you are, under the clock.', toggle: { value: !st.hud?.minimap?.hidden, set: (v) => piece('minimap', { hidden: v ? undefined : true }) } },
+      { label: 'Gold', detail: 'Your gold, with a coin, at the bottom left.', toggle: { value: !st.hud?.gold?.hidden, set: (v) => piece('gold', { hidden: v ? undefined : true }) } },
       { label: 'Season picture', detail: 'Blossom, sun, falling leaves or snow behind the clock.', toggle: { value: st.hud?.clock?.art !== false, set: (v) => piece('clock', { art: v ? undefined : false }) } },
       { label: 'Faces', detail: 'Faces beside the hero’s and the party’s bars.', toggle: { value: !!st.hud?.party?.face, set: (v) => { piece('stats', { face: v || undefined }); piece('party', { face: v || undefined }); } } },
       { label: 'Put the HUD back', detail: 'Default places and sizes.', pick: () => { delete st.hud; this.applySettings(); this.settingsStore.save(st); this.menu.notice('HUD reset'); } },
@@ -5052,6 +5140,7 @@ export class Game {
   /** A fresh game: everything back to the database's starting values (stats from creation), at the player start. */
   private newGame(attrs?: Attrs): void {
     const st = this.db.start;
+    this.currentSlot = null;
     this.interpreter.stop();
     this.requestTransfer(this.db.startMap, { x: st.x, z: st.z, dir: st.dir }, 'black', {
       slow: true,
@@ -5083,6 +5172,7 @@ export class Game {
   private quitToTitle(): void {
     this.battle.abort();
     this.battleSound = null; this.outro = null;
+    if (this.pauseShell.isOpen) this.closePause();
     this.menu.close();
     this.interpreter.stop();
     // Back to the start map behind the title, everything reset (New Game or Load picks up from here).

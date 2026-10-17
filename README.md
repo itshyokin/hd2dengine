@@ -237,6 +237,18 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
 
 - **Save** (Ctrl+S) writes `public/data/maps/<map>.json` (and `database.json` when the player start or
   starting hour or abilities changed). A hosted or preview copy that can't reach your project offers an export instead.
+- **Map Properties** (button above the layer tabs, or in the Inspector when nothing is selected): the map's settings
+  in a window with tabs, like the Database: **General** (name, size, cliff walls, lighting, season, game start),
+  **Beyond the edges**, **Wind, weather & air**, **Sound**, **Battles** and **Random encounters**. The Inspector now only
+  shows what's selected. The **layer tabs** are icons (hover for the name; the open layer's name shows under them).
+- **Props → Erase**: tick **Only erase …** to remove just the kind picked in the list (everything else is left alone),
+  or **Erase all …** to clear that kind from the whole map at once (it asks first; Ctrl+Z undoes it). New built-in
+  props for camps and woods: wooden fence, fence post and gate, one-person tents (red, blue, green, tan, purple), a
+  bedroll, a log seat, a firewood stack, a lantern post (lit at night) and a cooking pot.
+- **Audio folders**: sounds are used straight from the project's `audio/` folder (`audio/music`, `audio/ambience`,
+  `audio/footsteps`, `audio/sound_effects/…`, `audio/voices`, `audio/spells`, any subfolders): every picker lists them,
+  no importing. Database → Audio shows what was found (*Look again* after adding files). The built site carries the
+  folders and a list of them, so the online editor sees them too. Importing single files still works.
 - **Database** (toolbar): fills the screen and stays the same size on every tab. The tabs are icons in groups
   (People, Items, Battle, Story, World, System): hover one for its name; the open tab's name shows at the right.
   **Apply** puts the changes into the project **and saves `database.json`** straight away: "Changes saved. It's
@@ -396,6 +408,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   gold), its elements (weak to, resists, immune to, absorbs, and what it attacks with) and its drops show once enough
   of its kind have been defeated (Database → Combat → Bestiary: 1, 3 and 5 by default). *Leave it out of the
   Bestiary* hides an enemy (a training dummy, a story-only foe).
+- **Save / Load**: each save card shows the party standing (Legend of Dragoon style), the three fighting in front and
+  the reserve smaller behind them. The save screen opens on the save you're playing from. Load and Quit to Title from
+  the System tab close the pause menu first. Healing from the menu (Mend…) stays on the hero just healed.
 - **Achievements**: each with its icon, name, description and points (Xbox-style G), the newest unlocks at the top,
   then the rest unlocked, then locked ones (greyed, with how far along they are) closest first; hidden ones as "???"
   until unlocked; your total at the top.
@@ -403,7 +418,7 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 - **HUD**: level, magic, health and EXP (all the same size) across the top; the clock and readied shard top right,
   with a little picture of the season behind it (blossom, sun, falling leaves, snow; Settings → HUD → Season
   picture) and a round **mini-map** under it (north up, you in the middle, drawn like the world map with the same fog,
-  the map's markers, party members as dots); the selected weapon top left; a card per party member under it (face,
+  the map's markers, party members as dots); the selected weapon top left; your **gold** (a coin, the amount and "Gold") at the bottom left; a card per party member under the weapon (face,
   name, HP, MP and EXP); EXP along the bottom; and **stamina** as a green ring with a dash icon (Halo Reach style),
   shown while stamina is used and fading out a moment after it's full again (orange when it ran out). A hit shakes the bar and flashes the screen edges red, and
   below 30% health the edges pulse red. **Settings → HUD → Arrange and resize** lets each player drag the pieces
@@ -451,7 +466,7 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   place: it snaps edge to edge to the maps around it. **Add a place name** and click the map to put a town, landmark,
   dungeon or region name on the world map (click one to rename it, drag it to move it). The settings at the bottom say
   how places not visited yet show in the game. **Apply**, then save.
-- **Seamless edges**: in a map's Inspector → *Beyond the map edge*, set a side to **Seamless**. Where another map
+- **Seamless edges**: in Map Properties → *Beyond the edges*, set a side to **Seamless**. Where another map
   touches that side in the World layout, it's drawn past the edge (built a moment after you arrive, so arriving stays
   smooth), and walking off the edge takes you straight into it: no fade, the same spot on the other side, the camera
   carrying on. Set the matching side of the other map to Seamless too, to walk back. Make the ground meet at the same
@@ -652,6 +667,15 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   and the enemies near it (*Enemies who join*, up to *Most enemies in a battle*). Hitting it first on the map, with a
   sword, an arrow or a spell, gives the party the first turns (*You caught … off guard!*); being hit from behind is an
   **ambush** (the enemies go first). Stealth still matters: sneak up on an enemy to strike first.
+- **Battle music**: Database → Audio → **Battle music** plays in every battle (the built-in theme when unset). A map's
+  **Override battle music** (Map Properties → Sound) is for areas that need their own; a battle map's own music, a
+  troop, an encounter zone or a Start battle command (bosses) can override it too.
+- **Each turn starts on Attack**, and Attack performs the hero's **Default Addition** (Database → Heroes; Party →
+  Addition still switches it). Heroes and enemies have a **Battle height offset** for art that floats or sinks.
+- **Enemy tint** (Database → Enemies → Tint): turn the hue, change the colourfulness and mix in a colour, RPG Maker
+  style, to make new monsters from old art: on the map, in battle, in the Bestiary and in the editor.
+- **▶ Combat preview** (Database → Enemies, and Troops): pick a battle map (or the flat battle screen) and a playtest
+  opens straight into that battle with your party, the window's changes applied first.
 - **Damage and health vary**: every hit varies a little (Database → Enemies → *Damage ± %*, 10 by default) and is
   then cut down by the target's Defence (or Magic Defence for magic) and guarding. *Health ± %* rolls each enemy's
   health either side of its Health, so no two slimes are quite the same.
