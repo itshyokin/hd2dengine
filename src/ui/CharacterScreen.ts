@@ -6,7 +6,8 @@
  */
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
-import { ATTRS, ATTR_INFO } from '../game/attributes';
+import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
+import { rankPill, type Rank } from '../game/statRanks';
 import { esc } from './InventoryScreen';
 import type { EquipChoice, EquipView } from './EquipScreen';
 
@@ -19,6 +20,8 @@ export interface CharacterHost {
   /** Party members' fighting styles (null for the hero you play), with a line on what each does. */
   styles(h: number): { value: string; options: { value: string; name: string; does: string }[]; note?: string } | null;
   setStyle(h: number, value: string): void;
+  /** Each stat's progression rank (A … F), shown as a pill beside it. */
+  ranks?(h: number): Record<Attr, Rank>;
 }
 
 export class CharacterScreen {
@@ -79,7 +82,8 @@ export class CharacterScreen {
     const bar = (label: string, [a, max]: [number, number], cls: string) =>
       `<div class="cs-bar ${cls}"><span>${label}</span><div><i style="width:${Math.max(0, Math.min(100, (a / Math.max(1, max)) * 100))}%"></i></div><b>${Math.round(a)} / ${Math.round(max)}</b></div>`;
     const xp = g.xp.next === null ? 1 : g.xp.have / Math.max(1, g.xp.next);
-    const stat = (label: string, val: number | string) => `<div class="cs-stat"><span>${label}</span><b>${val}</b></div>`;
+    const stat = (label: string, val: number | string, pill = '') => `<div class="cs-stat"><span>${label}</span>${pill}<b>${val}</b></div>`;
+    const rk = h.ranks?.(k);
     const slots = h.slots(k).map((s) => `<div class="cs-slot"><span class="eq-label">${esc(s.label)}</span>${s.item ? `<img src="${s.item.icon}" alt="">` : '<span class="eq-empty"></span>'}
       <span class="eq-name${s.item ? '' : ' none'}"${s.item?.color ? ` style="color:${s.item.color}"` : ''}>${s.item ? esc(s.item.name) : '(nothing)'}</span>${s.item?.shard ? `<img class="eq-shard" src="${s.item.shard.icon}" alt="${esc(s.item.shard.name)}" title="Set with ${esc(s.item.shard.name)}">` : '<span></span>'}</div>`).join('');
     this.root.innerHTML = `<div class="inv-box cs-box" style="--hero:${who.color}">
@@ -89,7 +93,7 @@ export class CharacterScreen {
           <div class="cs-id"><img class="cs-face" src="${who.portrait}" alt=""><div><b>${esc(who.name)}</b><small>Level ${who.level}</small></div></div>
           ${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}${bar('SP', g.sp, 'sp')}
           <div class="cs-bar xp"><span>EXP</span><div><i style="width:${Math.round(xp * 100)}%"></i></div><b>${g.xp.next === null ? 'MAX' : `${g.xp.have} / ${g.xp.next}`}</b></div>
-          <div class="cs-stats">${ATTRS.map((a) => stat(ATTR_INFO[a].name, v.attrs[a])).join('')}<hr>
+          <div class="cs-stats">${ATTRS.map((a) => stat(ATTR_INFO[a].name, v.attrs[a], rk ? rankPill(rk[a]) : '')).join('')}<hr>
             ${stat('Melee damage', Math.round(v.melee))}${stat('Bow damage', Math.round(v.bow))}${stat('Spell damage', Math.round(v.spell))}
             ${stat('Critical hits', `${Math.round(v.crit)}%`)}${stat('Defence', Math.round(v.armour))}${stat('Magic defence', Math.round(v.magicArmour))}</div>
         </div>

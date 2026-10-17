@@ -82,7 +82,8 @@ import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './invento
 import { forgeRules, forgedDef, settableShard, upgradable, enchantable, upgradeCost } from './forge';
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, STYLE_NAMES, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
-import { ATTRS, ATTR_INFO, type Attrs, type HeroTotals, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
+import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
+import { type Rank, levelGains, ranksOf } from './statRanks';
 import { BUFF_INFO, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
 import type { CharacterDef, EnemyDef } from '../world/types';
@@ -495,6 +496,7 @@ export class Game {
     this.battleScreen.onSound = (n) => this.audio.play(n);
     this.combatCfg = combatFromDb(this.db);
     this.progress = new Progression(this.combatCfg);
+    this.progress.growth = () => levelGains(this.heroRanks(0));
     this.syncSkills();
     // The skill tree of whoever is chosen in the Party menu (the hero, or a party member's own).
     const skMember = () => (this.skillHero ? this.members()[this.skillHero - 1] : undefined);
@@ -584,6 +586,7 @@ export class Game {
           note: real !== want ? `${why[want]}: fights with ${STYLE_NAMES[real].toLowerCase()} for now.` : undefined };
       },
       setStyle: (h, v) => { const mem = h ? this.members()[h - 1] : null; if (mem) mem.data.style = v as AllyStyle; },
+      ranks: (h) => this.heroRanks(h),
     });
     // Party (the pause menu's first tab): the three fighting as cards; Status, Equipment, Skill Tree… and Swap.
     this.partyScreen = new PartyScreen(this.ui, this.input, {
@@ -768,6 +771,7 @@ export class Game {
       },
       busy: () => this.battle.active || this.battlePending || !!this.sleeping,
       sleep: (c) => this.startSleep(c),
+      statRank: (c) => { const n = this.setStatRank(c.hero, c.stat, c.rank); return n.length ? `${n.join(', ')}: ${ATTR_INFO[c.stat].name} now grows at Rank ${c.rank}.` : null; },
       temperature: (op, value) => { this.tempHere = op === 'reset' ? null : { op, value: value ?? 0 }; },
       achievement: (id) => { this.unlockAchievement(id); },
       console: (line) => { const r = this.devConsole.exec(line, false); if (r && !/^Done/.test(r)) console.info(`[console] ${line}: ${r}`); },
@@ -1075,6 +1079,7 @@ export class Game {
         this.fadeColorReset = t.fade === 'white';
         if (t.autosave && !same && this.db.saving?.autosave !== false) this.saveTo('auto', true);
         t.after?.();
+        this.nextSetup();
       }).catch((err: Error) => {
         console.error(err);
         this.interpreter.start([{ cmd: 'text', text: `Can’t go to map “${t.name}”: ${err.message}` }]);
@@ -1405,16 +1410,15 @@ export class Game {
     if (!ups) return;
     if (quiet) {
       // The battle's results screen shows it.
-      const pts = ups * this.combatCfg.pointsPerLevel, st = ups * this.combatCfg.statPointsPerLevel;
-      this.log.add(`Level ${this.progress.level}!${pts ? ` +${pts} skill point${pts === 1 ? '' : 's'}` : ''}${st ? ` +${st} stat point${st === 1 ? '' : 's'}` : ''}`, 'level');
+      const pts = ups * this.combatCfg.pointsPerLevel;
+      this.log.add(`Level ${this.progress.level}!${pts ? ` +${pts} skill point${pts === 1 ? '' : 's'}` : ''}`, 'level');
       return;
     }
     // The EXP that did it is logged before the level-up.
     if (this.xpBurst > 0) this.flushXp();
     const points = ups * this.combatCfg.pointsPerLevel;
     this.overlay.levelUp(this.progress.level, points, `${pauseLabel(this.db.menus, 'skills')} in the menu`);
-    const statPts = ups * this.combatCfg.statPointsPerLevel;
-    this.log.add(`Level ${this.progress.level}!${points ? ` +${points} skill point${points === 1 ? '' : 's'}` : ''}${statPts ? ` +${statPts} stat point${statPts === 1 ? '' : 's'}` : ''}`, 'level');
+    this.log.add(`Level ${this.progress.level}!${points ? ` +${points} skill point${points === 1 ? '' : 's'}` : ''}`, 'level');
     this.audio.play('levelUp');
     this.bursts.spawn(this.player.position.x, this.player.position.y + 0.6, this.player.position.z, { color: '#ffe48a', n: 26, speed: 1.6, up: 3, life: 0.9, size: 0.09, gravity: 2, additive: true });
   }
@@ -2068,6 +2072,10 @@ export class Game {
       const m = this.members()[who - 1];
       if (!m || m.data.down) return null;
       const max = this.allyNumbers(m.data, m.def).max, got: string[] = [];
+      if (d.statRank && (m.data.statRanks?.[d.statRank.stat] ?? m.def.ranks?.[d.statRank.stat] ?? 'C') !== d.statRank.rank) {
+        this.setStatRank(m.def.id, d.statRank.stat, d.statRank.rank);
+        got.push(`${ATTR_INFO[d.statRank.stat].name} now grows at Rank ${d.statRank.rank}`);
+      }
       for (const g of ['hp', 'mp', 'sp'] as const) {
         const v = d.restore?.[g];
         if (!v) continue;
@@ -2085,6 +2093,10 @@ export class Game {
     }
     const st = this.combat.heroStatus;
     const gains: string[] = [];
+    if (d.statRank && (this.progress.statRanks[d.statRank.stat] ?? mainHero(this.db).ranks?.[d.statRank.stat] ?? 'C') !== d.statRank.rank) {
+      this.setStatRank(mainHero(this.db).id, d.statRank.stat, d.statRank.rank);
+      gains.push(`${ATTR_INFO[d.statRank.stat].name} now grows at Rank ${d.statRank.rank}`);
+    }
     if (d.cures?.length) {
       const cured = st.cure(d.cures);
       if (cured.length) gains.push(`cured ${cured.map(effectName).join(', ')}`);
@@ -3307,6 +3319,22 @@ export class Game {
     return heroTotals(this.progress.stats, this.wornGear(gear), (k) => (this.skills?.get(k) ?? 0) + (this.combat?.heroStatus.buff(k) ?? 0));
   }
 
+  /** A hero's growth ranks now (0: the hero you play): the Database's, changed by potions and events, lifted by worn gear. */
+  heroRanks(who: number): Record<Attr, Rank> {
+    if (!who) return ranksOf(mainHero(this.db).ranks, this.progress.statRanks, this.wornGear());
+    const m = this.members()[who - 1];
+    return m ? ranksOf(m.def.ranks, m.data.statRanks, this.wornGear(m.data.equip)) : ranksOf(undefined, undefined);
+  }
+  private memberGrowth(m: { def: HeroDef; data: MemberData }): Attrs { return levelGains(ranksOf(m.def.ranks, m.data.statRanks, this.wornGear(m.data.equip))); }
+
+  /** Change a stat's growth rank for good (a potion, an event): '' the hero you play, an id, or 'all'. */
+  private setStatRank(hero: string, stat: Attr, rank: Rank): string[] {
+    const names: string[] = [];
+    if (!hero || hero === 'all' || hero === mainHero(this.db).id) { this.progress.statRanks[stat] = rank; names.push(mainHero(this.db).name); }
+    for (const m of this.members()) if (hero === 'all' || hero === m.def.id) { (m.data.statRanks ??= {})[stat] = rank; names.push(m.def.name); }
+    return names;
+  }
+
   private wornGear(gear: Partial<Record<EquipSlot, string>> = this.inventory.equip): ({ slot: EquipSlot } & ItemDef | undefined)[] {
     return EQUIP_SLOTS.map((slot) => { const id = gear[slot], d = id ? this.items.get(id) : undefined; return d ? { ...d, slot } : undefined; });
   }
@@ -3706,7 +3734,7 @@ export class Game {
     const giveXp = (who: number, n: number) => {
       if (!who) { this.gainXp(n, false); return; }
       const m = this.members()[who - 1];
-      if (m) memberGainXp(m.data, n, this.combatCfg, this.combatCfg.statPointsPerLevel, this.combatCfg.pointsPerLevel);
+      if (m) memberGainXp(m.data, n, this.combatCfg, this.memberGrowth(m), this.combatCfg.pointsPerLevel);
     };
     const levelOf = (who: number) => (who ? this.members()[who - 1]?.data.level ?? 1 : this.progress.level);
     const maxOf = (who: number) => (who ? this.allyNumbers(this.members()[who - 1].data, this.members()[who - 1].def).max : this.stats.cfg.max);
@@ -3905,14 +3933,14 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, statPoints: this.progress.statPoints, down: this.stats.hp <= 0, locked,
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked,
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, statPoints: m.data.statPoints, down: !!m.data.down,
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down,
     };
   }
 
@@ -3927,7 +3955,6 @@ export class Game {
       { id: 'status', label: 'Status', detail: 'Who they are, what they wear, ailments' },
       { id: 'equip', label: 'Equipment', detail: 'Weapons, armor and accessories' },
       { id: 'skills', label: 'Skill Tree', detail: 'Spend skill points' },
-      { id: 'stats', label: 'Stats', detail: 'Spend stat points' },
     ];
     if (this.combatCfg.mode === 'turnBased' && this.combatCfg.turnBased.additions === 'set') out.push({ id: 'addition', label: 'Addition', detail: adds.length ? `Attack performs: ${cur?.name ?? 'a plain attack'}` : 'No Additions learned yet', disabled: !adds.length });
     out.push({ id: 'magic', label: 'Magic', detail: spells.length ? `${spells.length} spell${spells.length === 1 ? '' : 's'}: healing can be cast from here` : 'No spells learned yet', disabled: !spells.length });
@@ -3942,7 +3969,6 @@ export class Game {
       case 'status': this.charScreen.show(who, back); return;
       case 'equip': this.equipScreen.show(back, undefined, undefined, who); return;
       case 'skills': this.skillHero = who; this.skillScreen.show(back); return;
-      case 'stats': this.statusScreen.show(back, undefined, who); return;
     }
     if (!a) { back(); return; }
     if (id === 'addition') {
@@ -4750,30 +4776,32 @@ export class Game {
     };
     const change = (out: string[], label: string, a: number, b: number) => { if (b !== a) out.push(`${label} ${Math.round(a)} → ${Math.round(b)}`); };
     const gain = (out: string[], label: string, n: number) => { if (n > 0) out.push(`+${n} ${label}${n === 1 ? '' : 's'}`); };
+    // What the levels added to each stat (by its rank): "STR +4".
+    const statChanges = (out: string[], a: Attrs, b: Attrs) => { const bits = ATTRS.filter((k) => b[k] > a[k]).map((k) => `${ATTR_INFO[k].short} +${b[k] - a[k]}`); if (bits.length) out.push(bits.join(' · ')); };
     {
-      const pr = this.progress, before = { level: pr.level, xp: pr.xp, toNext: pr.toNext, hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, st: pr.statPoints, sk: pr.points };
+      const pr = this.progress, before = { level: pr.level, xp: pr.xp, toNext: pr.toNext, hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, stats: { ...pr.stats }, sk: pr.points };
       const segs = xp > 0 ? segments(pr.level, pr.xp, xp) : [];
       if (xp > 0) this.gainXp(xp, true, true);
       const changes: string[] = [];
       if (pr.level > before.level) {
         change(changes, 'Max HP', before.hp, this.stats.cfg.max.hp); change(changes, 'Max MP', before.mp, this.stats.cfg.max.mp);
-        gain(changes, 'stat point', pr.statPoints - before.st); gain(changes, 'skill point', pr.points - before.sk);
+        statChanges(changes, before.stats, pr.stats); gain(changes, 'skill point', pr.points - before.sk);
       }
       this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
       heroes.push({ key: 'p0', name: mainHero(this.db).name, icon: this.portraitUrl, color: this.heroColor(0), level: before.level, xp: before.xp, toNext: before.toNext, gained: xp, segments: segs, changes, after: { level: pr.level, xp: pr.xp, toNext: pr.toNext } });
     }
-    const per = this.combatCfg.statPointsPerLevel, sk = this.combatCfg.pointsPerLevel;
+    const sk = this.combatCfg.pointsPerLevel;
     this.members().forEach((m, k) => {
-      const d = m.data, n0 = this.allyNumbers(d, m.def), before = { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), st: d.statPoints, sk: d.skillPoints ?? 0 };
+      const d = m.data, n0 = this.allyNumbers(d, m.def), before = { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), stats: { ...d.stats }, sk: d.skillPoints ?? 0 };
       const out = !!d.down, segs = !out && xp > 0 ? segments(d.level, d.xp, xp) : [];
       const changes: string[] = [];
       if (!out && xp > 0) {
-        const ups = memberGainXp(d, xp, this.combatCfg, per, sk);
+        const ups = memberGainXp(d, xp, this.combatCfg, this.memberGrowth(m), sk);
         if (ups) {
           this.log.add(`${m.def.name} reached level ${d.level}!`, 'level');
           const n1 = this.allyNumbers(d, m.def);
           change(changes, 'Max HP', n0.max.hp, n1.max.hp); change(changes, 'Max MP', n0.max.mp, n1.max.mp);
-          gain(changes, 'stat point', d.statPoints - before.st); gain(changes, 'skill point', (d.skillPoints ?? 0) - before.sk);
+          statChanges(changes, before.stats, d.stats); gain(changes, 'skill point', (d.skillPoints ?? 0) - before.sk);
         }
       }
       heroes.push({ key: `p${k + 1}`, name: m.def.name, icon: this.memberPortrait(m.def), color: this.heroColor(k + 1), out, level: before.level, xp: before.xp, toNext: before.toNext, gained: out ? 0 : xp, segments: segs, changes, after: { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level) } });
@@ -4783,20 +4811,25 @@ export class Game {
 
   /* ------------------------------------------------------------------ party */
 
-  /** A hero joining: their starting stats, the stat points their level would have given, their own gear, full health. */
+  /** A hero joining: their starting stats grown by their ranks to their level, their own gear, full health. */
   private newMember(def: HeroDef): MemberData {
-    const per = this.combatCfg.statPointsPerLevel;
     const level = Math.max(1, Math.min(this.combatCfg.maxLevel ?? 99, def.joinLevel || this.progress.level));
     const abilities: AbilityData = {};
     mergeStarting(this.db, abilities, def);
-    return { id: def.id, stats: heroBase(def), statPoints: (level - 1) * per, level, xp: 0, equip: { ...def.gear }, skills: {}, skillPoints: (level - 1) * this.combatCfg.pointsPerLevel,
+    const stats = heroBase(def), g = levelGains(ranksOf(def.ranks, undefined, this.wornGear(def.gear ?? {})));
+    for (const k of ATTRS) stats[k] = Math.min(ATTR_MAX, stats[k] + g[k] * (level - 1));
+    return { id: def.id, stats, statPoints: 0, level, xp: 0, equip: { ...def.gear }, skills: {}, skillPoints: (level - 1) * this.combatCfg.pointsPerLevel,
       hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, sp: this.stats.cfg.max.sp, abilities };
   }
 
   /** New game: the heroes marked "in the party at the start". */
   private startParty(): void {
     this.party.load(undefined);
-    for (const def of (this.db.heroes ?? []).slice(1)) if (def.startsInParty && !this.party.full) this.party.members.push(this.newMember(def));
+    this.setupQueue = [];
+    for (const def of (this.db.heroes ?? []).slice(1)) if (def.startsInParty && !this.party.full) {
+      this.party.members.push(this.newMember(def));
+      if (def.setupStats && creation(this.db).enabled) this.setupQueue.push(def.id);
+    }
     if (this.inventory) this.ensureWornInBag();
   }
 
@@ -4811,6 +4844,7 @@ export class Game {
       // The gear they join with goes in the bag, worn by them.
       this.ensureWornInBag();
       if (!quiet) { this.log.add(`${def.name} joins the party!`, 'level'); this.audio.play('levelUp'); }
+      if (def.setupStats && creation(this.db).enabled) { this.setupQueue.push(def.id); if (!this.transfer) this.nextSetup(); }
     } else {
       const m = this.party.get(id);
       if (!m) return;
@@ -4875,13 +4909,12 @@ export class Game {
     const n = a.data.pendingXp ?? 0;
     delete a.data.pendingXp;
     if (n <= 0) return;
-    const per = this.combatCfg.statPointsPerLevel;
     const sk = this.combatCfg.pointsPerLevel;
-    const ups = memberGainXp(a.data, n, this.combatCfg, per, sk);
+    const ups = memberGainXp(a.data, n, this.combatCfg, levelGains(ranksOf(a.def.ranks, a.data.statRanks, this.wornGear(a.data.equip))), sk);
     this.overlay.float(`+${n} EXP`, a.x, a.y + 1.5, a.z, 'xp');
     this.log.add(`${a.def.name} +${n} EXP`, 'xp');
     if (!ups) return;
-    this.log.add(`${a.def.name} reached level ${a.data.level}! +${ups * sk} skill point${ups * sk === 1 ? '' : 's'} +${ups * per} stat point${ups * per === 1 ? '' : 's'}`, 'level');
+    this.log.add(`${a.def.name} reached level ${a.data.level}!${ups * sk ? ` +${ups * sk} skill point${ups * sk === 1 ? '' : 's'}` : ''}`, 'level');
     this.audio.play('levelUp', a.x, a.z);
     this.bursts.spawn(a.x, a.y + 0.6, a.z, { color: '#ffe48a', n: 22, speed: 1.4, up: 3, life: 0.9, size: 0.08, gravity: 2, additive: true });
   }
@@ -5158,9 +5191,30 @@ export class Game {
     const c = creation(this.db);
     if (!c.enabled) { this.leaveTitle(() => this.newGame()); return; }
     this.menu.close();
-    this.creation.show({ heroName: mainHero(this.db).name, methods: c.methods, rerolls: c.rerolls, rerollKey: this.input.label('switchWeapon') },
+    const hero = mainHero(this.db);
+    this.creation.show({ heroName: hero.name, methods: c.methods, rerolls: c.rerolls, rerollKey: this.input.label('switchWeapon'), defaults: heroBase(hero), ranks: ranksOf(hero.ranks, undefined) },
       (attrs) => this.leaveTitle(() => this.newGame(attrs)),
       () => this.openTitle());
+  }
+
+  /** Heroes set to "Set up stats on joining" who've joined and wait to have theirs set up. */
+  private setupQueue: string[] = [];
+
+  /** Open stat setup for the next hero waiting (when nothing else is in the way). */
+  private nextSetup(): void {
+    if (this.creation.isOpen || this.onTitle) return;
+    const id = this.setupQueue.shift();
+    if (!id) return;
+    const m = this.members().find((x) => x.def.id === id);
+    if (!m) { this.nextSetup(); return; }
+    const c = creation(this.db);
+    this.creation.show({ heroName: m.def.name, methods: c.methods, rerolls: c.rerolls, rerollKey: this.input.label('switchWeapon'), defaults: heroBase(m.def), ranks: ranksOf(m.def.ranks, m.data.statRanks, this.wornGear(m.data.equip)), canLeave: false },
+      (attrs) => {
+        // Their own level 1 stats, grown by their ranks to the level they joined at.
+        const g = this.memberGrowth(m);
+        for (const k of ATTRS) m.data.stats[k] = Math.min(ATTR_MAX, attrs[k] + g[k] * (m.data.level - 1));
+        this.nextSetup();
+      });
   }
 
   /** A fresh game: everything back to the database's starting values (stats from creation), at the player start. */
@@ -5170,7 +5224,7 @@ export class Game {
     this.interpreter.stop();
     this.requestTransfer(this.db.startMap, { x: st.x, z: st.z, dir: st.dir }, 'black', {
       slow: true,
-      after: () => this.uiIn(),
+      after: () => { this.uiIn(); this.nextSetup(); },
       before: () => {
         this.bankPickups('discard');
         this.log.clearFeed();

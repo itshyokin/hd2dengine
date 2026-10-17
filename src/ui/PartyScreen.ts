@@ -20,7 +20,7 @@ export interface PartyMemberView {
   hp: [number, number]; mp: [number, number];
   /** EXP into this level and needed for the next (null: the top level). */
   xp: { have: number; next: number | null };
-  skillPoints: number; statPoints: number;
+  skillPoints: number;
   down?: boolean;
   /** Can't leave the active party (Database → Combat: the hero always fights). */
   locked?: boolean;
@@ -152,8 +152,8 @@ export class PartyScreen {
     const bar = (cls: string, v: number, max: number, label: string) =>
       `<div class="pc-bar ${cls}"><span>${label}</span><b>${Math.round(v)} / ${Math.round(max)}</b><div><i style="width:${pct(v, max)}%"></i></div></div>`;
     const cards = list.map((c, k) => {
-      const up = c.skillPoints > 0 || c.statPoints > 0;
-      const gains = [c.skillPoints > 0 ? `${c.skillPoints} Skill Point${c.skillPoints === 1 ? '' : 's'}` : '', c.statPoints > 0 ? `${c.statPoints} Stat Increase${c.statPoints === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+      const up = c.skillPoints > 0;
+      const gains = [c.skillPoints > 0 ? `${c.skillPoints} Skill Point${c.skillPoints === 1 ? '' : 's'}` : '', ''].filter(Boolean).join(' · ');
       const xp = c.xp.next === null ? 100 : pct(c.xp.have, c.xp.next);
       const actions = k === this.sel && m.kind === 'actions' ? this.actionList() : null;
       return `<div class="pc-card${k === this.sel ? ' sel' : ''}${up ? ' lvlup' : ''}${c.down ? ' down' : ''}" data-k="${k}" role="option" aria-selected="${k === this.sel}"${c.color ? ` style="--hero:${c.color}"` : ''}>

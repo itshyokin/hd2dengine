@@ -11,6 +11,7 @@ import { DEFAULT_BAG_SLOTS } from '../game/inventory';
 import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass } from '../world/types';
 import { FIELD_GLOW, POWER_NAMES, itemColor } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
+import { RANKS, RANK_GAIN, type Rank } from '../game/statRanks';
 import { checkbox, field, h, numberInput, select, textInput, toast } from './dom';
 import type { EditorStore } from './store';
 import { findWeapon, itemSpriteField, loadWeaponList, weaponIcon } from './weaponPicker';
@@ -155,6 +156,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       field('Cures', ailmentChips(() => d.cures, (v) => { if (v) d.cures = v; else delete d.cures; }, rerender, 'Cures', { all: true }),
         'Zombie is only cured when it’s chosen itself. A zombie is hurt by healing, so a Zombie cure that also heals cures first, then heals.'),
       buffsField(() => d.buffs, (v) => { if (v) d.buffs = v; else delete d.buffs; }, rerender),
+      statRankField(d, rerender, 'For good: a Potion of Defense can raise Defence’s rank from C to A, so it grows faster every level after.'),
       h('p', { class: 'note' }, 'An item isn’t used up when it would do nothing (health already full, say).')));
   }
   if (d.kind === 'equipment') {
@@ -185,6 +187,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       ...(d.slot !== 'magic' ? [field('Material (forge upgrades)', select([['none', 'None (can’t be upgraded)'], ...work.items.filter((x) => x.kind === 'material').map((x) => [x.id, x.name] as [string, string])],
         d.material ?? 'none', (v) => { d.material = v; }), 'A forge upgrades it with ingots of this (Iron Ingot, Steel Ingot…): each upgrade adds a little damage or defence (Database → Combat → Forges).')] : []),
       bonusForm(d),
+      statRankField(d, rerender, 'While worn, the stat grows at least this fast when the hero levels up.'),
       ...(d.slot === 'weapon' || d.slot === 'ranged' || (d.slot === 'magic' && !d.spell?.power) ? [inflictsField(() => d.inflicts, (v) => { if (v) d.inflicts = v; else delete d.inflicts; }, rerender)] : []),
       field('Wards off', ailmentChips(() => d.protects, (v) => { if (v) d.protects = v as Ailment[]; else delete d.protects; }, rerender, 'Wards off'), 'While worn, the hero can’t get these.'),
       ...(d.slot !== 'magic' ? [usersField(store, d, rerender)] : [])));
@@ -464,4 +467,14 @@ function effectsForm(d: ItemDef): HTMLElement {
     glowBox,
     ...(melee ? [checkbox('Swing trail: a coloured streak following each swing', !!d.trail, (v) => { if (v) d.trail = { color: '#ffffff' } as WeaponTrail; else delete d.trail; renderTrail(); }), trailBox] : []),
     h('p', { class: 'note' }, 'Any weapon can have them, whatever its rarity. Preview them in the Character Builder → Weapons.'));
+}
+
+/** Stat growth: a consumable changes a stat's rank for good; gear lifts it while worn. */
+function statRankField(d: ItemDef, rerender: () => void, note: string): HTMLElement {
+  const sr = d.statRank;
+  return h('div', { class: 'field-row' },
+    field('Stat growth', select([['', 'No change'], ...ATTRS.map((k) => [k, ATTR_INFO[k].name] as [string, string])], sr?.stat ?? '', (v) => {
+      if (v) d.statRank = { stat: v as Attr, rank: sr?.rank ?? 'A' }; else delete d.statRank; rerender();
+    }), sr ? undefined : note),
+    sr ? field('Rank', select(RANKS.map((r) => [r, `${r} (+${RANK_GAIN[r]} a level)`] as [string, string]), sr.rank, (v) => { sr.rank = v as Rank; }), note) : h('span'));
 }

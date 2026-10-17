@@ -15,6 +15,8 @@ export interface EventContext {
   sleep?(c: Extract<Command, { cmd: 'sleep' }>): void;
   /** Change the temperature on this map until the player leaves it. */
   temperature?(op: 'set' | 'add' | 'reset', value?: number): void;
+  /** Change a stat's growth rank; returns the message to show (or null). */
+  statRank?(c: Extract<Command, { cmd: 'statRank' }>): string | null;
   /** Animate the screen fade toward `to` (0 clear, 1 black) over `seconds`. */
   fadeTo(to: number, seconds: number): void;
   isFading(): boolean;
@@ -167,6 +169,7 @@ export class Interpreter {
         break;
       case 'sleep': message.close(); this.ctx.sleep?.(c); break;
       case 'temperature': this.ctx.temperature?.(c.op, c.value); break;
+      case 'statRank': { const t = this.ctx.statRank?.(c); if (t) message.showText(t, undefined, next?.cmd === 'choice', undefined, undefined, 'system'); break; }
       case 'fullRest':
         this.ctx.fullRest();
         break;

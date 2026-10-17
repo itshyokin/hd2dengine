@@ -167,6 +167,10 @@ export class Progression {
   taught: string[] = [];
   /** Learned spells and Additions, the readied ones, and class. */
   abilities: AbilityData = {};
+  /** Growth ranks changed for good (potions, events); the rest are the Database's. */
+  statRanks: Partial<Record<keyof Attrs, import('../statRanks').Rank>> = {};
+  /** What a level adds to each stat (from the hero's ranks; set by the game). */
+  growth: () => Partial<Attrs> = () => ({});
 
   constructor(private cfg: XpRules & Pick<CombatConfig, 'pointsPerLevel'> & Partial<Pick<CombatConfig, 'startPoints' | 'statPointsPerLevel'>>) {
     this.points = cfg.startPoints ?? 0;
@@ -185,7 +189,9 @@ export class Progression {
       this.xp -= this.toNext;
       this.level++;
       this.points += this.cfg.pointsPerLevel;
-      this.statPoints += this.cfg.statPointsPerLevel ?? ATTR_POINTS_PER_LEVEL;
+      // Stats grow by their ranks (A +4 … F +0).
+      const g = this.growth();
+      for (const k of ATTRS) this.stats[k] = Math.min(ATTR_MAX, this.stats[k] + (g[k] ?? 0));
       gained++;
     }
     if (this.maxed) this.xp = 0;
@@ -194,7 +200,7 @@ export class Progression {
 
   toJSON(): ProgressData & { level: number; xp: number; points: number } {
     return { level: this.level, xp: this.xp, points: this.points, ranks: { ...this.ranks }, ...(this.taught.length ? { taught: [...this.taught] } : {}),
-      stats: { ...this.stats }, statPoints: this.statPoints, ...(Object.keys(abilityJSON(this.abilities)).length ? { abilities: abilityJSON(this.abilities) } : {}) };
+      stats: { ...this.stats }, ...(Object.keys(this.statRanks).length ? { statRanks: { ...this.statRanks } } : {}), ...(Object.keys(abilityJSON(this.abilities)).length ? { abilities: abilityJSON(this.abilities) } : {}) };
   }
   /**
    * Restore from a save, or start fresh (no argument) with `base` stats (the hero's, or what character creation
@@ -208,7 +214,9 @@ export class Progression {
     this.points = Math.max(0, d?.points ?? (d ? 0 : this.cfg.startPoints ?? 0));
     this.ranks = { ...(d?.ranks ?? {}) };
     this.stats = d?.stats ? attrsFrom(d.stats) : { ...base };
-    this.statPoints = Math.max(0, Math.round(d?.statPoints ?? (this.level - 1) * (this.cfg.statPointsPerLevel ?? ATTR_POINTS_PER_LEVEL)));
+    // Stat points are gone (stats grow by rank now); any left unspent in an older save are dropped.
+    this.statPoints = 0;
+    this.statRanks = { ...(d?.statRanks ?? {}) };
   }
 
   /** Spend stat points: `add` is how many go on each stat. False if there aren't enough or a stat would pass 100. */
@@ -225,4 +233,6 @@ export interface ProgressData {
   level?: number; xp?: number; points?: number; ranks?: Record<string, number>; taught?: string[];
   stats?: Partial<Attrs>; statPoints?: number;
   abilities?: AbilityData;
+  /** Stat growth ranks changed by potions and events (game/statRanks.ts). */
+  statRanks?: Partial<Record<keyof Attrs, import('../statRanks').Rank>>;
 }

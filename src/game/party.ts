@@ -31,6 +31,8 @@ export interface MemberData {
   id: string;
   stats: Attrs;
   statPoints: number;
+  /** Growth ranks changed for good (potions, events); the rest are the Database's. */
+  statRanks?: Partial<Record<keyof Attrs, import('./statRanks').Rank>>;
   /** Their own level, and experience into it. */
   level: number;
   xp: number;
@@ -58,7 +60,7 @@ export class PartyState {
   toJSON(): MemberData[] { return this.members.map((m) => ({ ...m, stats: { ...m.stats }, equip: { ...m.equip }, ...(m.skills ? { skills: { ...m.skills } } : {}), ...(m.abilities ? { abilities: abilityJSON(m.abilities) } : {}) })); }
   load(d: MemberData[] | undefined): void {
     this.members = (d ?? []).filter((m) => m && typeof m.id === 'string').slice(0, MAX_PARTY).map((m) => ({
-      id: m.id, stats: { ...baseAttrs(), ...m.stats }, statPoints: Math.max(0, m.statPoints || 0), level: Math.max(1, Math.round(Number(m.level) || 1)), xp: Math.max(0, Number(m.xp) || 0),
+      id: m.id, stats: { ...baseAttrs(), ...m.stats }, statPoints: 0, ...(m.statRanks ? { statRanks: { ...m.statRanks } } : {}), level: Math.max(1, Math.round(Number(m.level) || 1)), xp: Math.max(0, Number(m.xp) || 0),
       ...(m.pendingXp ? { pendingXp: m.pendingXp } : {}), equip: { ...m.equip },
       ...(m.skills ? { skills: { ...m.skills } } : {}), ...(m.style ? { style: m.style } : {}), ...(m.skillPoints !== undefined ? { skillPoints: Math.max(0, Math.round(Number(m.skillPoints) || 0)) } : {}),
       hp: Number(m.hp) || 0, mp: Number(m.mp) || 0, sp: Number(m.sp) || 0, ...(m.down ? { down: true } : {}),
@@ -84,13 +86,13 @@ export function fightingStyle(def: Pick<HeroDef, 'ai'>, m: Pick<MemberData, 'sty
   return sword ? 'fighter' : bow ? 'archer' : magic ? 'caster' : 'fighter';
 }
 
-/** Give a member experience; returns the levels gained (each gives `perLevel` stat points and `skillPerLevel` skill points). */
-export function memberGainXp(m: MemberData, n: number, rules: XpRules, perLevel: number, skillPerLevel = 0): number {
+/** Give a member experience; returns the levels gained (each adds `gains` to their stats, by rank, and `skillPerLevel` skill points). */
+export function memberGainXp(m: MemberData, n: number, rules: XpRules, gains: Partial<Attrs>, skillPerLevel = 0): number {
   const top = rules.maxLevel ?? MAX_LEVEL_LIMIT;
   if (m.level >= top) { m.xp = 0; return 0; }
   m.xp += Math.max(0, Math.round(n));
   let ups = 0;
-  while (m.level < top && m.xp >= xpToNext(rules, m.level)) { m.xp -= xpToNext(rules, m.level); m.level++; m.statPoints += perLevel; m.skillPoints = (m.skillPoints ?? 0) + skillPerLevel; ups++; }
+  while (m.level < top && m.xp >= xpToNext(rules, m.level)) { m.xp -= xpToNext(rules, m.level); m.level++; for (const k of ATTRS) m.stats[k] = Math.min(ATTR_MAX, m.stats[k] + (gains[k] ?? 0)); m.skillPoints = (m.skillPoints ?? 0) + skillPerLevel; ups++; }
   if (m.level >= top) m.xp = 0;
   return ups;
 }

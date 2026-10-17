@@ -21,7 +21,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
   ['setSwitch', 'Set switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
   ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
-  ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['party', 'Change party'],
+  ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
   ['battle', 'Start battle'], ['learn', 'Teach spell / Addition'], ['heroClass', 'Change class'],
 ];
@@ -29,7 +29,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 const CATEGORY: Record<Cmd, string> = {
   text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
-  sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', quest: 'quest',
+  sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
 };
 
@@ -63,6 +63,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'temperature': return { cmd, op: 'add', value: 20 };
     case 'party': return { cmd, op: 'add', hero: heroList()[0]?.[0] ?? '' };
     case 'skillPoints': return { cmd, value: 1 };
+    case 'statRank': return { cmd, hero: '', stat: 'def', rank: 'A' };
     case 'fieldWeapons': return { cmd, on: false };
     case 'achievement': return { cmd, id: dbNow?.().achievements?.[0]?.id ?? '' };
     case 'console': return { cmd, line: 'heal' };
@@ -95,6 +96,7 @@ function itemChoices(store: EditorStore, current: string): [string, string][] {
   return out;
 }
 
+const STAT_NAMES: Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', string> = { str: 'Strength', dex: 'Dexterity', def: 'Defence', mag: 'Magic', mdf: 'Magic Defence' };
 export const WEATHER_NAMES: Record<WeatherKind, string> = { none: 'Clear', rain: 'Rain', storm: 'Thunderstorm', snow: 'Snow', blizzard: 'Blizzard', haze: 'Haze', sandstorm: 'Sandstorm', pollen: 'Pollen', dust: 'Dust motes', leaves: 'Falling leaves' };
 export const GAUGE_NAMES: Record<Gauge, string> = { hp: 'Health', mp: 'Magic', sp: 'Stamina' };
 export const ABILITY_NAMES: Record<Ability, string> = { run: 'Run', jump: 'Jump', climb: 'Climb', crawl: 'Crawl' };
@@ -170,6 +172,7 @@ function summary(c: Command): string {
     case 'sound': return soundName(c.sound);
     case 'music': return c.music === undefined ? 'Back to the map’s music' : c.music ? loopName(c.music) : 'Stop the music';
     case 'ambience': return c.ambience === undefined ? 'Back to the map’s sound' : c.ambience ? loopName(c.ambience) : 'Silence';
+    case 'statRank': return `${c.hero === 'all' ? 'Everyone' : c.hero ? heroList().find(([id]) => id === c.hero)?.[1] ?? c.hero : 'The hero'}: ${STAT_NAMES[c.stat]} grows at Rank ${c.rank}`;
     case 'temperature': return c.op === 'reset' ? 'Back to normal' : c.op === 'set' ? `${c.value ?? 70}°F on this map` : `${(c.value ?? 0) >= 0 ? '+' : ''}${c.value ?? 0}°F on this map`;
     case 'weather': return `${c.kind === 'none' ? 'Clear skies' : `${WEATHER_NAMES[c.kind]}${c.amount !== undefined && c.amount !== 1 ? ` × ${c.amount}` : ''}`}${c.wind !== undefined ? `, wind ${c.wind}` : ''}${c.scope === 'world' ? ' (shared outdoor weather)' : ''}`;
     case 'party': return `${heroList().find(([id]) => id === c.hero)?.[1] ?? (c.hero || '(no hero)')} ${c.op === 'add' ? 'joins' : 'leaves'}${c.quiet ? ' (quietly)' : ''}`;
@@ -586,6 +589,12 @@ export class CommandEditor {
           h('p', { class: 'hint' }, `Up to ${3} join the hero you play. They follow, fight on their own (their AI style in Database → Heroes) and share the bag, gold and level. Leaving, their equipment goes back in the bag.`),
         ];
       }
+      case 'statRank':
+        return [field('Who', select([['', 'The hero you play'], ['all', 'Everyone in the party'], ...heroList()], d.hero, (v) => (d.hero = v))),
+          h('div', { class: 'field-row' },
+            field('Stat', select(Object.entries(STAT_NAMES) as [string, string][], d.stat, (v) => (d.stat = v as typeof d.stat))),
+            field('Rank', select([['A', 'A (+4 a level)'], ['B', 'B (+3)'], ['C', 'C (+2)'], ['D', 'D (+1)'], ['F', 'F (+0)']], d.rank, (v) => (d.rank = v as typeof d.rank)))),
+          h('p', { class: 'hint' }, 'For good: every level from now on adds that much to the stat. A Potion of Defense does the same from the bag (Database → Items → Stat growth).')];
       case 'temperature':
         return [field('Change', select([['add', 'Warmer / colder by'], ['set', 'Set to'], ['reset', 'Back to normal']], d.op, (v) => (d.op = v as typeof d.op))),
           field('°F', numberInput(d.value ?? 0, (v) => (d.value = Math.round(v)), { step: 1 }), 'Warmer / colder: + or − degrees (−30: an icy spell). Set to: that temperature.'),

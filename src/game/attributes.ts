@@ -70,7 +70,7 @@ export const finalDamage = (x: number): number => (Number.isFinite(x) ? Math.min
 export type CreationMethod = 'roll' | 'pointBuy' | 'array' | 'hard';
 export const CREATION_METHODS: CreationMethod[] = ['roll', 'pointBuy', 'array', 'hard'];
 export const CREATION_NAMES: Record<CreationMethod, string> = {
-  roll: 'Roll (4d6, drop the lowest)',
+  roll: 'Roll Dice (4d6, drop the lowest)',
   pointBuy: 'Point buy',
   array: 'Standard array',
   hard: 'Hard: 3d6 in order',

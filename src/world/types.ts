@@ -251,6 +251,8 @@ export type Command =
    * Sleep (a camp, an inn): the camera tilts up to the sky, the hours rush by overhead, then it comes back down.
    * Until morning (7:00), until night (21:00), or for some hours; `rest`: health, magic and stamina refill.
    */
+  /** Change how a hero's stat grows each level (for good). hero: an id, '' for the hero you play, 'all' for everyone. */
+  | { cmd: 'statRank'; hero: string; stat: 'str' | 'dex' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank }
   | { cmd: 'sleep'; until?: 'morning' | 'night' | 'hours'; hours?: number; rest?: boolean }
   | { cmd: 'ability'; ability: Ability; on: boolean }
   | { cmd: 'gauge'; gauge: Gauge; op: 'add' | 'set' | 'fill'; value: number }
@@ -726,6 +728,10 @@ export interface HeroDef {
   defaultAddition?: string;
   /** Starting Strength, Dexterity, Defence, Magic and Magic Defence (10 each when left out). */
   stats?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>;
+  /** How each stat grows a level: A +4, B +3, C +2 (default), D +1, F +0 (game/statRanks.ts). */
+  ranks?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', import('../game/statRanks').Rank>>;
+  /** Set up their stats when they join (dice, point buy, standard array, or the Database's): the hero you play does by default. */
+  setupStats?: boolean;
   /** The first hero: how a new game makes their stats. */
   creation?: CreationSettings;
   /** Their colour in menus (behind "equipped" on what they wear, on their card). Unset: one of a few defaults. */
@@ -913,6 +919,8 @@ export interface ItemDef {
   restore?: Partial<Record<Gauge, number>>;
   /** Restore amounts are percentages of the maximum. */
   restorePercent?: boolean;
+  /** Changes how a stat grows each level: a consumable changes it for good (a Potion of Defense), gear while it's worn. */
+  statRank?: { stat: 'str' | 'dex' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank };
   /** Equipment: which slot it goes in. */
   slot?: EquipSlot;
   /** Equipment (weapons, armor, spell shards…): how rare it is (default common). Other items have none. */

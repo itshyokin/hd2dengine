@@ -373,6 +373,27 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   down. *Until morning* (7:00), *until night* (21:00) or *for a number of hours*; *Rest too* refills health, magic and
   stamina. Time slept counts for fires and the calendar. Console: `sleep`, `sleep night`, `sleep 4`.
 
+### Stats and growth ranks
+
+- **Growth ranks**: each hero's five stats (Strength, Dexterity, Defence, Magic, Magic Defence) have a level 1 value
+  and a **rank** set in **Database → Heroes → Progression curve**: each level adds **A +4, B +3, C +2, D +1, F +0**.
+  There are no stat points to spend any more; skill points stay. HP, MP and stamina aren't ranked (the skill tree
+  raises them). The Status page shows each stat's rank as a coloured pill (A green, B yellow, C orange, D pink,
+  F red). The victory screen lists what each level-up added ("STR +4 · DEF +2").
+- **Changing a rank**: a consumable with **Stat growth** (Database → Items: a Potion of Defense taking Defence from C
+  to A) changes it for good; gear with Stat growth lifts it while worn (the better rank counts); the event command
+  **Change stat growth rank** sets it for the hero you play, one hero or everyone.
+- **Setting up stats**: after New Game the player picks **Default stats** (the level 1 values) or **Custom stats**:
+  **Roll Dice**, **Point Buy** or **Standard Array** (and *Hard: 3d6 in order* if ticked), one page at a time; Back
+  returns a page and every page keeps what was set up on it. **Roll Dice**: the stats with empty boxes on the left,
+  a felt dice table in the middle, Roll / Re-Roll / Continue / Back on the right. Four 3D dice drop and tumble onto
+  the table, the lowest is dropped and the total appears in the first empty box: ↑ ↓ move it to another stat, OK
+  places it; ← → go between the boxes and the buttons; OK on a filled box picks its number up again. Re-rolls are
+  unlimited unless **Re-rolls allowed** is set; Continue is greyed until every stat has a number. Works with the
+  keyboard, a controller or the mouse.
+- Other heroes use their default stats, or set **Stats when they join → Set up stats on joining** to have the
+  player set theirs up the moment they join (then grown by their ranks to the level they join at).
+
 ### Weather and temperature
 
 - **Dynamic weather** (**Database → Weather & temperature**): the shared outdoor weather changes by itself every few
@@ -429,7 +450,7 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   once there are achievements; System holds Save, Load and Quit to Title.
 - **Party**: the three fighting, as tall cards with their art (Face art from Database → Heroes, or their sprite drawn
   large), name, level, HP, MP and EXP; the rest of the party (up to eight) shows as **Reserve** underneath. ← → pick
-  a card, Space opens its list: **Status**, **Equipment**, **Skill Tree**, **Stats** (level-up points), **Addition**
+  a card, Space opens its list: **Status** (stats with their growth ranks), **Equipment**, **Skill Tree**, **Addition**
   (the one Attack performs), **Magic** (their spells; healing spells can be cast from here), **Class** (when they
   have more than one) and **Swap**: the rest of the party appears (Legend of Dragoon style), pick who takes this card's
   place. Anyone can be swapped out, the hero too (they still lead on the map; the others fighting follow them).
