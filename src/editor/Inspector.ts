@@ -7,7 +7,8 @@ import { elementSelect } from './elementFields';
 import { eventH, eventW } from '../world/eventArea';
 import { BORDER_KINDS, type Side, borderSides } from '../world/border';
 import type { AreaLightData, BorderKind, BreakableDef, Command, Dir, EventData, MapBorder, MapEnvironment, EventPage, LightData, MapData, PointLightData, SpotLightData, Trigger } from '../world/types';
-import { mapAudioFields } from './audioEditor';
+import { audioFiles, mapAudioFields, preview } from './audioEditor';
+import { loopChoices } from '../audio/sfx';
 import { CommandEditor, WEATHER_NAMES, conditionForm, conditionText } from './CommandEditor';
 import { checkbox, confirmModal, openModal, field, h, numberInput, select, textInput, toast } from './dom';
 import { paletteProps, propName } from './editorArt';
@@ -814,6 +815,22 @@ export class Inspector {
     return out;
   }
 
+  /** A sound the event makes all the time while this page shows (a campfire, a shore), fading with distance. */
+  private soundFields(page: EventPage): HTMLElement[] {
+    const snd = page.sound;
+    const opts: [string, string][] = [['', 'None'], ...loopChoices('ambience', audioFiles(this.store)).filter(([v]) => v)];
+    const out: HTMLElement[] = [h('div', { class: 'section-label' }, 'Sound'),
+      h('div', { class: 'field-row' },
+        field('Plays all the time', select(opts, snd?.src ?? '', (v) => this.edit(() => { if (v) page.sound = { ...(page.sound ?? {}), src: v }; else delete page.sound; }, true))),
+        snd ? h('button', { type: 'button', class: 'btn', onclick: () => preview(this.store, snd.src, true) }, '▶ Listen') : h('span'))];
+    if (!snd) return out;
+    out.push(h('div', { class: 'field-row' },
+      field('Volume', numberInput(snd.volume ?? 80, (v) => this.edit(() => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n === 80) delete snd.volume; else snd.volume = n; }), { min: 0, max: 100, step: 5 })),
+      field('Heard from (tiles)', numberInput(snd.range ?? 8, (v) => this.edit(() => { const n = Math.max(1, Math.min(40, v)); if (n === 8) delete snd.range; else snd.range = n; }), { min: 1, max: 40, step: 1 }))),
+      h('p', { class: 'hint' }, 'Loud right by the event, fading away to nothing at that distance, and panned left or right as the hero walks past (a crackling campfire, waves on a shore, a waterfall). Only while this page shows, so a page that puts the fire out can go quiet.'));
+    return out;
+  }
+
   /** The event's marker on the world map (every page): its kind, its tooltip, and a switch that shows it. */
   private markerFields(ev: EventData): HTMLElement[] {
     const kinds = markerKinds(this.store.db.markers), m = ev.marker;
@@ -948,6 +965,7 @@ export class Inspector {
             page.trigger === 'touch' ? h('p', { class: 'hint' }, 'Player touch runs when the player steps onto it, or walks into it when they can’t step there (it’s solid, or it’s up on a cliff, like a cave mouth on the wall).') : null,
             checkbox('Is respawn point (after losing all health, the player comes back here)', !!page.respawn, (v) => this.edit(() => (page.respawn = v || undefined)))]),
           ...this.bubbleFields(page),
+          ...this.soundFields(page),
           ...this.markerFields(ev)),
         h('div', { class: 'ev-commands' },
           h('div', { class: 'section-label' }, page.enemy !== undefined ? 'When defeated' : page.breakable ? 'When it breaks' : 'Commands'),

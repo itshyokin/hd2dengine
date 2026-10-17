@@ -553,6 +553,15 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Database → Map markers**: each kind's name, symbol (star, circle, diamond, square, triangle, !, ?, flag, skull,
   house, cross, heart) and colour, and new kinds.
 
+### Event sounds
+
+- An event page can make a sound all the time (**Inspector → event page → Sound → Plays all the time**): a crackling
+  campfire, waves on a shore, a waterfall, a machine hum (built in) or any file from audio/ambience. It's loud right
+  by the event and fades smoothly to nothing at **Heard from** (8 tiles by default), panned left or right as the hero
+  walks past; **Volume** 0–100. It plays only while that page shows, so a page that puts the fire out goes quiet.
+  Event sounds use the Ambience volume and hush during battles.
+- Lit campfires (fires that are respawn points) crackle softly on their own.
+
 ### Word bubbles
 
 - In the event window, each page can have a **Word bubble**: **!** (a quest to take), **?** (ready to hand in) or

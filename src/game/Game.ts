@@ -302,6 +302,7 @@ export class Game {
   /** Party members (saved) and their figures on this map, and the hero's trail they follow. */
   private readonly party = new PartyState();
   private allies: Ally[] = [];
+  private spotTimer = 0;
   /** Party members fighting on the map (not the hero walking behind someone else leading). */
   private get fighters(): Ally[] { return this.allies.filter((a) => !a.passive); }
   private trail: { x: number; z: number }[] = [];
@@ -3397,9 +3398,21 @@ export class Game {
       if (bs.next && (bs.next.at -= dt) <= 0) { bs.music = bs.next.music; bs.fade = 1.2; bs.next = undefined; }
       a.music(bs.hush ? '' : bs.music, bs.fade);
       if (bs.hush) a.ambience('', bs.fade);
+      a.setSpots([]);
       return;
     }
     a.listener.x = this.player.position.x; a.listener.z = this.player.position.z;
+    // Events' own sounds (campfires, shores…), a few times a second.
+    if ((this.spotTimer -= dt) <= 0) {
+      this.spotTimer = 0.15;
+      a.setSpots(this.onTitle ? [] : this.events.flatMap((e) => {
+        const snd = e.page?.sound;
+        if (!snd?.src || !e.onMap || e.broken) return [];
+        return [{ key: `${this.mapName}:${e.data.id}`, src: snd.src, x: e.x + e.w / 2, z: e.z + e.h / 2, range: snd.range ?? 8, volume: (snd.volume ?? 80) / 100 }];
+      }).concat(this.onTitle ? [] : this.litFires().filter((f) => this.sprites.def(f.type)?.respawn).map((f) => (
+        // Lit campfires crackle softly on their own.
+        { key: `${this.mapName}:fire:${f.x},${f.z}`, src: 'builtin:fire', x: f.x, z: f.z, range: 6, volume: 0.55 }))));
+    }
     // Battle music while an enemy is hunting the hero nearby (and a moment after).
     const p = this.player.position;
     const turnBased = this.combatCfg.mode === 'turnBased';

@@ -38,7 +38,7 @@ export const UI_SFX: readonly SfxName[] = ['menuMove', 'menuOk', 'menuBack', 'te
 export const JINGLE_SFX: readonly SfxName[] = ['achievement', 'victory', 'levelUp', 'expDing', 'questStart', 'questStep', 'questDone', 'skill', 'save', 'battleSwell'];
 
 export const MUSIC_NAMES = { title: 'Title theme', field: 'Fields (calm)', night: 'Night', battle: 'Battle', cave: 'Cave', victory: 'Victory' } as const;
-export const AMBIENCE_NAMES = { wind: 'Wind', forest: 'Forest (birds)', chill: 'Autumn & winter woods (cold wind, rustling, crows)', night: 'Night (crickets)', cave: 'Cave (drips)', water: 'Stream', rain: 'Rain' } as const;
+export const AMBIENCE_NAMES = { wind: 'Wind', forest: 'Forest (birds)', chill: 'Autumn & winter woods (cold wind, rustling, crows)', night: 'Night (crickets)', cave: 'Cave (drips)', water: 'Stream', rain: 'Rain', fire: 'Campfire (crackling)', shore: 'Shore (waves)', falls: 'Waterfall', hum: 'Machine hum' } as const;
 export type MusicName = keyof typeof MUSIC_NAMES;
 export type AmbienceName = keyof typeof AMBIENCE_NAMES;
 
@@ -326,6 +326,42 @@ export function makeAmbience(name: AmbienceName): Stereo {
     highpass(lowpass(a, name === 'rain' ? 5000 : 2200), 300); highpass(lowpass(b, name === 'rain' ? 5000 : 2200), 300);
     for (let i = 0; i < n; i++) { const t = i / RATE, burble = name === 'water' ? 0.7 + 0.3 * Math.sin(t * 7.3) * Math.sin(t * 3.1) : 1; l[i] += a[i] * 0.5 * burble; r[i] += b[i] * 0.5 * burble; }
     if (name === 'rain') breeze(0.4, 300);
+  }
+  if (name === 'fire') {
+    // A low roar of flame, and pops and crackles all through it.
+    const roar = lowpass(noise(new Float32Array(n)), 260), roar2 = lowpass(noise(new Float32Array(n)), 260);
+    for (let i = 0; i < n; i++) { const t = i / RATE, fl = 0.75 + 0.25 * Math.sin(t * 2.3) * Math.sin(t * 5.1); l[i] += roar[i] * 1.8 * fl; r[i] += roar2[i] * 1.8 * fl; }
+    for (let k = 0; k < 260; k++) {
+      const at = Math.floor(R() * (n - RATE * 0.2)), pan = 0.3 + R() * 0.4, big = R() < 0.12;
+      const len = big ? 0.06 : 0.012 + R() * 0.02;
+      const pop = highpass(make(len, (t) => (R() * 2 - 1) * Math.exp(-t * (big ? 60 : 260))), big ? 600 : 1800);
+      const g = big ? 0.5 : 0.12 + R() * 0.2;
+      add(l, pop, g * (1 - pan), at); add(r, pop, g * pan, at);
+    }
+  }
+  if (name === 'shore') {
+    // Waves: a wash that swells in and draws back every few seconds, with a fizz as it runs up the sand.
+    breeze(0.35, 300);
+    const a = lowpass(noise(new Float32Array(n)), 1500), b = lowpass(noise(new Float32Array(n)), 1500);
+    const fizzA = highpass(noise(new Float32Array(n)), 3500), fizzB = highpass(noise(new Float32Array(n)), 3500);
+    const period = secs / 3;
+    for (let i = 0; i < n; i++) {
+      const t = i / RATE, ph = (t % period) / period;
+      const swell = Math.pow(Math.sin(Math.PI * Math.min(1, ph / 0.75)), 2) * (ph < 0.75 ? 1 : 0);
+      const fizz = ph > 0.35 && ph < 0.85 ? Math.sin(Math.PI * (ph - 0.35) / 0.5) : 0;
+      l[i] += a[i] * 0.9 * swell + fizzA[i] * 0.12 * fizz;
+      r[i] += b[i] * 0.9 * (0.3 + 0.7 * Math.pow(Math.sin(Math.PI * Math.min(1, ((ph + 0.08) % 1) / 0.75)), 2)) + fizzB[i] * 0.12 * fizz;
+    }
+  }
+  if (name === 'falls') {
+    // A waterfall: a steady, full roar.
+    const a = lowpass(noise(new Float32Array(n)), 3200), b = lowpass(noise(new Float32Array(n)), 3200);
+    const lo = lowpass(noise(new Float32Array(n)), 150);
+    for (let i = 0; i < n; i++) { l[i] += a[i] * 0.55 + lo[i] * 1.6; r[i] += b[i] * 0.55 + lo[i] * 1.6; }
+  }
+  if (name === 'hum') {
+    // A machine or a crystal: a low tone with a slow beat.
+    for (let i = 0; i < n; i++) { const t = i / RATE, v = Math.sin(2 * Math.PI * 60 * t) * 0.18 + Math.sin(2 * Math.PI * 120.5 * t) * 0.1 + Math.sin(2 * Math.PI * 181 * t) * 0.04; l[i] += v; r[i] += v; }
   }
   return seamless({ l, r }, 1.5);
 }

@@ -73,8 +73,8 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Stat ranks (A–F growth per level, set per hero, changed by potions, gear and the Change stat growth rank command, coloured pills on Status), stat setup as Default / Custom → Roll Dice on a 3D dice table, Point Buy, Standard Array, "Set up stats on joining" per hero; level-up stat points removed (update 55).
 - [x] Database: Duplicate button, right-click Duplicate / Copy / Paste and Ctrl+D / Ctrl+C / Ctrl+V in every list (update 56).
 - [x] Turn-based party on the map: never fights or starts battles, follows (toggle in Combat) and hops where the hero jumped; the lineup's leader walks the map with their own sprite; achievement pop-up shows the description; points bar on the Achievements page (update 57). Everyone stands in their plain idle in battle, not the combat stance (update 57b).
+- [x] Event sounds: a page's sound plays all the time, fading with distance and panned (built-in campfire, shore, waterfall, hum); lit campfires crackle (update 58).
 - [ ] Then (playtest notes, Oct 17):
-  - Event sound (a setting of the event, not a command): plays all the time, loud up close and fading with distance (campfires, shores).
   - Map Themes (their own tab): surrounding tiles, music, ambience, weather…; map settings show "Theme default" until changed. More map edges (desert, snow, plains, rocky…) and built-in terrain textures (stone, cliffs, snow…).
   - Built-in sounds and music remade as Game Boy-style chiptune.
 - [ ] Back burner: water freezing / thawing tile by tile with the temperature.

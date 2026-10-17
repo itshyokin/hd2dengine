@@ -172,7 +172,54 @@ export class AudioManager {
   forget(src: string): void { this.buffers.delete(src); }
 
   /** Stop everything (leaving the editor's preview, say). */
-  stopAll(): void { this.music('', 0.3); this.ambience('', 0.3); }
+  stopAll(): void { this.music('', 0.3); this.ambience('', 0.3); this.setSpots([]); }
+
+  /* Sounds placed in the world (an event's sound: a campfire, a shore): looping, loud up close and fading out with
+     distance, panned left / right. Given every so often as the full list; ones no longer listed fade out. */
+  private readonly spots = new Map<string, { src: string; node: AudioBufferSourceNode | null; gain: GainNode; pan: StereoPannerNode | null; dead?: boolean }>();
+
+  setSpots(list: { key: string; src: string; x: number; z: number; range: number; volume: number }[]): void {
+    if (!this.ready) return;
+    const ctx = this.ctx!, t = ctx.currentTime, seen = new Set<string>();
+    for (const s of list) {
+      if (!s.src) continue;
+      const key = `${s.key}|${s.src}`;
+      seen.add(key);
+      const dx = s.x - this.listener.x, dz = s.z - this.listener.z, d = Math.hypot(dx, dz);
+      // Full within a tile or so, fading smoothly to nothing at the edge of its range.
+      const k = Math.max(0, Math.min(1, 1 - Math.max(0, d - 1) / Math.max(0.5, s.range - 1)));
+      const vol = k * k * (3 - 2 * k) * s.volume;
+      let sp = this.spots.get(key);
+      if (!sp) {
+        if (vol <= 0.001) continue;
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (pan) { gain.connect(pan); pan.connect(this.buses.ambience); } else gain.connect(this.buses.ambience);
+        sp = { src: s.src, node: null, gain, pan };
+        this.spots.set(key, sp);
+        const holder = sp;
+        void this.buffer(s.src).then((buf) => {
+          if (!buf || holder.dead || !this.ctx) return;
+          const node = this.ctx.createBufferSource();
+          node.buffer = buf; node.loop = true;
+          // Start somewhere in the loop, so two of the same don't play in step.
+          node.connect(holder.gain);
+          node.start(0, Math.random() * buf.duration);
+          holder.node = node;
+        });
+      }
+      sp.gain.gain.setTargetAtTime(vol, t, 0.25);
+      sp.pan?.pan.setTargetAtTime(d < 0.5 ? 0 : Math.max(-0.75, Math.min(0.75, dx / Math.max(3, s.range * 0.6))), t, 0.25);
+    }
+    for (const [key, sp] of this.spots) {
+      if (seen.has(key)) continue;
+      sp.dead = true;
+      sp.gain.gain.setTargetAtTime(0, t, 0.3);
+      sp.node?.stop(t + 1.5);
+      this.spots.delete(key);
+    }
+  }
 }
 
 function mono(ctx: AudioContext, data: Float32Array): AudioBuffer {

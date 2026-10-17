@@ -379,7 +379,18 @@ export interface EventPage {
   breakable?: BreakableDef;
   /** A word bubble over the event while this page is showing: "!" / "?" for quests, or short text. */
   bubble?: import('../ui/BubbleLayer').EventBubble;
+  /** A sound that plays all the time while this page shows (a campfire, a shore, a waterfall): loud up close, fading with distance. */
+  sound?: EventSound;
   commands: Command[];
+}
+
+export interface EventSound {
+  /** A loop: 'builtin:fire', 'builtin:shore'… or a file (audio/ambience/…). */
+  src: string;
+  /** 0 … 100 (default 80). */
+  volume?: number;
+  /** Heard up to this many tiles away (default 8). */
+  range?: number;
 }
 
 /** Elements: water beats fire beats nature beats earth beats shock beats water; light and dark beat each other. */
