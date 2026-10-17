@@ -4454,7 +4454,7 @@
     }
   ],
   "weather": {
-    "kind": "leaves",
+    "kind": "sandstorm",
     "amount": 0.3
   },
   "heroes": [
@@ -5354,6 +5354,12 @@
         "z": 50,
         "w": 50,
         "h": 50
+      },
+      "singed_01": {
+        "x": 7,
+        "z": 100,
+        "w": 24,
+        "h": 24
       }
     },
     "labels": [
