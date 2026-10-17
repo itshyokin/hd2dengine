@@ -4208,7 +4208,14 @@
           "ailment": "poison",
           "chance": 20
         }
-      ]
+      ],
+      "tint": {
+        "color": "#1eff00",
+        "amount": 0.65,
+        "hue": -50,
+        "sat": 1.25
+      },
+      "battleOffset": -0.15
     },
     {
       "id": "ember_slime",
@@ -4253,9 +4260,10 @@
     },
     {
       "id": "bandit",
-      "name": "Bandit",
+      "name": "Kobold Bandit",
       "look": {
-        "character": "bandit"
+        "image": "assets/enemies/bandit_mvcyf0k7.png",
+        "flat": {}
       },
       "hp": 42,
       "damage": 11,
@@ -4287,38 +4295,61 @@
     },
     {
       "id": "bandit_archer",
-      "name": "Bandit Archer",
+      "name": "Terror Vine",
       "look": {
-        "character": "bandit_archer"
+        "image": "assets/enemies/bandit_archer_mvcyi4n5.png",
+        "flat": {
+          "height": 1.25
+        }
       },
       "hp": 10,
       "damage": 5,
       "speed": 2.4,
-      "behaviour": "ranged",
-      "attackRange": 7,
+      "behaviour": "melee",
+      "attackRange": 1,
       "cooldown": 2.2,
       "windup": 0.7,
       "sight": 10,
       "fov": 100,
       "hearing": 6,
-      "xp": 26,
+      "xp": 18,
       "gold": [
-        3,
-        9
+        5,
+        7
       ],
       "drops": [
         {
-          "item": "steel_arrow",
-          "chance": 0.7,
-          "count": 8
+          "item": "firewood",
+          "chance": 0.3
         }
-      ]
+      ],
+      "tint": {
+        "sat": 1.85,
+        "hue": 25
+      },
+      "battleOffset": -0.15,
+      "hpVariance": 10,
+      "absorb": [
+        "water",
+        "nature"
+      ],
+      "inflicts": [
+        {
+          "ailment": "poison",
+          "chance": 20
+        }
+      ],
+      "resists": [
+        "poison"
+      ],
+      "attackElement": "nature",
+      "description": "Thorny spines given a twisted amalgamation of life by a cruel wizard. Attacks with venomous thorns!"
     },
     {
       "id": "enemy",
       "name": "Dire Beast",
       "look": {
-        "image": "assets/enemies/enemy_mvbqs576.png",
+        "image": "assets/enemies/enemy_mvcyomqu.png",
         "flat": {
           "move": "hop",
           "faces": "left",
@@ -4357,6 +4388,30 @@
         }
       ],
       "attackElement": "neutral"
+    },
+    {
+      "id": "enemy_2",
+      "name": "Wild Beast",
+      "look": {
+        "image": "assets/enemies/enemy_2_mvcynwbr.png",
+        "flat": {}
+      },
+      "hp": 20,
+      "damage": 6,
+      "speed": 1.6,
+      "behaviour": "melee",
+      "attackRange": 0.9,
+      "cooldown": 1.5,
+      "windup": 0.5,
+      "sight": 6,
+      "fov": 140,
+      "hearing": 5,
+      "xp": 10,
+      "gold": [
+        0,
+        4
+      ],
+      "drops": []
     }
   ],
   "quests": [
