@@ -3,6 +3,7 @@
  * audio/sound_effects/…, audio/voices, audio/spells: any file in them can be picked, no importing), importing single
  * files (saved to assets/audio/), the map's music and background sound, and Database → Audio.
  */
+import type { MapTheme } from '../world/mapThemes';
 import { AudioManager, loopChoices } from '../audio/sfx';
 import { SFX_LABELS, SFX_NAMES } from '../audio/synth';
 import type { MapData } from '../world/types';
@@ -85,16 +86,19 @@ export function importAudio(store: EditorStore, files: string[], done: (path: st
 const play = (onclick: () => void, label = 'Preview') => h('button', { type: 'button', class: 'mini-btn', title: label, 'aria-label': label, onclick }, '▶');
 
 /** Map settings: music, battle music, background sound by day and at night. */
-export function mapAudioFields(store: EditorStore, m: MapData, edit: (fn: () => void) => void): HTMLElement[] {
+export function mapAudioFields(store: EditorStore, m: MapData, edit: (fn: () => void) => void, theme?: MapTheme): HTMLElement[] {
   const files = audioFiles(store);
   const row = (label: string, kind: 'music' | 'ambience', key: 'music' | 'battleMusic' | 'ambience' | 'ambienceNight' | 'ambienceCold', hint?: string) => {
     const opts = loopChoices(kind, files);
     if (key === 'battleMusic') opts[0] = ['', 'The game’s battle music'];
-    const v = m[key] ?? '';
-    if (v && !opts.some(([o]) => o === v)) opts.push([v, `${v} (missing)`]);
+    const tv = theme?.[key];
+    const v = m[key] ?? (tv !== undefined ? '@theme' : '');
+    if (v && v !== '@theme' && !opts.some(([o]) => o === v)) opts.push([v, `${v} (missing)`]);
+    // With a theme that sets it: “Theme default (…)” first, and None is kept as a choice of its own.
+    if (tv !== undefined) opts.unshift(['@theme', `Theme default (${opts.find(([o]) => o === tv)?.[1] ?? (tv || 'none')})`]);
     return h('div', { class: 'field-row audio-row' },
-      field(label, select(opts, v, (nv) => edit(() => { if (nv) m[key] = nv; else delete m[key]; })), hint),
-      play(() => { const src = m[key]; if (src) preview(store, src, true); }));
+      field(label, select(opts, v, (nv) => edit(() => { if (nv === '@theme') delete m[key]; else if (nv || tv !== undefined) m[key] = nv; else delete m[key]; })), hint),
+      play(() => { const src = m[key] ?? tv; if (src) preview(store, src, true); }));
   };
   return [
     row('Music', 'music', 'music'),

@@ -3,7 +3,8 @@ import type { BorderKind, MapBorder } from './types';
 
 export type Side = 'n' | 's' | 'w' | 'e';
 export const BORDER_KINDS: [BorderKind, string][] = [
-  ['grass', 'Open grass'], ['forest', 'Forest'], ['meadow', 'Meadow (bushes, flowers)'], ['rocks', 'Rocky cliffs'], ['water', 'Water'], ['none', 'Nothing (darkness)'], ['seamless', 'Seamless (the next map: World layout)'],
+  ['grass', 'Open grass'], ['forest', 'Forest'], ['meadow', 'Meadow (bushes, flowers)'], ['plains', 'Plains (open, a few tufts)'],
+  ['rocks', 'Rocky cliffs'], ['rocky', 'Rocky ground (boulders)'], ['desert', 'Desert (sand, cacti)'], ['snow', 'Snowfield'], ['snowforest', 'Snowy forest'], ['water', 'Water'], ['none', 'Nothing (darkness)'], ['seamless', 'Seamless (the next map: World layout)'],
 ];
 
 /** The kind on each side. Old maps ({ kind: 'forest' }) use it everywhere; no border at all is open grass. */
@@ -16,6 +17,11 @@ export function borderSides(b: MapBorder | undefined): Record<Side, BorderKind> 
 export function sideOf(x: number, z: number, w: number, h: number): Side {
   return z < 0 ? 'n' : z >= h ? 's' : x < 0 ? 'w' : 'e';
 }
+
+/** The ground beyond the edge for each kind (the strip's flat surface). */
+export type BorderGround = 'grass' | 'sand' | 'snow' | 'rock';
+export const borderGround = (k: BorderKind): BorderGround =>
+  k === 'desert' ? 'sand' : k === 'snow' || k === 'snowforest' ? 'snow' : k === 'rocky' ? 'rock' : 'grass';
 
 /** Height of rocky cliffs: lower on the bottom side so they don't hide the map from the camera. */
 export const cliffHeight = (side: Side): number => (side === 's' ? 0.5 : 1.5);

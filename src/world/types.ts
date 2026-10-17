@@ -580,6 +580,8 @@ export interface MapData {
   events: EventData[];
   /** Houses, shops and other buildings, drawn in 3D from a footprint. Omitted when there are none. */
   buildings?: BuildingData[];
+  /** A map theme (Database → Map themes): settings this map leaves unset come from it. */
+  theme?: string;
   /** What cliff walls look like unless a tile chooses its own: "bricks" (default) or an imported tile's key. */
   cliffTile?: string;
   /** What lies beyond each edge of the map (older maps: { kind: 'forest', seed }). */
@@ -777,6 +779,8 @@ export interface Database {
   world?: import('./worldLayout').WorldData;
   /** Kinds of world-map marker for events (Database → Map markers; default: Quest location, Landmark, Town, Danger). */
   markers?: import('./landmarks').MarkerKind[];
+  /** Map themes (Database → Map themes). Unset: the starter themes. */
+  mapThemes?: import('./mapThemes').MapTheme[];
   /** Named text colours for messages: [id]words[/id] (Database → Text colours). */
   textColors?: import('../ui/richText').TextColor[];
   /** Text box styles for messages (Database → Text boxes): Speech, Sign, Item received… and your own. */
@@ -1011,7 +1015,7 @@ export interface InventorySetup {
 
 export type MapEnvironment = 'outdoor' | 'indoor' | 'dark';
 /** Scenery outside the map: open grass, forest, meadow (bushes and flowers), rocky cliffs, water, or nothing. */
-export type BorderKind = 'grass' | 'forest' | 'meadow' | 'rocks' | 'water' | 'none' | 'seamless';
+export type BorderKind = 'grass' | 'forest' | 'meadow' | 'plains' | 'rocks' | 'rocky' | 'desert' | 'snow' | 'snowforest' | 'water' | 'none' | 'seamless';
 export interface MapBorder {
   /** Old maps: one kind for every side. */
   kind?: BorderKind;

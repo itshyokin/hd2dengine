@@ -15,6 +15,7 @@ import { paletteProps, propName } from './editorArt';
 import { lightFields } from './lightForm';
 import { cliffChoices } from './assets';
 import { BRICKS } from '../world/tiles';
+import { type MapTheme, findTheme, mapThemes } from '../world/mapThemes';
 import { type WaterCell, autoRampDir, autoCornerMask, formatHeights, formatWater, parseHeights, parseWater } from '../world/heights';
 import { openPropImporter } from './PropImporter';
 import type { EditorStore } from './store';
@@ -210,7 +211,7 @@ export class Inspector {
     const content = w.tab === 'general' ? this.mapProps().slice(1)
       : w.tab === 'edges' ? [this.borderFields()]
       : w.tab === 'weather' ? this.weatherFields()
-      : w.tab === 'sound' ? [h('div', { class: 'section-label' }, 'Sound'), ...mapAudioFields(this.store, this.store.map, (fn) => this.edit(fn))]
+      : w.tab === 'sound' ? [h('div', { class: 'section-label' }, 'Sound'), ...mapAudioFields(this.store, this.store.map, (fn) => this.edit(fn), this.mapTheme())]
       : w.tab === 'battles' ? [h('div', { class: 'section-label' }, 'Battles'), ...this.battleFields()]
       : [h('div', { class: 'section-label' }, 'Random battles'), ...this.encounterFields()];
     w.body.replaceChildren(h('section', { class: 'db-section' }, ...content));
@@ -258,14 +259,16 @@ export class Inspector {
         field('Height', numberInput(m.height, (v) => (hgt = Math.round(Math.min(128, Math.max(8, v)))), { min: 8, max: 128, step: 1 }))),
       h('button', { type: 'button', class: 'btn small', onclick: resize }, 'Apply size'),
       h('p', { class: 'hint' }, 'Resizing keeps the top-left corner. Anything outside the new size is removed.'),
-      field('Cliff walls', select(cliffChoices(s), m.cliffTile && s.tiles.isCliffLook(m.cliffTile) ? m.cliffTile : BRICKS,
-        (v) => this.edit(() => { if (v === BRICKS) delete m.cliffTile; else m.cliffTile = v; })),
+      field('Theme', select([['', 'None'], ...mapThemes(s.db.mapThemes).map((t) => [t.id, t.name] as [string, string])], m.theme ?? '', (v) => this.edit(() => { if (v) m.theme = v; else delete m.theme; }, true)),
+        'Database → Map themes: the edges, cliffs, lighting, music, sounds, wind, weather and air this kind of map has. Settings left on “Theme default” follow the theme; change one to override it here.'),
+      field('Cliff walls', this.themed(cliffChoices(s), m.cliffTile && s.tiles.isCliffLook(m.cliffTile) ? m.cliffTile : m.cliffTile === undefined ? undefined : BRICKS, 'cliffTile', BRICKS,
+        (v) => this.edit(() => { if (v === undefined) delete m.cliffTile; else m.cliffTile = v; })),
         'What cliff walls on this map look like. A tile can choose its own in the Terrain palette.'),
-      field('Lighting', select([['outdoor', 'Outdoor'], ['indoor', 'Indoor'], ['dark', 'Dark (cave, dungeon)']],
-        m.environment ?? 'outdoor', (v) => this.edit(() => { if (v === 'outdoor') delete m.environment; else m.environment = v as MapEnvironment; })),
+      field('Lighting', this.themed([['outdoor', 'Outdoor'], ['indoor', 'Indoor'], ['dark', 'Dark (cave, dungeon)']], m.environment, 'environment', 'outdoor',
+        (v) => this.edit(() => { if (v === undefined) delete m.environment; else m.environment = v as MapEnvironment; })),
         'Outdoor: the full day and night. Indoor: muted; windows show daylight and go dark at night. Dark: dark at any hour, only lights show.'),
-      field('Season', select([['', 'The day’s season (Database → Time)'], ['spring', 'Always spring'], ['summer', 'Always summer'], ['autumn', 'Always autumn'], ['winter', 'Always winter (snow, ice)']],
-        m.season ?? '', (v) => this.edit(() => { if (v) m.season = v as Season; else delete m.season; })),
+      field('Season', this.themed([['', 'The day’s season (Database → Time)'], ['spring', 'Always spring'], ['summer', 'Always summer'], ['autumn', 'Always autumn'], ['winter', 'Always winter (snow, ice)']], m.season, 'season', '',
+        (v) => this.edit(() => { if (v) m.season = v as Season; else delete m.season; })),
         'Outdoor maps: grass and leaves follow the season. Winter brings snow, bare trees and ice on still water.'),
       h('div', { class: 'section-label' }, 'Game start'),
       field('Starting hour', numberInput(s.db.startHour, (v) => { s.checkpoint(); s.db.startHour = Math.min(23.75, Math.max(0, v)); s.changedDb(); }, { min: 0, max: 23.75, step: 0.25 }), 'Time of day when a new game begins (0 – 23.75; 18.5 is 6:30 PM). Clock speed and night darkness are in Database → Time.'),
@@ -282,25 +285,31 @@ export class Inspector {
 
   /** The breeze and the weather. */
   private weatherFields(): HTMLElement[] {
-    const m = this.store.map, outdoor = (m.environment ?? 'outdoor') === 'outdoor';
-    const strength = m.wind?.strength ?? (outdoor ? 0.3 : 0);
-    const setWind = (k: 'strength' | 'dir', v: number) => this.edit(() => {
-      const w = { ...m.wind, [k]: v };
-      if (w.strength === undefined || w.strength === (outdoor ? 0.3 : 0)) delete w.strength;
+    const m = this.store.map, theme = this.mapTheme(), outdoor = (m.environment ?? theme?.environment ?? 'outdoor') === 'outdoor';
+    const strength = m.wind?.strength ?? theme?.wind ?? (outdoor ? 0.3 : 0);
+    const setWind = (k: 'strength' | 'dir', v: number | undefined) => this.edit(() => {
+      const w: { strength?: number; dir?: number } = { ...m.wind, [k]: v };
+      if (w.strength === undefined || (theme?.wind === undefined && w.strength === (outdoor ? 0.3 : 0))) delete w.strength;
       if (w.dir === undefined || w.dir === 15) delete w.dir;
       m.wind = Object.keys(w).length ? w : undefined;
     });
-    const airSelect = (label: string, key: 'haze' | 'mist' | 'rays' | 'clouds') => field(label, select([['0', 'None'], ['0.3', 'Light'], ['0.6', 'Medium'], ['1', 'Thick']],
-      String([0, 0.3, 0.6, 1].reduce((a, b) => (Math.abs(b - (m.atmosphere?.[key] ?? 0)) < Math.abs(a - (m.atmosphere?.[key] ?? 0)) ? b : a))), (v) => this.edit(() => {
-        const a: NonNullable<typeof m.atmosphere> = { ...m.atmosphere, [key]: Number(v) };
-        if (!a[key]) delete a[key];
+    const near = (x: number, steps: number[]) => String(steps.reduce((a, b) => (Math.abs(b - x) < Math.abs(a - x) ? b : a)));
+    const AIR: [string, string][] = [['0', 'None'], ['0.3', 'Light'], ['0.6', 'Medium'], ['1', 'Thick']];
+    const airSelect = (label: string, key: 'haze' | 'mist' | 'rays' | 'clouds') => {
+      const tv = theme?.atmosphere?.[key], own = m.atmosphere?.[key];
+      const opts: [string, string][] = tv !== undefined ? [['@theme', `Theme default (${AIR.find(([v]) => v === near(tv, [0, 0.3, 0.6, 1]))![1]})`], ...AIR] : AIR;
+      return field(label, select(opts, own === undefined && tv !== undefined ? '@theme' : near(own ?? 0, [0, 0.3, 0.6, 1]), (v) => this.edit(() => {
+        const a: NonNullable<typeof m.atmosphere> = { ...m.atmosphere };
+        if (v === '@theme') delete a[key]; else a[key] = Number(v);
+        if (!a[key] && tv === undefined) delete a[key];
         m.atmosphere = Object.keys(a).length ? a : undefined;
       })));
+    };
     // Weather: shared by every outdoor map, unless this map has its own (Unique weather), maybe shared with a zone.
-    const st = this.store, unique = m.uniqueWeather ?? m.weather !== undefined;
-    const own = unique ? m.weather : st.db.weather;
+    const st = this.store, unique = m.uniqueWeather ?? (m.weather !== undefined || !!theme?.weather);
+    const own = unique ? m.weather ?? theme?.weather : st.db.weather;
     const setOwn = (fn: (w: { kind: WeatherKind; amount?: number } | undefined) => { kind: WeatherKind; amount?: number } | undefined) => {
-      if (unique) this.edit(() => { const w = fn(m.weather); if (w) m.weather = w; else delete m.weather; }, true);
+      if (unique) this.edit(() => { const w = fn(m.weather ?? (theme?.weather ? { ...theme.weather } : undefined)); if (w) { m.weather = w; m.uniqueWeather = true; } else delete m.weather; }, true);
       else { st.checkpoint(); const w = fn(st.db.weather); if (w) st.db.weather = w; else delete st.db.weather; st.changedDb('structure'); }
     };
     const kind = own?.kind ?? 'none';
@@ -317,14 +326,15 @@ export class Inspector {
         (v) => setOwn((w) => (v === 'none' ? (unique ? { kind: 'none' } : undefined) : { ...w, kind: v as WeatherKind })))),
       amountField);
     const weatherParts: HTMLElement[] = [
-      checkbox('Unique weather (its own, not the shared outdoor weather)', unique, (v) => this.edit(() => {
-        if (v) { m.uniqueWeather = true; m.weather ??= { kind: 'none' }; }
-        else { delete m.uniqueWeather; delete m.weather; delete m.weatherZone; }
+      checkbox(theme?.weather ? 'Unique weather (on by the theme: its maps share it)' : 'Unique weather (its own, not the shared outdoor weather)', unique, (v) => this.edit(() => {
+        if (v) { if (theme?.weather) delete m.uniqueWeather; else { m.uniqueWeather = true; m.weather ??= { kind: 'none' }; } }
+        else { if (theme?.weather) m.uniqueWeather = false; else delete m.uniqueWeather; delete m.weather; delete m.weatherZone; }
       }, true)),
       ...(unique ? [field('Weather zone', textInput(m.weatherZone ?? '', (v) => this.edit(() => { if (v.trim()) m.weatherZone = v.trim(); else delete m.weatherZone; })),
         'Optional. Maps with the same zone name share their weather with each other (desert, mountains): a change on one shows on all of them. Blank: this map alone.')] : []),
       weatherRow,
-      field('Climate (°F warmer or colder)', numberInput(m.tempOffset ?? 0, (v) => this.edit(() => { const r = Math.round(v); if (r) m.tempOffset = r; else delete m.tempOffset; }), { step: 1 }),
+      field(theme?.tempOffset !== undefined && m.tempOffset === undefined ? `Climate (°F; theme: ${theme.tempOffset > 0 ? '+' : ''}${theme.tempOffset})` : 'Climate (°F warmer or colder)',
+        numberInput(m.tempOffset ?? theme?.tempOffset ?? 0, (v) => this.edit(() => { const r = Math.round(v); if (r || theme?.tempOffset !== undefined) m.tempOffset = r; else delete m.tempOffset; if (theme?.tempOffset === r) delete m.tempOffset; }), { step: 1 }),
         'A desert +15, a mountain top −20: added to the season’s temperature here. The shared weather still changes by itself (Database → Weather) unless this map has Unique weather.'),
       h('p', { class: 'hint' }, unique
         ? 'This map keeps its own weather (or its zone’s), whatever the weather is on other maps. Good for deserts, mountaintops, a magic storm.'
@@ -334,8 +344,11 @@ export class Inspector {
     return [
       h('div', { class: 'section-label' }, 'Wind, weather and air'),
       h('div', { class: 'field-row' },
-        field('Wind', select([['0', 'Calm'], ['0.15', 'Light air'], ['0.3', 'Breeze'], ['0.6', 'Windy'], ['1', 'Gale']],
-          String([0, 0.15, 0.3, 0.6, 1].reduce((a, b) => (Math.abs(b - strength) < Math.abs(a - strength) ? b : a))), (v) => setWind('strength', Number(v)))),
+        field('Wind', (() => {
+          const W: [string, string][] = [['0', 'Calm'], ['0.15', 'Light air'], ['0.3', 'Breeze'], ['0.6', 'Windy'], ['1', 'Gale']], steps = [0, 0.15, 0.3, 0.6, 1];
+          const tw = theme?.wind, opts: [string, string][] = tw !== undefined ? [['@theme', `Theme default (${W.find(([v]) => v === near(tw, steps))![1]})`], ...W] : W;
+          return select(opts, tw !== undefined && m.wind?.strength === undefined ? '@theme' : near(strength, steps), (v) => setWind('strength', v === '@theme' ? undefined : Number(v)));
+        })()),
         field('Blowing towards', select([['0', 'East →'], ['45', 'South-east ↘'], ['90', 'South ↓'], ['135', 'South-west ↙'], ['180', 'West ←'], ['225', 'North-west ↖'], ['270', 'North ↑'], ['315', 'North-east ↗'], ['15', 'Default (east)']],
           String(m.wind?.dir ?? 15), (v) => setWind('dir', Number(v))))),
       h('p', { class: 'hint' }, 'Trees, bushes, grass and flowers sway with the wind (set per prop in its Behaviour tab).'),
@@ -357,20 +370,40 @@ export class Inspector {
   }
 
   /** What lies beyond each edge of the map. */
+  /** The map's theme (Database → Map themes), if it has one. */
+  private mapTheme(): MapTheme | undefined { return findTheme(this.store.db.mapThemes, this.store.map.theme); }
+
+  /**
+   * A select for a setting a theme can give: with a theme that sets it, a “Theme default (…)” choice (the map's value
+   * left unset) comes first, and every other choice is stored as is. Without one, choosing `plain` clears it as before.
+   */
+  private themed(opts: [string, string][], value: string | undefined, key: keyof MapTheme, plain: string, set: (v: string | undefined) => void): HTMLSelectElement {
+    const t = this.mapTheme(), tv = t?.[key] as string | undefined;
+    if (tv === undefined) return select(opts, value ?? plain, (v) => set(v === plain ? undefined : v));
+    const label = opts.find(([o]) => o === tv)?.[1] ?? (tv || 'none');
+    return select([['@theme', `Theme default (${label})`], ...opts], value === undefined ? '@theme' : value, (v) => set(v === '@theme' ? undefined : v));
+  }
+
   private borderFields(): HTMLElement {
-    const m = this.store.map, sides = borderSides(m.border);
+    const m = this.store.map, theme = this.mapTheme(), themed = theme?.border !== undefined && !m.border;
+    const sides = borderSides(themed ? { kind: theme!.border, seed: 1 } : m.border);
     const set = (side: Side | 'all', kind: BorderKind) => this.edit(() => {
       const next: MapBorder = { seed: m.border?.seed ?? Math.floor(Math.random() * 1000), ...(side === 'all' ? { n: kind, s: kind, w: kind, e: kind } : { ...sides, [side]: kind }) };
-      // Store compactly: one kind when every side matches, and nothing at all for plain grass.
+      // Store compactly: one kind when every side matches, and nothing at all for plain grass (unless a theme would
+      // put something else there).
       const k = [next.n, next.s, next.w, next.e];
-      if (k.every((x) => x === k[0])) m.border = k[0] === 'grass' ? undefined : { kind: k[0], seed: next.seed };
+      if (k.every((x) => x === k[0])) m.border = k[0] === 'grass' && theme?.border === undefined ? undefined : { kind: k[0], seed: next.seed };
       else m.border = next;
     }, true);
     const sideSelect = (side: Side, label: string) => field(label, select(BORDER_KINDS, sides[side], (v) => set(side, v as BorderKind)));
     const same = [sides.n, sides.s, sides.w, sides.e].every((k) => k === sides.n);
+    const themeOpt: [string, string][] = theme?.border !== undefined ? [['@theme', `Theme default (${BORDER_KINDS.find(([k]) => k === theme.border)?.[1] ?? theme.border})`]] : [];
     return h('div', { class: 'border-fields' },
       h('div', { class: 'section-label' }, 'Beyond the map edge'),
-      field('All sides', select([...(same ? [] : [['mixed', 'Mixed'] as [string, string]]), ...BORDER_KINDS], same ? sides.n : 'mixed', (v) => { if (v !== 'mixed') set('all', v as BorderKind); })),
+      field('All sides', select([...themeOpt, ...(same ? [] : [['mixed', 'Mixed'] as [string, string]]), ...BORDER_KINDS], themed ? '@theme' : same ? sides.n : 'mixed', (v) => {
+        if (v === '@theme') this.edit(() => { delete m.border; }, true);
+        else if (v !== 'mixed') set('all', v as BorderKind);
+      })),
       h('div', { class: 'field-row' }, sideSelect('n', 'Top'), sideSelect('s', 'Bottom')),
       h('div', { class: 'field-row' }, sideSelect('w', 'Left'), sideSelect('e', 'Right')),
       h('p', { class: 'hint' }, 'Scenery outside the map, seen at its edges. The bottom side is kept low and sparse so it doesn’t hide the map.'));

@@ -320,6 +320,60 @@ export const PLACEHOLDER_SPRITES: Record<string, () => HTMLCanvasElement> = {
     p.outline(OUTLINE);
     return p.canvas();
   },
+  /** A saguaro: a ribbed trunk with two arms. */
+  cactus() {
+    const p = new Pix(16, 26);
+    const shape = (x: number, y: number) => (x >= 6 && x < 10 && y >= 2 && y < 26) || ell(x, y, 8, 2.5, 2, 2)
+      || (x >= 1.5 && x < 4.5 && y >= 7 && y < 15) || ell(x, y, 3, 7, 1.5, 1.5) || (y >= 13 && y < 16 && x >= 2 && x < 7)
+      || (x >= 11.5 && x < 14.5 && y >= 5 && y < 12) || ell(x, y, 13, 5, 1.5, 1.5) || (y >= 10 && y < 13 && x >= 9 && x < 14);
+    blob(p, shape, ['#1e3d24', '#2b5a2f', '#3c7a3a', '#56984a', '#7cb860'], { maxD: 2.5, k: 2, tex: 0.3, texS: 1.5, seed: 12 });
+    for (let y = 4; y < 25; y += 3) { p.set(7, y, '#1a3320'); p.set(5, y + 1, '#e8e0b0'); p.set(10, y + 2, '#e8e0b0'); }
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A dry, twiggy desert bush. */
+  dry_bush() {
+    const p = new Pix(16, 10);
+    for (let k = 0; k < 9; k++) {
+      const a = Math.PI * (0.12 + 0.76 * (k / 8)), len = 4 + (k % 3) * 1.6;
+      for (let t = 0; t < len; t += 0.5) p.set(Math.round(8 + Math.cos(a) * t * 1.5), Math.round(9 - Math.sin(a) * t), t > len - 1.5 ? '#a8874f' : '#7a5c34');
+    }
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A sandstone rock, banded in reds and tans. */
+  sandstone() {
+    const p = new Pix(20, 14);
+    blob(p, (x, y) => ell(x, y, 10, 8.5, 9, 5.5) || ell(x, y, 8, 5, 5, 4), ['#6a3a22', '#8a5230', '#a86a3e', '#c48650', '#d8a468'], { maxD: 3, k: 2, tex: 0.4, texS: 1.4, seed: 21 });
+    for (let x = 3; x < 18; x++) { if (p.alpha(x, 9)) p.set(x, 9, '#7a4628'); if (p.alpha(x, 6)) p.set(x, 6, '#c88e58'); }
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** A pine laden with snow, all year (for snowfields and peaks). */
+  snowy_pine() {
+    const c = PLACEHOLDER_SPRITES.pine(), g = c.getContext('2d')!, img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    // Snow settles on the top of each tier: the topmost green pixels of every column in each band turn white.
+    for (let x = 0; x < c.width; x++) {
+      let lastEmpty = true;
+      for (let y = 0; y < c.height - 10; y++) {
+        const i = (y * c.width + x) * 4, a = d[i + 3], green = a > 0 && d[i + 1] > d[i] + 12;
+        if (green && (lastEmpty || (y % 8 === 3 && hash2(x, y, 3) > 0.35))) {
+          for (let k = 0; k < 2 && y + k < c.height; k++) { const j = ((y + k) * c.width + x) * 4; if (d[j + 3] && d[j + 1] > d[j] + 12) { d[j] = 232 - k * 18; d[j + 1] = 240 - k * 16; d[j + 2] = 250 - k * 10; } }
+        }
+        lastEmpty = a === 0;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  },
+  /** A grey rock with a cap of snow. */
+  snow_rock() {
+    const p = new Pix(18, 13);
+    blob(p, (x, y) => ell(x, y, 9, 8, 8, 5), ['#2e2e36', '#46464f', '#5c5c66', '#74747e'], { maxD: 2.5, k: 2, seed: 8 });
+    blob(p, (x, y) => ell(x, y, 9, 5.2, 6.5, 2.6) && y < 6.5, ['#b8c6d8', '#d8e2ee', '#f2f6fb'], { maxD: 2, k: 2, seed: 3 });
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
   /** What's left of a tree that was cut down. */
   stump() {
     const p = new Pix(14, 8);
@@ -534,7 +588,10 @@ export function groundCanvas(map: TileMap): HTMLCanvasElement {
   const P = ['#5e4630', '#6f5539', '#806444', '#94744f', '#a8875c'];
   const S = ['#a68e62', '#b9a170', '#cab17e', '#d9c08c'];
   const Wt = ['#16314a', '#1c3e5a', '#234b6a'];
-  const BUILT_IN = '.=:~';
+  const D = ['#3e2d20', '#4a3626', '#56402c', '#634a33', '#70553b'];
+  const Rk = ['#3a3540', '#4a4552', '#5a5463', '#6b6474', '#7c7584'];
+  const Sn = ['#b8c7da', '#c9d6e6', '#d8e3f0', '#e6eef7', '#f4f8fc'];
+  const BUILT_IN = '.=:~▒▦▲❄';
   const cat = map.tiles, isB = (k: string) => BUILT_IN.includes(k);
   const wet = (x: number, z: number) => !!map.waterAt(x, z);
   // Edges only blend between cells at the same height (and both wet or both dry): across a height
@@ -595,6 +652,10 @@ export function groundCanvas(map: TileMap): HTMLCanvasElement {
         // A darker lip where a tile sits just below grass (or the lake bed's edge), for depth.
         if (t === '=') return up === '.' ? '#463424' : hs > 0.975 ? (hs > 0.99 ? '#b8a283' : '#4d3a28') : pick(P);
         if (t === ':') return up === '.' ? '#7d6c4a' : pick(S);
+        if (t === '▒') return up === '.' ? '#33251a' : hs > 0.975 ? '#7d6a52' : pick(D);
+        if (t === '▦') return stoneAt(px & 15, py & 15, 800);
+        if (t === '▲') return hs > 0.97 ? '#2f2b35' : pick(Rk);
+        if (t === '❄') return hs > 0.992 ? '#ffffff' : pick(Sn);
         return up !== '~' ? '#0f2236' : pick(Wt);
       };
       p.set(px, py, at.other ? mixHex(colour(at.k), colour(at.other), at.f) : colour(at.k));
@@ -637,6 +698,22 @@ export function cliffTile(): HTMLCanvasElement {
   return p.canvas();
 }
 
+/** Stone paving: flagstones of a few greys with dark joints, the rows offset. */
+function stoneTile(seed: number): HTMLCanvasElement {
+  const p = new Pix(16, 16);
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) p.set(x, y, stoneAt(x, y, seed));
+  return p.canvas();
+}
+const PAVING = ['#5d5a60', '#6b686f', '#79767d', '#88858c', '#96939a'];
+function stoneAt(x: number, y: number, seed: number): string {
+  const row = Math.floor(y / 8), bx = (x + (row % 2) * 4) & 7, by = y & 7;
+  if (bx === 0 || by === 0) return '#3f3c43';
+  const slab = Math.floor((x + (row % 2) * 4) / 8) * 31 + row * 17;
+  const n = hash2(slab, row, seed) * 0.6 + vnoise(x / 3, y / 3, seed) * 0.4 + (bx === 1 || by === 1 ? 0.18 : 0) - (bx === 7 || by === 7 ? 0.12 : 0);
+  return PAVING[clamp(Math.floor(n * 4 + bayer(x, y) * 0.7), 0, 4)];
+}
+
 function noiseTile(ramp: string[], seed: number, speckle?: [number, string]): HTMLCanvasElement {
   const p = new Pix(16, 16);
   for (let y = 0; y < 16; y++)
@@ -656,7 +733,10 @@ export function builtinTileArt(key: string, variant = 0): HTMLCanvasElement {
     case ':': return noiseTile(['#b9a170', '#cab17e', '#d9c08c'], 300 + variant);
     case '~': return noiseTile(['#1c3e5a', '#234b6a', '#2c5a7c'], 400 + variant, [0.985, '#5f93b8']);
     case '#': return noiseTile(['#407238', '#4e843f', '#5f9746', '#70a852'], 500 + variant);
-    case 'rock': return noiseTile(['#4a4552', '#5a5463', '#6b6474', '#7c7584'], 600 + variant, [0.97, '#3a3540']);
+    case 'rock': case '▲': return noiseTile(['#4a4552', '#5a5463', '#6b6474', '#7c7584'], 600 + variant, [0.97, '#3a3540']);
+    case '▒': return noiseTile(['#4a3626', '#56402c', '#634a33', '#70553b'], 700 + variant, [0.97, '#7d6a52']);
+    case '▦': return stoneTile(800 + variant);
+    case '❄': return noiseTile(['#c9d6e6', '#d8e3f0', '#e6eef7', '#f4f8fc'], 900 + variant, [0.985, '#b4c4d8']);
     default: return grassTile(100 + variant);
   }
 }

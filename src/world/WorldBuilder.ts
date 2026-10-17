@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
 import { builtinTileArt, glowPattern, iceTile, groundCanvas, grassTile, rippleNormals, rockFace } from '../art/placeholderArt';
-import { type EdgeRoad, type EdgeWater, type Side, borderSides, cliffHeight, edgeRoads, edgeWaters, onEdgeRoad, sideOf } from './border';
+import { type BorderGround, type EdgeRoad, type EdgeWater, type Side, borderGround, borderSides, cliffHeight, edgeRoads, edgeWaters, onEdgeRoad, sideOf } from './border';
 import { patchRoadEdge } from '../render/roadEdge';
 import type { V3 } from './terrainGeometry';
 import { normalMapFrom } from '../core/pixel';
@@ -274,7 +274,8 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
   const sides = borderSides(data.border), E = 70, W = map.w, H = map.h;
   // The four strips: top and bottom run the full width (corners included), left and right fill between.
   const strips: [Side, number, number, number, number][] = [['n', -E, -E, W + E, 0], ['s', -E, H, W + E, H + E], ['w', -E, 0, 0, H], ['e', W, 0, W + E, H]];
-  const grass = new QuadList(), rockTop = new QuadList(), rockWall = new QuadList(), water = new QuadList(), bed = new QuadList();
+  const grounds: Record<BorderGround, QuadList> = { grass: new QuadList(), sand: new QuadList(), snow: new QuadList(), rock: new QuadList() };
+  const rockTop = new QuadList(), rockWall = new QuadList(), water = new QuadList(), bed = new QuadList();
   const roads = edgeRoads(W, H, (x, z) => map.terrain(x, z), (k) => map.tiles.isRoad(k), sides);
   // A vertical stone face between two points on the ground plan, from height `top` down to `bottom`, facing `facing`.
   const wall = (a: [number, number], b: [number, number], top: number, bottom: number, facing: [number, number, number]) =>
@@ -322,6 +323,7 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
       return segs;
     };
     if (kind !== 'rocks') {
+      const grass = grounds[borderGround(kind)];
       for (const [p, q] of pieces(streams.map((r) => [r.from, r.to + 1] as [number, number]).sort((u, v) => u[0] - v[0])))
         if (ns) rect(grass, p, z0, q, z1, -0.02); else rect(grass, x0, p, x1, q, -0.02);
       continue;
@@ -342,7 +344,10 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
     }
   }
   const add = (q: QuadList, mat: THREE.Material) => { if (q.quads) scene.add(mesh(q, patchAreaTint(mat))); };
-  if (grass.quads) scene.add(mesh(grass, patchSeason(patchAreaTint(new THREE.MeshStandardMaterial({ map: makeTexture(grassTile(41), { mip: true, repeat: true }), roughness: 1 })), 'ground')));
+  if (grounds.grass.quads) scene.add(mesh(grounds.grass, patchSeason(patchAreaTint(new THREE.MeshStandardMaterial({ map: makeTexture(grassTile(41), { mip: true, repeat: true }), roughness: 1 })), 'ground')));
+  add(grounds.sand, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt(':'), { mip: true, repeat: true }), roughness: 1 }));
+  add(grounds.snow, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('❄'), { mip: true, repeat: true }), roughness: 0.9 }));
+  add(grounds.rock, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('▲'), { mip: true, repeat: true }), roughness: 1 }));
   add(rockTop, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('rock'), { mip: true, repeat: true }), roughness: 1 }));
   if (rockWall.quads) {
     const art = rockFace();
@@ -453,6 +458,16 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
         }
       } else if (kind === 'rocks') {
         if (r < 0.14) add({ type: R() < 0.6 ? 'rock' : 'pebble', ...at(0.8 + R() * 0.6, cliffHeight(side)) });
+      } else if (kind === 'plains') {
+        if (near ? r < 0.05 : r < 0.14) add({ type: R() < 0.7 ? 'tuft' : R() < 0.6 ? 'flowers' : 'pebble', ...at(0.8 + R() * 0.4) });
+      } else if (kind === 'rocky') {
+        if (near ? r < 0.06 : r < 0.22) { const k = R(); add({ type: k < 0.7 ? 'rock' : 'pebble', ...at(k < 0.3 && !near ? 1.5 + R() * 0.6 : 0.8 + R() * 0.6) }); }
+      } else if (kind === 'desert') {
+        if (near ? r < 0.05 : r < 0.16) { const k = R(); add({ type: k < 0.3 && !near ? 'cactus' : k < 0.6 ? 'dry_bush' : k < 0.85 ? 'sandstone' : 'pebble', ...at(0.8 + R() * 0.5) }); }
+      } else if (kind === 'snow') {
+        if (near ? r < 0.04 : r < 0.12) add({ type: R() < 0.3 && !near ? 'snowy_pine' : 'snow_rock', ...at(0.8 + R() * 0.5) });
+      } else if (kind === 'snowforest') {
+        if (r < (side === 's' ? (near ? 0 : 0.2) : 0.6)) add({ type: R() < 0.85 ? 'snowy_pine' : 'snow_rock', ...at(0.9 + R() * 0.4) });
       }
     }
   const m = new THREE.Matrix4();

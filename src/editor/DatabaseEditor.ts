@@ -23,6 +23,9 @@ import type { AdditionDef, ClassDef, SpellEntry, TroopDef } from '../world/types
 import { troopsTab } from './TroopsEditor';
 import { achievementsTab } from './AchievementsEditor';
 import { markersTab } from './MarkersEditor';
+import { mapThemesTab } from './MapThemesEditor';
+import { DEFAULT_THEMES, mapThemes, type MapTheme } from '../world/mapThemes';
+import { cliffChoices } from './assets';
 import { textColorsTab } from './TextColorsEditor';
 import { messageStyles, textColors, type MessageStyle, type TextColor } from '../ui/richText';
 import { messageStylesTab } from './MessageStylesEditor';
@@ -50,7 +53,7 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
@@ -58,7 +61,7 @@ const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
   ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group'], ['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
-  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['messageStyles', 'Text boxes', 'bubble'], ['audio', 'Audio', 'note']]],
+  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['messageStyles', 'Text boxes', 'bubble'], ['audio', 'Audio', 'note']]],
   ['System', [['saving', 'Saving', 'disk'], ['menus', 'Title & menus', 'menu'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
@@ -83,6 +86,7 @@ const ICON_PATHS: Record<string, string> = {
   disk: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
   menu: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
   bubble: '<path d="M4 5h16v11H10l-4 4v-4H4z"/><path d="M8 9h8M8 12h5"/>',
+  mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M7.5 10.5l1.5 1.5 1.5-1.5"/>',
   cloud: '<path d="M7 18a4 4 0 0 1-.5-8 5.5 5.5 0 0 1 10.6 1.4A3.4 3.4 0 0 1 17 18z"/><path d="M12 2v2M5 5l1.4 1.4M19 5l-1.4 1.4"/>',
   heart: '<path d="M12 20s-8-4.7-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6.3-8 11-8 11z"/>',
 };
@@ -118,6 +122,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const achievements: AchievementDef[] = JSON.parse(JSON.stringify(store.db.achievements ?? []));
   const achState = { sel: 0 };
   const markers: MarkerKind[] = structuredClone(markerKinds(store.db.markers));
+  const themes: MapTheme[] = structuredClone(mapThemes(store.db.mapThemes)), themeState = { sel: 0 };
   const textCols: TextColor[] = structuredClone(textColors(store.db.textColors));
   const climate: ClimateConfig = structuredClone(climateConfig(store.db.climate));
   const msgStyles: MessageStyle[] = structuredClone(messageStyles(store.db.messageStyles)), msgState = { sel: 0 };
@@ -179,6 +184,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       case 'classes': return L(classes, classState);
       case 'achievements': return L(achievements, achState);
       case 'messageStyles': return L(msgStyles, msgState);
+      case 'mapThemes': return L(themes, themeState);
       default: return null;
     }
   };
@@ -272,6 +278,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'skills') { content.replaceChildren(...skillsTab(skills, skillState, render, work.items, { spells, additions })); return; }
     if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audioFiles(store), troopState, render, store.battleMapNames())); return; }
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
+    if (tab === 'mapThemes') { content.replaceChildren(...mapThemesTab(themes, themeState, render, audioFiles(store), cliffChoices(store))); return; }
     if (tab === 'textColors') { content.replaceChildren(...textColorsTab(textCols, render)); return; }
     if (tab === 'climate') { content.replaceChildren(...climateTab(climate, render)); return; }
     if (tab === 'messageStyles') { content.replaceChildren(...messageStylesTab(msgStyles, textCols, msgState, render)); return; }
@@ -477,6 +484,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const achOut = achievements.length ? achievements : null;
       const dcOut = devConsole === 'playtest' ? null : devConsole;
       const markersOut = JSON.stringify(markers) === JSON.stringify(markerKinds(undefined)) ? null : markers;
+      const themesOut = JSON.stringify(themes) === JSON.stringify(DEFAULT_THEMES) ? null : themes;
       const textColorsOut = JSON.stringify(textCols) === JSON.stringify(textColors(undefined)) ? null : textCols;
       const stylesOut = JSON.stringify(msgStyles) === JSON.stringify(messageStyles(undefined)) ? null : msgStyles;
       const climateOut = cleanClimate(climate) ?? null;
@@ -493,7 +501,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null)) return 'same';
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -518,6 +526,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (achOut) db.achievements = C(achOut); else delete db.achievements;
       if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
       if (markersOut) db.markers = C(markersOut); else delete db.markers;
+      if (themesOut) db.mapThemes = C(themesOut); else delete db.mapThemes;
       if (textColorsOut) db.textColors = C(textColorsOut); else delete db.textColors;
       if (stylesOut) db.messageStyles = C(stylesOut); else delete db.messageStyles;
       if (climateOut) db.climate = C(climateOut) as typeof db.climate; else delete db.climate;

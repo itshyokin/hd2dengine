@@ -38,12 +38,18 @@ export function formatAssets(a: AssetRegistry): string {
  * Stable, diff-friendly map JSON: terrain one row per line, one prop per line,
  * events pretty-printed.
  */
+const MAP_KEYS_ORDERED = new Set(['name', 'kind', 'width', 'height', 'environment', 'border', 'music', 'battleMusic', 'battleMap', 'battleTransitions', 'encounters', 'zones', 'ambience', 'ambienceNight', 'wind', 'uniqueWeather', 'weatherZone', 'weather', 'atmosphere',
+  'cliffTile', 'theme', 'season', 'tempOffset', 'ambienceCold', 'terrain', 'heights', 'water', 'ramps', 'passage', 'zoneGrid', 'markers', 'battleCamera', 'lights', 'events']);
+
 export function formatMap(map: MapData): string {
   const { props, buildings, ...rest } = map;
   const ordered = {
     name: rest.name, kind: rest.kind, width: rest.width, height: rest.height, environment: rest.environment, border: rest.border,
     music: rest.music, battleMusic: rest.battleMusic, battleMap: rest.battleMap, battleTransitions: rest.battleTransitions, encounters: rest.encounters, zones: rest.zones, ambience: rest.ambience, ambienceNight: rest.ambienceNight, wind: rest.wind, uniqueWeather: rest.uniqueWeather, weatherZone: rest.weatherZone, weather: rest.weather, atmosphere: rest.atmosphere,
-    cliffTile: rest.cliffTile, terrain: rest.terrain, heights: rest.heights?.length ? rest.heights : undefined,
+    cliffTile: rest.cliffTile, theme: rest.theme, season: rest.season, tempOffset: rest.tempOffset, ambienceCold: rest.ambienceCold,
+    // Anything else the map has (water styles, fishing…), so nothing is lost on save.
+    ...Object.fromEntries(Object.entries(rest).filter(([k]) => !MAP_KEYS_ORDERED.has(k))),
+    terrain: rest.terrain, heights: rest.heights?.length ? rest.heights : undefined,
     water: rest.water?.length ? rest.water : undefined, ramps: rest.ramps?.length ? rest.ramps : undefined,
     passage: rest.passage?.some((r) => /[^.]/.test(r)) ? rest.passage : undefined,
     zoneGrid: rest.zoneGrid?.some((r) => /[^.]/.test(r)) ? rest.zoneGrid : undefined,

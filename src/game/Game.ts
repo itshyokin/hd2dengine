@@ -76,6 +76,7 @@ import { HudArranger } from '../ui/HudArranger';
 import type { PropDef, SkillNode } from '../world/types';
 import { EQUIP_SLOTS, type AllyStyle, type Ailment, type Database, type Dir, type EquipSlot, type HeroDef, type ItemDef, type MapData, type PropData, type PauseOption, type TitleOption, type WeatherKind } from '../world/types';
 import { loadAssets, loadDatabase, loadMap } from '../shared/dataFiles';
+import { applyTheme } from '../world/mapThemes';
 import { loadCanvas } from '../shared/images';
 import { builtinIcon, builtinIconName } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './inventory';
@@ -404,6 +405,8 @@ export class Game {
     }
     this.resolveFile = resolve;
     migrateMap(mapData);
+    // What the map leaves to its theme (Database → Map themes). A copy, so a map handed over by the editor isn't changed.
+    if (mapData.theme) mapData = applyTheme(JSON.parse(JSON.stringify(mapData)) as MapData, this.db.mapThemes);
     migrateItems(this.db);
     setTextColors(this.db.textColors);
     this.sprites = new SpriteLibrary(new PropCatalog(assets));
@@ -1100,6 +1103,7 @@ export class Game {
     const handed = this.handedMaps?.[name];
     const data = handed ? (JSON.parse(JSON.stringify(handed)) as MapData) : await loadMap(name);
     migrateMap(data);
+    applyTheme(data, this.db.mapThemes);
     alignFootProps(data, (t) => this.sprites.def(t));
     return data;
   }

@@ -16,6 +16,11 @@ export const BUILTIN_PROPS: PropDef[] = [
   { id: 'pebble', name: 'Pebble', builtin: 'pebble', w: 10 / T, h: 7 / T, block: [] },
   { id: 'tuft', name: 'Grass tuft', builtin: 'tuft', w: 12 / T, h: 9 / T, block: [], sway: 1.3 },
   { id: 'flowers', name: 'Flowers', builtin: 'flowers', w: 14 / T, h: 9 / T, block: [], sway: 1.2 },
+  { id: 'cactus', name: 'Cactus', builtin: 'cactus', w: 16 / T, h: 26 / T, block: [0], season: 'off' },
+  { id: 'dry_bush', name: 'Dry bush (desert)', builtin: 'dry_bush', w: 16 / T, h: 10 / T, block: [], sway: 0.6, season: 'off' },
+  { id: 'sandstone', name: 'Sandstone rock', builtin: 'sandstone', w: 20 / T, h: 14 / T, block: [0] },
+  { id: 'snowy_pine', name: 'Snowy pine', builtin: 'snowy_pine', w: 26 / T, h: 44 / T, block: [0], sway: 0.6, season: 'off' },
+  { id: 'snow_rock', name: 'Snowy rock', builtin: 'snow_rock', w: 18 / T, h: 13 / T, block: [0] },
   { id: 'sign', name: 'Signpost', builtin: 'sign', w: 14 / T, h: 18 / T, block: [0] },
   {
     id: 'campfire', name: 'Campfire', builtin: 'logs', w: 22 / T, h: 11 / T, block: [0], castShadow: false, respawn: true,

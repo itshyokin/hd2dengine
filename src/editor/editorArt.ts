@@ -28,7 +28,7 @@ export function tileNote(d: TileDef): string {
 
 const VARIANTS = 4;
 const tiles: Record<string, HTMLCanvasElement[]> = Object.fromEntries(
-  ['.', '=', ':', '~', '#'].map((k) => [k, Array.from({ length: VARIANTS }, (_, i) => builtinTileArt(k, i))]));
+  ['.', '=', ':', '~', '#', '▒', '▦', '▲', '❄'].map((k) => [k, Array.from({ length: VARIANTS }, (_, i) => builtinTileArt(k, i))]));
 const cliff = cliffTile();
 
 /** Image of a built-in tile at (x, z); variants break up repetition. */

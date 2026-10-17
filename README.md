@@ -241,6 +241,18 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
   in a window with tabs, like the Database: **General** (name, size, cliff walls, lighting, season, game start),
   **Beyond the edges**, **Wind, weather & air**, **Sound**, **Battles** and **Random encounters**. The Inspector now only
   shows what's selected. The **layer tabs** are icons (hover for the name; the open layer's name shows under them).
+- **Map themes** (**Database → Map themes**): the defaults a kind of map has: what lies beyond its edges, cliff walls,
+  lighting, season, music and background sounds, wind, climate, weather and air. Starter themes: Forest, Plains,
+  Desert, Snowfield, Mountains, Cave and Indoors (change them, duplicate them, add your own). A map picks one in **Map
+  Properties → General → Theme**; every setting there then shows **Theme default (…)** until changed, and changing a
+  theme changes every map using it. A theme with its own weather makes its maps share it (a desert's sandstorm blows on
+  all of them).
+- **More edges** (Beyond the edges): Plains, Rocky ground (boulders), Desert (sand, cacti, sandstone, dry bushes),
+  Snowfield and Snowy forest, alongside grass, forest, meadow, rocky cliffs and water.
+- **Built-in terrain**: Dirt, Stone paving, Rock (also as cliff walls) and Snow, beside grass, path, sand and the lake
+  bed. New built-in props: cactus, dry bush, sandstone rock, snowy pine (snow all year) and snowy rock.
+- Saving a map now keeps every setting it has (before, a few — the season, climate, autumn sound, water kinds and
+  fishing spots — could be left out of the saved file).
 - **Props → Erase**: tick **Only erase …** to remove just the kind picked in the list (everything else is left alone),
   or **Erase all …** to clear that kind from the whole map at once (it asks first; Ctrl+Z undoes it). New built-in
   props for camps and woods: wooden fence, fence post and gate, one-person tents (red, blue, green, tan, purple), a

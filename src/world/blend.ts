@@ -6,7 +6,7 @@
 import type { TileBlend, TileDef } from './types';
 
 /** Built-in priorities: grass grows over everything, the lake bed is lowest. */
-const BUILTIN_PRIORITY: Record<string, number> = { '.': 30, '=': 20, ':': 10, '~': 0 };
+const BUILTIN_PRIORITY: Record<string, number> = { '❄': 34, '.': 30, '▒': 22, '=': 20, '▦': 16, '▲': 14, ':': 10, '~': 0 };
 
 export function defaultBlend(def: TileDef | undefined): TileBlend {
   if (!def || def.builtin) {

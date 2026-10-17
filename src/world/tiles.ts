@@ -12,6 +12,11 @@ export const BUILTIN_TILES: TileDef[] = [
   { key: ':', id: 'sand', name: 'Sand', span: 1, builtin: true },
   // Was the old blocking water tile; water is its own layer now, so this is the ground under it.
   { key: '~', id: 'water', name: 'Lake bed', span: 1, builtin: true },
+  // Added later (keys outside the imported tiles' pool, so older maps are untouched).
+  { key: '▒', id: 'dirt', name: 'Dirt', span: 1, builtin: true },
+  { key: '▦', id: 'stone', name: 'Stone paving', span: 1, builtin: true },
+  { key: '▲', id: 'rock', name: 'Rock (cliffs, mountains)', span: 1, builtin: true },
+  { key: '❄', id: 'snow', name: 'Snow', span: 1, builtin: true },
 ];
 
 // '#' was the old raised-cliff tile; maps using it are converted to the height layer, so it stays reserved.
