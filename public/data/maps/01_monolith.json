@@ -3,11 +3,15 @@
   "width": 50,
   "height": 50,
   "border": {
-    "kind": "forest",
-    "seed": 945
+    "seed": 945,
+    "n": "forest",
+    "s": "seamless",
+    "w": "forest",
+    "e": "forest"
   },
   "music": "builtin:field",
   "battleMusic": "builtin:battle",
+  "battleMap": "battle_forest",
   "ambience": "builtin:forest",
   "ambienceNight": "builtin:night",
   "atmosphere": {
@@ -462,27 +466,6 @@
       ]
     },
     {
-      "id": 7,
-      "name": "To 02_monolith_woods",
-      "x": 13,
-      "z": 49,
-      "w": 2,
-      "h": 1,
-      "pages": [
-        {
-          "trigger": "touch",
-          "commands": [
-            {
-              "cmd": "transfer",
-              "map": "02_monolith_woods",
-              "x": 6,
-              "z": 1
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": 8,
       "name": "Event 008",
       "x": 13,
@@ -552,6 +535,53 @@
           "commands": [],
           "condition": {
             "switch": "tutorial_ladder",
+            "is": true
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Katrina",
+      "x": 29,
+      "z": 12,
+      "pages": [
+        {
+          "trigger": "action",
+          "solid": true,
+          "commands": [
+            {
+              "cmd": "text",
+              "text": "Ready to get moving?",
+              "speaker": "Katrina"
+            },
+            {
+              "cmd": "party",
+              "op": "add",
+              "hero": "hero_2"
+            },
+            {
+              "cmd": "setSwitch",
+              "switch": "katrina_party_1",
+              "value": true
+            }
+          ],
+          "character": "katrina",
+          "facePlayer": true,
+          "bubble": {
+            "text": "Hello!",
+            "at": "above",
+            "color": "#000000",
+            "size": 30,
+            "bold": false
+          }
+        },
+        {
+          "trigger": "action",
+          "commands": [],
+          "facePlayer": true,
+          "condition": {
+            "switch": "katrina_party_1",
             "is": true
           }
         }
