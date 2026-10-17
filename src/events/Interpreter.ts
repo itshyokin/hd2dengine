@@ -117,7 +117,7 @@ export class Interpreter {
     switch (c.cmd) {
       case 'text':
         // When choices follow, keep the text on screen and show the choices under it.
-        message.showText(state.format(c.text), c.speaker, next?.cmd === 'choice', c.bubble, c.look);
+        message.showText(state.format(c.text), c.speaker, next?.cmd === 'choice', c.bubble, c.look, c.style);
         break;
       case 'choice':
         message.showChoices(c.options.map((o) => state.format(o)), c.cancel);
@@ -179,9 +179,9 @@ export class Interpreter {
         const name = this.ctx.items.name(c.item);
         if (r === 'full') {
           // Not enough room: say so and stop the event, so a chest stays closed to try again later.
-          message.showText(`Not enough room in your bag for ${c.count > 1 ? `${c.count} × ` : ''}${name}.`, undefined, false);
+          message.showText(`Not enough room in your bag for ${c.count > 1 ? `${c.count} × ` : ''}${name}.`, undefined, false, undefined, undefined, 'system');
           this.stack = [{ list: [], i: 0 }];
-        } else if (r === 'ok' && !c.silent) message.showText(`Received ${c.count > 1 ? `${c.count} × ` : ''}${name}!`, undefined, next?.cmd === 'choice');
+        } else if (r === 'ok' && !c.silent) message.showText(`Received ${c.count > 1 ? `${c.count} × ` : ''}[item]${name}[/item]!`, undefined, next?.cmd === 'choice', undefined, undefined, 'item');
         if (r === 'ok') this.ctx.refreshEvents();
         break;
       }
@@ -191,7 +191,7 @@ export class Interpreter {
         break;
       case 'gold':
         this.ctx.items.gold(c.op, c.value);
-        if (!c.silent && c.op === 'add' && c.value > 0) message.showText(`Received ${c.value.toLocaleString()} gold!`, undefined, next?.cmd === 'choice');
+        if (!c.silent && c.op === 'add' && c.value > 0) message.showText(`Received ${c.value.toLocaleString()} gold!`, undefined, next?.cmd === 'choice', undefined, undefined, 'gold');
         this.ctx.refreshEvents();
         break;
       case 'shop':
@@ -206,8 +206,8 @@ export class Interpreter {
       case 'skillPoints': this.ctx.skillPoints(c.value); break;
       case 'quest': this.ctx.quest(c); this.ctx.refreshEvents(); break;
       case 'battle': message.close(); this.ctx.battle(c); break;
-      case 'learn': { const t = this.ctx.learn(c); if (t && !c.silent) message.showText(t, undefined, next?.cmd === 'choice'); break; }
-      case 'heroClass': { const t = this.ctx.heroClass(c); if (t && !c.silent) message.showText(t, undefined, next?.cmd === 'choice'); this.ctx.refreshEvents(); break; }
+      case 'learn': { const t = this.ctx.learn(c); if (t && !c.silent) message.showText(t, undefined, next?.cmd === 'choice', undefined, undefined, 'system'); break; }
+      case 'heroClass': { const t = this.ctx.heroClass(c); if (t && !c.silent) message.showText(t, undefined, next?.cmd === 'choice', undefined, undefined, 'system'); this.ctx.refreshEvents(); break; }
       case 'transfer':
         // A transfer ends the event: its map is about to go away.
         this.stack = [];

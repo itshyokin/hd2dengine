@@ -24,7 +24,8 @@ import { troopsTab } from './TroopsEditor';
 import { achievementsTab } from './AchievementsEditor';
 import { markersTab } from './MarkersEditor';
 import { textColorsTab } from './TextColorsEditor';
-import { textColors, type TextColor } from '../ui/richText';
+import { messageStyles, textColors, type MessageStyle, type TextColor } from '../ui/richText';
+import { messageStylesTab } from './MessageStylesEditor';
 import { saveDatabase } from './io';
 import { markerKinds, type MarkerKind } from '../world/landmarks';
 import type { AchievementDef } from '../game/achievements';
@@ -46,7 +47,7 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
@@ -54,7 +55,7 @@ const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
   ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group'], ['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
-  ['World', [['time', 'Time & seasons', 'clock'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note']]],
+  ['World', [['time', 'Time & seasons', 'clock'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['messageStyles', 'Text boxes', 'bubble'], ['audio', 'Audio', 'note']]],
   ['System', [['saving', 'Saving', 'disk'], ['menus', 'Title & menus', 'menu'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
@@ -78,6 +79,7 @@ const ICON_PATHS: Record<string, string> = {
   note: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
   disk: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
   menu: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
+  bubble: '<path d="M4 5h16v11H10l-4 4v-4H4z"/><path d="M8 9h8M8 12h5"/>',
   heart: '<path d="M12 20s-8-4.7-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6.3-8 11-8 11z"/>',
 };
 const dbIcon = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] ?? ''}</svg>`;
@@ -113,6 +115,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const achState = { sel: 0 };
   const markers: MarkerKind[] = structuredClone(markerKinds(store.db.markers));
   const textCols: TextColor[] = structuredClone(textColors(store.db.textColors));
+  const msgStyles: MessageStyle[] = structuredClone(messageStyles(store.db.messageStyles)), msgState = { sel: 0 };
   let devConsole = store.db.devConsole ?? 'playtest';
 
   const num = (value: number, set: (v: number) => void, min = 0, step = 1, label = '') =>
@@ -162,6 +165,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audio.files, troopState, render)); return; }
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
     if (tab === 'textColors') { content.replaceChildren(...textColorsTab(textCols, render)); return; }
+    if (tab === 'messageStyles') { content.replaceChildren(...messageStylesTab(msgStyles, textCols, msgState, render)); return; }
     if (tab === 'achievements') { content.replaceChildren(...achievementsTab(store, store.db, achievements, achState, render)); return; }
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
     if (tab === 'additions') { content.replaceChildren(...additionsTab(additions, additionState, render)); return; }
@@ -365,6 +369,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const dcOut = devConsole === 'playtest' ? null : devConsole;
       const markersOut = JSON.stringify(markers) === JSON.stringify(markerKinds(undefined)) ? null : markers;
       const textColorsOut = JSON.stringify(textCols) === JSON.stringify(textColors(undefined)) ? null : textCols;
+      const stylesOut = JSON.stringify(msgStyles) === JSON.stringify(messageStyles(undefined)) ? null : msgStyles;
       if (JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
         JSON.stringify(mOut ?? null) === JSON.stringify(db.menus ?? null) && gameTitle === db.title && JSON.stringify(tFinal) === JSON.stringify(db.time ?? null) &&
         JSON.stringify(Object.keys(ab).length ? ab : null) === JSON.stringify(db.abilities && Object.keys(db.abilities).length ? db.abilities : null) &&
@@ -378,7 +383,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null)) return 'same';
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -404,6 +409,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
       if (markersOut) db.markers = C(markersOut); else delete db.markers;
       if (textColorsOut) db.textColors = C(textColorsOut); else delete db.textColors;
+      if (stylesOut) db.messageStyles = C(stylesOut); else delete db.messageStyles;
       db.characters = C(people.chars);
       const cr = cleanCredits(credits);
       if (cr) db.credits = C(cr); else delete db.credits;

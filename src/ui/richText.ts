@@ -131,3 +131,36 @@ export function applyLook(el: HTMLElement, look: TextLook | undefined, text: HTM
   if (l.glow) sh.push(`0 0 6px ${l.color ?? 'currentColor'}`, `0 0 14px ${l.color ?? 'currentColor'}`);
   text.style.textShadow = sh.join(', ');
 }
+
+/**
+ * Text box styles (Database → Text boxes): ready-made looks for messages. A Show text command picks one (or
+ * Automatic: Speech for people, Sign for signs and objects, Narration with nobody speaking); the game's own messages
+ * use Item received, Gold received and System. A command can still change the look just for itself.
+ */
+export interface MessageStyle {
+  id: string;
+  name: string;
+  /** Speech bubble with a tail, a plain box, or automatic (a tail for characters). */
+  box?: 'auto' | 'speech' | 'plain';
+  /** The look (unset: the game window's own). */
+  look?: TextLook;
+}
+
+/** The built-in styles every project has (they can be changed, not removed). */
+export const BUILTIN_STYLE_IDS = ['speech', 'sign', 'narration', 'item', 'gold', 'system'] as const;
+
+export const DEFAULT_MESSAGE_STYLES: MessageStyle[] = [
+  { id: 'speech', name: 'Speech (people talking)', box: 'auto' },
+  { id: 'sign', name: 'Sign (signs and objects)', box: 'plain', look: { bubble: '#3b2a1a', color: '#f6e7c8' } },
+  { id: 'narration', name: 'Narration (nobody speaking)', box: 'plain', look: { bubble: '#0b0d16', color: '#e6e1d6', italic: true } },
+  { id: 'item', name: 'Item received', box: 'plain', look: { bubble: '#14241c', color: '#e9f7e4' } },
+  { id: 'gold', name: 'Gold received', box: 'plain', look: { bubble: '#2a2210', color: '#ffe7a3' } },
+  { id: 'system', name: 'System (learned, class…)', box: 'plain', look: { bubble: '#121a2c', color: '#dfe8ff' } },
+];
+
+/** The project's styles: its own, with any built-in one it lacks added. */
+export function messageStyles(list?: MessageStyle[]): MessageStyle[] {
+  const out = list?.length ? [...list] : [];
+  for (const d of DEFAULT_MESSAGE_STYLES) if (!out.some((s) => s.id === d.id)) out.splice(DEFAULT_MESSAGE_STYLES.indexOf(d), 0, d);
+  return out;
+}
