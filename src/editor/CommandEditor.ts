@@ -549,7 +549,7 @@ export class CommandEditor {
           field('Amount', numberInput(d.value, (v) => (d.value = Math.round(v)), { step: 1 })),
           checkbox('Quietly (no message)', !!d.silent, (v) => (d.silent = v || undefined))];
       case 'sound': {
-        const opts: [string, string][] = [...SFX_NAMES.map((n) => [n, `${SFX_LABELS[n]} (built-in)`] as [string, string]), ...audioFiles().map((f) => [f, f.split('/').pop()!] as [string, string])];
+        const opts: [string, string][] = [...SFX_NAMES.map((n) => [n, `${SFX_LABELS[n]} (built-in)`] as [string, string]), ...audioFiles().map((f) => [f, f.startsWith('audio/') ? f.slice(6) : f.split('/').pop()!] as [string, string])];
         if (!opts.some(([v]) => v === d.sound)) opts.unshift([d.sound, d.sound]);
         return [field('Sound', select(opts, d.sound, (v) => (d.sound = v))), previewButton(() => previewSound(d.sound))];
       }
@@ -629,7 +629,7 @@ export class CommandEditor {
           checkbox('The party may run away', !!d.canRun, (v) => (d.canRun = v || undefined)),
           field('If the party loses', select([['respawn', 'Back to the respawn point (as dying does); the event stops'], ['continue', 'The event goes on (a story battle meant to be lost)']], d.lose ?? 'respawn', (v) => { if (v === 'continue') d.lose = 'continue'; else delete d.lose; })),
           field('Result into variable', textInput(d.resultVar ?? '', (v) => (d.resultVar = v.trim() || undefined), { placeholder: 'Optional, e.g. boss_result' }), '1 if won, 2 if the party ran away, 0 if lost. Branch on it afterwards.'),
-          field('Battle music', select([['', 'The map’s battle music'], ...loopChoices('music', audioFiles()).filter(([v]) => v)], d.music ?? '', (v) => (d.music = v || undefined))),
+          field('Battle music', select([['', 'The usual (map override, else the game’s)'], ...loopChoices('music', audioFiles()).filter(([v]) => v)], d.music ?? '', (v) => (d.music = v || undefined))),
           field('Battle map', select([['', 'The map’s battle map'], ...this.store.battleMapNames().map((n) => [n, n] as [string, string])], d.map ?? '', (v) => (d.map = v || undefined)), 'Where it’s fought: a boss arena, a throne room…'),
           h('p', { class: 'hint' }, 'A turn-based battle (in either battle system), for bosses and set-piece fights. The event waits for it to end. Beating these enemies gives EXP, gold and drops as usual.')];
       }
@@ -705,7 +705,7 @@ const previewButton = (play: () => void) => h('button', { type: 'button', class:
 
 /** A sound to pick (none, a built-in effect or an imported file), with a preview button. */
 export function soundField(label: string, value: string | undefined, set: (v: string | undefined) => void, hint?: string): HTMLElement {
-  const opts: [string, string][] = [['', 'None'], ...audioFiles().map((f) => [f, f.split('/').pop()!] as [string, string]), ...SFX_NAMES.map((n) => [n, `${SFX_LABELS[n]} (built-in)`] as [string, string])];
+  const opts: [string, string][] = [['', 'None'], ...audioFiles().map((f) => [f, f.startsWith('audio/') ? f.slice(6) : f.split('/').pop()!] as [string, string]), ...SFX_NAMES.map((n) => [n, `${SFX_LABELS[n]} (built-in)`] as [string, string])];
   let cur = value ?? '';
   return field(label, h('div', { class: 'field-row audio-row' }, select(opts, cur, (v) => { cur = v; set(v || undefined); }), previewButton(() => { if (cur) previewSound(cur); })), hint);
 }

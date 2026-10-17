@@ -132,6 +132,9 @@ export function startingAbilities(db: Database, h: HeroDef | undefined): Ability
   const a: AbilityData = {};
   for (const [id, rank] of Object.entries(h?.spells ?? {})) { const s = findSpell(db, id); if (s) learnSpell(a, s, rank); }
   for (const id of h?.additions ?? []) { const d = findAddition(db, id); if (d) learnAddition(a, d); }
+  // Their default Addition (Database → Heroes): known from the start, and what Attack performs.
+  const def = h?.defaultAddition ? findAddition(db, h.defaultAddition) : undefined;
+  if (def) { learnAddition(a, def); a.addition = def.id; }
   if (h?.cls && findClass(db, h.cls)) changeClass(a, h.cls);
   return a;
 }

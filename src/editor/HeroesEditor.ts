@@ -41,6 +41,8 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     if (x.cls) c.cls = x.cls;
     if (x.spells && Object.keys(x.spells).length) c.spells = { ...x.spells };
     if (x.additions?.length) c.additions = [...x.additions];
+    if (x.defaultAddition) c.defaultAddition = x.defaultAddition;
+    if (x.battleOffset) c.battleOffset = x.battleOffset;
     if (i > 0 && x.gear && Object.values(x.gear).some(Boolean)) c.gear = Object.fromEntries(Object.entries(x.gear).filter(([, v]) => v));
     if (i === 0 && x.creation) {
       const cr: CreationSettings = {};
@@ -128,7 +130,12 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
           if (on) set.add(ad.id); else set.delete(ad.id);
           x.additions = learnable.additions.map((a) => a.id).filter((id) => set.has(id));
           if (!x.additions.length) delete x.additions;
+          rerender();
         }))),
+        field('Default Addition', select([['', 'Their first Addition (or a plain attack without any)'], ...learnable.additions.map((ad) => [ad.id, ad.name] as [string, string])], x.defaultAddition ?? '', (v) => { if (v) x.defaultAddition = v; else delete x.defaultAddition; }),
+          'What Attack performs in battle until the player picks another in Party → Addition. Learned at the start if it isn’t ticked above.'),
+        field('Battle height offset (tiles)', numberInput(x.battleOffset ?? 0, (v) => { const r = Math.round(v * 100) / 100; if (r) x.battleOffset = r; else delete x.battleOffset; }, { step: 0.05, class: 'db-num' }),
+          'Raise (+) or lower (−) them on battle maps, if their art floats or sinks.'),
         h('p', { class: 'note' }, 'More are learned in the game from skill-tree skills, events and trainers.')),
       defenceSection(x, rerender, 'They'),
       field('Can’t get', ailmentChips(() => x.resists, (v) => { if (v) x.resists = v as Ailment[]; else delete x.resists; }, rerender, 'Can’t get'), 'Ailments this hero never gets (equipment can ward off more).'),

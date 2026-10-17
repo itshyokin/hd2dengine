@@ -705,6 +705,10 @@ export interface HeroDef {
   face?: string;
   /** Turn-based: voice clips, one at random as they land a weapon or bow attack (sound sources). */
   attackSounds?: string[];
+  /** Turn-based battles: raise (+) or lower (−) their picture, in tiles, when the art floats or sinks. */
+  battleOffset?: number;
+  /** The Addition Attack performs unless the player picks another (Party → Addition); unset: their first. */
+  defaultAddition?: string;
   /** Starting Strength, Dexterity, Defence, Magic and Magic Defence (10 each when left out). */
   stats?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>;
   /** The first hero: how a new game makes their stats. */
@@ -769,7 +773,7 @@ export interface Database {
   /** Combat tuning (Database → Combat); anything left out uses the defaults (see game/combat/config.ts). */
   combat?: CombatData;
   /** Sound (Database → Audio): imported files, effects swapped for files, title music. */
-  audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; /** After the victory fanfare (unset: the map's music). */ victoryMusic?: string };
+  audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; /** After the victory fanfare (unset: the map's music). */ victoryMusic?: string; /** Every battle's music unless a map, zone, troop or Start battle command overrides it (unset: the built-in theme). */ battleMusic?: string };
   /** The skill tree (Database → Skills). Without it, the built-in tree is used. */
   skills?: SkillsData;
   /** Troops: groups of enemies for random encounters (encounter zones on maps). */
@@ -1039,6 +1043,10 @@ export interface EnemyDef {
   description?: string;
   /** Left out of the Bestiary (a story-only foe, a training dummy). */
   noBestiary?: boolean;
+  /** Recolour its picture (RPG Maker style): hue turned this many degrees, saturation ×, and a colour mixed in. */
+  tint?: { hue?: number; sat?: number; color?: string; amount?: number };
+  /** Turn-based battles: raise (+) or lower (−) its picture, in tiles, when its art floats or sinks. */
+  battleOffset?: number;
   /**
    * How it looks: a character from the database (a sheet, like the player's), a flat image (one picture, brought to
    * life with generic motion: breathing, sliding, hopping or flying), or a built-in monster sheet.

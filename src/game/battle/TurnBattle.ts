@@ -180,7 +180,8 @@ export class TurnBattle {
       }
       if (who!.charging) { this.chargeTurn(who!); return; }
       if (start.confused) { this.confusedTurn(who!); return; }
-      if (who!.side === 'party') this.commandMenu(who!);
+      // Each hero's turn starts on Attack (going back from Magic or Items keeps the place within the turn).
+      if (who!.side === 'party') { this.lastCommand = 0; this.commandMenu(who!); }
       else this.later(0.45, () => this.enemyTurn(who!));
     };
     if (pause) this.later(pause, go); else go();
@@ -240,7 +241,7 @@ export class TurnBattle {
     this.actor = n;
     this.showOrder();
     this.phase = 'busy';
-    this.later(0.8, () => this.commandMenu(n));
+    this.later(0.8, () => { this.lastCommand = 0; this.commandMenu(n); });
   }
 
   /** The party members fighting now (0 the hero), in their places: the lineup to keep after the battle. */

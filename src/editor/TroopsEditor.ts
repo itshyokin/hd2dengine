@@ -5,8 +5,9 @@
 import type { EnemyDef, TroopDef } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { loopChoices } from '../audio/sfx';
+import { combatPreviewRow } from './combatPreview';
 
-export function troopsTab(list: TroopDef[], enemies: EnemyDef[], audioFiles: string[], state: { sel: number }, rerender: () => void): HTMLElement[] {
+export function troopsTab(list: TroopDef[], enemies: EnemyDef[], audioFiles: string[], state: { sel: number }, rerender: () => void, battleMaps: string[] = []): HTMLElement[] {
   state.sel = Math.max(0, Math.min(state.sel, list.length - 1));
   const add = () => {
     let id = 'troop', k = 2;
@@ -45,8 +46,9 @@ export function troopsTab(list: TroopDef[], enemies: EnemyDef[], audioFiles: str
         opts.length ? h('button', { type: 'button', class: 'btn', onclick: () => { t.members.push({ enemy: opts[0][0], min: 1, max: 1 }); rerender(); } }, '+ Add enemy') : h('span'),
         h('p', { class: 'note' }, `Each battle picks how many of each between “at least” and “at most” (up to ${total} in all; a battle holds at most 3).`)),
       h('section', { class: 'db-section' }, h('h3', {}, 'Battle'),
-        field('Battle music', select([['', 'The map’s battle music'], ...loopChoices('music', audioFiles).filter(([v]) => v)], t.music ?? '', (v) => { if (v) t.music = v; else delete t.music; })),
-        checkbox('The party can’t run from this troop', !!t.noRun, (v) => { if (v) t.noRun = true; else delete t.noRun; })),
+        field('Battle music', select([['', 'The usual (map override, else the game’s)'], ...loopChoices('music', audioFiles).filter(([v]) => v)], t.music ?? '', (v) => { if (v) t.music = v; else delete t.music; })),
+        checkbox('The party can’t run from this troop', !!t.noRun, (v) => { if (v) t.noRun = true; else delete t.noRun; }),
+        combatPreviewRow(battleMaps, () => t.members.flatMap((m) => Array.from({ length: Math.max(1, m.max ?? m.min ?? 1) }, () => m.enemy)).slice(0, 3))),
     );
   }
   return [h('div', { class: 'items-layout' }, side, form)];

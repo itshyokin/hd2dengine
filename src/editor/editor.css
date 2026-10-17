@@ -654,3 +654,17 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .item-list > .item-del { order: -1; position: sticky; top: 40px; z-index: 1; margin: 0 0 8px; background: #3a2124; }
 .db-modal .item-list { max-height: calc(100dvh - 250px); }
 .style-swatch { display: inline-grid; place-items: center; width: 30px; height: 22px; border-radius: 5px; font: 700 11px var(--f-body, sans-serif); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+
+/* Layer tabs as icons (names in tooltips and under them), with Map Properties above. */
+.palette-head { display: grid; gap: 6px; padding: 8px 10px 0; border-bottom: 1px solid var(--line); }
+.map-props-btn { width: 100%; }
+.tabs.icon-tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 0; }
+.icon-tabs .tab { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; }
+.icon-tabs .tab svg { width: 20px; height: 20px; }
+.icon-tabs .tab[aria-selected="true"] { color: #1b1206; background: linear-gradient(#ffd27a, #e8a63a); border-color: rgba(0,0,0,0.3); }
+.layer-name { font-size: 12px; color: var(--muted); padding: 0 2px 6px; }
+.map-win-tabs .db-tab { width: auto; padding: 0 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.map-win-tabs .db-tab span { white-space: nowrap; }
+.map-win-body .db-section { max-width: 900px; }
+.erase-type { display: grid; gap: 6px; padding: 8px; border-radius: 8px; background: rgba(214, 64, 52, 0.08); border: 1px solid rgba(214, 64, 52, 0.3); }
+.audio-folders { display: grid; gap: 2px; } .audio-folder { display: flex; justify-content: space-between; gap: 12px; } .audio-folder span { color: var(--muted); font-size: 12px; }

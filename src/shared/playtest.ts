@@ -19,6 +19,8 @@ export interface PlaytestData {
   files: Record<string, Blob>;
   /** Matches ?playtest=<stamp> in the game's URL, so the game knows it has this hand-off and not an older one. */
   stamp?: string;
+  /** Combat preview (Database → Enemies / Troops): straight into a battle with these enemies, on this battle map. */
+  battle?: { enemies: string[]; map?: string };
 }
 
 function open(): Promise<IDBDatabase> {

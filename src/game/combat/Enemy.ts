@@ -6,6 +6,7 @@
  * it's alert (!) and attacks. Every attack has a wind-up the player can read and dodge.
  */
 import * as THREE from 'three';
+import { tintObject } from '../../render/tint';
 import { CharacterSprite } from '../CharacterSprite';
 import { FLY_HEIGHT, FlatSprite } from '../FlatSprite';
 import { MONSTERS } from '../../art/placeholderArt';
@@ -114,6 +115,7 @@ export class Enemy {
       : monster ? new CharacterSprite(sprites, sprites.sheet(monster.draw()), 'down')
       : person ? new CharacterSprite(sprites, sprites.forCharacter(person), 'down')
       : new CharacterSprite(sprites, sprites.sheet(MONSTERS.slime.draw()), 'down');
+    if (def.tint) tintObject(this.sprite.mesh, def.tint);
     this.material = this.sprite.mesh.material as THREE.MeshStandardMaterial;
     this.scale = def.scale ?? 1;
     this.sprite.mesh.scale.setScalar(this.scale);

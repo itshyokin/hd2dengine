@@ -6,6 +6,7 @@ import './editor.css';
 import { writePlaytest } from '../shared/playtest';
 import { loadEnemyImages } from './CombatEditor';
 import { openDatabase } from './DatabaseEditor';
+import { setCombatPreview } from './combatPreview';
 import { openWorldLayout } from './WorldEditor';
 import type { MapData } from '../world/types';
 import { confirmModal, field, h, numberInput, openModal, select, textInput, toast } from './dom';
@@ -23,7 +24,7 @@ import { migrateItems } from '../world/items';
 import { BudgetMeter } from '../ui/BudgetMeter';
 import type { LightCounts } from '../shared/lightBudget';
 import { MapView, isTyping } from './MapView';
-import { MODE_HINTS, Palette } from './Palette';
+import { MODE_HINTS, Palette, setMapPropertiesOpener } from './Palette';
 import { EditorStore, type Mode } from './store';
 import {
   type DirHandle, type Project, canOpenFolders, devServerProject, ensurePermission, findDataDir, folderProject,
@@ -124,6 +125,7 @@ function buildUI(): void {
     else if (id < 0) view.centerOn(Math.floor(store.db.start.x), Math.floor(store.db.start.z));
   });
   const inspector = new Inspector(store);
+  setMapPropertiesOpener(() => inspector.openMapWindow());
   // Double-clicking an event on the map opens its editor window.
   view.el.addEventListener('dblclick', () => {
     const sel = store.selection, ev = sel?.kind === 'event' ? store.event(sel.id) : null;
@@ -234,7 +236,14 @@ function buildUI(): void {
 /* ------------------------------------------------------------ playtest */
 
 /** Hand the current map, assets and imported images to the game (opened by the Playtest link). */
-async function playtest(stamp: string): Promise<void> {
+/** Combat preview from the Database: a playtest that opens straight into a battle. */
+setCombatPreview((enemies, map) => {
+  const stamp = String(Date.now());
+  window.open(`${PLAYTEST_URL}=${stamp}`, '_blank');
+  void playtest(stamp, { enemies, map });
+});
+
+async function playtest(stamp: string, battle?: { enemies: string[]; map?: string }): Promise<void> {
   try {
     const used = new Set<string>();
     for (const d of store.assets.props) for (const p of [d.image, d.normal, d.glow]) if (p) used.add(p);
@@ -258,6 +267,14 @@ async function playtest(stamp: string): Promise<void> {
     await loadWeaponSheets(store, [...weapons, ...iconSprites]);
     if (wl) { used.add(WEAPON_MANIFEST_PATH); used.add(WEAPON_MANIFEST_PATH.replace('weapons.json', 'thumbs.png')); }
     for (const id of [...weapons, ...iconSprites]) { const d = findWeapon(store, wl, id); if (d) used.add(d.file); }
+    // Sounds from the audio folders in use (a project folder opened as a file hands them over; servers serve them).
+    if (store.project.kind === 'folder') {
+      const text = JSON.stringify(store.db) + JSON.stringify(store.map);
+      for (const m of text.matchAll(/"(audio\/[^"]+\.(?:ogg|mp3|wav|m4a|flac))"/gi)) {
+        const f = m[1]; used.add(f);
+        if (!store.files.has(f)) { try { store.files.set(f, await store.project.readFile(f)); } catch { /* missing */ } }
+      }
+    }
     const files: Record<string, Blob> = {};
     for (const p of used) { const b = store.files.get(p); if (b) files[p] = b; }
     // Every other map too, so transfers work. Maps that can't be read are left out (the game then tries the project).
@@ -267,7 +284,7 @@ async function playtest(stamp: string): Promise<void> {
     }));
     await writePlaytest({
       db: store.db, mapName: store.mapName, map: store.map, maps, start: store.startHere ? store.db.start : undefined,
-      assets: store.assets, files, stamp,
+      assets: store.assets, files, stamp, battle,
     });
   } catch (err) {
     toast(`Couldn’t start the playtest: ${err instanceof Error ? err.message : String(err)}`, 'error');

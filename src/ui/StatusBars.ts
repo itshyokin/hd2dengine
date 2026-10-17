@@ -14,9 +14,9 @@ export interface ClockInfo { time: string; hour: number; night: number; weather:
 export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string; /** Disabled by an event (indoors): greyed with a red ✕. */ blocked?: boolean }
 
 /** The HUD pieces a player can move and scale. */
-export type HudWidget = 'stats' | 'party' | 'party2' | 'party3' | 'stamina' | 'minimap' | 'clock' | 'weapons' | 'xp' | 'log' | 'quest' | 'quick';
+export type HudWidget = 'stats' | 'party' | 'party2' | 'party3' | 'stamina' | 'minimap' | 'gold' | 'clock' | 'weapons' | 'xp' | 'log' | 'quest' | 'quick';
 export const HUD_WIDGETS: [HudWidget, string][] = [['stats', 'Health, magic & EXP'], ['stamina', 'Stamina ring'], ['party', 'Party: first card'], ['party2', 'Party: second card'], ['party3', 'Party: third card'],
-  ['clock', 'Time & spell'], ['minimap', 'Mini-map'], ['weapons', 'Weapons'], ['xp', 'EXP bar'], ['log', 'Adventure log'], ['quest', 'Quest tracker'], ['quick', 'Quick items']];
+  ['clock', 'Time & spell'], ['minimap', 'Mini-map'], ['gold', 'Gold'], ['weapons', 'Weapons'], ['xp', 'EXP bar'], ['log', 'Adventure log'], ['quest', 'Quest tracker'], ['quick', 'Quick items']];
 /** How many party cards the HUD has (one movable piece each). */
 export const PARTY_SLOTS = 3;
 const SLOT_WIDGETS: HudWidget[] = ['party', 'party2', 'party3'];
@@ -113,6 +113,17 @@ export class StatusBars {
   private readonly stamina = document.createElement('div');
   private staminaFull = 0;
 
+  /** Gold: a coin and "120 Gold". */
+  private readonly goldEl = document.createElement('div');
+  private goldShown = -1;
+  setGold(n: number): void {
+    if (n === this.goldShown) return;
+    const up = this.goldShown >= 0 && n > this.goldShown;
+    this.goldShown = n;
+    (this.goldEl.querySelector('b') as HTMLElement).textContent = n.toLocaleString();
+    if (up) { this.goldEl.classList.remove('gain'); void this.goldEl.offsetWidth; this.goldEl.classList.add('gain'); }
+  }
+
   /** The mini-map: a round, north-up view of the map around the hero (drawn by the game). */
   readonly minimap = document.createElement('div');
   readonly minimapCanvas = document.createElement('canvas');
@@ -164,6 +175,10 @@ export class StatusBars {
     this.stamina.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle class="hs-track" cx="24" cy="24" r="20"/><circle class="hs-fill" cx="24" cy="24" r="20" pathLength="100"/>
       <path class="hs-dash" d="M27 12l-9 13h6l-3 11 10-14h-6z"/><path class="hs-lines" d="M9 20h6M7 25h7M9 30h6"/></svg>`;
 
+    this.goldEl.className = 'hud-gold';
+    this.goldEl.setAttribute('aria-label', 'Gold');
+    this.goldEl.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="8.6" rx="6.2" ry="5.9" fill="#a8741c"/><ellipse cx="8" cy="7.6" rx="6.2" ry="5.9" fill="#f2c64a"/><ellipse cx="8" cy="7.6" rx="4.1" ry="3.8" fill="none" stroke="#c89220" stroke-width="1.2"/><path d="M6.2 5.4h3.4" stroke="#fff3c4" stroke-width="1" stroke-linecap="round"/></svg><b>0</b><span>Gold</span>';
+
     this.minimap.className = 'hud-minimap';
     this.minimap.setAttribute('aria-label', 'Mini-map');
     this.minimapCanvas.width = this.minimapCanvas.height = 176;
@@ -200,7 +215,7 @@ export class StatusBars {
       e.stopPropagation();
       this.onQuick(Number(b.dataset.q));
     });
-    parent.append(this.vignette, this.top, this.partyEl, this.stamina, this.side, this.minimap, this.weapons, this.quick, this.xpBar);
+    parent.append(this.vignette, this.top, this.partyEl, this.stamina, this.side, this.minimap, this.goldEl, this.weapons, this.quick, this.xpBar);
   }
 
   /** The readied spell shard (icon and name, with the key that casts it), or null for none. */
@@ -280,7 +295,7 @@ export class StatusBars {
 
   /** The movable pieces. */
   get widgets(): Record<HudWidget, HTMLElement> {
-    return { stats: this.top, party: this.slots[0], party2: this.slots[1], party3: this.slots[2], stamina: this.stamina, minimap: this.minimap, clock: this.side, weapons: this.weapons, xp: this.xpBar, log: this.logEl, quest: this.questEl, quick: this.quick };
+    return { stats: this.top, party: this.slots[0], party2: this.slots[1], party3: this.slots[2], stamina: this.stamina, minimap: this.minimap, gold: this.goldEl, clock: this.side, weapons: this.weapons, xp: this.xpBar, log: this.logEl, quest: this.questEl, quick: this.quick };
   }
 
   /** The season picture behind the clock. */
@@ -325,7 +340,7 @@ export class StatusBars {
   }
 
   setHidden(hidden: boolean): void {
-    for (const el of [this.top, this.side, this.xpBar, this.weapons, this.vignette, this.stamina, this.minimap]) el.hidden = hidden;
+    for (const el of [this.top, this.side, this.xpBar, this.weapons, this.vignette, this.stamina, this.minimap, this.goldEl]) el.hidden = hidden;
     this.hiddenAll = hidden;
     this.partyEl.hidden = hidden || !this.partyCount;
     this.quick.hidden = hidden || this.quick.dataset.empty === '1';

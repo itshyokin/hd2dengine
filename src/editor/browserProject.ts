@@ -10,7 +10,7 @@ import { loadAssets, loadDatabase, loadMap, normalizeAssets } from '../shared/da
 import { makeZip, readZip } from '../shared/zip';
 import { migrateMap } from '../world/props';
 import type { AssetRegistry, Database, MapData } from '../world/types';
-import type { DirHandle, Project } from './project';
+import { audioManifest, type DirHandle, type Project } from './project';
 
 const ROOT = 'hd2d-project';
 
@@ -124,6 +124,7 @@ const json = async <T>(f: File): Promise<T> => JSON.parse(await f.text()) as T;
 export function browserProject(): Project {
   return {
     kind: 'browser', label: 'On this device', canSave: true, canStoreImages: true,
+    listAudio: audioManifest,
     readDatabase: async () => { const f = await readLocal('data/database.json'); return f ? json<Database>(f) : loadDatabase(); },
     readMap: async (name) => {
       const f = await readLocal(`data/maps/${name}.json`);
