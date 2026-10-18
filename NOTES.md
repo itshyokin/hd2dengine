@@ -25,12 +25,14 @@ Kept in the project so they travel with the code. Tick them off as they're built
       and the tabs regrouped.
 
 ## Travel (ideas, Oct 17)
-- [ ] Horses: rented at stables (one at a time, tiers with their own stamina, priced by tier), ridden with a button
-      (also dismounts), faster on the map, left where the player got off (saved per map), a Saddle key item sends it
-      home to its stable (so a new one can be rented elsewhere). Not shown in battles; still mounted after one.
+- [ ] Horses: rented at stables (one at a time, tiers with their own stamina and jump, priced by tier); A next to
+      the horse mounts, B dismounts (B's key item / spell otherwise); faster on the map; jump 1★ 3 tiles, 2★ 4,
+      3★ 5; left where the player got off (saved per map); a Saddle key item sends it home to its stable (so a new
+      one can be rented elsewhere). Not shown in battles; still mounted after one. Placeholder horse art for now.
 - [ ] Griffin flights (WoW-style): roosts in some towns, fly to known roosts picked on the world map, priced by
-      distance. The griffin flies the route over the World layout's maps with the camera following, unmapped stretches
-      filled with forest scenery, then lands, drops the player off and flies away.
+      distance. Only roosts unlocked by talking to their griffin master. The griffin flies the route over the World
+      layout's maps (lighter versions) with the camera following, unmapped stretches filled with forest / theme
+      scenery, at one speed (long flights take longer, no skip), then lands, drops the player off and flies away.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
