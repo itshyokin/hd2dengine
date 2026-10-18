@@ -372,8 +372,9 @@ function jaggedWall(walls: QuadList, p1: [number, number], p2: [number, number],
     const u = i / cols, v = j / rows;
     const x = p1[0] + (p2[0] - p1[0]) * u, zz = p1[1] + (p2[1] - p1[1]) * u;
     const top = t1 + (t2 - t1) * u, bot = b1 + (b2 - b1) * u, y = top + (bot - top) * v;
-    // Out from the face, never in (no gaps with the ground on top); the ends stay put to meet the next wall.
-    const edge = i === 0 || i === cols ? 0.35 : 1;
+    // Out from the face, never in (no gaps with the ground on top); the ends stay flush (easing in over the last
+    // column) so they meet the next wall, round corners and along straight runs, without a seam.
+    const edge = Math.min(1, Math.min(u, 1 - u) * cols * 0.5);
     const k = j === 0 ? 0 : (valueNoise(x * 3.7 + y * 1.3, zz * 3.7 - y * 2.1) * 0.75 + valueNoise(x * 9.1, y * 8.3 + zz * 9.1) * 0.25) * 0.16 * edge;
     return [x + out[0] * k, y, zz + out[2] * k];
   };
@@ -449,6 +450,31 @@ function addWalls(map: TileMap, x: number, z: number, walls: QuadList, rounded: 
       if (style === 'c') { jaggedWall(walls, [sx1, sz1], [sx2, sz2], sa1, sa2, lo1, lo2, e.out, e.along); continue; }
       walls.add([[sx1, sa1, sz1], [sx2, sa2, sz2], [sx2, lo2, sz2], [sx1, lo1, sz1]],
         [[u(sx1, sz1), sa1], [u(sx2, sz2), sa2], [u(sx2, sz2), lo2], [u(sx1, sz1), lo1]], e.out);
+    }
+  }
+
+  // Soft blocky: where a bevelled edge ends against ground that isn't bevelled the same way (a neighbour as high or
+  // higher, with a square edge there), close the bevel's open end with a little triangle, so no gap shows.
+  if (style === 'b') {
+    const top = map.heightAt(x, z);
+    for (const [ei, e] of EDGES.entries()) {
+      const b = bev[ei];
+      if (!b) continue;
+      for (const k of [0, 1]) {
+        const corner = CORNER_XZ[e.a[k]], other = CORNER_XZ[e.a[1 - k]];
+        // The side neighbour across this end of the edge.
+        const sx = Math.sign(corner[0] - other[0]), sz = Math.sign(corner[1] - other[1]);
+        const nx = x + sx, nz = z + sz;
+        if (!map.inMap(nx, nz)) continue;
+        const nTop = Math.max(...map.cornersAt(nx, nz));
+        if (nTop < top - 1e-3) continue;
+        if (Math.abs(nTop - top) < 1e-3 && map.heightStyle(nx, nz) === 'b' && !map.rampAt(nx, nz) && Math.abs(bevels(map, nx, nz)[ei] - b) < 1e-3) continue;
+        const px = x + corner[0], pz = z + corner[1];
+        const ix = px - e.out[0] * b, iz = pz - e.out[2] * b;
+        const uu = (qx: number, qz: number) => (e.along === 'x' ? qz : qx);
+        walls.add([[px, top - b, pz], [px, top, pz], [ix, top, iz], [ix, top, iz]],
+          [[uu(px, pz), top - b], [uu(px, pz), top], [uu(ix, iz), top], [uu(ix, iz), top]], [-sx, 0, -sz]);
+      }
     }
   }
 

@@ -261,8 +261,10 @@ export class PlayerMotion {
   /** Can the player stand at (x, z) on foot, coming from height fromY? */
   groundFree(x: number, z: number, fromY: number): boolean {
     if (this.ghost) return x > 0.3 && z > 0.3 && x < this.map.w - 0.3 && z < this.map.h - 0.3;
+    const fx = Math.floor(this.x), fz = Math.floor(this.z);
     for (const [px, pz] of probes(x, z)) {
       if (this.cellBlocked(Math.floor(px), Math.floor(pz), false) || this.map.inBox(px, pz)) return false;
+      if (!this.map.deckStepOK(fx, fz, Math.floor(px), Math.floor(pz), this.y)) return false;
       if (Math.abs(this.stand(px, pz) - fromY) > MAX_STEP) return false;
     }
     return true;
@@ -271,8 +273,10 @@ export class PlayerMotion {
   /* ---------------------------------------------------------------- jumping */
 
   private airFree(x: number, z: number, feet: number): boolean {
+    const fx = Math.floor(this.x), fz = Math.floor(this.z);
     for (const [px, pz] of probes(x, z)) {
       if (this.cellBlocked(Math.floor(px), Math.floor(pz), true) || this.map.inBox(px, pz)) return false;
+      if (!this.map.deckStepOK(fx, fz, Math.floor(px), Math.floor(pz), Math.max(feet, this.y))) return false;
       if (this.stand(px, pz) > feet + 0.02) return false;
     }
     return true;
