@@ -6,8 +6,14 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 61: active fighter's ring in their Database colour and a glowing outline on their card; self-switches
       (A–D per event, Set self switch command, page condition); a Switches window (+ / − / rename) wherever a switch
       is picked, the names kept in the Database.
-- [ ] Update 62: the scenery beyond the map edge follows the height of the edge tiles (cliff faces between steps);
+- [x] Update 62: the scenery beyond the map edge follows the height of the edge tiles (cliff faces between steps);
       bridges and platforms (plank, rope and stone bridges, docks; a "walk on top" prop setting).
+- [ ] Update 62b: height styles for raised and lowered ground, painted like water kinds with their own symbols:
+      Blocky (as now), Soft blocky (bevelled, rounded edges and corners), Smooth / hills (heights blended into rolling
+      hills), Cliffs (1×1 like blocks but jagged rock faces); waterfalls where water drops more than 2 heights.
+      (Props in water half-submerged: done in update 62.)
+      Bridges with two levels: walked on from the bank, swum or walked under from below (with enough headroom),
+      for the hero, the party and enemies.
 - [ ] Update 63: window themes (Ember, Medieval Parchment, Medieval Wood, Dwarven, Elvish, Titan) for menus, text
       boxes and the HUD; a default in the Database, chosen by players in Settings; a preview page first.
 - [ ] Update 64: seven stats (STR melee, DEX ranged / accuracy / crits, AGI turn speed and evasion, END ailment
@@ -17,6 +23,16 @@ Kept in the project so they travel with the code. Tick them off as they're built
       bow's lock-on for sniping foes to start a battle); skills that only worked in real time removed or reworked;
       Database forms reorganised Guerilla-style (all switches together at the top, then named sections with a jump bar)
       and the tabs regrouped.
+
+## Travel (ideas, Oct 17)
+- [ ] Horses: rented at stables (one at a time, tiers with their own stamina and jump, priced by tier); A next to
+      the horse mounts, B dismounts (B's key item / spell otherwise); faster on the map; jump 1★ 3 tiles, 2★ 4,
+      3★ 5; left where the player got off (saved per map); a Saddle key item sends it home to its stable (so a new
+      one can be rented elsewhere). Not shown in battles; still mounted after one. Placeholder horse art for now.
+- [ ] Griffin flights (WoW-style): roosts in some towns, fly to known roosts picked on the world map, priced by
+      distance. Only roosts unlocked by talking to their griffin master. The griffin flies the route over the World
+      layout's maps (lighter versions) with the camera following, unmapped stretches filled with forest / theme
+      scenery, at one speed (long flights take longer, no skip), then lands, drops the player off and flies away.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

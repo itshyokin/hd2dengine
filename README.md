@@ -253,6 +253,14 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
   bed. New built-in props: cactus, dry bush, sandstone rock, snowy pine (snow all year) and snowy rock.
 - Saving a map now keeps every setting it has (before, a few — the season, climate, autumn sound, water kinds and
   fishing spots — could be left out of the saved file).
+- **Bridges and platforms** (Props → built-in): wooden bridges (with rails and posts), rope bridges, stone bridges (low
+  parapets and piers), docks and stone platforms, each one tile, east–west or north–south. Paint a row across a river,
+  a chasm or lower ground: they're built in 3D, joined pieces share one height (the highest bank they touch, so they
+  run level from side to side), and the hero, the party and enemies walk across them; water flows and chasms drop
+  away underneath. Fishing from a dock works.
+- **Beyond the edges follows the ground**: the scenery outside the map carries on at the height of the map's edge tiles
+  (a −4 edge continues at −4), with rock faces where it steps up or down, and its trees, rocks and cliffs stand on it.
+- **Props in water** stand half under the surface instead of on the bed (a rock in a stream, a post in a pond).
 - **Props → Erase**: tick **Only erase …** to remove just the kind picked in the list (everything else is left alone),
   or **Erase all …** to clear that kind from the whole map at once (it asks first; Ctrl+Z undoes it). New built-in
   props for camps and woods: wooden fence, fence post and gate, one-person tents (red, blue, green, tan, purple), a

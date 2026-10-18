@@ -12,9 +12,15 @@ const OFF = 0.015;
  * Where a placed prop stands: its base height and depth (wall props on the wall, others on their tile). Props with a
  * footprint stand on its front edge, on the ground of its front row.
  */
-export function propBase(map: TileMap, p: { x: number; z: number; y?: number }, def: { wall?: boolean; foot?: unknown } | undefined): { y: number; z: number } {
+export function propBase(map: TileMap, p: { x: number; z: number; y?: number; s?: number }, def: { wall?: boolean; foot?: unknown; h?: number } | undefined): { y: number; z: number } {
   const gz = def?.foot ? p.z - 0.05 : p.z;
-  if (!def?.wall) return { y: p.y ?? map.surfaceY(p.x, gz), z: p.z };
+  if (!def?.wall) {
+    if (p.y !== undefined) return { y: p.y, z: p.z };
+    const bed = map.surfaceY(p.x, gz), w = map.waterAt(Math.floor(p.x), Math.floor(gz));
+    // Standing in water: half under the surface (a rock, a post, a reed bed), never sunk below the bed.
+    if (w && w.surface > bed + 0.02 && map.iceAt(Math.floor(p.x), Math.floor(gz)) === null) return { y: Math.max(bed, w.surface - (def?.h ?? 1) * (p.s ?? 1) * 0.5), z: p.z };
+    return { y: bed, z: p.z };
+  }
   const a = wallAnchor(map, p.x, gz);
   return { y: p.y ?? a.y, z: a.z };
 }

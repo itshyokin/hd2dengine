@@ -3,6 +3,7 @@
  * When real tilesets and sprite sheets arrive, the SpriteLibrary will load image files instead
  * and nothing else in the engine needs to change.
  */
+import { deckIcon } from '../world/decks';
 import { bayer, clamp, hash2, rng, vnoise } from '../core/math';
 import { Pix, blob, canvasFromRGBA, ell, segD } from '../core/pixel';
 import type { TileMap } from '../world/TileMap';
@@ -31,6 +32,15 @@ function tentArt(ramp: string[]): HTMLCanvasElement {
 }
 
 export const PLACEHOLDER_SPRITES: Record<string, () => HTMLCanvasElement> = {
+  // Bridges and platforms are built in 3D; these are their pictures from above (palette and editor map).
+  bridge_wood_h() { return deckIcon({ style: 'wood', dir: 'h', rails: true }); },
+  bridge_wood_v() { return deckIcon({ style: 'wood', dir: 'v', rails: true }); },
+  bridge_rope_h() { return deckIcon({ style: 'rope', dir: 'h' }); },
+  bridge_rope_v() { return deckIcon({ style: 'rope', dir: 'v' }); },
+  bridge_stone_h() { return deckIcon({ style: 'stone', dir: 'h', rails: true }); },
+  bridge_stone_v() { return deckIcon({ style: 'stone', dir: 'v', rails: true }); },
+  dock() { return deckIcon({ style: 'wood', dir: 'h' }); },
+  platform_stone() { return deckIcon({ style: 'stone' }); },
   tent_red() { return tentArt(['#5a1a1a', '#7e2626', '#a33a32', '#c45a44', '#de8064']); },
   tent_blue() { return tentArt(['#1a2a5a', '#263c7e', '#3452a3', '#4c70c4', '#7096de']); },
   tent_green() { return tentArt(['#1c3a1e', '#285428', '#3a7034', '#548e46', '#7aae62']); },

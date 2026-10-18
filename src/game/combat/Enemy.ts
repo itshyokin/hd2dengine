@@ -473,7 +473,7 @@ export class Enemy {
     for (const [px, pz] of [[x - r, z - r * 0.6], [x + r, z - r * 0.6], [x - r, z + r * 0.6], [x + r, z + r * 0.6]]) {
       const cx = Math.floor(px), cz = Math.floor(pz), m = this.map;
       if (!m.inMap(cx, cz) || m.isBlocked(cx, cz) || w.blockedAt(cx, cz) || m.inBox(px, pz)) return false;
-      const wtr = m.waterAt(cx, cz);
+      const wtr = m.footWaterAt(cx, cz);
       if (wtr && wtr.kind !== 'shallow') return false;
       if (Math.abs(m.standY(px, pz) - fromY) > 0.25) return false;
     }

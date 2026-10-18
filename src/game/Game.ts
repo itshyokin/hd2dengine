@@ -1331,7 +1331,7 @@ export class Game {
     this.tileAilT = 0.5;
     const cx = Math.floor(m.x), cz = Math.floor(m.z);
     // Water that hurts (poison goo, lava): its style's ailment, unless the hero is walking on it.
-    const w = !m.onWater ? this.map.waterAt(cx, cz) : null, ws = w ? waterStyle(this.mapData, w.style) : null;
+    const w = !m.onWater ? this.map.footWaterAt(cx, cz) : null, ws = w ? waterStyle(this.mapData, w.style) : null;
     if (ws?.ailment && Math.random() * 100 < (ws.chance ?? 100)) { this.ailmentCommand('give', ws.ailment, undefined, true); return; }
     const t = this.map.inMap(cx, cz) ? this.tiles.ailment(this.map.terrain(cx, cz)) : undefined;
     if (t && Math.random() * 100 < (t.chance ?? 100)) this.ailmentCommand('give', t.ailment, t.seconds, true);
@@ -1376,11 +1376,11 @@ export class Game {
       return !!was && Math.hypot(x - was.x, z - was.z) > dt * 0.4;
     };
     const heroMoving = moved(this.player, m.x, m.z);
-    const w = !m.onWater && !m.airborne ? this.map.waterAt(Math.floor(m.x), Math.floor(m.z)) : null;
+    const w = !m.onWater && !m.airborne ? this.map.footWaterAt(Math.floor(m.x), Math.floor(m.z)) : null;
     if (w) this.ripples.swimmer(this.player, m.x, w.surface, m.z, heroMoving, w.kind !== 'shallow', dt, this.rippleColor(w.style));
     for (const a of this.allies) {
       const am = moved(a, a.x, a.z);
-      const aw = this.map.waterAt(Math.floor(a.x), Math.floor(a.z));
+      const aw = this.map.footWaterAt(Math.floor(a.x), Math.floor(a.z));
       if (aw) this.ripples.swimmer(a, a.x, aw.surface, a.z, am, aw.kind !== 'shallow', dt, this.rippleColor(aw.style));
     }
     // Props standing in water (a rock, a fallen trunk): slow rings around them.
@@ -1392,7 +1392,7 @@ export class Game {
 
   private footstep(loud: number): void {
     const m = this.motion, cx = Math.floor(m.x), cz = Math.floor(m.z);
-    const water = !m.onWater ? this.map.waterAt(cx, cz) : null;
+    const water = !m.onWater ? this.map.footWaterAt(cx, cz) : null;
     const mat = water ? 'water' : this.map.inMap(cx, cz) ? this.tiles.footstep(this.map.terrain(cx, cz)) : 'grass';
     if (mat === 'none') return;
     // The sounds differ in loudness; this evens them out (then a little random variety).
@@ -1832,7 +1832,7 @@ export class Game {
     if (this.rings.active && this.rings.mpDrain > 0 && this.stats.mp <= 0) { this.rings.off(); this.menu.notice(`${this.rings.ring?.name ?? 'The spell'} fades: out of MP`); }
     // Water Walk switches itself off when the hero walks from water back onto land.
     if (this.rings.waterWalk) {
-      const wet = !!this.map.waterAt(Math.floor(m.x), Math.floor(m.z));
+      const wet = !!this.map.footWaterAt(Math.floor(m.x), Math.floor(m.z));
       if (wet) this.tideOnWater = true;
       else if (this.tideOnWater && !m.airborne) {
         this.rings.off(); this.tideOnWater = false;
@@ -5360,7 +5360,7 @@ export class Game {
     this.dying += dt;
     if (this.drowning) {
       // Sinking: down below the surface, bubbles rising, the water closing over.
-      const m = this.motion, w = this.map.waterAt(Math.floor(m.x), Math.floor(m.z));
+      const m = this.motion, w = this.map.footWaterAt(Math.floor(m.x), Math.floor(m.z));
       if (w && m.y > w.surface - 1.6) m.y -= dt * 0.9;
       this.syncPlayer();
       if (w && Math.random() < dt * 9) this.bursts.spawn(m.x + (Math.random() - 0.5) * 0.3, w.surface + 0.02, m.z, { color: '#dff4ff', n: 2, speed: 0.3, up: 1.2, life: 0.5, size: 0.05, gravity: -1 });

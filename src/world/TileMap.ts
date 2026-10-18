@@ -93,6 +93,8 @@ export class TileMap {
    * Using the surface lets the player walk from a bank straight into a pond dug lower than it.
    */
   standY(x: number, z: number): number {
+    const d = this.deckAt(Math.floor(x), Math.floor(z));
+    if (d !== null) return d;
     const g = this.surfaceY(x, z), wtr = this.waterAt(Math.floor(x), Math.floor(z)), ice = this.iceAt(Math.floor(x), Math.floor(z));
     if (ice !== null) return Math.max(g, ice);
     return wtr && wtr.kind !== 'deep' ? Math.max(g, wtr.surface) : g;
@@ -114,9 +116,28 @@ export class TileMap {
     const i = z * this.w + x, f = this.passage[i];
     return f === 'x' ? true : f === 'o' ? false : this.blocked[i] === 1;
   }
-  /** Can't be walked into: solid, or deep water. */
+  /** Can't be walked into: solid, or deep water (unless a bridge or platform crosses it). */
   isBlocked(x: number, z: number): boolean {
-    return this.isSolid(x, z) || this.water[z * this.w + x]?.kind === 'deep';
+    return this.isSolid(x, z) || (this.water[z * this.w + x]?.kind === 'deep' && this.deckAt(x, z) === null);
+  }
+
+  /* Bridges and platforms: cells walked on at a deck's height (over water, chasms, lower ground). */
+  private readonly decks = new Map<number, number>();
+  setDeck(x: number, z: number, y: number | null): void {
+    if (!this.inMap(x, z)) return;
+    if (y === null) this.decks.delete(z * this.w + x); else this.decks.set(z * this.w + x, y);
+  }
+  /** The height of a bridge or platform over this cell, or null. */
+  deckAt(x: number, z: number): number | null {
+    return this.inMap(x, z) ? this.decks.get(z * this.w + x) ?? null : null;
+  }
+  /** Water a walker is in: none on a bridge or platform. */
+  footWaterAt(x: number, z: number): Water | null {
+    return this.deckAt(x, z) !== null ? null : this.waterAt(x, z);
+  }
+  /** The ground under a walker's feet: a deck, or the terrain. */
+  groundY(x: number, z: number): number {
+    return this.deckAt(Math.floor(x), Math.floor(z)) ?? this.surfaceY(x, z);
   }
   /** Only passable while crawling. */
   isLow(x: number, z: number): boolean {

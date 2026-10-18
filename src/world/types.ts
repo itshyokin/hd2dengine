@@ -97,6 +97,8 @@ export interface PropDef {
   image?: string;
   /** Built-in props only: key of the art generated in code. */
   builtin?: string;
+  /** A bridge or platform piece: walked on at a deck height over water, chasms or lower ground (world/decks.ts). */
+  deck?: import('./decks').DeckDef;
   /** Optional normal map (same framing as the image). Generated from the image when missing. */
   normal?: string;
   /** Optional night-glow mask: bright pixels glow at night (lit windows). */
