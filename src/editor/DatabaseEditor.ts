@@ -1,3 +1,4 @@
+import { UI_THEMES } from '../ui/themes';
 import type { HeroDef } from '../world/types';
 import { toast } from './dom';
 /**
@@ -405,6 +406,10 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const text = (value: string | undefined, placeholder: string, set: (v: string | undefined) => void, label: string) =>
     textInput(value ?? '', (v) => set(v.trim() || undefined), { placeholder, 'aria-label': label });
   const menusTab = () => [
+    h('section', { class: 'db-section' },
+      h('h3', {}, 'Window theme'),
+      field('Menus, text boxes and the HUD', select(UI_THEMES.map((t) => [t.id, `${t.name}: ${t.note}`] as [string, string]), menus.uiTheme ?? 'ember', (v) => { if (v === 'ember') delete menus.uiTheme; else menus.uiTheme = v; }),
+        'The game’s look. Players can choose another in Settings → Gameplay → Window theme. Playtest to see it.')),
     h('section', { class: 'db-section' },
       h('h3', {}, 'Title screen'),
       field('Game title', textInput(gameTitle, (v) => (gameTitle = v.trim() || gameTitle)), 'Also names the save files: changing it starts a fresh set of saves.'),

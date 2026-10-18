@@ -14,7 +14,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
       (Props in water half-submerged: done in update 62.)
       Bridges with two levels: walked on from the bank, swum or walked under from below (with enough headroom),
       for the hero, the party and enemies.
-- [ ] Update 63: window themes (Ember, Medieval Parchment, Medieval Wood, Dwarven, Elvish, Titan) for menus, text
+- [x] Update 63: window themes (Ember, Medieval Parchment, Medieval Wood, Dwarven, Elvish, Titan) for menus, text
       boxes and the HUD; a default in the Database, chosen by players in Settings; a preview page first.
 - [ ] Update 64: seven stats (STR melee, DEX ranged / accuracy / crits, AGI turn speed and evasion, END ailment
       resistance and a little HP, DEF, MAG, MDF); buffs and debuffs working in battle, Haste / Slow; a Shared skill

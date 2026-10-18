@@ -1045,6 +1045,8 @@ export type TitleOption = 'continue' | 'newGame' | 'load' | 'options' | 'credits
 export type PauseOption = 'items' | 'equipment' | 'skills' | 'abilities' | 'journal' | 'log' | 'status' | 'quests' | 'settings' | 'saveLoad' | 'quitToTitle' | 'map' | 'achievements' | 'system';
 
 export interface MenuConfig {
+  /** The window theme for menus, text boxes and the HUD (players can pick another in Settings): ember (default), parchment, wood, dwarven, elvish, titan. */
+  uiTheme?: string;
   /** Big text on the title screen (defaults to the game's title) and a line under it. */
   titleText?: string;
   subtitle?: string;

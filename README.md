@@ -532,6 +532,13 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **faces** (X / Shift: the hero's where the level is; the first party card's setting goes for every card); the clock's
   season picture turns on and off with Y / R; the
   adventure log can have **one box** behind it, a strip behind each line, or **no background** (Y / R). In playtests the debug panel sits under the weapons and can be hidden.
+- **Window themes**: the frames, backgrounds and fonts of every menu, text box and HUD piece. Built in: **Ember**
+  (the original dark glass with warm gold), **Medieval Parchment** (aged paper, dark ink, wax-red trim), **Medieval
+  Wood** (oak planks with iron brackets), **Dwarven** (carved grey stone with runes and griffin-head end caps),
+  **Elvish** (white and gold marble set with emeralds and sapphires) and **Titan** (black patchwork metal with glowing
+  red veins). **Database → Menus → Window theme** sets the game's own; players can pick another in **Settings →
+  Gameplay → Window theme** ("The game’s own" follows the Database). Each theme comes with its own title font (embedded,
+  open-licensed), so it works offline and in the standalone builds.
 - **Text boxes**: by default a speech bubble over whoever is talking, sized to the text, with a tail pointing at
   characters (signs and objects get a plain box). **Settings → Gameplay → Text boxes**: above speaker, below speaker,
   top, bottom or centre of the screen. The Show text command can force a speech bubble or a plain box.

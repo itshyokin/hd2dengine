@@ -2,6 +2,7 @@
  * The game: loads data, builds the scene, and runs the frame loop.
  * Systems are kept in their own modules; this file wires them together.
  */
+import { UI_THEMES, applyUiTheme } from '../ui/themes';
 import * as THREE from 'three';
 import { tileCursor } from '../art/placeholderArt';
 import { clamp } from '../core/math';
@@ -5117,6 +5118,7 @@ export class Game {
       { label: 'Letter ticks', detail: 'A soft tick as the letters of a message appear.', toggle: { value: st.textTicks !== false, set: (v) => set('textTicks')(v ? undefined : false) } },
     ], { note: 'Left / right change a volume.' });
     const gameplay = () => this.menu.push('Gameplay', [
+      { label: 'Window theme', detail: 'How menus, text boxes and the HUD look.', choice: { value: st.uiTheme ?? '', options: [['', `The game’s own (${UI_THEMES.find((t) => t.id === (this.db.menus?.uiTheme ?? 'ember'))?.name ?? 'Ember'})`], ...UI_THEMES.map((t) => [t.id, t.name] as [string, string])], set: (v) => set('uiTheme')(v || undefined) } },
       { label: 'Easy-to-read text', detail: 'Plain, smooth letters instead of the game’s pixel font.', toggle: { value: !!st.easyText, set: (v) => set('easyText')(v || undefined) } },
       { label: 'Text boxes', detail: 'Above or below whoever is talking (as a speech bubble), or fixed on screen.', choice: { value: st.textBox ?? 'above', options: [['above', 'Above speaker'], ['below', 'Below speaker'], ['top', 'Top of screen'], ['bottom', 'Bottom of screen'], ['center', 'Centre of screen']], set: (v) => set('textBox')(v as Settings['textBox']) } },
       { label: 'Text speed', choice: { value: st.textSpeed, options: [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']], set: (v) => set('textSpeed')(v as Settings['textSpeed']) } },
@@ -5182,6 +5184,7 @@ export class Game {
   /** Push the settings into the renderer, lights and message window. */
   private applySettings(): void {
     const st = this.settings;
+    applyUiTheme(st.uiTheme || this.db.menus?.uiTheme);
     this.post.settings.bloom = st.bloom;
     this.post.settings.tiltShift = st.depthOfField;
     // Ambient occlusion: half-size on High (or Automatic on a computer), quarter-size on Balanced, off on Performance and on Automatic on phones and tablets.

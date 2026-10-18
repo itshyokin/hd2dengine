@@ -52,6 +52,8 @@ export interface Settings {
   hud?: HudLayout;
   /** Where text boxes appear. */
   textBox: TextBoxPlace;
+  /** Window theme ('' or unset: the game's own, from the Database). */
+  uiTheme?: string;
   /** The game's own lettering, or an easy-to-read one (players who find pixel text hard to read). */
   easyText?: boolean;
   /** A soft tick as message letters appear (off: silent typing). */
