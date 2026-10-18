@@ -49,18 +49,18 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 65: the real-time battle system removed (sword and bow are field tools; bow lock-on snipes to strike first;
   Assassinate and Silent Shot reworked; old real-time skills updated); Database forms with switches at the top and
   a jump bar; Database tabs regrouped (Party, Battle, Abilities, Items, Story, World, Game).
+- 66: impact materials (hit sounds and effects per enemy), big CRITICAL / WEAK / IMMUNE with shake and thump, a
+  battle log on the left (Y scrolls it), monster stat blocks across the top (Database switch) with a boss overdrive
+  gauge.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. **Combat ideas (Oct 18)**: impact materials per enemy (hit sounds and up to two hit effects; bigger CRITICAL
-   with screen shake, bigger WEAK with a thump); a battle log on the left that Y scrolls; monster stat blocks
-   across the top (Database switch, element-coloured target glow, boss overdrive gauge, fade out on defeat).
-2. **Travel**: horses (stables, tiers with stamina and jump of 3 / 4 / 5 tiles, A to mount, B to dismount, Saddle
+1. **Travel**: horses (stables, tiers with stamina and jump of 3 / 4 / 5 tiles, A to mount, B to dismount, Saddle
    key item sends the horse home, placeholder art) and griffin flights (roosts unlocked by talking to the griffin
    master, fly over the World layout's maps at one speed, no skip).
-3. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
+2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary
    achievement rule.

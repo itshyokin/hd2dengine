@@ -1095,6 +1095,11 @@ export interface PlayerConfigData {
 
 export type EnemyBehaviour = 'melee' | 'ranged' | 'charger';
 
+/** What an enemy is made of: the sound and the bits that fly when it's hit. */
+export type Material = 'flesh' | 'plant' | 'metal' | 'stone' | 'wood' | 'bone' | 'liquid' | 'gel' | 'crystal' | 'spirit' | 'cloth';
+/** What flies off when an enemy is hit. */
+export type ImpactFx = 'blood' | 'sparks' | 'stone' | 'wood' | 'splash' | 'bone' | 'crystal' | 'wisps';
+
 export interface EnemyDef {
   id: string;
   name: string;
@@ -1170,6 +1175,12 @@ export interface EnemyDef {
   ailmentResist?: number;
   /** Critical hit chance, % (default 5). */
   crit?: number;
+  /** What it's made of (Database → Enemies → Impact): the sound a sword or arrow makes hitting it, and its effects. */
+  material?: Material;
+  /** Up to two effects when it's hit (unset: its material's), each with an optional colour (green ooze, golden sap). */
+  impactFx?: { kind: ImpactFx; color?: string }[];
+  /** Bosses with stat blocks on: an overdrive gauge that fills as it's hurt; full, its next move hits half again as hard. */
+  overdrive?: boolean;
   /** Turn-based battles: what else it can do on its turn, and how often it uses its plain attack (default 1; 0: never). */
   actions?: EnemyAction[];
   attackWeight?: number;
@@ -1267,6 +1278,8 @@ export interface TurnBasedData {
   heroLocked?: boolean;
   /** Party members follow the hero on the map (default on). Off: only the hero walks the map. */
   partyFollows?: boolean;
+  /** Monster stat blocks across the top of the battle screen (default off). */
+  statBlocks?: boolean;
 }
 
 export interface CombatData {

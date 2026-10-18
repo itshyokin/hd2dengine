@@ -932,6 +932,22 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   built-in spells include **Haste** and **Slow**, learned from Quicken and Hinder in the Magic tree. On the map,
   Haste and Slow change walking speed. Buffs from the map stay on the map. Each hit can also **miss** ("Miss"):
   accuracy against dodging (see *Seven stats*); enemies have *Accuracy %*, *Evasion %* and *Critical hit %*.
+- **Impact materials** (Database → Enemies → *Impact*): each enemy is made of something (flesh, plant, metal,
+  stone, wood, bone, liquid, gel / slime, crystal, spirit, cloth), which sets the sound a sword or arrow makes hitting
+  it (a squish, a vine chop, a metal ding, a stone crack…; *▶ Hear it*), and up to two effects that fly off it: blood
+  (recolour it for ooze, sap or ichor), sparks, stone bits, wood chips, a water / gel splash, bone shards, crystal
+  shards or wisps. Unset, slimes are gel, the undead bone, golems stone, ghosts spirit and the rest flesh.
+  **Critical hits** shake the screen with a big **CRITICAL!**, a crack and a rumble; **weak** hits show a big
+  **WEAK!** and **immune** ones a big **IMMUNE**, each with a soft thump.
+- **Battle log**: what happened, line by line, down the left side. **Y** (key or controller) picks it: ↑ ↓ scroll
+  back through the battle, Y or Back lets go. On a tablet, touch it and scroll.
+- **Monster stat blocks** (Database → Combat → *Monster stat blocks*): a block per foe across the top, like the
+  party's cards: its picture, name, element (or Normal) and health and magic bars (magic greyed out when it has
+  none); the names and bars over the foes go. Choosing a target glows its block in its element's colour (two
+  elements blend left to right; Normal is gold to tan), with arrows above and below it (and still the arrow over its
+  head). A fallen foe's block fades out. A **boss** can have an **Overdrive gauge** (Database → Enemies, under Boss)
+  along the bottom of its block: it fills as the boss is hurt (and a little each of its turns); full, its next move
+  hits half again as hard.
 - **Enemy actions** (Database → Enemies → *Turn-based battles*): besides its plain attack (*how often*, 0 for
   never), an enemy can have actions: **Attack** and **Spell** (its damage × power, on one of the party or all of
   them, with their own element and ailments), **Heal** (itself or a hurt friend, % of their health) and **Guard**

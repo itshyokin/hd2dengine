@@ -5,7 +5,9 @@
  * It only shows things and asks questions: the battle itself is run by TurnBattle.
  */
 import type { Input } from '../game/Input';
-import type { FaceButton } from '../world/types';
+import type { Element, FaceButton, ImpactFx } from '../world/types';
+import { ELEMENT_COLORS, ELEMENT_NAMES } from '../game/elements';
+import { elementIconUrl } from '../art/elementIcons';
 
 /** One timed strike of an Addition: the button, the seconds the ring takes to close, and the timing window. */
 export interface QteStrike { button: FaceButton | 'any'; time: number; window: number }
@@ -42,7 +44,13 @@ export interface FighterView {
   color?: string;
   /** Party: their face art (Dragon Legend layout); unset: `icon`. */
   face?: string;
+  /** Enemies: their elements (stat blocks show them and glow in their colours), and an overdrive gauge (bosses). */
+  elements?: Element[];
+  overdrive?: boolean;
 }
+
+/** Normal (no element): the stat block's glow, gold to tan. */
+const NORMAL_GLOW = ['#f2c64a', '#c9a46a'];
 
 /** One hero on the victory screen: their EXP bar before, and how it fills (level by level) with what they won. */
 export interface VictoryHero {
@@ -77,6 +85,8 @@ export interface StageHooks {
   shot?(kind: 'addition' | 'cast' | null, a?: string, t?: string, snap?: boolean): void;
   active(key: string | null): void;
   highlight(keys: string[]): void;
+  /** A screen shake (a CRITICAL). */
+  shake?(amount: number): void;
 }
 
 /** Fighter animations. approach / strike / back: an Addition (close in, strike per button, then run back). */
@@ -134,6 +144,14 @@ export class BattleScreen {
   private readonly cardsEl: HTMLElement;
   private readonly descEl: HTMLElement;
   private layout: 'dragon' | 'fantasy' = 'dragon';
+  private readonly blocksEl: HTMLElement;
+  private readonly logEl: HTMLElement;
+  private readonly logLines: HTMLElement;
+  /** The battle log is picked (Y): up / down scroll it. */
+  private logFocus = false;
+  /** Monster stat blocks across the top (Database → Combat): one per foe, with their bars. */
+  private blocksOn = false;
+  private readonly blocks = new Map<string, { el: HTMLElement; hp: HTMLElement; mp: HTMLElement; mpBar: HTMLElement; od: HTMLElement | null }>();
   /** Whose turn it is (a party member's shows the arrow over them while they choose). */
   private activeKey: string | null = null;
   private readonly capEl: HTMLElement;
@@ -180,6 +198,8 @@ export class BattleScreen {
         <div class="battle-cards"></div>
       </div>
       <div class="battle-desc" hidden></div>
+      <div class="battle-blocks" aria-label="Foes"></div>
+      <div class="battle-log" role="log" aria-label="Battle log"><div class="battle-log-lines"></div><div class="battle-log-hint">Y: battle log</div></div>
       <div class="battle-result" hidden></div>`;
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
     this.field = q('.battle-field');
@@ -197,6 +217,16 @@ export class BattleScreen {
     this.capEl = q('.battle-cmd-cap');
     this.cardsEl = q('.battle-cards');
     this.descEl = q('.battle-desc');
+    this.blocksEl = q('.battle-blocks');
+    this.logEl = q('.battle-log');
+    this.logLines = q('.battle-log-lines');
+    this.logEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (!this.logFocus) this.focusLog(true); });
+    // Y (the key, or the controller's Y) picks the battle log to scroll; again (or Back) lets go.
+    addEventListener('keydown', (e) => {
+      if (this.root.hidden || this.qte || this.vic || e.code !== 'KeyY' || e.repeat) return;
+      e.preventDefault();
+      this.focusLog(!this.logFocus);
+    });
     this.camEl.addEventListener('click', (e) => { e.stopPropagation(); this.onCamera?.(1); });
     // Tapping anywhere while a message waits moves it on.
     this.root.addEventListener('pointerdown', (e) => {
@@ -233,6 +263,10 @@ export class BattleScreen {
     this.partyEl.replaceChildren();
     this.statusEl.replaceChildren();
     this.cardsEl.replaceChildren();
+    this.blocksEl.replaceChildren();
+    this.blocks.clear();
+    this.logLines.replaceChildren();
+    this.focusLog(false);
     this.resultEl.hidden = true;
     this.cmdEl.hidden = true;
     this.mode = { kind: 'idle' };
@@ -335,6 +369,7 @@ export class BattleScreen {
     }
     el.classList.add('hp-high');
     el.addEventListener('click', () => this.tapFighter(v.key));
+    if (v.side === 'enemy' && this.blocksOn) this.addBlock(v);
     (v.side === 'enemy' ? this.enemiesEl : this.partyEl).append(el);
     let row: HTMLElement | null = null;
     if (v.side === 'party') {
@@ -395,6 +430,14 @@ export class BattleScreen {
       f.rowIcons?.replaceChildren(...make());
     }
     if (f.bar) f.bar.style.width = `${Math.max(0, Math.min(100, (v.hp / Math.max(1, v.maxHp)) * 100))}%`;
+    const b = this.blocks.get(key);
+    if (b) {
+      b.hp.style.width = `${Math.max(0, Math.min(100, share * 100))}%`;
+      b.mpBar.classList.toggle('unused', !v.maxMp);
+      b.mp.style.width = v.maxMp ? `${Math.max(0, Math.min(100, (v.mp / v.maxMp) * 100))}%` : '0%';
+      b.el.classList.toggle('low', !down && share <= 0.25);
+      b.el.classList.toggle('down', down);
+    }
     if (f.row) {
       const q = (s: string) => f.row!.querySelector(s) as HTMLElement;
       q('.bstat-bar.hp span').style.width = `${Math.max(0, Math.min(100, (v.hp / Math.max(1, v.maxHp)) * 100))}%`;
@@ -447,6 +490,89 @@ export class BattleScreen {
     }
   }
 
+  /** Monster stat blocks across the top (set before `open`). */
+  setBlocks(on: boolean): void {
+    this.blocksOn = on;
+    this.root.classList.toggle('blocks-on', on);
+  }
+
+  private addBlock(v: FighterView): void {
+    const els = v.elements?.length ? v.elements.slice(0, 2) : [];
+    const glow = els.length ? els.map((e) => ELEMENT_COLORS[e]) : NORMAL_GLOW;
+    const el = document.createElement('div');
+    el.className = 'mblock';
+    el.style.setProperty('--g1', glow[0]);
+    el.style.setProperty('--g2', glow[1] ?? glow[0]);
+    el.innerHTML = `<img class="mb-pic" alt=""><div class="mb-info"><div class="mb-name"></div><div class="mb-el"></div>
+      <div class="mb-bar hp"><span></span></div><div class="mb-bar mp"><span></span></div></div>${v.overdrive ? '<div class="mb-od"><span></span><b>OVERDRIVE</b></div>' : ''}`;
+    const pic = el.querySelector('.mb-pic') as HTMLImageElement;
+    pic.src = v.icon;
+    if (v.flip) pic.classList.add('flip');
+    (el.querySelector('.mb-name') as HTMLElement).textContent = v.name;
+    const elEl = el.querySelector('.mb-el') as HTMLElement;
+    if (els.length) for (const e of els) { const im = document.createElement('img'); im.src = elementIconUrl(e); im.alt = ''; const t = document.createElement('span'); t.textContent = ELEMENT_NAMES[e]; t.style.color = ELEMENT_COLORS[e]; elEl.append(im, t); }
+    else elEl.textContent = 'Normal';
+    el.addEventListener('click', () => this.tapFighter(v.key));
+    this.blocksEl.append(el);
+    const mpBar = el.querySelector('.mb-bar.mp') as HTMLElement;
+    this.blocks.set(v.key, { el, hp: el.querySelector('.mb-bar.hp span') as HTMLElement, mp: mpBar.querySelector('span') as HTMLElement, mpBar, od: el.querySelector('.mb-od') as HTMLElement | null });
+  }
+
+  /** A boss's overdrive gauge (0 … 100; full: it glows). */
+  setOverdrive(key: string, pct: number): void {
+    const od = this.blocks.get(key)?.od;
+    if (!od) return;
+    (od.querySelector('span') as HTMLElement).style.width = `${Math.max(0, Math.min(100, pct))}%`;
+    od.classList.toggle('full', pct >= 100);
+  }
+
+  /** A line in the battle log (left side). */
+  logLine(text: string): void {
+    const p = document.createElement('div');
+    p.textContent = text;
+    this.logLines.append(p);
+    while (this.logLines.childElementCount > 200) this.logLines.firstElementChild?.remove();
+    // Keep showing the newest unless the player is reading back.
+    if (!this.logFocus) this.logLines.scrollTop = this.logLines.scrollHeight;
+  }
+
+  private focusLog(on: boolean): void {
+    this.logFocus = on;
+    this.logEl.classList.toggle('focused', on);
+    (this.logEl.querySelector('.battle-log-hint') as HTMLElement).textContent = on ? '↑ ↓ scroll · Y or Back: done' : 'Y: battle log';
+    if (on) uiSound('menuOk');
+    else this.logLines.scrollTop = this.logLines.scrollHeight;
+  }
+
+  /** What flies off a fighter when hit: bits in each effect's colour (blood, sparks, chips, a splash, wisps…). */
+  impact(key: string, fx: { kind: ImpactFx; color: string }[], big = false): void {
+    const f = this.fighters.get(key);
+    if (!f) return;
+    for (const e of fx) {
+      const n = (e.kind === 'sparks' || e.kind === 'crystal' ? 10 : e.kind === 'wisps' ? 6 : 9) * (big ? 1.5 : 1);
+      for (let k = 0; k < n; k++) {
+        const b = document.createElement('span');
+        b.className = `bfx ${e.kind}`;
+        const ang = Math.random() * Math.PI * 2, d = 26 + Math.random() * 40 * (big ? 1.4 : 1);
+        b.style.setProperty('--dx', `${Math.cos(ang) * d}px`);
+        b.style.setProperty('--dy', `${e.kind === 'wisps' ? -30 - Math.random() * 40 : Math.sin(ang) * d * 0.7 - 10}px`);
+        b.style.setProperty('--c', e.color);
+        b.style.setProperty('--s', `${(e.kind === 'splash' ? 5 : e.kind === 'sparks' ? 3 : 4) + Math.random() * 3}px`);
+        b.style.animationDelay = `${Math.random() * 0.05}s`;
+        f.el.append(b);
+        setTimeout(() => b.remove(), 900);
+      }
+    }
+  }
+
+  /** A hard shake of the whole screen (a CRITICAL). */
+  shake(): void {
+    this.root.classList.remove('shake');
+    void this.root.offsetWidth;
+    this.root.classList.add('shake');
+    this.stage?.shake?.(0.35);
+  }
+
   /** A line at the top. Without `hold` it fades after a moment. */
   message(text: string, hold = false): void {
     this.msgEl.textContent = text;
@@ -455,7 +581,7 @@ export class BattleScreen {
   }
 
   /** A number or word rising from a fighter. */
-  popup(key: string, text: string, kind: 'dmg' | 'crit' | 'heal' | 'info' | 'mp' = 'dmg', color?: string): void {
+  popup(key: string, text: string, kind: 'dmg' | 'crit' | 'heal' | 'info' | 'mp' | 'big' | 'critBig' = 'dmg', color?: string): void {
     const f = this.fighters.get(key);
     if (!f) return;
     const el = document.createElement('span');
@@ -625,13 +751,13 @@ export class BattleScreen {
     const m = this.mode;
     this.clearTargets();
     if (m.kind !== 'target') return;
-    m.keys.forEach((k, i) => { const f = this.fighters.get(k); f?.el.classList.toggle('targeted', m.all || i === m.index); f?.card?.classList.toggle('targeted', m.all || i === m.index); });
+    m.keys.forEach((k, i) => { const f = this.fighters.get(k); f?.el.classList.toggle('targeted', m.all || i === m.index); f?.card?.classList.toggle('targeted', m.all || i === m.index); this.blocks.get(k)?.el.classList.toggle('targeted', m.all || i === m.index); });
     this.stage?.highlight(m.all ? m.keys : [m.keys[m.index]]);
     const f = this.fighters.get(m.keys[m.index]);
     this.message(m.all ? (f?.view.side === 'party' ? 'The whole party' : 'Every foe') : f ? f.view.name : '', true);
   }
 
-  private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted', 'turn'); f.card?.classList.remove('targeted'); } this.stage?.highlight([]); }
+  private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted', 'turn'); f.card?.classList.remove('targeted'); } for (const b of this.blocks.values()) b.el.classList.remove('targeted'); this.stage?.highlight([]); }
 
   private tapFighter(key: string): void {
     const m = this.mode;
@@ -663,6 +789,15 @@ export class BattleScreen {
     if (this.camTimer > 0 && (this.camTimer -= dt) <= 0) this.camEl.classList.remove('lit');
     if (this.qte) { this.updateQte(dt); return; }
     const i = this.input, m = this.mode;
+    // The controller's Y (and R) picks the battle log; while picked, up / down scroll it and Back lets go.
+    if (i.consume('switchWeapon')) this.focusLog(!this.logFocus);
+    if (this.logFocus) {
+      if (i.consume('up')) this.logLines.scrollBy({ top: -48, behavior: 'smooth' });
+      if (i.consume('down')) this.logLines.scrollBy({ top: 48, behavior: 'smooth' });
+      if (i.consume('cancel') || i.consume('ok')) { this.focusLog(false); uiSound('menuBack'); }
+      for (const a of ['left', 'right'] as const) i.consume(a);
+      return;
+    }
     if (m.kind === 'list') {
       const step = (d: number) => {
         const n = m.items.length;

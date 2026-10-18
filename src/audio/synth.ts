@@ -13,6 +13,8 @@ export const SFX_NAMES = [
   'encounter', 'battleSwell', 'shatter', 'victory', 'expFill', 'expDing',
   'lootGold', 'lootPotion', 'lootKey', 'lootMaterial', 'lootGear', 'lootItem',
   'achievement', 'thunder',
+  'hitFlesh', 'hitPlant', 'hitMetal', 'hitStone', 'hitWood', 'hitBone', 'hitLiquid', 'hitGel', 'hitCrystal', 'hitSpirit', 'hitCloth',
+  'critBig', 'thump',
 ] as const;
 export type SfxName = typeof SFX_NAMES[number];
 
@@ -30,6 +32,9 @@ export const SFX_LABELS: Record<SfxName, string> = {
   thunder: 'Thunder', encounter: 'Battle: encounter sting', battleSwell: 'Battle: transition swell', shatter: 'Battle: shatter transition',
   victory: 'Battle: victory fanfare', expFill: 'Battle: EXP filling', expDing: 'Battle: EXP bar full',
   lootGold: 'Loot: gold', lootPotion: 'Loot: potion / consumable', lootKey: 'Loot: key item', lootMaterial: 'Loot: material', lootGear: 'Loot: weapon / armour', lootItem: 'Loot: other item', achievement: 'Achievement unlocked',
+  hitFlesh: 'Hit: flesh', hitPlant: 'Hit: plant', hitMetal: 'Hit: metal', hitStone: 'Hit: stone', hitWood: 'Hit: wood', hitBone: 'Hit: bone',
+  hitLiquid: 'Hit: liquid', hitGel: 'Hit: gel / slime', hitCrystal: 'Hit: crystal', hitSpirit: 'Hit: spirit', hitCloth: 'Hit: cloth',
+  critBig: 'Battle: CRITICAL crack', thump: 'Battle: weak / immune thump',
 };
 
 /** Effects heard as part of the interface (menus, text), on the UI volume. */
@@ -112,6 +117,22 @@ export function makeSfx(name: SfxName): Float32Array {
       + noise() * 0.45 * env(t, 0.001, 0.05)
       + (Math.sin(2 * Math.PI * 1480 * t) * 0.18 + Math.sin(2 * Math.PI * 2220 * t) * 0.12) * env(Math.max(0, t - 0.02), 0.004, 0.16) * (t > 0.02 ? 1 : 0)
     ) * 0.9);
+    // Impact materials (Database → Enemies → Material): what a sword or an arrow sounds like hitting it.
+    case 'hitFlesh': return lowpass(make(0.22, (t) => (noise() * 0.55 * env(t, 0.002, 0.04) + Math.sin(2 * Math.PI * sweep(t, 160, 70, 0.1) * t) * 0.6 * env(t, 0.003, 0.07)) * 0.9), 1700);
+    case 'hitPlant': return highpass(make(0.28, (t) => (noise() * env(t, 0.001, 0.025) * 0.8 + noise() * 0.35 * env(Math.max(0, t - 0.05), 0.002, 0.05) * (t > 0.05 ? 1 : 0)) + Math.sin(2 * Math.PI * 320 * t) * 0.25 * env(t, 0.002, 0.04)), 700);
+    case 'hitMetal': return make(0.6, (t) => (Math.sin(2 * Math.PI * 1560 * t) * 0.3 + Math.sin(2 * Math.PI * 2340 * t) * 0.2 + Math.sin(2 * Math.PI * 3710 * t) * 0.12) * env(t, 0.001, 0.16) + noise() * 0.4 * env(t, 0.001, 0.012));
+    case 'hitStone': return lowpass(make(0.35, (t) => noise() * env(t, 0.001, 0.05) * 0.9 + noise() * 0.3 * env(Math.max(0, t - 0.06), 0.002, 0.06) * (t > 0.06 ? 1 : 0) + Math.sin(2 * Math.PI * 95 * t) * 0.35 * env(t, 0.002, 0.06)), 2200);
+    case 'hitWood': return make(0.25, (t) => (tone(t, sweep(t, 520, 380, 0.08), 'tri') * 0.55 + noise() * 0.3 * env(t, 0.001, 0.01)) * env(t, 0.001, 0.05));
+    case 'hitBone': return highpass(make(0.22, (t) => (noise() * 0.6 + tone(t, 900, 'square') * 0.25) * env(t, 0.001, 0.02) + noise() * 0.4 * env(Math.max(0, t - 0.03), 0.001, 0.015) * (t > 0.03 ? 1 : 0)), 1200);
+    case 'hitLiquid': return lowpass(make(0.45, (t) => noise() * env(t, 0.004, 0.09) * (0.6 + 0.4 * Math.sin(t * 70)) * 0.8 + Math.sin(2 * Math.PI * sweep(t, 600, 240, 0.15) * t) * 0.25 * env(t, 0.004, 0.08)), 1600);
+    case 'hitGel': return lowpass(make(0.35, (t) => Math.sin(2 * Math.PI * sweep(t, 140, 320, 0.12) * t) * 0.6 * env(t, 0.004, 0.08) + noise() * 0.25 * env(t, 0.004, 0.05)), 1200);
+    case 'hitCrystal': return make(0.7, (t) => (Math.sin(2 * Math.PI * 2093 * t) * 0.25 + Math.sin(2 * Math.PI * 3136 * t) * 0.2 + Math.sin(2 * Math.PI * 4186 * t) * 0.1) * env(t, 0.001, 0.22) + noise() * 0.35 * env(t, 0.001, 0.01));
+    case 'hitSpirit': return lowpass(make(0.6, (t) => (Math.sin(2 * Math.PI * sweep(t, 700, 300, 0.5) * t) * 0.3 + Math.sin(2 * Math.PI * sweep(t, 1050, 450, 0.5) * t) * 0.2) * env(t, 0.03, 0.18) + noise() * 0.15 * env(t, 0.02, 0.1)), 2400);
+    case 'hitCloth': return lowpass(make(0.2, (t) => noise() * env(t, 0.004, 0.035) * 0.7 + Math.sin(2 * Math.PI * 120 * t) * 0.25 * env(t, 0.003, 0.04)), 1400);
+    // A CRITICAL: a sharp crack and a deep rumble under it.
+    case 'critBig': return make(0.9, (t) => noise() * 0.7 * env(t, 0.0005, 0.02) + Math.sin(2 * Math.PI * sweep(t, 90, 38, 0.6) * t) * 0.6 * env(t, 0.01, 0.3) + noise() * 0.18 * env(t, 0.02, 0.25) * Math.sin(t * 40));
+    // Weak or immune: a soft, low thump.
+    case 'thump': return lowpass(make(0.35, (t) => Math.sin(2 * Math.PI * sweep(t, 110, 45, 0.15) * t) * 0.8 * env(t, 0.003, 0.09) + noise() * 0.15 * env(t, 0.002, 0.02)), 900);
     case 'coin': return make(0.3, (t) => tone(t, t < 0.06 ? 988 : 1319, 'square') * env(t, 0.002, 0.09) * 0.25);
     // A soft rising chime: a sine glide with a little shimmer.
     case 'orb': return make(0.22, (t) => (tone(t, 1180 + t * 2400, 'sine') * 0.8 + tone(t, 2360 + t * 4800, 'sine') * 0.2) * env(t, 0.004, 0.07) * 0.22);

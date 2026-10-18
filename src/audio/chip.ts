@@ -123,6 +123,19 @@ function chipSfx(name: SfxName): Float32Array {
   switch (name) {
     case 'swing': return render([{ wave: 'noise', f: 9000, to: 2500, dur: 0.11, vol: 9, fade: 1 }]);
     case 'swingHeavy': return render([{ wave: 'noise', f: 5000, to: 900, dur: 0.2, vol: 11, fade: 2 }]);
+    case 'hitFlesh': return render([step(1500, 0.08, 13, 1), { wave: 'p50', f: 150, to: 60, dur: 0.09, vol: 12, fade: 1, at: 0 }]);
+    case 'hitPlant': return render([step(9000, 0.04, 12, 1), step(6000, 0.05, 8, 1, 'noise', 0.05), { wave: 'p25', f: 330, dur: 0.04, vol: 7, fade: 1, at: 0 }]);
+    case 'hitMetal': return render([step(9000, 0.03, 14, 1, 'metal'), { wave: 'p12', f: note('E6'), dur: 0.35, vol: 11, fade: 3, at: 0 }, { wave: 'p25', f: note('B6'), dur: 0.25, vol: 6, fade: 3, at: 0.01 }]);
+    case 'hitStone': return render([step(2200, 0.1, 15, 2), step(1500, 0.08, 9, 1, 'noise', 0.07), { wave: 'tri', f: 95, dur: 0.08, vol: 12, at: 0 }]);
+    case 'hitWood': return render([{ wave: 'p50', f: 520, to: 380, dur: 0.07, vol: 12, fade: 1 }, step(8000, 0.02, 9, 1)]);
+    case 'hitBone': return render([step(11000, 0.03, 13, 1, 'metal'), step(9000, 0.02, 10, 1, 'noise', 0.035), { wave: 'p12', f: 900, dur: 0.03, vol: 8, fade: 1, at: 0 }]);
+    case 'hitLiquid': return render([{ wave: 'noise', f: 2400, to: 900, dur: 0.3, vol: 12, fade: 2 }, { wave: 'p50', f: 600, to: 240, dur: 0.14, vol: 7, fade: 2, at: 0 }]);
+    case 'hitGel': return render([{ wave: 'p50', f: 140, to: 320, dur: 0.13, vol: 13, fade: 2 }, step(1800, 0.06, 7, 1)]);
+    case 'hitCrystal': return render([step(12000, 0.02, 12, 1, 'metal'), { wave: 'p25', f: note('C7'), dur: 0.4, vol: 10, fade: 3, at: 0 }, { wave: 'p12', f: note('G7'), dur: 0.3, vol: 7, fade: 3, at: 0.02 }]);
+    case 'hitSpirit': return render([{ wave: 'p25', f: 700, to: 300, dur: 0.45, vol: 9, fade: 3, vib: [0.5, 9] }, { wave: 'p12', f: 1050, to: 450, dur: 0.4, vol: 5, fade: 3, at: 0.02 }]);
+    case 'hitCloth': return render([step(2500, 0.06, 11, 1), { wave: 'tri', f: 120, dur: 0.05, vol: 9, at: 0 }]);
+    case 'critBig': return render([step(14000, 0.03, 15, 1), { wave: 'tri', f: 90, to: 38, dur: 0.6, vol: 15, fade: 4, at: 0 }, step(900, 0.4, 9, 3, 'noise', 0.02)]);
+    case 'thump': return render([{ wave: 'tri', f: 110, to: 45, dur: 0.18, vol: 15, fade: 2 }, step(1200, 0.03, 7, 1)]);
     case 'hit': return render([step(3000, 0.07, 14, 1), { wave: 'p50', f: 220, to: 70, dur: 0.08, vol: 12, fade: 1, at: 0 }]);
     case 'crit': return render([{ wave: 'p25', f: 1700, to: 380, dur: 0.16, vol: 13, fade: 2 }, step(5000, 0.05, 14, 1)]);
     case 'hurt': return render([{ wave: 'p50', f: 330, to: 100, dur: 0.18, vol: 13, fade: 2 }, step(1800, 0.1, 10, 1)]);

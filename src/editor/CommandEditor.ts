@@ -739,6 +739,8 @@ function priceInput(value: number | undefined, fallback: number, onchange: (v: n
 let audioFiles: () => string[] = () => [];
 let previewSound: (src: string) => void = () => {};
 export function setAudioHooks(files: () => string[], preview: (src: string) => void): void { audioFiles = files; previewSound = preview; }
+/** Play a sound in the editor (a built-in effect's name, or a file). */
+export function playSound(src: string): void { previewSound(src); }
 const previewButton = (play: () => void) => h('button', { type: 'button', class: 'btn small', onclick: play }, '▶ Preview');
 
 /** A sound to pick (none, a built-in effect or an imported file), with a preview button. */

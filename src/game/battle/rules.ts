@@ -76,6 +76,12 @@ export interface Battler {
   evasion?: number;
   /** Chance (%) to shrug off an ailment (heroes: from Endurance). */
   resist?: number;
+  /** Enemies: what a weapon hit on them sounds like and what flies off (Database → Enemies → Impact). */
+  impact?: { sound: import('../../audio/synth').SfxName; fx: { kind: import('../../world/types').ImpactFx; color: string }[] };
+  /** Bosses with a gauge (stat blocks on): 0 … 100; full, their next move hits half again as hard. */
+  overdrive?: number;
+  /** Their overdrive is let loose this turn. */
+  surging?: boolean;
   /** Heroes: extra % of their health back when they Guard (Steady Guard). */
   guardBonus?: number;
   /** Their attack is a bow shot (Dexterity buffs raise it rather than Strength). */

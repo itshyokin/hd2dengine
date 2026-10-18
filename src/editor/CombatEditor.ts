@@ -12,7 +12,9 @@ import { enemyWeaponSprites } from '../game/combat/weaponSprites';
 import { weaponSpriteField } from './weaponPicker';
 import { DEFAULT_COMBAT, combatConfig } from '../game/combat/config';
 import { enemyAgility } from '../game/battle/rules';
-import type { CombatData, EnemyAction, EnemyBehaviour, EnemyDef, FlatLook, WeaponClass } from '../world/types';
+import type { CombatData, EnemyAction, EnemyBehaviour, EnemyDef, FlatLook, ImpactFx, Material, WeaponClass } from '../world/types';
+import { FX_INFO, IMPACT_FX, MATERIALS, MATERIAL_INFO, materialOf } from '../game/battle/impact';
+import { playSound } from './CommandEditor';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { enemyImage, setFlatImage } from './editorArt';
 import { canvasFromBlob } from '../shared/images';
@@ -50,6 +52,7 @@ export function combatTab(data: CombatData): HTMLElement[] {
         field('Addition timing', select([['press', 'Pressed by the player'], ['auto', 'Automatic (every strike lands; for accessibility)']], T.additionTiming, (v) => { tb.additionTiming = v === 'auto' ? 'auto' : undefined; }))),
       field('Battle screen layout', select([['dragon', 'Dragon Legend: faces and numbers in a row, lists in the middle'], ['fantasy', 'Forbidden Fantasy: health bars in a box, lists at the side']], T.layout, (v) => { if (v === 'fantasy') tb.layout = 'fantasy'; else delete tb.layout; }),
         'Dragon Legend shows each hero’s face (their Face art in Database → Heroes), name and HP / MP as numbers that turn yellow at half and red at a quarter.'),
+      checkbox('Monster stat blocks: a block per foe across the top (picture, name, element, health and magic) instead of names and bars over them', !!tb.statBlocks, (v) => { if (v) tb.statBlocks = true; else delete tb.statBlocks; }),
       checkbox('The hero always fights (can’t be swapped onto the bench)', !!tb.heroLocked, (v) => { if (v) tb.heroLocked = true; else delete tb.heroLocked; }),
       checkbox('The party follows the hero on the map (they walk behind and copy jumps; they never start fights)', tb.partyFollows !== false, (v) => { if (v) delete tb.partyFollows; else tb.partyFollows = false; }),
       h('p', { class: 'note' }, 'Three fight at a time; the rest of the party (up to eight) wait on the bench. Swap them in Menu → Party → Swap, or with Swap in battle. Off: anyone can be swapped out, the hero too (they still lead on the map).'),
@@ -306,7 +309,9 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
         field(d.behaviour === 'ranged' ? 'Shoots from (tiles)' : d.behaviour === 'charger' ? 'Charges from (tiles)' : 'Reach (tiles)', n(d.attackRange, (v) => (d.attackRange = v), 0.1, 0.3)),
         field('Wind-up (s)', n(d.windup, (v) => (d.windup = v), 0.05, 0.1), 'The tell before each attack: it glows. Longer is easier to dodge.'),
         field('Between attacks (s)', n(d.cooldown, (v) => (d.cooldown = v), 0.1, 0.2))),
-      checkbox('Boss (a hit doesn’t interrupt its wind-up; can’t be killed outright by future stealth perks)', !!d.boss, (v) => (d.boss = v || undefined))),
+      checkbox('Boss (no running away; Assassinate can’t end it)', !!d.boss, (v) => { d.boss = v || undefined; rerender(); }),
+      d.boss ? checkbox('Overdrive gauge (with monster stat blocks on): fills as it’s hurt; full, its next move hits half again as hard', !!d.overdrive, (v) => (d.overdrive = v || undefined)) : h('span')),
+    impactSection(d, rerender),
     defenceSection(d, rerender),
     h('section', { class: 'db-section' }, h('h3', {}, 'Ailments'),
       inflictsField(() => d.inflicts, (v) => { if (v) d.inflicts = v; else delete d.inflicts; }, rerender),
@@ -379,4 +384,30 @@ function battleActions(d: EnemyDef, rerender: () => void): HTMLElement {
     ...rows,
     h('button', { type: 'button', class: 'btn', onclick: () => { list.push({ name: '', kind: 'attack' }); save(); rerender(); } }, '+ Add action'),
     h('p', { class: 'note' }, 'On its turn it picks its plain attack or one of these by how often each is set. Enemies only guard if given a Guard action. Counterspell takes effect once spells can be charged (learned spells, coming next).'));
+}
+
+/** Database → Enemies → Impact: what it's made of (the sound of a hit) and up to two effects that fly off it. */
+function impactSection(d: EnemyDef, rerender: () => void): HTMLElement {
+  const mat = materialOf(d), info = MATERIAL_INFO[mat];
+  const fx: { kind: ImpactFx; color?: string }[] = d.impactFx ?? info.fx.map((kind) => ({ kind }));
+  const own = (): { kind: ImpactFx; color?: string }[] => (d.impactFx ??= info.fx.map((kind) => ({ kind })));
+  const rows = [0, 1].map((k) => {
+    const f = fx[k];
+    return h('div', { class: 'field-row' },
+      field(`Effect ${k + 1}`, select([['', '(none)'], ...IMPACT_FX.map((x) => [x, FX_INFO[x].name] as [string, string])], f?.kind ?? '', (v) => {
+        const list = own();
+        if (!v) list.splice(k, 1); else if (list[k]) list[k] = { kind: v as ImpactFx }; else list.push({ kind: v as ImpactFx });
+        rerender();
+      }, { 'aria-label': `Impact effect ${k + 1}` })),
+      f && FX_INFO[f.kind].recolour ? field('Colour', h('input', { type: 'color', value: f.color ?? (k === 0 && !d.impactFx ? info.color : undefined) ?? FX_INFO[f.kind].color, 'aria-label': `Impact effect ${k + 1} colour`,
+        onchange: (e: Event) => { const list = own(); if (list[k]) list[k].color = (e.target as HTMLInputElement).value; } })) : h('span'));
+  });
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Impact'),
+    field('Material', select(MATERIALS.map((m) => [m, MATERIAL_INFO[m].name] as [string, string]), mat, (v) => { d.material = v as Material; delete d.impactFx; rerender(); }, { 'aria-label': 'Material' }),
+      'The sound a sword or an arrow makes hitting it in battle, and what flies off by default.'),
+    ...rows,
+    h('div', { class: 'stack row' },
+      h('button', { type: 'button', class: 'btn small', onclick: () => playSound(info.sound) }, '▶ Hear it'),
+      d.impactFx ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete d.impactFx; rerender(); } }, 'Use the material’s effects') : h('span')),
+    h('p', { class: 'note' }, 'Blood can be recoloured for ooze, sap or ichor. Critical hits shake the screen with a big CRITICAL; weak or immune hits land with a soft thump and a big WEAK.'));
 }

@@ -104,6 +104,9 @@ export class TurnBattle {
     this.lastCommand = 0;
     for (const e of entries) { e.battler.guarding = false; refreshAgility(e.battler); }
     this.screen.setLayout(cfg.layout);
+    this.screen.setBlocks(cfg.statBlocks);
+    // Overdrive gauges only show (and work) with the stat blocks.
+    for (const e of entries) if (!cfg.statBlocks || !e.view.overdrive) e.battler.overdrive = undefined;
     this.screen.open(entries.map((e) => e.view));
     this.refreshAll();
     startCounters(this.battlers, opening);
@@ -111,11 +114,14 @@ export class TurnBattle {
     const foes = this.foes;
     const names = foes.length === 1 ? foes[0].name : `${foes.length} enemies`;
     this.screen.message(opening === 'preemptive' ? `You caught ${names} off guard!` : opening === 'ambush' ? `Ambushed by ${names}!` : `${names} ${foes.length === 1 ? 'appears' : 'appear'}!`, true);
-    this.host.log(opening === 'ambush' ? `Ambushed by ${names}` : `Battle: ${names}`);
+    this.say(opening === 'ambush' ? `Ambushed by ${names}` : `Battle: ${names}`);
     this.phase = 'intro';
     this.showOrder();
     this.later(1.1, () => { this.screen.message(''); this.phase = 'next'; });
   }
+
+  /** A line for the adventure log and the battle log beside the battle. */
+  private say(text: string): void { this.screen.logLine(text); this.host.log(text); }
 
   private get battlers(): Battler[] { return this.all.map((e) => e.battler); }
   private get party(): Battler[] { return this.all.filter((e) => e.battler.side === 'party').map((e) => e.battler); }
@@ -164,7 +170,7 @@ export class TurnBattle {
       who.hp = Math.max(this.floor(who), who.hp - d.amount);
       this.screen.popup(who.key, String(d.amount), 'dmg', d.ailment === 'burn' ? '#ff9a5a' : '#8ee05a');
       this.screen.animate(who.key, 'hit');
-      this.host.log(`${who.name} takes ${d.amount} from ${d.ailment === 'burn' ? 'the burn' : 'poison'}`);
+      this.say(`${who.name} takes ${d.amount} from ${d.ailment === 'burn' ? 'the burn' : 'poison'}`);
       pause = 0.6;
     }
     if (start.damage.length) {
@@ -237,7 +243,7 @@ export class TurnBattle {
     this.screen.replaceFighter(b.key, e.view);
     this.refresh(n);
     this.host.sound('menuOk');
-    this.host.log(`${b.name} swaps out for ${n.name}`);
+    this.say(`${b.name} swaps out for ${n.name}`);
     this.screen.message(`${n.name} steps in!`);
     this.actor = n;
     this.showOrder();
@@ -348,7 +354,7 @@ export class TurnBattle {
       this.screen.setCharging(b.key, `${r.name} · ${r.charge}`, color);
       this.screen.message(`${b.name} begins casting ${r.name}…`);
       this.host.sound('ringOn');
-      this.host.log(`${b.name} begins casting ${r.name}`);
+      this.say(`${b.name} begins casting ${r.name}`);
       // The camera comes round in front of them as they begin their chant, then goes back.
       this.castPose(b, color, s.chant, false, () => this.endTurn(b, RANK.magic, 0.5));
       return;
@@ -404,7 +410,7 @@ export class TurnBattle {
     this.screen.popup(b.key, why === 'Silenced' ? 'Spell lost' : 'Interrupted!', 'info');
     this.screen.message(`${b.name}’s ${c.rank.name} is ${why === 'Silenced' ? 'silenced' : 'broken'}!`);
     this.host.sound('block');
-    this.host.log(`${b.name}’s ${c.rank.name} was interrupted`);
+    this.say(`${b.name}’s ${c.rank.name} was interrupted`);
   }
 
   private release(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[]): void {
@@ -469,7 +475,7 @@ export class TurnBattle {
             if (a.sound) this.host.voice?.(a.sound); else this.host.attackVoice?.(this.entry(b).who ?? 0);
             this.screen.popup(b.key, a.strikes.length > 1 ? `${a.name}!` : 'Complete!', 'info');
             const up = this.host.mastered?.(this.entry(b).who ?? 0, a.id) ?? null;
-            if (up) { this.screen.popup(b.key, `${a.name} rank ${up}!`, 'info'); this.host.log(`${b.name}’s ${a.name} reached rank ${up}`); this.host.sound('levelUp'); a.rank = up; }
+            if (up) { this.screen.popup(b.key, `${a.name} rank ${up}!`, 'info'); this.say(`${b.name}’s ${a.name} reached rank ${up}`); this.host.sound('levelUp'); a.rank = up; }
           } else if (power > 0) this.host.attackVoice?.(this.entry(b).who ?? 0);
           // A moment to take it in, then back to their place (the camera with them).
           this.later(this.hold(1.6), () => {
@@ -507,7 +513,7 @@ export class TurnBattle {
     this.screen.animate(t.key, 'heal', '#9dffb0');
     const msg = cured.length && !/cured/i.test(r.text) ? `${r.text.replace(/\.$/, '')}: cured ${cured.map(ailmentName).join(', ')}.` : r.text;
     this.screen.message(msg);
-    this.host.log(msg);
+    this.say(msg);
     this.endTurn(b, RANK.item, 0.9);
   }
 
@@ -549,7 +555,7 @@ export class TurnBattle {
     if (Math.random() < chance) {
       this.host.sound('dodge');
       this.screen.message('Got away safely!', true);
-      this.host.log('You got away');
+      this.say('You got away');
       this.phase = 'over';
       this.later(1, () => (this.host.outro ? this.host.outro(() => this.close('fled')) : this.close('fled')));
       return;
@@ -575,6 +581,15 @@ export class TurnBattle {
   private enemyTurn(e: Battler): void {
     const move = enemyChoice(e, this.party, this.foes);
     if (!move) { this.endTurn(e, RANK.attack, 0.2); return; }
+    // A full overdrive: this move hits half again as hard, and the gauge empties.
+    if (e.overdrive !== undefined && e.overdrive >= 100) {
+      e.surging = true;
+      e.overdrive = 0;
+      this.screen.setOverdrive(e.key, 0);
+      this.screen.flash('rgba(255,120,60,0.45)');
+      this.screen.shake();
+      this.say(`${e.name} unleashes its overdrive!`);
+    }
     const a = move.action;
     if (!a) {
       const t = move.targets[0];
@@ -621,12 +636,12 @@ export class TurnBattle {
       if (!BUFF_INFO[g.buff]) continue;
       const hostile = DEBUFFS.has(g.buff) && by.side !== t.side;
       if (hostile && t.status.ward) { this.screen.popup(t.key, 'Warded', 'info'); continue; }
-      if (hostile && Math.random() * 100 < (t.resist ?? 0)) { this.screen.popup(t.key, 'Resisted', 'info'); this.host.log(`${t.name} shrugs off ${BUFF_INFO[g.buff].name}`); continue; }
+      if (hostile && Math.random() * 100 < (t.resist ?? 0)) { this.screen.popup(t.key, 'Resisted', 'info'); this.say(`${t.name} shrugs off ${BUFF_INFO[g.buff].name}`); continue; }
       const res = t.status.boost(g.buff, g.amount ?? BUFF_INFO[g.buff].amount, g.turns ?? BUFF_TURNS);
       const other: BuffKind = g.buff === 'haste' ? 'slow' : 'haste';
       const word = res === 'cancelled' ? `${BUFF_INFO[other].name} ended` : `${buffLabel(g.buff)}!`;
       this.screen.popup(t.key, word, 'info');
-      this.host.log(`${t.name}: ${res === 'cancelled' ? `${BUFF_INFO[other].name} ended` : buffLabel(g.buff)}`);
+      this.say(`${t.name}: ${res === 'cancelled' ? `${BUFF_INFO[other].name} ended` : buffLabel(g.buff)}`);
     }
     refreshAgility(t);
     this.refresh(t);
@@ -638,19 +653,19 @@ export class TurnBattle {
     if (!magic && by.status.blind && Math.random() < BLIND_MISS_CHANCE) {
       this.screen.popup(t.key, 'Miss', 'info');
       this.host.sound('dodge');
-      this.host.log(`${by.name} misses`);
+      this.say(`${by.name} misses`);
       return;
     }
-    const scale = by.side === 'party' ? this.cfg.partyDamage : this.cfg.enemyDamage;
+    const scale = (by.side === 'party' ? this.cfg.partyDamage : this.cfg.enemyDamage) * (by.surging ? 1.5 : 1);
     const r = strike(power, element, magic, by, t, scale);
     if (r.kind === 'miss') {
       this.screen.popup(t.key, 'Miss', 'info');
       this.host.sound('dodge');
-      this.host.log(`${t.name} dodges ${by.name}’s attack`);
+      this.say(`${t.name} dodges ${by.name}’s attack`);
       return;
     }
     const tint = color ?? (element !== 'neutral' ? ELEMENT_COLORS[element] : undefined);
-    if (r.kind === 'immune') { this.screen.popup(t.key, 'Immune', 'info'); this.host.sound('block'); this.host.log(`${t.name} is immune`); return; }
+    if (r.kind === 'immune') { this.screen.popup(t.key, 'IMMUNE', 'big'); this.host.sound('thump'); this.say(`${t.name} is immune`); return; }
     if (r.kind === 'absorb') {
       t.hp = Math.min(t.maxHp, t.hp + r.amount);
       this.screen.popup(t.key, `+${r.amount}`, 'heal');
@@ -659,13 +674,18 @@ export class TurnBattle {
       this.refresh(t);
       return;
     }
-    if (r.crit) { this.screen.flash('rgba(255,250,230,0.7)'); this.screen.popup(t.key, 'Critical!', 'info'); }
-    if (r.label) this.screen.popup(t.key, r.label === 'Weak!' ? 'Weak!' : 'Resist', 'info');
-    if (r.label === 'Weak!') this.host.sound('weak');
-    this.damage(t, r.amount, r.crit, tint);
+    // A CRITICAL: a flash, the screen shakes, a big word with a crack and a rumble.
+    if (r.crit) { this.screen.flash('rgba(255,250,230,0.7)'); this.screen.shake(); this.screen.popup(t.key, 'CRITICAL!', 'critBig'); this.host.sound('critBig'); }
+    // A weakness: a big WEAK and a soft thump.
+    if (r.label === 'Weak!') { this.screen.popup(t.key, 'WEAK!', 'big', tint); this.host.sound('thump'); }
+    else if (r.label) this.screen.popup(t.key, 'Resist', 'info');
+    // A weapon hit on a foe: its material's sound and what flies off it (blood, sparks, chips…).
+    const mat = !magic && t.impact ? t.impact : null;
+    if (mat) this.screen.impact(t.key, mat.fx, r.crit);
+    this.damage(t, r.amount, r.crit, tint, mat?.sound);
     if (by.side === 'party') { this.host.tally?.('damageDealt', r.amount); this.host.tally?.('bestHit', r.amount, true); if (r.crit) this.host.tally?.('crits'); }
     else if (t.side === 'party') this.host.tally?.('damageTaken', r.amount);
-    this.host.log(`${by.name} hits ${t.name} for ${r.amount}${r.crit ? ' (critical)' : ''}${r.label === 'Weak!' ? ' (super effective)' : r.label === 'Resist' ? ' (resisted)' : ''}`);
+    this.say(`${by.name} hits ${t.name} for ${r.amount}${r.crit ? ' (critical)' : ''}${r.label === 'Weak!' ? ' (super effective)' : r.label === 'Resist' ? ' (resisted)' : ''}`);
     // A Counterspell breaks a spell being charged.
     if (counter && isUp(t) && t.charging) this.interrupt(t, 'Counterspell');
     if (isUp(t)) this.inflict(t, inflicts);
@@ -677,7 +697,7 @@ export class TurnBattle {
       // Endurance: a chance to shrug it off (not while guarding: the ward says so instead).
       if (!t.status.ward && f.ailment !== 'stagger' && Math.random() * 100 < (t.resist ?? 0)) {
         this.screen.popup(t.key, 'Resisted', 'info');
-        this.host.log(`${t.name} shrugs off ${ailmentName(f.ailment)}`);
+        this.say(`${t.name} shrugs off ${ailmentName(f.ailment)}`);
         continue;
       }
       const res = t.status.give(f.ailment, f.turns);
@@ -686,7 +706,7 @@ export class TurnBattle {
       if (f.ailment === 'stagger') t.ct += tickOf(t.agility) * 1.5;
       const a: BattleAilment = res === 'frozen' ? 'frozen' : f.ailment;
       this.screen.popup(t.key, AILMENT_WORD[a], 'info');
-      this.host.log(`${t.name}: ${ailmentName(a)}`);
+      this.say(`${t.name}: ${ailmentName(a)}`);
       refreshAgility(t);
     }
     this.refresh(t);
@@ -698,7 +718,7 @@ export class TurnBattle {
     t.hp = Math.min(t.maxHp, t.hp + n);
     this.screen.popup(t.key, `+${n}`, 'heal');
     this.screen.animate(t.key, 'heal', '#9dffb0');
-    this.host.log(`${by.name} heals ${t.name} for ${n}`);
+    this.say(`${by.name} heals ${t.name} for ${n}`);
     this.refresh(t);
   }
 
@@ -714,16 +734,26 @@ export class TurnBattle {
     this.checkOver();
   }
 
-  private damage(t: Battler, n: number, crit: boolean, color?: string): void {
+  private damage(t: Battler, n: number, crit: boolean, color?: string, sound?: Sfx): void {
     if (t.side === 'party' && n > 0) this.hurt = true;
     t.hp = Math.max(this.floor(t), t.hp - n);
     this.screen.popup(t.key, String(n), crit ? 'crit' : 'dmg', color);
     this.screen.animate(t.key, 'hit', color);
-    this.host.sound(t.side === 'party' ? 'hurt' : crit ? 'crit' : 'hit');
+    this.host.sound(t.side === 'party' ? 'hurt' : sound ?? (crit ? 'crit' : 'hit'));
+    // A boss's overdrive fills as it's hurt (full after losing two fifths of its health).
+    if (t.overdrive !== undefined && t.hp > 0) this.fillOverdrive(t, (n / Math.max(1, t.maxHp * 0.4)) * 100);
     // A hit wakes the sleeping.
     if (t.hp > 0 && t.status.hurt()) this.screen.popup(t.key, 'Woke up', 'info');
     if (t.hp <= 0) this.fall(t);
     this.refresh(t);
+  }
+
+  private fillOverdrive(b: Battler, by: number): void {
+    if (b.overdrive === undefined) return;
+    const was = b.overdrive;
+    b.overdrive = Math.min(100, b.overdrive + by);
+    this.screen.setOverdrive(b.key, b.overdrive);
+    if (was < 100 && b.overdrive >= 100) { this.screen.popup(b.key, 'OVERDRIVE', 'big', '#ff7a4a'); this.say(`${b.name}'s overdrive is full!`); }
   }
 
   /** Knocked out: ailments go with it. */
@@ -735,11 +765,14 @@ export class TurnBattle {
     t.status.buffs.clear();
     refreshAgility(t);
     setTimeout(() => this.screen.animate(t.key, 'faint'), 260);
-    if (t.side === 'enemy') { this.host.sound('defeat'); this.host.log(`${t.name} defeated`); }
-    else this.host.log(`${t.name} is knocked out`);
+    if (t.side === 'enemy') { this.host.sound('defeat'); this.say(`${t.name} defeated`); }
+    else this.say(`${t.name} is knocked out`);
   }
 
   private endTurn(b: Battler, rank: number, pause: number): void {
+    b.surging = false;
+    // A boss's gauge creeps up each of its turns too.
+    if (b.overdrive !== undefined && isUp(b)) this.fillOverdrive(b, 8);
     // Ailments tick down at the end of the afflicted fighter's own turn.
     const gone = isUp(b) ? b.status.endTurn() : [];
     if (gone.length) {

@@ -528,6 +528,7 @@ export class BattleStage implements StageHooks {
       c.pos.lerp(pos, 1 - Math.exp(-dt * 4.5));
       c.look.lerp(look, 1 - Math.exp(-dt * 4.5));
       camera.position.copy(c.pos);
+      this.jolt(camera.position, dt);
       camera.lookAt(c.look);
       this.faceCamera(camera);
       return c.look;
@@ -547,9 +548,20 @@ export class BattleStage implements StageHooks {
     c.pos.lerp(pos, 1 - Math.exp(-dt * rate));
     c.look.lerp(look, 1 - Math.exp(-dt * rate));
     camera.position.copy(c.pos);
+    this.jolt(camera.position, dt);
     camera.lookAt(c.look);
     this.faceCamera(camera);
     return c.look;
+  }
+
+  /** A screen shake (a CRITICAL): the camera jolts about, dying away. */
+  shake(amount: number): void { this.shakeAmt = Math.max(this.shakeAmt, amount); }
+  private shakeAmt = 0;
+  private jolt(p: THREE.Vector3, dt: number): void {
+    if (this.shakeAmt <= 0) return;
+    const a = this.shakeAmt;
+    p.x += (Math.random() - 0.5) * a; p.y += (Math.random() - 0.5) * a * 0.7; p.z += (Math.random() - 0.5) * a * 0.5;
+    this.shakeAmt = Math.max(0, a - dt * 0.9);
   }
 
   /** Where each fighter is on screen (for the battle screen's tags and numbers). */

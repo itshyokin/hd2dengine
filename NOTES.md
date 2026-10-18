@@ -31,19 +31,20 @@ Kept in the project so they travel with the code. Tick them off as they're built
       untrained medium / heavy weapons hit for three quarters, battle Records now count (damage, crits, best hit).
 
 ## Combat (ideas, Oct 18)
-- [ ] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,
+- [x] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,
       liquid, gel, crystal, spirit / ethereal, cloth…) setting the sound when a sword or arrow hits it (squish, vine
       chop, metal ding, stone crack…), plus up to two Material effects (blood — recolourable for ooze / sap / ichor —,
       sparks, stone bits, wood chips, water / gel splash, bone shards, crystal shards, wisps). Critical hits: screen
       shake, a big CRITICAL with a crack / rumble. Weak or immune hits: a soft thump and a big WEAK (the pop-up made
       larger).
-- [ ] Battle log beside the battle window (left side): Y selects it to scroll up and down, to review what happened.
-- [ ] Monster stat blocks (Database switch): blocks across the top, lined up with the party's, one per foe — picture
+- [x] Battle log beside the battle window (left side): Y selects it to scroll up and down, to review what happened.
+- [x] Monster stat blocks (Database switch): blocks across the top, lined up with the party's, one per foe — picture
       left, name, element (or Normal) and HP + MP bars (MP greyed when unused) right; bosses can have an overdrive
       gauge across the whole bottom. A fallen foe's block fades out. With blocks on, the names and bars over the
       sprites are hidden; targeting a foe glows its block in its element colour (a left-to-right blend for two
       elements, gold / tan for Normal), with the pause menu's arrows above and below the block, and still the arrow
       over the foe's head.
+      (Done in update 66; the overdrive gauge fills as the boss is hurt and makes its next move hit half again as hard.)
 
 ## Travel (ideas, Oct 17)
 - [ ] Horses: rented at stables (one at a time, tiers with their own stamina and jump, priced by tier); A next to

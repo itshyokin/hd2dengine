@@ -63,6 +63,7 @@ import { WEATHER_KINDS } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
+import { impactOf } from './battle/impact';
 import { Skills, UNTRAINED_DAMAGE, proficientWith, skillsData } from './skills';
 import { playerConfig } from './stats';
 import { SkillTreeScreen } from '../ui/SkillTreeScreen';
@@ -4500,12 +4501,12 @@ export class Game {
         key: `e${i}`, side: 'enemy', name, hp: Math.max(1, hp), maxHp, mp: 0, maxMp: 0, spread: (d.damageVariance ?? 10) / 100,
         attack: d.damage, attackElement: enemyElement(d), attackMagic: d.attackType === 'magic',
         armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), baseAgility: enemyAgility(d), crit: d.crit ?? 5,
-        accuracy: d.accuracy, evasion: d.evasion, resist: d.ailmentResist,
+        accuracy: d.accuracy, evasion: d.evasion, resist: d.ailmentResist, impact: impactOf(d), overdrive: d.boss && d.overdrive ? 0 : undefined,
         defence: d, spells: [], ct: 0, guarding: false, boss: d.boss,
         status: new BattleStatus(d.resists ?? [], !!d.boss, !!d.undead), inflicts: d.inflicts,
         actions: d.actions, attackWeight: d.attackWeight, counterspell: d.counterspell,
       };
-      entries.push({ battler, view: { key: battler.key, side: 'enemy', name, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale }, ref: { def: d, enemy: x.enemy, battler } });
+      entries.push({ battler, view: { key: battler.key, side: 'enemy', name, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale, elements: d.elements, overdrive: !!(d.boss && d.overdrive) }, ref: { def: d, enemy: x.enemy, battler } });
       if (stageData) specs.push(this.enemyFigure(battler.key, d));
     });
     if (stageData) this.openStage(stageData, specs);
