@@ -4158,6 +4158,25 @@
       "icon": "builtin:fist",
       "price": 25,
       "description": "Soft and warm, perfect for a cloak or blanket."
+    },
+    {
+      "id": "speed_boost_item",
+      "name": "Speed Boost Item",
+      "kind": "consumable",
+      "icon": "builtin:potion",
+      "price": 10,
+      "restore": {
+        "hp": 20
+      },
+      "buffs": [
+        {
+          "buff": "dex"
+        }
+      ],
+      "statRank": {
+        "stat": "dex",
+        "rank": "A"
+      }
     }
   ],
   "enemies": [
@@ -5617,6 +5636,15 @@
       "color": "#9dffb0",
       "maxRank": 3,
       "description": "Closes wounds on one of the party."
+    },
+    {
+      "id": "speedboost",
+      "name": "Speed Boost",
+      "kind": "heal",
+      "power": 11,
+      "mp": 6,
+      "maxRank": 3,
+      "description": "Increase target's speed for the duration of the battle."
     }
   ],
   "markers": [
