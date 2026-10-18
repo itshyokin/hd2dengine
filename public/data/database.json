@@ -4777,15 +4777,15 @@
         "y": 1,
         "effects": [
           {
-            "stat": "swingSpeed",
-            "value": 8
+            "stat": "agi",
+            "value": 2
           }
         ],
         "parents": [
           "fighter"
         ],
         "ranks": 3,
-        "description": "Swing every weapon faster."
+        "description": "Quicker in battle: Agility up, so turns come round sooner."
       },
       {
         "id": "steady_guard",
@@ -4795,15 +4795,15 @@
         "y": 2,
         "effects": [
           {
-            "stat": "blockStamina",
-            "value": 25
+            "stat": "guardHeal",
+            "value": 5
           }
         ],
         "parents": [
           "quick_hands"
         ],
         "ranks": 2,
-        "description": "Blocking costs less stamina."
+        "description": "Guard gives back more health."
       },
       {
         "id": "heavy_blows",
@@ -4842,7 +4842,7 @@
         "parents": [
           "fighter"
         ],
-        "description": "Trained with medium weapons (longswords, rapiers): untrained, they swing slowly. Opens the masteries."
+        "description": "Trained with medium weapons (longswords, rapiers): untrained, they hit for three quarters. Opens the masteries."
       },
       {
         "id": "heavy_arms",
@@ -4860,7 +4860,7 @@
           "arms_training"
         ],
         "level": 3,
-        "description": "Trained with heavy weapons (greatswords, great axes, hammers): untrained, they swing slowly."
+        "description": "Trained with heavy weapons (greatswords, great axes, hammers): untrained, they hit for three quarters."
       },
       {
         "id": "light_mastery",
@@ -4874,15 +4874,15 @@
             "value": 15
           },
           {
-            "stat": "lightSpeed",
-            "value": 8
+            "stat": "crit",
+            "value": 3
           }
         ],
         "parents": [
           "arms_training"
         ],
         "ranks": 2,
-        "description": "Daggers and short swords: faster and deadlier."
+        "description": "Daggers and short swords: deadlier, with more critical hits."
       },
       {
         "id": "medium_mastery",
@@ -4896,8 +4896,8 @@
             "value": 15
           },
           {
-            "stat": "mediumSpeed",
-            "value": 5
+            "stat": "crit",
+            "value": 2
           }
         ],
         "parents": [
@@ -4988,15 +4988,15 @@
         "y": 1,
         "effects": [
           {
-            "stat": "drawSpeed",
-            "value": 15
+            "stat": "dex",
+            "value": 2
           }
         ],
         "parents": [
           "archer"
         ],
         "ranks": 2,
-        "description": "Draw the bow faster."
+        "description": "A steadier hand: Dexterity up (aim, critical hits, bow damage)."
       },
       {
         "id": "eagle_eye",
@@ -5014,7 +5014,7 @@
           "archer"
         ],
         "ranks": 2,
-        "description": "Lock on to enemies further away with a bow: spot them first, prepare, snipe."
+        "description": "Lock on to enemies further away with a bow: spot them first and snipe one to start the battle with the first turns."
       },
       {
         "id": "power_shot",
@@ -5046,7 +5046,7 @@
             "value": 25
           }
         ],
-        "description": "Harder to see while sneaking. Opens stealth."
+        "description": "Harder to see while sneaking: slip past foes, or catch them unaware for the first turns. Opens stealth."
       },
       {
         "id": "light_step",
@@ -5074,15 +5074,15 @@
         "y": 1,
         "effects": [
           {
-            "stat": "sneakDamage",
-            "value": 1
+            "stat": "crit",
+            "value": 4
           }
         ],
         "parents": [
           "shadow"
         ],
         "ranks": 2,
-        "description": "Sneak attacks (on enemies that haven’t noticed you) do even more damage."
+        "description": "Find the weak spots: more critical hits."
       },
       {
         "id": "silent_shot",
@@ -5100,7 +5100,7 @@
           "light_step",
           "archer"
         ],
-        "description": "Killing an unaware enemy with an arrow from 5 or more tiles away doesn’t make the others come looking."
+        "description": "An arrow from 5 tiles or more at a foe that hasn’t noticed you wounds it before the battle starts (and can finish it)."
       },
       {
         "id": "assassinate",
@@ -5118,7 +5118,7 @@
           "backstab"
         ],
         "level": 5,
-        "description": "A sneak attack kills an ordinary enemy outright (not bosses)."
+        "description": "A sword strike on an ordinary foe that hasn’t noticed you ends it on the spot: no battle (not bosses)."
       },
       {
         "id": "fire",

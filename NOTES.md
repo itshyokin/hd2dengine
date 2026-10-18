@@ -24,10 +24,11 @@ Kept in the project so they travel with the code. Tick them off as they're built
       tree for the whole party (stamina and party-wide boosts, new members included). Also: hits can miss (accuracy
       against dodging), Support spells (Haste, Slow), enemy Buff actions, enemy Accuracy / Evasion / Ailment resist /
       Critical hit % fields, party points (Give skill points → Party points).
-- [ ] Update 65: remove the action battle system (keep bumping into foes, and the sword / bow as field tools with the
+- [x] Update 65: remove the action battle system (keep bumping into foes, and the sword / bow as field tools with the
       bow's lock-on for sniping foes to start a battle); skills that only worked in real time removed or reworked;
       Database forms reorganised Guerilla-style (all switches together at the top, then named sections with a jump bar)
-      and the tabs regrouped.
+      and the tabs regrouped. Also: Assassinate and Silent Shot reworked for the map, Steady Guard heals on Guard,
+      untrained medium / heavy weapons hit for three quarters, battle Records now count (damage, crits, best hit).
 
 ## Combat (ideas, Oct 18)
 - [ ] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,

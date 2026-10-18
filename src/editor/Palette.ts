@@ -576,8 +576,6 @@ export class Palette {
       h('span', { class: 'swatch-name' }, l === '.' ? 'Erase' : m.zones?.[l]?.name || `Zone ${l}`),
       h('span', { class: 'swatch-note' }, l === '.' ? 'No random battles here.' : `${grid.filter((c) => c === l).length} tiles · ${m.zones?.[l]?.troops.length ?? 0} troop${(m.zones?.[l]?.troops.length ?? 0) === 1 ? '' : 's'}`));
     const out: HTMLElement[] = [];
-    if (s.db.combat?.mode !== 'turnBased') out.push(h('p', { class: 'note warn' }, 'Zones only bring battles with turn-based battles on: Database → Combat → Battle system.'),
-      h('button', { type: 'button', class: 'btn small', onclick: () => openDatabase(s, 'combat') }, 'Open Database → Combat'));
     out.push(this.brush(), h('div', { class: 'section-label' }, 'Paint'), h('div', { class: 'swatches' }, ...letters.map(btn), btn('.')));
     const l = s.zoneLetter;
     if (l === '.') {

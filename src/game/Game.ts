@@ -63,7 +63,7 @@ import { WEATHER_KINDS } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
-import { Skills, skillsData } from './skills';
+import { Skills, UNTRAINED_DAMAGE, proficientWith, skillsData } from './skills';
 import { playerConfig } from './stats';
 import { SkillTreeScreen } from '../ui/SkillTreeScreen';
 import { ControlsScreen } from '../ui/ControlsScreen';
@@ -1178,8 +1178,6 @@ export class Game {
       solidEventAt: (x, z) => this.events.some((e) => e.solid && e.covers(x, z)),
       defeated: (e) => this.enemyDefeated(e),
       ignite: (x, y, z, r) => this.ignite(x, y, z, r),
-      // Turn-based: foes on the map only ever go for the hero (touching them starts the battle), never the party.
-      allies: () => (this.combatCfg.mode === 'turnBased' ? [] : this.allies.filter((a) => !a.passive)),
       heroLit: () => this.heroLit(),
       safeZones: () => this.safeZones(),
       tally: (k, n, best) => this.state.tally(k, n, best),
@@ -1192,6 +1190,7 @@ export class Game {
       },
       log: (t, k) => this.log.add(t, k),
       encounter: (e, how) => this.encounter(e, how),
+      canEncounter: () => !(this.battle.active || this.battlePending || this.battleGrace > 0 || this.dying || this.onTitle || this.transfer || this.interpreter.running),
       learnedSpell: () => this.readiedSpell(),
     };
   }
@@ -1831,16 +1830,16 @@ export class Game {
     const stunned = this.combat.heroStunned;
     if (stunned) { dx = dz = 0; for (const a of ['jump', 'melee', 'bow', 'magic', 'attack', 'switchWeapon', 'ring'] as Action[]) i.consume(a); }
     const m = this.motion;
-    // Space jumps, or dodges while locked on; 1–3 attack, Q / Tab lock on, C sneaks.
+    // Space jumps; 1–3 use the sword, bow and spells, Q / Tab lock on, C sneaks.
     const space = i.consume('jump');
-    const dodged = stunned ? false : this.combat.handleInput(i, space, dx, dz);
+    if (!stunned) this.combat.handleInput(i);
     // With "Always run" on, Shift walks instead.
     // On a controller, pushing the stick all the way runs (Settings → Gameplay).
     const stickRun = this.settings.stickRun && i.stickAmount > 0.92;
     i.sprintToggle = this.settings.sprint === 'toggle';
     if (!i.sprintToggle) i.runLatched = false;
     const run = this.settings.alwaysRun ? !i.isHeld('run') : i.isHeld('run') || i.runLatched || i.touchRun || stickRun;
-    const res = m.update(dt, { dx, dz, run, jump: space && !dodged, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed });
+    const res = m.update(dt, { dx, dz, run, jump: space, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed });
     if (!m.airborne && !m.climbing && this.trySeamless(dx, dz)) return;
     // Locked on, the hero keeps facing the target (strafing); otherwise they face where they walk, unless attacking.
     const lock = this.combat.lock;
@@ -2494,7 +2493,7 @@ export class Game {
     const a = this.input.padAction(13) ?? 'lock';
     const NAMES: Partial<Record<Action, string>> = {
       lock: 'Release target', target: 'Lock on', targetPrev: 'Prev. target', ring: 'Spell', magic: 'Spell', melee: 'Sword', bow: 'Bow',
-      switchWeapon: 'Switch weapon', block: 'Block', sneak: 'Sneak', jump: 'Jump', run: 'Run', ok: 'Talk', attack: 'Attack', cancel: 'Menu',
+      switchWeapon: 'Switch weapon', sneak: 'Sneak', jump: 'Jump', run: 'Run', ok: 'Talk', attack: 'Attack', cancel: 'Menu',
       quick1: 'Quick item', quick2: 'Quick item', quick3: 'Quick item',
     };
     return { label: NAMES[a] ?? a, key: this.input.label(a) };
@@ -2864,13 +2863,8 @@ export class Game {
     return this.mapData.props.some((p) => { const d = this.sprites.def(p.type); return !!d?.forge && propCovers(d, p, x, z); });
   }
 
-  /** Trained with this kind of weapon? Only medium and heavy need it, and only when the skill tree teaches it. */
-  private proficient(cls: 'light' | 'medium' | 'heavy'): boolean {
-    if (cls === 'light' || !this.skills) return true;
-    const stat = cls === 'medium' ? 'proficientMedium' : 'proficientHeavy';
-    if (!this.skills.data.nodes.some((n) => n.effects.some((e) => e.stat === stat))) return true;
-    return this.skills.has(stat);
-  }
+  /** Trained with this kind of weapon (the hero's skills)? */
+  private proficient(cls: 'light' | 'medium' | 'heavy'): boolean { return !this.skills || proficientWith(this.skills, cls); }
 
   /**
    * The forge: smelt ore into ingots, upgrade weapons and armor with ingots of their material, and set a spell shard
@@ -3242,13 +3236,11 @@ export class Game {
     const icon = (id: string | undefined, fallback: string) => (id ? this.itemIcon(id) : this.builtinUrl(fallback));
     const rc = (id: string | undefined) => (id ? itemColor(this.items.get(id)) ?? undefined : undefined);
     const off = this.state.weaponsOff;
-    // Turn-based games: a built-in sword and bow (field tools, not bag items) unless a weapon is equipped.
-    const tools = c.fieldTools, ownBow = bow && this.items.get(bow)?.weapon?.class === 'bow' ? bow : undefined;
+    // A built-in sword and bow (field tools, not bag items) unless a weapon is equipped.
+    const ownBow = bow && this.items.get(bow)?.weapon?.class === 'bow' ? bow : undefined;
     this.hud.setWeapons([
-      { id: 'melee', name: melee ? this.items.get(melee)?.name ?? 'Weapon' : tools ? 'Sword' : 'Fists', icon: icon(melee, tools ? 'sword' : 'fist'), available: true, color: rc(melee), blocked: off },
-      tools
-        ? { id: 'bow', name: ownBow ? this.items.get(ownBow)?.name ?? 'Bow' : 'Bow', icon: icon(ownBow, 'bow'), available: true, color: rc(ownBow), blocked: off }
-        : { id: 'bow', name: bow ? this.items.get(bow)?.name ?? 'Bow' : 'No bow', icon: icon(bow, 'bow'), available: c.available('bow'), color: rc(bow), blocked: off },
+      { id: 'melee', name: melee ? this.items.get(melee)?.name ?? 'Weapon' : 'Sword', icon: icon(melee, 'sword'), available: true, color: rc(melee), blocked: off },
+      { id: 'bow', name: ownBow ? this.items.get(ownBow)?.name ?? 'Bow' : 'Bow', icon: icon(ownBow, 'bow'), available: true, color: rc(ownBow), blocked: off },
     ], c.weapon, c.switches, this.input.label('switchWeapon'));
   }
   private readonly builtinUrls = new Map<string, string>();
@@ -3468,17 +3460,15 @@ export class Game {
         { key: `${this.mapName}:fire:${f.x},${f.z}`, src: 'builtin:fire', x: f.x, z: f.z, range: 6, volume: 0.55 })))
         .concat(this.onTitle ? [] : this.waterfalls.map((f) => ({ key: `${this.mapName}:falls:${f.x.toFixed(1)},${f.z.toFixed(1)}`, src: 'builtin:falls', x: f.x, z: f.z, range: 9 + Math.min(8, (f.top - f.y) * 2), volume: Math.min(0.9, 0.45 + (f.top - f.y) * 0.1) }))));
     }
-    // Battle music while an enemy is hunting the hero nearby (and a moment after).
-    const p = this.player.position;
-    const turnBased = this.combatCfg.mode === 'turnBased';
-    // Turn-based: the battle music plays during battles (the built-in theme when the map has none), not while hunted.
-    const hunted = turnBased || this.battle.active ? this.battle.active : this.combat.enemies.some((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 16);
+    // Battle music during a battle (and a moment after).
+    // The battle music plays during battles (the built-in theme when the map has none), not while hunted.
+    const hunted = this.battle.active;
     this.calmFor = hunted ? 0 : this.calmFor + dt;
     // Battle music: a battle's own (Start battle command, troop, zone), the field map's override, the battle map's, then
     // the game's default (Database → Audio), then the built-in theme.
     const fightMusic = (this.battle.active ? this.battleRules.music : undefined) || d.battleMusic || (this.battle.active ? this.stage?.music : undefined)
-      || this.db.audio?.battleMusic || (turnBased || this.battle.active ? 'builtin:battle' : undefined);
-    const battle = fightMusic && (turnBased || this.battle.active ? this.battle.active : this.calmFor < 4) ? fightMusic : undefined;
+      || this.db.audio?.battleMusic || 'builtin:battle';
+    const battle = fightMusic && this.battle.active ? fightMusic : undefined;
     // Build the battle music while things are calm, so it doesn't stall the moment a fight starts.
     if (fightMusic && this.calmFor > 1) a.prepare(fightMusic);
     a.music(battle ?? this.musicOverride ?? d.music ?? '', battle ? 0.6 : fade);
@@ -4036,7 +4026,7 @@ export class Game {
       { id: 'equip', label: 'Equipment', detail: 'Weapons, armor and accessories' },
       { id: 'skills', label: 'Skill Tree', detail: 'Spend skill points' },
     ];
-    if (this.combatCfg.mode === 'turnBased' && this.combatCfg.turnBased.additions === 'set') out.push({ id: 'addition', label: 'Addition', detail: adds.length ? `Attack performs: ${cur?.name ?? 'a plain attack'}` : 'No Additions learned yet', disabled: !adds.length });
+    if (this.combatCfg.turnBased.additions === 'set') out.push({ id: 'addition', label: 'Addition', detail: adds.length ? `Attack performs: ${cur?.name ?? 'a plain attack'}` : 'No Additions learned yet', disabled: !adds.length });
     out.push({ id: 'magic', label: 'Magic', detail: spells.length ? `${spells.length} spell${spells.length === 1 ? '' : 's'}: healing can be cast from here` : 'No spells learned yet', disabled: !spells.length });
     if (classes.length > 1) out.push({ id: 'class', label: 'Class', detail: `Now: ${findClass(this.db, a.cls)?.name ?? 'none'}` });
     return out;
@@ -4089,14 +4079,7 @@ export class Game {
     }
     const spells = spellList(this.db).filter((sp) => (a.spells?.[sp.id] ?? 0) > 0);
     const adds = additionList(this.db).filter((d) => a.additions && d.id in a.additions);
-    // Action mode: the learned bolt the magic button throws (instead of a spell shard).
-    if (this.combatCfg.mode === 'action') {
-      const opts: [string, string][] = [['', 'Spell shard in the magic slot'], ...spells.filter((sp) => sp.kind === 'bolt').flatMap((sp) =>
-        Array.from({ length: Math.min(a.spells![sp.id], spellMaxRank(sp)) }, (_, i) => [`${sp.id}|${i + 1}`, rankName(sp.name, i + 1)] as [string, string]))];
-      items.push({ label: 'Spell on the magic button', detail: 'Cast on the field with the spell button. A higher rank hits harder and costs more.',
-        choice: { value: a.fieldSpell ? `${a.fieldSpell}|${Math.min(a.fieldRank ?? 99, a.spells?.[a.fieldSpell] ?? 1)}` : '', options: opts,
-          set: (v) => { if (!v) { delete a.fieldSpell; delete a.fieldRank; } else { const [id, r] = v.split('|'); a.fieldSpell = id; a.fieldRank = Number(r); } if (!who) this.refreshRing(); } } });
-    } else if (this.combatCfg.turnBased.additions === 'set' && adds.length) {
+    if (this.combatCfg.turnBased.additions === 'set' && adds.length) {
       items.push({ label: 'Attack uses', detail: 'The Addition performed with Attack in battle.',
         choice: { value: a.addition ?? '', options: [['', 'A plain attack'], ...adds.map((d) => [d.id, d.name] as [string, string])], set: (v) => { if (v) a.addition = v; else delete a.addition; } } });
     }
@@ -4242,8 +4225,6 @@ export class Game {
         row('Sneak attacks', 'sneakAttacks'),
         row('Damage dealt', 'damageDealt'),
         row('Damage taken', 'damageTaken'),
-        row('Attacks dodged', 'dodges'),
-        row('Attacks parried', 'parries'),
         row('Spells cast', 'spells'),
         row('Arrows shot', 'arrows'),
       ]) },
@@ -4268,7 +4249,6 @@ export class Game {
    * taken over (so the hit on the map doesn't happen); just after a battle, hits are ignored for a moment.
    */
   private encounter(e: Enemy, opening: Opening): boolean {
-    if (this.combatCfg.mode !== 'turnBased') return false;
     if (this.battle.active || this.battlePending || this.battleGrace > 0 || this.dying || this.onTitle || this.transfer || this.interpreter.running) return true;
     const tb = this.combatCfg.turnBased;
     const near = this.combat.enemies
@@ -4283,7 +4263,7 @@ export class Game {
   private updateEncounters(): void {
     const m = this.mapData, t = m?.encounters, p = this.player.position;
     const hasZones = !!m?.zoneGrid && !!m.zones && Object.values(m.zones).some((z) => z.troops.length);
-    if (this.combatCfg.mode !== 'turnBased' || (!t?.enemies.length && !hasZones) || this.onTitle || this.transfer || this.dying || this.battle.active || this.battlePending || this.interpreter.running) { this.encounterFrom = null; return; }
+    if ((!t?.enemies.length && !hasZones) || this.onTitle || this.transfer || this.dying || this.battle.active || this.battlePending || this.interpreter.running) { this.encounterFrom = null; return; }
     const from = this.encounterFrom;
     this.encounterFrom = { x: p.x, z: p.z };
     if (!from || this.motion.swimming || this.motion.airborne) return;
@@ -4407,7 +4387,8 @@ export class Game {
       const t = this.heroTotals(), sk = this.skills, gear = this.inventory.equip, cfg = this.combatCfg, hero = mainHero(this.db);
       const w = gear.weapon ? this.items.get(gear.weapon) : undefined, cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
       const classPct = cls === 'unarmed' ? 1 : pct(sk, `${cls}Damage` as 'lightDamage');
-      const melee = (cls === 'unarmed' ? cfg.unarmedDamage : w!.weapon!.damage) * cfg.classes[cls].damage * powerMultiplier(t.attrs.str) * pct(sk, 'meleeDamage') * classPct;
+      // Untrained with medium or heavy weapons (Arms Training, Heavy Arms): weaker blows.
+      const melee = (cls === 'unarmed' ? cfg.unarmedDamage : w!.weapon!.damage) * cfg.classes[cls].damage * powerMultiplier(t.attrs.str) * pct(sk, 'meleeDamage') * classPct * (proficientWith(sk, cls) ? 1 : UNTRAINED_DAMAGE);
       const bowDef = gear.ranged ? this.items.get(gear.ranged) : undefined, ammo = this.inventory.arrow() ? this.items.get(this.inventory.arrow()!) : undefined;
       const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.dex) * pct(sk, 'bowDamage') : 0;
       const useBow = !w && bow > melee;
@@ -4420,7 +4401,7 @@ export class Game {
           key: 'p0', side: 'party', name: hero.name, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp,
           attack: useBow ? bow : melee, attackElement: (useBow ? bowDef?.element : w?.element) ?? 'neutral', attackMagic: false,
           armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: t.crit,
-          accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow,
+          accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: sk.get('guardHeal'),
           defence: { ...hero, halve: this.wornGear().flatMap((g) => g?.wards ?? []) }, spells, ct: 0, guarding: false,
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
           additions: this.battleAdditions(a), addition: a.addition,
@@ -4445,7 +4426,7 @@ export class Game {
         key, side: 'party', name: m.def.name, hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp,
         attack: useBow ? n.bow : n.melee, attackElement: useBow ? n.bowElement : n.meleeElement, attackMagic: false,
         armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: n.crit,
-        accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow,
+        accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: msk.get('guardHeal'),
         defence: { elements: m.def.elements, immune: m.def.immune, absorb: m.def.absorb, halve: this.wornGear(m.data.equip).flatMap((g) => g?.wards ?? []) },
         spells, ct: 0, guarding: false,
         status: new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]),
@@ -4693,6 +4674,7 @@ export class Game {
     type Ref = { def: EnemyDef; enemy: Enemy | null; battler: Battler };
     return {
       sound: (n) => this.audio.play(n),
+      tally: (k, n, best) => this.state.tally(k, n, best),
       items: () => this.inventory.slots.flatMap((s, i) => {
         const d = s && this.items.get(s.id);
         if (!s || !d || d.kind !== 'consumable' || !(d.restore || d.cures?.length || d.buffs?.length)) return [];
@@ -4945,7 +4927,7 @@ export class Game {
     this.allies = [];
     this.jumpMarks = [];
     if (!this.level || this.onTitle) return;
-    if (this.combatCfg.mode === 'turnBased' && !this.combatCfg.turnBased.partyFollows) return;
+    if (!this.combatCfg.turnBased.partyFollows) return;
     const p = this.motion, [bx, bz] = DIR_VECTOR[this.player.dir];
     this.trail = [];
     for (let k = 12; k >= 0; k--) this.trail.push({ x: p.x - bx * k * 0.3, z: p.z - bz * k * 0.3 });
@@ -5048,20 +5030,8 @@ export class Game {
       get map() { return g.map; },
       trailPoint: (d) => this.trailPoint(d),
       get leader() { return g.player.position as unknown as { x: number; y: number; z: number }; },
-      threats: () => {
-        // Turn-based: party members don't fight on the map (the battle starts when a foe reaches the hero).
-        if (this.combatCfg.mode === 'turnBased') return [];
-        const p = this.player.position;
-        return this.combat.enemies.filter((e) => !e.dead && e.alert && Math.hypot(e.x - p.x, e.z - p.z) < 13);
-      },
       get calm() { return g.calmFor > 3; },
       numbers: (m, def) => this.allyNumbers(m, def),
-      strike: (a, e, dmg, el, inf) => this.combat.allyStrike(a, e, dmg, el, inf),
-      shoot: (a, kind, tx, ty, tz, dmg, color, el) => this.combat.allyShoot(a, kind, tx, ty, tz, dmg, color, el),
-      healTargets: () => [
-        { name: mainHero(this.db).name, x: this.player.position.x, z: this.player.position.z, hp: this.stats.hp, max: this.stats.cfg.max.hp, heal: (n: number) => this.stats.change('hp', 'add', n) },
-        ...this.fighters.filter((a) => !a.down).map((a) => ({ name: a.def.name, x: a.x, z: a.z, hp: a.data.hp, max: this.allyNumbers(a.data, a.def).max.hp, heal: (n: number) => { a.data.hp = Math.min(this.allyNumbers(a.data, a.def).max.hp, a.data.hp + n); } })),
-      ],
       float: (t, x, y, z, k) => this.overlay.float(t, x, y, z, k),
       sound: (n, x, z) => this.audio.play(n === 'swing' ? 'swing' : n === 'heal' ? 'ringOn' : n, x, z),
       log: (t) => this.log.add(t, 'info'),
@@ -5088,7 +5058,7 @@ export class Game {
     const w = g('weapon'), cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
     const ct = this.combatCfg.classes[cls];
     const classPct = cls === 'light' ? pct('lightDamage') : cls === 'medium' ? pct('mediumDamage') : cls === 'heavy' ? pct('heavyDamage') : 1;
-    const melee = (cls === 'unarmed' ? this.combatCfg.unarmedDamage : w!.weapon!.damage) * ct.damage * powerMultiplier(t.attrs.str) * pct('meleeDamage') * classPct;
+    const melee = (cls === 'unarmed' ? this.combatCfg.unarmedDamage : w!.weapon!.damage) * ct.damage * powerMultiplier(t.attrs.str) * pct('meleeDamage') * classPct * (proficientWith(sk, cls) ? 1 : UNTRAINED_DAMAGE);
     // A learned spell readied for the field takes the place of a spell shard.
     const bowDef = g('ranged'), shard = this.readiedSpell(m.abilities ?? {}) ?? g('magic');
     const base = playerConfig(this.db.stats).max;

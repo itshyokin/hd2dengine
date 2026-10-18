@@ -4,36 +4,40 @@
  */
 import type { SkillNode, SkillStat, SkillsData } from '../world/types';
 
-/** What each stat means, for the tree screen and the editor. `flag`: on or off rather than an amount. */
-export const SKILL_STATS: Record<SkillStat, { name: string; unit: string; flag?: boolean }> = {
+/**
+ * What each stat means, for the tree screen and the editor. `flag`: on or off rather than an amount. `old`: only did
+ * something in the real-time battles (removed in update 65): no effect now (Database → Skills can update them).
+ */
+export const SKILL_STATS: Record<SkillStat, { name: string; unit: string; flag?: boolean; old?: boolean }> = {
   maxHp: { name: 'Max health', unit: '' },
   maxMp: { name: 'Max magic', unit: '' },
   maxSp: { name: 'Max stamina', unit: '' },
   meleeDamage: { name: 'Melee damage', unit: '%' },
-  swingSpeed: { name: 'Swing speed', unit: '%' },
+  swingSpeed: { name: 'Swing speed (old: no effect)', unit: '%', old: true },
   lightDamage: { name: 'Light weapon damage', unit: '%' },
   mediumDamage: { name: 'Medium weapon damage', unit: '%' },
   heavyDamage: { name: 'Heavy weapon damage', unit: '%' },
-  lightSpeed: { name: 'Light weapon speed', unit: '%' },
-  mediumSpeed: { name: 'Medium weapon speed', unit: '%' },
-  heavySpeed: { name: 'Heavy weapon speed', unit: '%' },
+  lightSpeed: { name: 'Light weapon speed (old: no effect)', unit: '%', old: true },
+  mediumSpeed: { name: 'Medium weapon speed (old: no effect)', unit: '%', old: true },
+  heavySpeed: { name: 'Heavy weapon speed (old: no effect)', unit: '%', old: true },
   bowDamage: { name: 'Bow damage', unit: '%' },
-  drawSpeed: { name: 'Draw speed', unit: '%' },
-  bowRange: { name: 'Bow lock-on range', unit: '%' },
+  drawSpeed: { name: 'Draw speed (old: no effect)', unit: '%', old: true },
+  bowRange: { name: 'Bow lock-on range (sniping)', unit: '%' },
   sneakHide: { name: 'Harder to see while sneaking', unit: '%' },
   quietSteps: { name: 'Quieter while sneaking', unit: '%' },
-  sneakDamage: { name: 'Sneak attack multiplier', unit: '×' },
-  silentShot: { name: 'Silent shot', unit: '', flag: true },
-  assassinate: { name: 'Assassinate', unit: '', flag: true },
-  blockStamina: { name: 'Less stamina to block', unit: '%' },
+  sneakDamage: { name: 'Sneak attack multiplier (old: no effect)', unit: '×', old: true },
+  silentShot: { name: 'Silent shot: a far arrow wounds an unaware foe first', unit: '', flag: true },
+  assassinate: { name: 'Assassinate: an unseen sword strike ends an ordinary foe', unit: '', flag: true },
+  blockStamina: { name: 'Less stamina to block (old: no effect)', unit: '%', old: true },
+  guardHeal: { name: 'Guard heals more', unit: '%' },
   /** Older databases: the Fire skill (Arcana now: spell shards are items). */
   spellFire: { name: 'Spell: Fire', unit: '', flag: true },
   spellDamage: { name: 'Spell bolt damage', unit: '%' },
   spellCost: { name: 'Less magic for spells', unit: '%' },
   spellRange: { name: 'Spell bolt range', unit: '%' },
   lightReach: { name: 'Light spell reach', unit: '%' },
-  proficientMedium: { name: 'Trained: medium weapons', unit: '', flag: true },
-  proficientHeavy: { name: 'Trained: heavy weapons', unit: '', flag: true },
+  proficientMedium: { name: 'Trained: medium weapons (full damage)', unit: '', flag: true },
+  proficientHeavy: { name: 'Trained: heavy weapons (full damage)', unit: '', flag: true },
   str: { name: 'Strength', unit: '' },
   dex: { name: 'Dexterity', unit: '' },
   agi: { name: 'Agility', unit: '' },
@@ -76,13 +80,13 @@ export const DEFAULT_SKILLS: SkillsData = {
   nodes: [
     // Might: swing speed, weapon damage, and mastery of light, medium or heavy weapons.
     n('fighter', 'might', 'Fighter', 2, 0, [{ stat: 'meleeDamage', value: 5 }], { description: 'The basics of the blade. Opens the Might tree.', teachesAddition: 'quick_strike' }),
-    n('quick_hands', 'might', 'Quick Hands', 0, 1, [{ stat: 'swingSpeed', value: 8 }], { parents: ['fighter'], ranks: 3, description: 'Swing every weapon faster.' }),
-    n('steady_guard', 'might', 'Steady Guard', 0, 2, [{ stat: 'blockStamina', value: 25 }], { parents: ['quick_hands'], ranks: 2, description: 'Blocking costs less stamina.' }),
+    n('quick_hands', 'might', 'Quick Hands', 0, 1, [{ stat: 'agi', value: 2 }], { parents: ['fighter'], ranks: 3, description: 'Quicker in battle: Agility up, so turns come round sooner.' }),
+    n('steady_guard', 'might', 'Steady Guard', 0, 2, [{ stat: 'guardHeal', value: 5 }], { parents: ['quick_hands'], ranks: 2, description: 'Guard gives back more health.' }),
     n('heavy_blows', 'might', 'Heavy Blows', 2, 1, [{ stat: 'meleeDamage', value: 10 }], { parents: ['fighter'], ranks: 3, description: 'Every melee hit does more damage.' }),
-    n('arms_training', 'might', 'Arms Training', 4, 1, [{ stat: 'meleeDamage', value: 3 }, { stat: 'proficientMedium', value: 1 }], { parents: ['fighter'], description: 'Trained with medium weapons (longswords, rapiers): untrained, they swing slowly. Opens the masteries.' }),
-    n('heavy_arms', 'might', 'Heavy Arms', 6, 1.6, [{ stat: 'proficientHeavy', value: 1 }], { parents: ['arms_training'], level: 3, description: 'Trained with heavy weapons (greatswords, great axes, hammers): untrained, they swing slowly.' }),
-    n('light_mastery', 'might', 'Light Mastery', 3, 2, [{ stat: 'lightDamage', value: 15 }, { stat: 'lightSpeed', value: 8 }], { parents: ['arms_training'], ranks: 2, description: 'Daggers and short swords: faster and deadlier.' }),
-    n('medium_mastery', 'might', 'Medium Mastery', 4, 2.4, [{ stat: 'mediumDamage', value: 15 }, { stat: 'mediumSpeed', value: 5 }], { parents: ['arms_training'], ranks: 2, description: 'Longswords and rapiers: the balanced path.' }),
+    n('arms_training', 'might', 'Arms Training', 4, 1, [{ stat: 'meleeDamage', value: 3 }, { stat: 'proficientMedium', value: 1 }], { parents: ['fighter'], description: 'Trained with medium weapons (longswords, rapiers): untrained, they hit for three quarters. Opens the masteries.' }),
+    n('heavy_arms', 'might', 'Heavy Arms', 6, 1.6, [{ stat: 'proficientHeavy', value: 1 }], { parents: ['arms_training'], level: 3, description: 'Trained with heavy weapons (greatswords, great axes, hammers): untrained, they hit for three quarters.' }),
+    n('light_mastery', 'might', 'Light Mastery', 3, 2, [{ stat: 'lightDamage', value: 15 }, { stat: 'crit', value: 3 }], { parents: ['arms_training'], ranks: 2, description: 'Daggers and short swords: deadlier, with more critical hits.' }),
+    n('medium_mastery', 'might', 'Medium Mastery', 4, 2.4, [{ stat: 'mediumDamage', value: 15 }, { stat: 'crit', value: 2 }], { parents: ['arms_training'], ranks: 2, description: 'Longswords and rapiers: the balanced path.' }),
     n('heavy_mastery', 'might', 'Heavy Mastery', 5, 2, [{ stat: 'heavyDamage', value: 20 }], { parents: ['heavy_arms'], ranks: 2, description: 'Greatswords and great axes hit even harder.' }),
     // Additions (turn-based battles): strings of timed strikes.
     n('double_slash', 'might', 'Double Slash', 1, 2, [], { parents: ['quick_hands'], teachesAddition: 'double_slash', description: 'An Addition: two timed strikes.' }),
@@ -90,14 +94,14 @@ export const DEFAULT_SKILLS: SkillsData = {
     n('crescent_storm', 'might', 'Crescent Storm', 2, 4, [], { parents: ['volley'], level: 10, cost: 2, teachesAddition: 'crescent_storm', description: 'An Addition: seven fast strikes.' }),
     // Dexterity: archery on the left, stealth on the right.
     n('archer', 'dexterity', 'Archer', 1, 0, [{ stat: 'bowDamage', value: 10 }], { description: 'Arrows fly true. Opens archery.' }),
-    n('steady_draw', 'dexterity', 'Steady Draw', 0, 1, [{ stat: 'drawSpeed', value: 15 }], { parents: ['archer'], ranks: 2, description: 'Draw the bow faster.' }),
-    n('eagle_eye', 'dexterity', 'Eagle Eye', 2, 1, [{ stat: 'bowRange', value: 25 }], { parents: ['archer'], ranks: 2, description: 'Lock on to enemies further away with a bow: spot them first, prepare, snipe.' }),
+    n('steady_draw', 'dexterity', 'Steady Draw', 0, 1, [{ stat: 'dex', value: 2 }], { parents: ['archer'], ranks: 2, description: 'A steadier hand: Dexterity up (aim, critical hits, bow damage).' }),
+    n('eagle_eye', 'dexterity', 'Eagle Eye', 2, 1, [{ stat: 'bowRange', value: 25 }], { parents: ['archer'], ranks: 2, description: 'Lock on to enemies further away with a bow: spot them first and snipe one to start the battle with the first turns.' }),
     n('power_shot', 'dexterity', 'Power Shot', 1, 2, [{ stat: 'bowDamage', value: 15 }], { parents: ['steady_draw'], ranks: 2, description: 'Arrows hit harder.' }),
-    n('shadow', 'dexterity', 'Shadow', 4, 0, [{ stat: 'sneakHide', value: 25 }], { description: 'Harder to see while sneaking. Opens stealth.' }),
+    n('shadow', 'dexterity', 'Shadow', 4, 0, [{ stat: 'sneakHide', value: 25 }], { description: 'Harder to see while sneaking: slip past foes, or catch them unaware for the first turns. Opens stealth.' }),
     n('light_step', 'dexterity', 'Light Step', 3, 1, [{ stat: 'quietSteps', value: 30 }], { parents: ['shadow'], ranks: 2, description: 'Make less noise while sneaking.' }),
-    n('backstab', 'dexterity', 'Backstab', 5, 1, [{ stat: 'sneakDamage', value: 1 }], { parents: ['shadow'], ranks: 2, description: 'Sneak attacks (on enemies that haven’t noticed you) do even more damage.' }),
-    n('silent_shot', 'dexterity', 'Silent Shot', 3, 2, [{ stat: 'silentShot', value: 1 }], { parents: ['light_step', 'archer'], description: 'Killing an unaware enemy with an arrow from 5 or more tiles away doesn’t make the others come looking.' }),
-    n('assassinate', 'dexterity', 'Assassinate', 5, 2, [{ stat: 'assassinate', value: 1 }], { parents: ['backstab'], level: 5, description: 'A sneak attack kills an ordinary enemy outright (not bosses).' }),
+    n('backstab', 'dexterity', 'Backstab', 5, 1, [{ stat: 'crit', value: 4 }], { parents: ['shadow'], ranks: 2, description: 'Find the weak spots: more critical hits.' }),
+    n('silent_shot', 'dexterity', 'Silent Shot', 3, 2, [{ stat: 'silentShot', value: 1 }], { parents: ['light_step', 'archer'], description: 'An arrow from 5 tiles or more at a foe that hasn’t noticed you wounds it before the battle starts (and can finish it).' }),
+    n('assassinate', 'dexterity', 'Assassinate', 5, 2, [{ stat: 'assassinate', value: 1 }], { parents: ['backstab'], level: 5, description: 'A sword strike on an ordinary foe that hasn’t noticed you ends it on the spot: no battle (not bosses).' }),
     // Magic: spells come as shards (equipped in the magic slot); this one gives the first.
     // Spell shards are found, bought or given as items; the Magic tree makes them better.
     n('fire', 'magic', 'Arcana', 2, 0, [{ stat: 'spellDamage', value: 10 }], { description: 'Spell bolts hit harder, and learn Fire. Opens the Magic tree.', teachesSpell: 'fire' }),
@@ -195,4 +199,36 @@ export function effectText(e: { stat: SkillStat; value: number }): string {
   if (info.flag) return info.name;
   if (info.unit === '×') return `+${e.value}× ${info.name.toLowerCase()}`;
   return `+${e.value}${info.unit} ${info.name.toLowerCase()}`;
+}
+
+/** Untrained with medium or heavy weapons (Arms Training, Heavy Arms), a hero's Attack in battle does this much. */
+export const UNTRAINED_DAMAGE = 0.75;
+/**
+ * Trained with this kind of weapon? Only medium and heavy need it, and only when the skill tree teaches it (a tree
+ * without Arms Training leaves everyone trained).
+ */
+export function proficientWith(sk: Skills, cls: string): boolean {
+  if (cls !== 'medium' && cls !== 'heavy') return true;
+  const stat = cls === 'medium' ? 'proficientMedium' : 'proficientHeavy';
+  if (!sk.data.nodes.some((n) => n.effects.some((e) => e.stat === stat))) return true;
+  return sk.has(stat);
+}
+
+/** Skills from the real-time battles, and what Database → Skills turns them into (stat, value from the old one). */
+const OLD_SKILLS: Partial<Record<SkillStat, (v: number) => { stat: SkillStat; value: number }>> = {
+  swingSpeed: (v) => ({ stat: 'agi', value: Math.max(1, Math.round(v / 4)) }),
+  lightSpeed: (v) => ({ stat: 'crit', value: Math.max(1, Math.round(v / 3)) }),
+  mediumSpeed: (v) => ({ stat: 'crit', value: Math.max(1, Math.round(v / 3)) }),
+  heavySpeed: (v) => ({ stat: 'crit', value: Math.max(1, Math.round(v / 3)) }),
+  drawSpeed: (v) => ({ stat: 'dex', value: Math.max(1, Math.round(v / 7)) }),
+  blockStamina: (v) => ({ stat: 'guardHeal', value: Math.max(1, Math.round(v / 5)) }),
+  sneakDamage: (v) => ({ stat: 'crit', value: Math.max(1, Math.round(v * 4)) }),
+};
+/** Skills still using an effect from the real-time battles. */
+export const oldSkillNodes = (data: SkillsData): SkillNode[] => data.nodes.filter((n) => n.effects.some((e) => SKILL_STATS[e.stat]?.old));
+/** Turn those effects into turn-based ones (Agility, critical hits, Dexterity, Guard healing); how many skills changed. */
+export function updateOldSkills(data: SkillsData): number {
+  const list = oldSkillNodes(data);
+  for (const n of list) n.effects = n.effects.map((e) => OLD_SKILLS[e.stat]?.(e.value) ?? e);
+  return list.length;
 }

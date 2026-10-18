@@ -7,8 +7,8 @@ NOTES.md and README.md, then continue with the next update."*
 ## What this is
 An HD-2D RPG engine (TypeScript + three.js 0.149 + Vite): pixel sprites in a 3D tile world, a Map Editor with
 a full Database, a Character Builder, and a playtest game. It has turn-based battles (FFX-style turn order,
-Legend of Dragoon-style Additions and Guard, battle maps) and an action battle system that is due to be removed
-(Update 65). It builds to standalone HTML files and runs on an Android tablet through the online editor.
+Legend of Dragoon-style Additions and Guard, battle maps); on the map the sword and bow are field tools and
+bumping into (or striking) a foe starts a battle. It builds to standalone HTML files and runs on an Android tablet through the online editor.
 
 - `README.md`: the full feature guide (what every tool, tab and command does).
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
@@ -44,23 +44,23 @@ Legend of Dragoon-style Additions and Guard, battle maps) and an action battle s
   battle panels and the HUD; default in Database → Menus, player choice in Settings → Gameplay.
 - 63b: soft-blocky and cliff seam fixes; bridges keep walkers on them (along the bridge only, on and off at
   the ends; same for the party and enemies).
+- 64: seven stats (STR, DEX, AGI, END, DEF, MAG, MDF), hits can miss, buffs and debuffs in battle (Haste, Slow,
+  Support spells, enemy Buff actions), the Party skill tree shared by everyone.
+- 65: the real-time battle system removed (sword and bow are field tools; bow lock-on snipes to strike first;
+  Assassinate and Silent Shot reworked; old real-time skills updated); Database forms with switches at the top and
+  a jump bar; Database tabs regrouped (Party, Battle, Abilities, Items, Story, World, Game).
+- Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
+  standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
+  `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. **Update 64**: seven stats: STR (melee), DEX (ranged, accuracy, crits), AGI (turn speed, evasion), END
-   (ailment resistance and a little HP), DEF, MAG, MDF. Buffs and debuffs that work in battle, including Haste
-   and Slow. A Shared skill tree for the whole party (stamina as a shared value, party-wide boosts, new members
-   included).
-2. **Update 65**: remove the action battle system. Keep bumping into map enemies to start battles, and keep the
-   sword and bow as field tools (the bow's lock-on snipes an enemy to start a battle). Rework or remove skills
-   that only worked in real time. Reorganise the Database forms Guerilla-style (all toggles together at the top,
-   then named sections with a jump bar) and regroup the tabs.
-3. **Combat ideas (Oct 18)**: impact materials per enemy (hit sounds and up to two hit effects; bigger CRITICAL
+1. **Combat ideas (Oct 18)**: impact materials per enemy (hit sounds and up to two hit effects; bigger CRITICAL
    with screen shake, bigger WEAK with a thump); a battle log on the left that Y scrolls; monster stat blocks
    across the top (Database switch, element-coloured target glow, boss overdrive gauge, fade out on defeat).
-4. **Travel**: horses (stables, tiers with stamina and jump of 3 / 4 / 5 tiles, A to mount, B to dismount, Saddle
+2. **Travel**: horses (stables, tiers with stamina and jump of 3 / 4 / 5 tiles, A to mount, B to dismount, Saddle
    key item sends the horse home, placeholder art) and griffin flights (roosts unlocked by talking to the griffin
    master, fly over the World layout's maps at one speed, no skip).
-5. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
+3. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary
    achievement rule.

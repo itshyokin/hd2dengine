@@ -6,7 +6,7 @@
  * (screen extras) and LB / RB (switch tabs), whatever the field bindings are. Pointer / touch input is handled by the Game.
  */
 export type Action = 'up' | 'down' | 'left' | 'right' | 'ok' | 'cancel' | 'run' | 'jump' | 'ring'
-  | 'melee' | 'bow' | 'magic' | 'attack' | 'switchWeapon' | 'block' | 'lock' | 'target' | 'targetPrev' | 'sneak'
+  | 'melee' | 'bow' | 'magic' | 'attack' | 'switchWeapon' | 'lock' | 'target' | 'targetPrev' | 'sneak'
   /** Quick items (assigned in the bag): left, up, right. */
   | 'quick1' | 'quick2' | 'quick3'
   /** Menus only: switch tabs (the pause menu's: LB / RB, Q / E), and the tabs inside one (LT / RT, Z / C). */
@@ -15,10 +15,10 @@ export type Action = 'up' | 'down' | 'left' | 'right' | 'ok' | 'cancel' | 'run' 
 /** Actions the player can rebind, in the order the Controls screen lists them. */
 export const BINDABLE: [Action, string][] = [
   ['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'],
-  ['run', 'Run'], ['jump', 'Jump / dodge'], ['ok', 'Talk / interact'],
+  ['run', 'Run'], ['jump', 'Jump'], ['ok', 'Talk / interact'],
   ['attack', 'Attack (selected weapon)'], ['switchWeapon', 'Switch weapon'],
   ['melee', 'Melee (select and attack)'], ['bow', 'Bow (select and draw)'], ['magic', 'Cast spell (bolt)'],
-  ['ring', 'Spell (cast the readied shard)'], ['block', 'Block'],
+  ['ring', 'Spell (cast the readied shard)'],
   ['target', 'Lock on / next target'], ['targetPrev', 'Previous target'], ['lock', 'Release target'],
   ['sneak', 'Sneak / crouch'],
   ['quick1', 'Quick item ← (left)'], ['quick2', 'Quick item ↑ (up)'], ['quick3', 'Quick item → (right)'],
@@ -38,16 +38,16 @@ export const DEFAULT_BINDINGS: Bindings = {
     ok: ['Enter', 'NumpadEnter'], jump: ['Space'], cancel: ['Escape', 'KeyX'], run: ['ShiftLeft', 'ShiftRight'],
     melee: ['Digit1', 'Numpad1'], bow: ['Digit2', 'Numpad2'], magic: ['Digit3', 'Numpad3'], ring: ['Digit4', 'KeyF'],
     attack: [], switchWeapon: ['KeyR'],
-    block: ['KeyE'], target: ['Tab'], lock: ['KeyQ'], targetPrev: [],
+    target: ['Tab'], lock: ['KeyQ'], targetPrev: [],
     // Sneak is on C (Ctrl would make Ctrl+W close the browser tab).
     sneak: ['KeyC'],
     quick1: ['Digit5', 'Numpad5'], quick2: ['Digit6', 'Numpad6'], quick3: ['Digit7', 'Numpad7'],
   },
   pad: {
-    // A talks (when facing someone) or jumps (dodges while locked on); B casts the readied spell; X sprints; Y swaps sword and bow.
-    // RB / LB lock on and cycle targets either way, D-pad ↓ lets go. LT attacks, RT guards, right stick crouches.
+    // A talks (when facing someone) or jumps; B casts the readied spell; X sprints; Y swaps sword and bow.
+    // RB / LB lock on and cycle targets either way, D-pad ↓ lets go. LT attacks, right stick crouches.
     ok: [0], jump: [0], ring: [1], run: [2], switchWeapon: [3],
-    targetPrev: [4], target: [5], attack: [6], block: [7],
+    targetPrev: [4], target: [5], attack: [6],
     cancel: [9], sneak: [11], lock: [13],
     // The rest of the D-pad: quick items (left, up, right).
     quick1: [14], quick2: [12], quick3: [15],

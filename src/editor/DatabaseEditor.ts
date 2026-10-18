@@ -1,3 +1,4 @@
+import { organizeForm } from './formLayout';
 import { UI_THEMES } from '../ui/themes';
 import type { HeroDef } from '../world/types';
 import { toast } from './dom';
@@ -58,12 +59,13 @@ export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' |
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
-  ['People', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['characters', 'Characters', 'sprite'], ['classes', 'Classes', 'badge']]],
+  ['Party', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['classes', 'Classes', 'badge'], ['characters', 'Characters', 'sprite']]],
+  ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group']]],
+  ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
-  ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group'], ['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
-  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['textColors', 'Text colours', 'palette'], ['messageStyles', 'Text boxes', 'bubble'], ['audio', 'Audio', 'note']]],
-  ['System', [['saving', 'Saving', 'disk'], ['menus', 'Title & menus', 'menu'], ['credits', 'Credits', 'heart']]],
+  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin']]],
+  ['Game', [['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
   person: '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
@@ -137,6 +139,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const content = h('div', { class: 'db-editor' });
   body.className = 'db-wrap';
   body.append(h('div', { class: 'db-tabbar' }, tabs, tabName), content);
+  let shownTab: DbTab | null = null;
   const render = () => {
     tabs.replaceChildren(...DB_GROUPS.map(([group, list]) => h('div', { class: 'db-tab-group', role: 'group', 'aria-label': group },
       h('span', { class: 'db-group-label' }, group),
@@ -147,7 +150,13 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       })))));
     const cur = DB_GROUPS.flatMap(([, l]) => l).find(([id]) => id === tab);
     tabName.textContent = cur ? cur[1] : '';
+    // Re-drawing the same tab keeps its scroll; another tab starts at the top.
+    const top = shownTab === tab ? content.scrollTop : 0;
+    shownTab = tab;
     renderTab();
+    // Switches together at the top, then the sections with a jump bar (every tab the same).
+    organizeForm(content);
+    content.scrollTop = top;
     addTopDelete();
   };
   /**

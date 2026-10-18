@@ -26,9 +26,9 @@ import { elementIconUrl } from '../../art/elementIcons';
 import { statusIconUrl } from '../../art/statusIcons';
 import type { LogKind } from '../../ui/AdventureLog';
 import { itemWeaponSprite } from './weaponSprites';
-import { ELEMENT_COLORS, ELEMENT_NAMES, type ElementalDefence, elementResult } from '../elements';
-import { AILMENT_INFO, type ApplyResult, BLIND_MISS, StatusSet, effectColor, effectName } from '../status';
-import { CRIT_MULTIPLIER, DAMAGE_CAP, type HeroTotals, powerMultiplier, speedMultiplier } from '../attributes';
+import { ELEMENT_COLORS, type ElementalDefence } from '../elements';
+import { StatusSet, effectColor, effectName } from '../status';
+import { DAMAGE_CAP, type HeroTotals, powerMultiplier, speedMultiplier } from '../attributes';
 
 /** What the attack button uses. */
 export type WeaponMode = 'melee' | 'bow' | 'magic';
@@ -87,7 +87,6 @@ export interface CombatHost {
   /** Cast a field spell (Light, Water Walk): switch it on or off. */
   fieldSpell?(): void;
   /** Party members on the field (enemies may go after them instead of the hero). */
-  allies?(): AllyFighter[];
   /** An enemy was defeated: experience, loot and its page's commands. */
   defeated(e: Enemy): void;
   /** Something breakable was broken: its page's commands. */
@@ -100,6 +99,8 @@ export interface CombatHost {
    * the hit is ignored); the hit itself then doesn't happen.
    */
   encounter?(e: Enemy, opening: 'preemptive' | 'normal' | 'ambush'): boolean;
+  /** Can a battle start right now (not in one, not just after one, no cutscene)? */
+  canEncounter?(): boolean;
   /** A learned spell readied for the magic button (it takes the place of the spell shard), as an item. */
   learnedSpell?(): (ItemDef & { spell: NonNullable<ItemDef['spell']> }) | undefined;
 }
@@ -110,17 +111,6 @@ export type Target = Enemy | Breakable;
 const radiusOf = (t: Target): number => (t instanceof Breakable ? t.radius : ENEMY_RADIUS);
 
 export interface EnemyEvent { page: EventPage | null; readonly x: number; readonly z: number; readonly w: number; readonly h: number }
-
-/** A party member fighting beside the hero (for hits they land, and for enemies to go after). */
-export interface AllyFighter {
-  name: string;
-  x: number; y: number; z: number;
-  /** Knocked out: not a target. */
-  down: boolean;
-  crit: number;
-  /** An enemy's hit landing on them (`magic`: against their magic defence). */
-  hurt(damage: number, from: Enemy | undefined, magic: boolean, element: Element): void;
-}
 
 interface Projectile {
   mesh: THREE.Object3D;
@@ -139,8 +129,6 @@ interface Projectile {
   blind?: boolean;
   /** Shot from this far away (for future stealth perks). */
   range: number;
-  /** Shot by a party member (not the hero). */
-  by?: AllyFighter;
   sneak: boolean;
 }
 
@@ -170,13 +158,7 @@ export class Combat {
   private bowHands = 0;
   private queued = false;
   private draw: { t: number } | null = null;
-  /** Holding the guard up: seconds since it was raised. */
-  private guard: number | null = null;
-  private guardMesh: { pivot: THREE.Object3D; mat: THREE.MeshBasicMaterial } | null = null;
   private cast = 0;
-  /** The hero can't be hurt (dodging, or just hit). */
-  private invulnerable = 0;
-  private hurtFlash = 0;
   private drawPosed = false;
   /** What the hero holds while fighting, and how long the casting glow lasts. */
   private held: Held | null = null;
@@ -221,16 +203,6 @@ export class Combat {
     host.level.add(pivot);
     this.slash = { pivot, mat };
     this.held = new Held(host.level);
-    // The guard: a curved band in front of the hero while blocking.
-    const gmat = new THREE.MeshBasicMaterial({ map: this.textures.guard, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.7 });
-    const gmesh = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), gmat);
-    gmesh.rotation.x = -Math.PI / 2;
-    const gpivot = new THREE.Object3D();
-    gpivot.add(gmesh);
-    gpivot.visible = false;
-    host.level.add(gpivot);
-    this.guardMesh = { pivot: gpivot, mat: gmat };
-    this.guard = null;
     // Two lights for firebolts, always there (adding lights later would make every material recompile).
     this.fireLights.length = 0;
     for (let i = 0; i < 2; i++) {
@@ -257,9 +229,7 @@ export class Combat {
   }
 
   get locked(): boolean { return !!this.lock; }
-  get dodging(): boolean { return this.host?.motion.dashing && this.invulnerable > 0; }
-  get busy(): boolean { return !!this.swing || !!this.draw || this.cast > 0 || this.guard !== null; }
-  get blocking(): boolean { return this.guard !== null; }
+  get busy(): boolean { return !!this.swing || !!this.draw || this.cast > 0; }
 
   /** Spawn enemies for event pages that are enemies (and remove ones whose page changed); the same for breakables. */
   syncEvents(events: readonly EnemyEvent[]): void {
@@ -295,11 +265,8 @@ export class Combat {
 
   /* ------------------------------------------------------------------ input */
 
-  /**
-   * The fighting keys. `space` is whether Space was pressed this frame: while locked on it dodges
-   * (returns true when it was used), otherwise the caller jumps.
-   */
-  handleInput(i: Input, space: boolean, dx: number, dz: number): boolean {
+  /** The field keys: sneaking, lock-on, the sword and bow (field tools) and field spells. */
+  handleInput(i: Input): void {
     const h = this.host, m = h.motion;
     // Sneak: held (like Halo's crouch) or toggled, as the player chose in Settings → Gameplay.
     if (h.crouchHold()) { i.consume('sneak'); this.sneaking = i.isHeld('sneak'); }
@@ -312,16 +279,6 @@ export class Combat {
     }
     if (i.consume('targetPrev')) { if (this.lock) this.cycleTarget(-1); else this.lock = this.pickTarget(null); }
     const free = !m.airborne && !m.climbing && !m.swimming && !m.dashing && !m.crawling;
-    let usedSpace = false;
-    if (space && this.lock) {
-      usedSpace = true;
-      if (free) this.dodge(dx, dz);
-    }
-    // Block: hold to keep the guard up (not while attacking).
-    const wantGuard = i.isHeld('block') && free && !this.swing && !this.draw && this.cast <= 0;
-    if (wantGuard && this.guard === null) { this.guard = 0; h.sound('guard'); }
-    else if (!wantGuard) this.guard = null;
-
     // Weapons: switch between the sword and the bow (Y), then attack with the one selected (the trigger). The
     // keyboard's 1 / 2 pick one and use it at once. Spells are their own button (B, F, or 3): cast between attacks.
     if (this.weapon === 'magic') this.weapon = 'melee';
@@ -337,27 +294,23 @@ export class Combat {
     if (this.toolsOff && (use === 'melee' || use === 'bow')) { h.notice('You can’t use weapons here'); use = null; }
     const held = i.isHeld(this.weapon) || i.isHeld('attack');
 
-    if (use === 'melee' && free && this.guard === null) {
+    if (use === 'melee' && free) {
       if (this.swing) this.queued = true; else this.startSwing();
     }
     // The bow: hold to draw, let go to shoot.
-    if (use === 'bow' && free && !this.swing && !this.draw && this.guard === null) {
-      if (!this.fieldTools && !h.inventory.arrow()) h.notice('No arrows');
-      else if (this.available('bow')) { this.draw = { t: 0 }; h.sound('draw'); }
+    if (use === 'bow' && free && !this.swing && !this.draw) {
+      if (this.available('bow')) { this.draw = { t: 0 }; h.sound('draw'); }
       else this.whyNot('bow');
     }
     if (this.draw && (!held || this.weapon !== 'bow' || !free)) {
       if (free && this.draw.t >= 0.12) this.shootArrow(Math.min(1, this.draw.t / this.drawTime));
       this.draw = null;
     }
-    if (use === 'magic' && free && !this.swing && !this.draw && this.cast <= 0 && this.guard === null) {
+    if (use === 'magic' && free && !this.swing && !this.draw && this.cast <= 0) {
       if (this.available('magic')) this.castSpell(); else this.whyNot('magic');
       this.castQueued = 0;
     }
-    return usedSpace;
   }
-
-  private readonly warnedUntrained = new Set<string>();
 
   /** Something held in the hand instead of a weapon (a fishing rod while fishing), tilted 0 … 1. */
   holding: { icon: HTMLCanvasElement; tilt: number } | null = null;
@@ -409,12 +362,12 @@ export class Combat {
 
 
   /** How fast the hero can move right now (slower while swinging, drawing or casting). */
-  get speedScale(): number { return (this.draw ? 0.45 : this.swing ? 0.35 : this.guard !== null ? 0.4 : this.cast > 0 ? 0.5 : 1) * this.heroStatus.speed; }
+  get speedScale(): number { return (this.draw ? 0.45 : this.swing ? 0.35 : this.cast > 0 ? 0.5 : 1) * this.heroStatus.speed; }
   /** Frozen, paralysed, asleep or staggered: the hero can't move or act. */
   get heroStunned(): boolean { return this.heroStatus.stunned; }
 
   /** Seconds for a full bow draw (Steady Draw makes it quicker). */
-  private get drawTime(): number { return this.host.cfg.bow.drawTime / (1 + this.host.skills.get('drawSpeed') / 100) / speedMultiplier(this.host.hero().attrs.dex) / this.heroStatus.speed; }
+  private get drawTime(): number { return this.host.cfg.bow.drawTime / speedMultiplier(this.host.hero().attrs.dex) / this.heroStatus.speed; }
   /** Lock-on reach: further with a bow (Eagle Eye adds more). */
   private get lockReach(): number {
     const h = this.host;
@@ -437,16 +390,14 @@ export class Combat {
   private equipped(slot: EquipSlot): ItemDef | undefined {
     const id = this.host.inventory.equip[slot];
     const it = id ? this.host.items.get(id) : undefined;
-    // Turn-based games: the sword and bow are field tools the hero always has (vines, switches), not bag items.
-    if (this.fieldTools && (!it || (slot === 'ranged' && it.weapon?.class !== 'bow'))) {
+    // The sword and bow are field tools the hero always has (vines, switches), not bag items.
+    if ((!it || (slot === 'ranged' && it.weapon?.class !== 'bow'))) {
       if (slot === 'weapon') return FIELD_SWORD;
       if (slot === 'ranged') return FIELD_BOW;
     }
     return it;
   }
 
-  /** Turn-based games: the overworld sword and bow are built-in tools (never missing, no arrows needed). */
-  get fieldTools(): boolean { return this.host.cfg.mode === 'turnBased'; }
   /** Set by the "Overworld weapons" event command: off indoors or in restricted areas. */
   toolsOff = false;
 
@@ -473,10 +424,8 @@ export class Combat {
     const base = cls === 'unarmed' ? h.cfg.unarmedDamage : w!.weapon!.damage;
     const sk = h.skills;
     const hero = h.hero().attrs;
-    // Untrained with this kind of weapon (Might tree): slow, heavy swings.
-    const untrained = cls !== 'unarmed' && w !== FIELD_SWORD && h.proficient?.(cls) === false;
-    if (untrained && !this.warnedUntrained.has(cls)) { this.warnedUntrained.add(cls); h.notice(`Untrained with ${cls} weapons: slow swings until you learn them (Skill Tree → Might)`); }
-    const speed = t.speed * (1 + (sk.get('swingSpeed') + (cls === 'unarmed' ? 0 : sk.get(`${cls}Speed` as 'lightSpeed'))) / 100) * speedMultiplier(hero.dex) * this.heroStatus.speed * (untrained ? 0.6 : 1);
+    // The sword on the map: its class's swing speed, a little quicker with Dexterity.
+    const speed = t.speed * speedMultiplier(hero.dex) * this.heroStatus.speed;
     const bonus = (1 + (sk.get('meleeDamage') + (cls === 'unarmed' ? 0 : sk.get(`${cls}Damage` as 'lightDamage'))) / 100) * powerMultiplier(hero.str);
     const [dx, dz] = this.aim(t.reach);
     this.swing = { t: 0, dur: SWING_TIME / speed * (this.combo === 3 ? 1.25 : 1), hit: false, dx, dz, combo: this.combo, reach: t.reach, damage: base * t.damage * bonus * (this.combo === 3 ? 1.3 : 1), element: (cls === 'unarmed' ? undefined : w?.element) ?? 'neutral', inflicts: cls === 'unarmed' ? undefined : w?.inflicts };
@@ -537,7 +486,7 @@ export class Combat {
         if (d > 0.35 && (dx * s.dx + dz * s.dz) / d < 0.25) continue;
         any = true;
         if (e instanceof Breakable) this.damageBreakable(e, s.damage, 'melee', s.element);
-        else this.damageEnemy(e, s.damage, s.combo === 3 ? 4.5 : 2.6, false, 0, false, s.element, s.inflicts);
+        else this.damageEnemy(e, s.damage, false);
       }
       // A fire weapon lights a torch or fire in front of the hero.
       if (s.element === 'fire' && h.ignite?.(p.x + s.dx * s.reach * 0.7, p.y + 0.9, p.z + s.dz * s.reach * 0.7, s.reach * 0.6)) any = true;
@@ -553,10 +502,11 @@ export class Combat {
   }
 
   private shootArrow(power: number): void {
-    const h = this.host, bow = this.equipped('ranged'), arrowId = this.fieldTools ? null : h.inventory.arrow();
-    if (!bow?.weapon || (!arrowId && !this.fieldTools)) return;
-    const arrow = arrowId ? h.items.get(arrowId) : undefined;
-    if (arrowId) { h.inventory.spendArrow(arrowId); h.tally?.('arrows'); }
+    const h = this.host, bow = this.equipped('ranged');
+    if (!bow?.weapon) return;
+    // The field bow needs no arrows; an equipped arrow lends its damage and element.
+    const arrowId = h.inventory.arrow(), arrow = arrowId ? h.items.get(arrowId) : undefined;
+    h.tally?.('arrows');
     const p = h.player.position, range = h.cfg.bow.lockRange * 1.1;
     const [dx, dz] = this.aim(0);
     const ty = this.lock ? this.lock.y + 0.6 : p.y + 0.7;
@@ -596,158 +546,42 @@ export class Combat {
     this.makeNoise(3);
   }
 
-  private dodge(dx: number, dz: number): void {
-    const h = this.host, d = h.cfg.dodge;
-    if (h.stats.exhausted || h.stats.sp <= 0) { h.notice('Too tired to dodge'); return; }
-    // No direction held: hop back from the target.
-    if (!dx && !dz && this.lock) [dx, dz] = norm(h.player.position.x - this.lock.x, h.player.position.z - this.lock.z);
-    if (!dx && !dz) [dx, dz] = DIR_VECTOR[h.player.dir].map((v) => -v) as [number, number];
-    if (!h.motion.dash(dx, dz, d.distance, d.time)) return;
-    h.stats.change('sp', 'add', -d.cost);
-    if (h.stats.sp <= 0) h.stats.exhausted = true;
-    this.invulnerable = d.time + 0.05;
-    this.guard = null;
-    h.sound('dodge');
-    this.swing = null; this.draw = null;
-    if (this.slash) this.slash.pivot.visible = false;
-  }
-
   /* ------------------------------------------------------------------ damage */
 
-  private damageEnemy(e: Enemy, base: number, knock: number, ranged: boolean, range = 0, magic = false, element: Element = 'neutral', inflicts?: Inflict[], by?: AllyFighter): void {
-    const h = this.host, sneak = !by && e.unaware, sk = h.skills, top0 = e.y + e.height;
-    const fromX = by ? by.x : h.player.position.x, fromZ = by ? by.z : h.player.position.z;
-    // Turn-based: the first blow starts a battle instead (catching it unawares gives the party the first turns).
-    if (h.encounter?.(e, 'preemptive')) return;
-    // Blind: half the hero's attacks miss.
-    if (!by && this.heroStatus.blind && Math.random() < BLIND_MISS) {
-      h.overlay.float('Miss', e.x, top0, e.z, 'info');
-      h.sound('dodge', e.x, e.z);
-      e.becomeAlert(h.player.position.x, h.player.position.z);
-      return;
-    }
-    // Its elements: absorbed (heals it), immune (nothing), or weak / resisting.
-    let el = elementResult(element, e.def);
-    // A zombie can't absorb: the healing hurts it instead.
-    if (el.kind === 'absorb' && e.status.zombie) el = { kind: 'hit', mult: 1, label: null };
-    if (el.kind === 'immune') {
-      h.overlay.float('Immune', e.x, top0, e.z, 'info');
-      h.sound('block', e.x, e.z);
-      h.log(`${e.def.name} is immune to ${ELEMENT_NAMES[element].toLowerCase()}`, 'hit');
-      e.becomeAlert(h.player.position.x, h.player.position.z);
-      return;
-    }
-    let dmg = base * (0.9 + Math.random() * 0.2);
-    if (el.kind === 'absorb') {
-      const heal = mitigate(dmg, 0);
-      e.heal(heal);
-      h.overlay.float(`+${heal}`, e.x, top0, e.z, 'heal');
-      h.overlay.float('Absorbed', e.x, top0 + 0.35, e.z, 'info');
-      h.sound('ringOn', e.x, e.z);
-      h.log(`${e.def.name} absorbs it and heals ${heal}`, 'hit');
-      e.becomeAlert(h.player.position.x, h.player.position.z);
-      return;
-    }
-    dmg *= el.mult;
-    if (sneak) dmg *= h.cfg.sneakMultiplier + sk.get('sneakDamage');
-    // A critical hit: base 5%, more from gear and skills.
-    const crit = Math.random() * 100 < (by ? by.crit : h.hero().crit);
-    if (crit) dmg *= CRIT_MULTIPLIER;
-    dmg = mitigate(dmg, (magic ? e.def.magicDefense ?? e.def.defense : e.def.defense) ?? 0);
-    // Assassinate: a sneak attack finishes an ordinary enemy.
-    // (Zombies and the undead can't be killed outright.)
-    const assassinated = sneak && sk.has('assassinate') && !e.def.boss && !e.status.zombie && dmg < e.hp;
-    if (assassinated) dmg = Math.ceil(e.hp);
-    const killed = e.hurt(dmg, fromX, fromZ, knock);
-    if (!by) { h.tally?.('damageDealt', dmg); h.tally?.('bestHit', dmg, true); }
-    if (crit && !by) h.tally?.('crits');
-    if (sneak) h.tally?.('sneakAttacks');
-    e.status.hurt();
-    if (!killed) this.inflictOn(e, inflicts);
-    const top = e.y + e.height;
-    h.overlay.float(String(dmg), e.x, top, e.z, sneak || crit ? 'crit' : 'dmg', element !== 'neutral' ? ELEMENT_COLORS[element] : undefined);
-    const words = [sneak ? (assassinated ? 'Assassinated!' : 'Sneak attack!') : crit ? 'Critical!' : '', el.label ?? ''].filter(Boolean).join(' ');
-    if (words) h.overlay.float(words, e.x, top + 0.35, e.z, 'info');
-    h.log(assassinated ? `You assassinate ${e.def.name}` : `${sneak ? 'Sneak attack! ' : crit ? 'Critical! ' : ''}${el.label === 'Weak!' ? 'Super effective! ' : el.label === 'Resist' ? 'Resisted: ' : ''}${by ? `${by.name} hits` : 'You hit'} ${e.def.name} for ${dmg}`, 'hit');
-    h.sound(sneak || crit ? 'crit' : 'hit', e.x, e.z);
-    // A weakness hit lands extra hard: its own sound on top, a bigger shake and a burst in the element's colour.
-    if (el.label === 'Weak!') {
-      h.sound('weak', e.x, e.z);
-      this.shake = Math.max(this.shake, 0.14);
-      this.hitStop = Math.max(this.hitStop, 0.08);
-      h.bursts.spawn(e.x, e.y + 0.55, e.z, { color: ELEMENT_COLORS[element], n: 16, speed: 3, up: 2, life: 0.45, size: 0.09, additive: true });
-    }
-    h.bursts.spawn(e.x, e.y + 0.5, e.z, { color: '#fff4d0', n: 8, speed: 2.4, up: 1.5, life: 0.3, size: 0.07, additive: true });
-    // The fight is heard: friends nearby join in (a ranged kill out of nowhere only makes them look).
-    for (const o of this.enemies) {
-      if (o === e || o.dead) continue;
-      const d = Math.hypot(o.x - e.x, o.z - e.z);
-      // An arrow out of nowhere only makes them look (Silent Shot: from 5+ tiles, not even that).
-      if (killed && ranged && sneak) { if (d < 5 && !(sk.has('silentShot') && range >= 5)) o.disturb(e.x, e.z, 0.5); }
-      else if (d < 7) o.becomeAlert(fromX, fromZ);
-    }
-    if (killed) this.enemyDown(e);
-  }
-
-  /** A party member's melee hit on an enemy. */
-  allyStrike(by: AllyFighter, e: Enemy, damage: number, element: Element = 'neutral', inflicts?: Inflict[]): void {
+  /**
+   * The sword, an arrow or a field spell reaching an enemy on the map: a battle starts, and hitting it first gives the
+   * party the first turns. Two skills change what an unseen hit does: Assassinate (a sword strike on an ordinary foe
+   * that hasn't noticed the hero finishes it on the spot, no battle) and Silent Shot (an arrow from 5 tiles or more at
+   * one that hasn't noticed wounds it before the battle starts, and can finish it).
+   */
+  private damageEnemy(e: Enemy, base: number, ranged: boolean, range = 0, magic = false): void {
+    const h = this.host, sk = h.skills, top = e.y + e.height;
     if (e.dead) return;
-    this.damageEnemy(e, damage, 2.2, false, 0, false, element, inflicts, by);
-  }
-
-  /** A party member's arrow or spell, aimed at a point. */
-  allyShoot(by: AllyFighter, kind: 'arrow' | 'fire', tx: number, ty: number, tz: number, damage: number, color?: string, element: Element = 'neutral', inflicts?: Inflict[]): void {
-    const dx = tx - by.x, dz = tz - by.z, d = Math.hypot(dx, dz) || 1;
-    const y = by.y + (kind === 'fire' ? 0.6 : 0.7);
-    this.launch(kind, 'player', by.x + (dx / d) * 0.3, y, by.z + (dz / d) * 0.3, dx, (ty - y) / d, dz, kind === 'fire' ? this.host.cfg.fire.speed : this.host.cfg.bow.arrowSpeed * 0.9, d + 4, damage, color, element, inflicts);
-    this.projectiles[this.projectiles.length - 1].by = by;
-    this.host.sound(kind === 'fire' ? 'fire' : 'shoot', by.x, by.z);
+    if (!h.canEncounter?.()) return;
+    const unaware = e.unaware && !e.def.boss && !e.status.zombie;
+    if (unaware && !ranged && !magic && sk.has('assassinate')) {
+      e.hurt(Math.ceil(e.hp), h.player.position.x, h.player.position.z, 3);
+      h.overlay.float('Assassinated!', e.x, top + 0.35, e.z, 'crit');
+      h.log(`You assassinate ${e.def.name}`, 'hit');
+      h.tally?.('sneakAttacks');
+      h.sound('crit', e.x, e.z);
+      this.enemyDown(e);
+      return;
+    }
+    if (unaware && ranged && !magic && range >= 5 && sk.has('silentShot')) {
+      const dmg = mitigate(base * (0.9 + Math.random() * 0.2), e.def.defense ?? 0);
+      const killed = e.hurt(Math.min(dmg, Math.ceil(e.hp)), h.player.position.x, h.player.position.z, 1.4);
+      h.overlay.float(String(dmg), e.x, top, e.z, 'crit');
+      h.overlay.float('Silent shot!', e.x, top + 0.35, e.z, 'info');
+      h.log(`Silent shot! ${e.def.name} takes ${dmg}`, 'hit');
+      h.tally?.('sneakAttacks');
+      h.sound('crit', e.x, e.z);
+      if (killed) { this.enemyDown(e); return; }
+    }
+    h.encounter?.(e, 'preemptive');
   }
 
   /* ------------------------------------------------------------------ ailments */
-
-  /** Roll a hit's ailments against an enemy. */
-  private inflictOn(e: Enemy, inflicts: Inflict[] | undefined): void {
-    for (const f of inflicts ?? []) {
-      if (Math.random() * 100 >= f.chance) continue;
-      const r = e.status.inflict(f.ailment, f.seconds);
-      this.announce(r, f.ailment, e.x, e.y + e.height + 0.6, e.z, e.def.name);
-    }
-  }
-
-  /** Roll an enemy hit's ailments against the hero. */
-  private inflictOnHero(inflicts: Inflict[] | undefined): void {
-    const h = this.host, p = h.player.position;
-    this.heroStatus.setOwner({ resists: h.heroResists() });
-    for (const f of inflicts ?? []) {
-      if (Math.random() * 100 >= f.chance) continue;
-      const r = this.heroStatus.inflict(f.ailment, f.seconds);
-      this.announce(r, f.ailment, p.x, p.y + 1.9, p.z, null);
-    }
-  }
-
-  private announce(r: ApplyResult, a: Ailment, x: number, y: number, z: number, who: string | null): void {
-    const h = this.host, name = r === 'frozen' ? 'Frozen' : AILMENT_INFO[a].name;
-    if (r === 'immune') { h.overlay.float(`No ${AILMENT_INFO[a].name.toLowerCase()}`, x, y, z, 'info'); return; }
-    if (r === 'blocked') return;
-    h.overlay.float(r === 'frozen' ? 'Frozen!' : name, x, y, z, 'info', effectColor(r === 'frozen' ? 'frozen' : a));
-    if (r === 'applied' || r === 'frozen') h.log(`${who ?? 'You'} ${who ? 'is' : 'are'} ${STATUS_WORD[r === 'frozen' ? 'frozen' : a]}`, who ? 'hit' : 'hurt');
-  }
-
-  /** A confused enemy hits another. */
-  private confusedHit(t: Enemy, damage: number, from: Enemy): void {
-    const h = this.host;
-    if (t.dead) return;
-    const el = elementResult(enemyElement(from.def), t.def);
-    if (el.kind === 'immune' || (el.kind === 'absorb' && !t.status.zombie)) return;
-    const dmg = mitigate(damage * (el.kind === 'hit' ? el.mult : 1), (from.def.attackType === 'magic' ? t.def.magicDefense ?? t.def.defense : t.def.defense) ?? 0);
-    const killed = t.hurt(dmg, from.x, from.z, 2);
-    t.status.hurt();
-    h.overlay.float(String(dmg), t.x, t.y + t.height, t.z, 'dmg');
-    h.sound('hit', t.x, t.z);
-    h.log(`${from.def.name} hits ${t.def.name} in confusion`, 'hit');
-    if (killed) this.enemyDown(t);
-  }
 
   /** An enemy beaten (by anything): the sound, it stays beaten for this visit, the lock moves on, rewards. */
   private enemyDown(e: Enemy): void {
@@ -818,92 +652,9 @@ export class Combat {
     h.broken(b);
   }
 
-  /** An enemy's attack reaching the hero (`from` is the attacker for melee, so a parry can stagger it). */
-  hurtPlayer(damage: number, fromX: number, fromZ: number, from?: Enemy, what = 'An attack', magic = from?.def.attackType === 'magic', element: Element = from ? enemyElement(from.def) : 'neutral', inflicts: Inflict[] | undefined = from?.def.inflicts): void {
-    const h = this.host, p = h.player.position;
-    if (this.invulnerable > 0) {
-      if (h.motion.dashing) { h.tally?.('dodges'); h.overlay.float('Dodged', p.x, p.y + 1.3, p.z, 'info'); h.log(`You dodge ${from ? `${from.def.name}’s attack` : 'the attack'}`, 'hit'); }
-      return;
-    }
-    // The hero's elements: immune, absorbing (healed), or a multiplier.
-    let el = elementResult(element, h.heroElements());
-    if (el.kind === 'absorb' && this.heroStatus.zombie) el = { kind: 'hit', mult: 1, label: null };
-    if (el.kind === 'immune') { h.overlay.float('Immune', p.x, p.y + 1.3, p.z, 'info'); h.sound('block', p.x, p.z); this.invulnerable = 0.2; return; }
-    if (el.kind === 'absorb') {
-      const heal = mitigate(damage, 0);
-      h.stats.change('hp', 'add', heal);
-      h.overlay.float(`+${heal}`, p.x, p.y + 1.3, p.z, 'heal');
-      h.log(`You absorb ${from ? `${from.def.name}’s attack` : 'the attack'} and heal ${heal}`, 'hit');
-      h.sound('ringOn', p.x, p.z);
-      this.invulnerable = 0.2;
-      return;
-    }
-    damage *= el.mult;
-    let scale = 1;
-    // Blocking: hits from the front are mostly stopped, for stamina. Raising the guard just in time parries.
-    if (this.guard !== null) {
-      const [fx, fz] = DIR_VECTOR[h.player.dir], [ax, az] = norm(fromX - p.x, fromZ - p.z);
-      const front = this.lock ? (() => { const [lx, lz] = norm(this.lock.x - p.x, this.lock.z - p.z); return ax * lx + az * lz; })() : ax * fx + az * fz;
-      if (front > 0.2) {
-        const b = h.cfg.block;
-        if (from && this.guard <= b.parry) {
-          from.stagger(1.1);
-          h.overlay.float('Parry!', p.x, p.y + 1.4, p.z, 'crit');
-          h.log(`You parry ${from.def.name}`, 'hit');
-          h.tally?.('parries');
-          h.sound('parry', p.x, p.z);
-          this.hitStop = Math.max(this.hitStop, 0.1);
-          this.shake = Math.max(this.shake, 0.1);
-          this.invulnerable = 0.25;
-          return;
-        }
-        const cost = b.cost * (1 - Math.min(90, h.skills.get('blockStamina')) / 100);
-        if (h.stats.sp >= cost) {
-          h.stats.change('sp', 'add', -cost);
-          scale = 1 - b.reduction;
-          h.overlay.float('Blocked', p.x, p.y + 1.4, p.z, 'info');
-          h.sound('block', p.x, p.z);
-          const [kx, kz] = norm(p.x - fromX, p.z - fromZ);
-          if (kx || kz) h.motion.dash(kx, kz, 0.25, 0.1);
-          this.invulnerable = 0.2;
-          if (scale <= 0) return;
-          const dmg = mitigate(damage * scale, 0);
-          h.stats.change('hp', 'add', -dmg);
-          h.tally?.('damageTaken', dmg);
-          h.overlay.float(String(dmg), p.x, p.y + 1.1, p.z, 'hurt');
-          h.log(`You block ${from ? `${from.def.name}’s attack` : 'the attack'} (${dmg} gets through)`, 'hurt');
-          return;
-        }
-        // Out of stamina: the guard breaks.
-        h.stats.change('sp', 'set', 0); h.stats.exhausted = true;
-        this.guard = null;
-        h.overlay.float('Guard broken', p.x, p.y + 1.4, p.z, 'info');
-        h.log('Your guard breaks: out of stamina', 'hurt');
-      }
-    }
-    // Armour and the hero's Defence against hits; Magic Defence (and magic armour) against spells.
-    const hero = h.hero();
-    const dmg = mitigate(damage * scale * (0.9 + Math.random() * 0.2), magic ? hero.magicArmour : hero.armour);
-    h.sound('hurt', p.x, p.z);
-    h.stats.change('hp', 'add', -dmg);
-    h.tally?.('damageTaken', dmg);
-    this.heroStatus.hurt();
-    if (h.stats.hp > 0) this.inflictOnHero(inflicts);
-    h.overlay.float(String(dmg), p.x, p.y + 1.3, p.z, 'hurt');
-    if (el.label) h.overlay.float(el.label, p.x, p.y + 1.65, p.z, 'info');
-    if (el.label === 'Weak!') h.sound('weak', p.x, p.z);
-    h.log(`${from ? from.def.name : what} hits you for ${dmg}${el.label === 'Weak!' ? ' (super effective)' : el.label === 'Resist' ? ' (resisted)' : ''}`, 'hurt');
-    this.invulnerable = h.cfg.hurtGrace;
-    this.hurtFlash = 0.25;
-    // A flinch: the first frames of the hurt animation.
-    h.player.play('hurt', 0.22, 0, undefined, 1);
-    this.hitStop = Math.max(this.hitStop, 0.07);
-    this.shake = Math.max(this.shake, 0.18);
-    // Knocked back a step (interrupting any attack in progress).
-    const [kx, kz] = norm(p.x - fromX, p.z - fromZ);
-    if (kx || kz) h.motion.dash(kx, kz, 0.55, 0.14);
-    this.swing = null; this.draw = null; this.guard = null;
-    if (this.slash) this.slash.pivot.visible = false;
+  /** An enemy's attack reaching the hero: the battle starts (an ambush when it came from behind). */
+  hurtPlayer(fromX: number, fromZ: number, from?: Enemy): void {
+    if (from) this.host.encounter?.(from, this.behind(fromX, fromZ) ? 'ambush' : 'normal');
   }
 
   /* ------------------------------------------------------------------ projectiles */
@@ -941,7 +692,7 @@ export class Combat {
   }
 
   private updateProjectiles(dt: number): void {
-    const h = this.host, m = h.map, p = h.player.position;
+    const h = this.host, m = h.map;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const pr = this.projectiles[i];
       const step = Math.hypot(pr.vx, pr.vz) * dt;
@@ -959,21 +710,13 @@ export class Combat {
           for (const e of this.targets()) {
             if (e.dead) continue;
             if (Math.hypot(e.x - pr.x, e.z - pr.z) < radiusOf(e) + 0.12 && pr.y > e.y - 0.1 && pr.y < e.y + e.height + 0.1) {
-              if (e instanceof Breakable) { if (!pr.by) this.damageBreakable(e, pr.damage, pr.kind === 'fire' ? 'magic' : 'bow', pr.element); else continue; }
-              else this.damageEnemy(e, pr.damage, pr.kind === 'fire' ? 2 : 1.4, true, pr.range, pr.kind === 'fire', pr.element, pr.inflicts, pr.by);
+              if (e instanceof Breakable) this.damageBreakable(e, pr.damage, pr.kind === 'fire' ? 'magic' : 'bow', pr.element);
+              else this.damageEnemy(e, pr.damage, true, pr.range, pr.kind === 'fire');
               this.impact(pr);
               done = true;
               break;
             }
           }
-        } else if (pr.from === 'enemy' && this.allyHitBy(pr)) {
-          this.impact(pr);
-          done = true;
-        } else if (Math.hypot(p.x - pr.x, p.z - pr.z) < 0.32 && pr.y > p.y - 0.1 && pr.y < p.y + 1.3) {
-          if (pr.blind && Math.random() < BLIND_MISS) h.overlay.float('Miss', p.x, p.y + 1.3, p.z, 'info');
-          else this.hurtPlayer(pr.damage, pr.x - pr.vx * 0.1, pr.z - pr.vz * 0.1, undefined, pr.kind === 'arrow' ? 'An arrow' : 'A firebolt', pr.kind === 'fire', pr.element, pr.inflicts);
-          this.impact(pr);
-          done = true;
         }
       }
       if (done) { this.projectiles.splice(i, 1); continue; }
@@ -985,16 +728,6 @@ export class Combat {
     }
     // Firebolt lights that aren't carrying a bolt go dark.
     for (const l of this.fireLights) if (!this.projectiles.some((pr) => pr.light === l)) l.intensity = 0;
-  }
-
-  /** An enemy's arrow or bolt reaching a party member. */
-  private allyHitBy(pr: Projectile): boolean {
-    for (const a of this.host.allies?.() ?? []) {
-      if (a.down || Math.hypot(a.x - pr.x, a.z - pr.z) >= 0.32 || pr.y < a.y - 0.1 || pr.y > a.y + 1.3) continue;
-      a.hurt(pr.damage, undefined, pr.kind === 'fire', pr.element);
-      return true;
-    }
-    return false;
   }
 
   private impact(pr: Projectile): void {
@@ -1051,8 +784,7 @@ export class Combat {
 
   update(dt: number): void {
     if (this.castQueued > 0) this.castQueued = Math.max(0, this.castQueued - dt);
-    const h = this.host, p = h.player.position, m = h.motion;
-    this.invulnerable = Math.max(0, this.invulnerable - dt);
+    const h = this.host, p = h.player.position;
     this.cast = Math.max(0, this.cast - dt);
     this.sinceNoise += dt;
     this.shake = Math.max(0, this.shake - dt * 0.8);
@@ -1063,32 +795,17 @@ export class Combat {
       this.drawPosed = true;
     } else if (this.drawPosed) { this.drawPosed = false; h.player.hold(null); }
     this.updateSwing(dt);
-    if (this.guard !== null) this.guard += dt;
-    if (this.guardMesh) {
-      const g = this.guardMesh, on = this.guard !== null;
-      g.pivot.visible = on;
-      if (on) {
-        const [dx, dz] = this.lock ? norm(this.lock.x - p.x, this.lock.z - p.z) : DIR_VECTOR[h.player.dir];
-        g.pivot.position.set(p.x + dx * 0.25, p.y + 0.35, p.z + dz * 0.25);
-        g.pivot.rotation.y = Math.atan2(-dx, -dz);
-        g.mat.opacity = this.guard! <= h.cfg.block.parry ? 0.95 : 0.55;
-      }
-    }
-
-    // The hero's flash when hurt; blinking while they can't be hurt again.
-    this.hurtFlash = Math.max(0, this.hurtFlash - dt);
     const mat = h.player.mesh.material as THREE.MeshStandardMaterial;
     const glow = h.glow();
     this.updateStatuses(dt);
     const ail = this.heroStatus.list.find((e) => !e.id.startsWith('buff:'));
-    if (this.hurtFlash > 0) { mat.emissive.setRGB(1, 0.2, 0.15); mat.emissiveIntensity = this.hurtFlash * 4; }
-    else if (glow) { mat.emissive.copy(glow.color); mat.emissiveIntensity = glow.amount; }
+    if (glow) { mat.emissive.copy(glow.color); mat.emissiveIntensity = glow.amount; }
     else if (ail) { mat.emissive.set(effectColor(ail.id)); mat.emissiveIntensity = (ail.id === 'frozen' ? 0.55 : 0.25) + Math.sin(performance.now() / 200) * 0.07; }
     else mat.emissiveIntensity = 0;
     // Can't act: an attack under way is lost.
-    if (this.heroStatus.stunned) { this.swing = null; this.draw = null; this.guard = null; if (this.slash) this.slash.pivot.visible = false; }
+    if (this.heroStatus.stunned) { this.swing = null; this.draw = null; if (this.slash) this.slash.pivot.visible = false; }
     this.updateHeld(dt);
-    h.player.mesh.visible = !(this.invulnerable > 0 && !m.dashing && Math.floor(this.invulnerable * 20) % 2 === 1);
+    h.player.mesh.visible = true;
 
     // Lose a target that's too far, hidden or beaten.
     if (this.lock) {
@@ -1103,39 +820,14 @@ export class Combat {
       lit: h.heroLit?.() ?? 0,
       safe: h.safeZones?.() ?? [],
       blockedAt: (x, z) => h.solidEventAt(x, z),
-      hurtPlayer: (d, x, z, from) => {
-        if (from && h.encounter?.(from, this.behind(x, z) ? 'ambush' : 'normal')) return;
-        if (from?.status.blind && Math.random() < BLIND_MISS) { h.overlay.float('Miss', p.x, p.y + 1.3, p.z, 'info'); return; }
-        this.hurtPlayer(d, x, z, from);
-      },
-      hurtEnemy: (t, d, from) => this.confusedHit(t, d, from),
-      shoot: (e, tx, ty, tz) => {
-        if (h.encounter?.(e, 'normal')) return;
-        const dx = tx - e.x, dz = tz - e.z, d = Math.hypot(dx, dz) || 1;
-        // Casters throw firebolts (stopped by Magic Defence); the rest shoot arrows.
-        const magic = e.def.attackType === 'magic';
-        this.launch(magic ? 'fire' : 'arrow', 'enemy', e.x + (dx / d) * 0.3, e.y + 0.75, e.z + (dz / d) * 0.3, dx, (ty - (e.y + 0.75)) / d, dz, magic ? 9 : 11, e.def.sight * 1.3, e.def.damage, undefined, enemyElement(e.def), e.def.inflicts, e.status.blind);
-      },
+      // Reaching the hero (a blow, a charge, a shot) starts the battle.
+      hurtPlayer: (_d, x, z, from) => this.hurtPlayer(x, z, from),
+      hurtEnemy: () => {},
+      shoot: (e) => { h.encounter?.(e, 'normal'); },
       others: this.enemies,
     };
-    // Each enemy goes after the nearest of the party (the hero, or a party member still standing).
-    const allies = (h.allies?.() ?? []).filter((a) => !a.down);
-    const heroHurt = world.hurtPlayer;
-    for (const e of this.enemies) {
-      let best: AllyFighter | null = null, bd = Math.hypot(e.x - p.x, e.z - p.z);
-      for (const a of allies) { const d = Math.hypot(e.x - a.x, e.z - a.z); if (d < bd - 0.5) { bd = d; best = a; } }
-      if (best) {
-        const a = best;
-        world.px = a.x; world.py = a.y; world.pz = a.z;
-        world.hurtPlayer = (d, _x, _z, from) => {
-          if (from && h.encounter?.(from, 'normal')) return;
-          if (from?.status.blind && Math.random() < BLIND_MISS) { h.overlay.float('Miss', a.x, a.y + 1.3, a.z, 'info'); return; }
-          a.hurt(d, from, from?.def.attackType === 'magic', from ? enemyElement(from.def) : 'neutral');
-        };
-      } else { world.px = p.x; world.py = p.y; world.pz = p.z; world.hurtPlayer = heroHurt; }
-      e.update(dt, world);
-    }
-    world.px = p.x; world.py = p.y; world.pz = p.z; world.hurtPlayer = heroHurt;
+    // Foes on the map only ever go for the hero: reaching them starts the battle.
+    for (const e of this.enemies) e.update(dt, world);
     for (const b of this.breakables) b.update(dt);
     for (let i = this.enemies.length - 1; i >= 0; i--) if (this.enemies[i].gone) this.enemies.splice(i, 1);
     this.updateProjectiles(dt);
@@ -1151,7 +843,7 @@ export class Combat {
     const drawn = h.player.weaponIds;
     const sprite = (slot: EquipSlot) => { const id = itemWeaponSprite(this.equipped(slot)); return !!id && drawn.includes(id); };
     if (this.holding) hd.hold(this.holding.icon, p, dir, this.holding.tilt);
-    else if (this.swing && !sprite('weapon')) hd.swing(h.iconCanvas(h.inventory.equip.weapon, this.fieldTools ? 'sword' : 'fist'), p, dir, this.swing.t / this.swing.dur);
+    else if (this.swing && !sprite('weapon')) hd.swing(h.iconCanvas(h.inventory.equip.weapon, 'sword'), p, dir, this.swing.t / this.swing.dur);
     else if (this.draw && !sprite('ranged')) hd.bow(h.iconCanvas(h.inventory.equip.ranged, 'bow'), p, dir, Math.min(1, this.draw.t / this.drawTime));
     else hd.hideItem();
     this.castGlow = Math.max(0, this.castGlow - dt);
@@ -1187,7 +879,7 @@ export class Combat {
     // and loosing the bow. Animated heroes then hold its LPC sprite (with the shield, for melee); otherwise the icon
     // swings at the hand. The rest of the time it's slung on the back, where walking, running and jumping can't
     // make it look out of step.
-    const meleeHands = this.weapon === 'melee' && (!!this.swing || this.comboWindow > 0 || this.guard !== null);
+    const meleeHands = this.weapon === 'melee' && (!!this.swing || this.comboWindow > 0);
     const bowHands = this.weapon === 'bow' && (!!this.draw || this.bowHands > 0);
     const carry: CarriedWeapon[] = [];
     if (h.player.animated) {
@@ -1278,8 +970,7 @@ export class Combat {
   }
 
   reset(): void {
-    this.swing = null; this.draw = null; this.cast = 0; this.lock = null; this.invulnerable = 0; this.hurtFlash = 0; this.guard = null; this.bowHands = 0;
-    if (this.guardMesh) this.guardMesh.pivot.visible = false;
+    this.swing = null; this.draw = null; this.cast = 0; this.lock = null; this.bowHands = 0;
     this.held?.hide();
     if (this.handLight) this.handLight.intensity = 0;
     this.heroStatus.clear();
@@ -1294,7 +985,7 @@ function norm(x: number, z: number): [number, number] {
 }
 
 /** Textures drawn in code: the slash arc, arrows and the firebolt. */
-function makeTextures(): { slash: THREE.Texture; arrow: THREE.Texture; enemyArrow: THREE.Texture; fire: THREE.Texture; bolt: THREE.Texture; guard: THREE.Texture } {
+function makeTextures(): { slash: THREE.Texture; arrow: THREE.Texture; enemyArrow: THREE.Texture; fire: THREE.Texture; bolt: THREE.Texture } {
   const canvas = (w: number, h: number, draw: (c: CanvasRenderingContext2D) => void) => {
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
@@ -1335,14 +1026,7 @@ function makeTextures(): { slash: THREE.Texture; arrow: THREE.Texture; enemyArro
     g.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = g; c.fillRect(0, 0, 32, 32);
   });
-  // The guard: a bright curved band facing up (local -z once laid flat).
-  const guard = canvas(64, 64, (c) => {
-    c.strokeStyle = 'rgba(170,215,255,0.95)'; c.lineWidth = 5; c.lineCap = 'round';
-    c.beginPath(); c.arc(32, 52, 30, Math.PI * 1.2, Math.PI * 1.8); c.stroke();
-    c.strokeStyle = 'rgba(220,240,255,0.6)'; c.lineWidth = 2;
-    c.beginPath(); c.arc(32, 52, 24, Math.PI * 1.25, Math.PI * 1.75); c.stroke();
-  });
-  return { slash, arrow: arrowTex('#c8a070', '#d8dce8'), enemyArrow: arrowTex('#6a4a30', '#9a9aa8'), fire, bolt, guard };
+  return { slash, arrow: arrowTex('#c8a070', '#d8dce8'), enemyArrow: arrowTex('#6a4a30', '#9a9aa8'), fire, bolt };
 }
 
 /** A spell with no colour set. */

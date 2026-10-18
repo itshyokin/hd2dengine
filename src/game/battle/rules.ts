@@ -76,6 +76,8 @@ export interface Battler {
   evasion?: number;
   /** Chance (%) to shrug off an ailment (heroes: from Endurance). */
   resist?: number;
+  /** Heroes: extra % of their health back when they Guard (Steady Guard). */
+  guardBonus?: number;
   /** Their attack is a bow shot (Dexterity buffs raise it rather than Strength). */
   ranged?: boolean;
   /** The numbers before buffs and debuffs (kept the first time they're worked out). */

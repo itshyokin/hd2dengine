@@ -136,11 +136,10 @@ export class Inspector {
   /** Map settings → Random encounters (turn-based battles): which enemies, how often, how many, and where. */
   private encounterFields(): HTMLElement[] {
     const s = this.store, m = s.map, enemies = s.db.enemies ?? [];
-    const turnBased = s.db.combat?.mode === 'turnBased';
     const t = m.encounters;
     const zones = Object.entries(m.zones ?? {}).filter(([, z]) => z.troops.length);
     const goSpawns = h('button', { type: 'button', class: 'btn small', onclick: () => { s.mode = 'zones'; s.emit('ui'); } }, 'Go to the Spawns layer');
-    const how = h('p', { class: 'hint' }, `${turnBased ? '' : 'Random battles need turn-based battles (Database → Combat → Battle system). '}Paint encounter zones on the Spawns layer (key 9), then pick each zone’s troops (Database → Troops) below the zone letters.${zones.length ? ` This map has ${zones.length} zone${zones.length === 1 ? '' : 's'} with troops: ${zones.map(([k, z]) => z.name || `Zone ${k}`).join(', ')}.` : ''}`);
+    const how = h('p', { class: 'hint' }, `Paint encounter zones on the Spawns layer (key 9), then pick each zone’s troops (Database → Troops) below the zone letters.${zones.length ? ` This map has ${zones.length} zone${zones.length === 1 ? '' : 's'} with troops: ${zones.map(([k, z]) => z.name || `Zone ${k}`).join(', ')}.` : ''}`);
     // The older per-map list (before zones and troops): only shown on maps that still have one.
     if (!t || !enemies.length) return [how, goSpawns];
     const opts = enemies.map((e) => [e.id, e.name] as [string, string]);

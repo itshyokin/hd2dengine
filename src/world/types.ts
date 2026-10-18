@@ -1239,7 +1239,6 @@ export interface FlatLook {
 
 /** Combat tuning, all optional (see game/combat/config.ts for the defaults). */
 /** Which battle system the game uses: action combat on the map, or turn-based battles (FFX / classic JRPG style). */
-export type BattleMode = 'action' | 'turnBased';
 /** Turn-based battles: who acts next. ctb: FFX-style (fast fighters act more often; actions have weight); rounds: everyone once a round, fastest first. */
 export type TurnOrder = 'ctb' | 'rounds';
 
@@ -1271,8 +1270,6 @@ export interface TurnBasedData {
 }
 
 export interface CombatData {
-  /** Battle system (default action). */
-  mode?: BattleMode;
   /** The Journal's Bestiary: defeats needed before an enemy's numbers, elements and drops show. */
   bestiary?: Partial<{ stats: number; elements: number; drops: number }>;
   turnBased?: TurnBasedData;
@@ -1283,15 +1280,9 @@ export interface CombatData {
   classes?: Partial<Record<WeaponClass, { speed?: number; reach?: number; damage?: number }>>;
   bow?: { drawTime?: number; arrowSpeed?: number; lockRange?: number };
   lockRange?: number;
-  dodge?: { cost?: number; distance?: number; time?: number };
-  block?: { cost?: number; reduction?: number; parry?: number };
   /** kindle: seconds a fire attack keeps an out-of-fuel fire (a torch, a campfire) lit. */
   fire?: { mp?: number; damage?: number; speed?: number; range?: number; kindle?: number };
-  /** Damage multiplier for hitting an unaware enemy. */
-  sneakMultiplier?: number;
   campSafe?: number;
-  /** Seconds the player can't be hurt again after a hit. */
-  hurtGrace?: number;
   /** Experience to reach level 2, and how much more each level after needs (1.3 = 30% more). */
   xpBase?: number;
   xpGrowth?: number;
@@ -1319,7 +1310,7 @@ export type SkillStat =
   | 'meleeDamage' | 'swingSpeed' | 'lightDamage' | 'mediumDamage' | 'heavyDamage' | 'lightSpeed' | 'mediumSpeed' | 'heavySpeed'
   | 'bowDamage' | 'drawSpeed' | 'bowRange'
   | 'sneakHide' | 'quietSteps' | 'sneakDamage' | 'silentShot' | 'assassinate'
-  | 'blockStamina' | 'spellFire'
+  | 'blockStamina' | 'guardHeal' | 'spellFire'
   | 'spellDamage' | 'spellCost' | 'spellRange' | 'lightReach' | 'proficientMedium' | 'proficientHeavy'
   | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf' | 'crit';
 

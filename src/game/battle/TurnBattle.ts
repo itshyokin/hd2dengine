@@ -32,7 +32,7 @@ export interface ReserveView { who: number; name: string; icon: string; hp: numb
 export interface BattleHost {
   sound(name: Sfx): void;
   /** Count something for the Journal's records (Additions performed, spells cast, battles won…). */
-  tally?(key: string, n?: number): void;
+  tally?(key: string, n?: number, best?: boolean): void;
   /** A party member who can't fall (the console's deathless cheats): their health stops at 1. */
   protect?(who: number): boolean;
   /** Items usable in battle (consumables in the bag) right now. */
@@ -531,7 +531,7 @@ export class TurnBattle {
   private doGuard(b: Battler): void {
     b.guarding = true;
     b.status.ward = true;
-    const n = Math.round(b.maxHp * this.cfg.guardHeal / 100);
+    const n = Math.round(b.maxHp * (this.cfg.guardHeal + (b.guardBonus ?? 0)) / 100);
     if (n > 0 && b.hp < b.maxHp) {
       const got = Math.min(n, b.maxHp - b.hp);
       if (b.status.zombie) this.damage(b, got, false);
@@ -663,6 +663,8 @@ export class TurnBattle {
     if (r.label) this.screen.popup(t.key, r.label === 'Weak!' ? 'Weak!' : 'Resist', 'info');
     if (r.label === 'Weak!') this.host.sound('weak');
     this.damage(t, r.amount, r.crit, tint);
+    if (by.side === 'party') { this.host.tally?.('damageDealt', r.amount); this.host.tally?.('bestHit', r.amount, true); if (r.crit) this.host.tally?.('crits'); }
+    else if (t.side === 'party') this.host.tally?.('damageTaken', r.amount);
     this.host.log(`${by.name} hits ${t.name} for ${r.amount}${r.crit ? ' (critical)' : ''}${r.label === 'Weak!' ? ' (super effective)' : r.label === 'Resist' ? ' (resisted)' : ''}`);
     // A Counterspell breaks a spell being charged.
     if (counter && isUp(t) && t.charging) this.interrupt(t, 'Counterspell');

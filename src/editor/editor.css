@@ -692,3 +692,16 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .sw-row.current .sw-name { border-color: var(--accent, #ffb04a); }
 .sw-row.unlisted .sw-name { opacity: 0.75; font-style: italic; }
 .height-style-sym { display: grid; place-items: center; font-size: 22px; color: var(--ink); background: rgba(255,255,255,0.05); border-radius: 6px; }
+
+/* Database forms: switches together at the top, a jump bar to the sections (update 65). */
+.db-jump { grid-column: 1 / -1; position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 8px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.db-jump-btn { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: inherit; cursor: pointer; }
+.db-jump-btn:hover, .db-jump-btn:focus-visible { border-color: var(--ember); color: var(--ember); }
+.db-switches { grid-column: 1 / -1; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+.db-switch-group { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; align-items: start; }
+.db-switch-group + .db-switch-group { padding-top: 6px; border-top: 1px dashed var(--line); }
+.db-switch-from { font-size: 12px; opacity: 0.7; padding-top: 2px; }
+.db-switch-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 14px; }
+.db-section { scroll-margin-top: 48px; }
+.sk-old { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+@media (max-width: 620px) { .db-switch-group { grid-template-columns: 1fr; } }

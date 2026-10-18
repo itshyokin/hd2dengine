@@ -5,7 +5,7 @@ export const MAX_FOES = 3;
  * No three.js, so it can be tested on its own.
  */
 import { ATTRS, ATTR_MAX, ATTR_POINTS_PER_LEVEL, type Attrs, attrsFrom, baseAttrs, finalDamage, throughFraction } from '../attributes';
-import type { AbilityData, BattleMode, CombatData, Database, TurnOrder, WeaponClass } from '../../world/types';
+import type { AbilityData, CombatData, Database, TurnOrder, WeaponClass } from '../../world/types';
 import { abilityJSON } from '../abilities';
 
 export interface ClassTuning { speed: number; reach: number; damage: number }
@@ -32,21 +32,14 @@ export interface TurnBasedConfig {
 export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon', heroLocked: false, partyFollows: true };
 
 export interface CombatConfig {
-  /** Action combat on the map, or turn-based battles. */
-  mode: BattleMode;
   turnBased: TurnBasedConfig;
   unarmedDamage: number;
   classes: Record<WeaponClass | 'unarmed', ClassTuning>;
   bow: { drawTime: number; arrowSpeed: number; lockRange: number };
   lockRange: number;
-  dodge: { cost: number; distance: number; time: number };
-  /** Blocking: stamina per blocked hit, share of damage stopped, and the parry window (seconds after raising the guard). */
-  block: { cost: number; reduction: number; parry: number };
   fire: { mp: number; damage: number; speed: number; range: number; kindle: number };
-  sneakMultiplier: number;
   /** Enemies keep this many tiles from lit campfires. */
   campSafe: number;
-  hurtGrace: number;
   xpBase: number;
   xpGrowth: number;
   maxLevel: number;
@@ -63,7 +56,6 @@ export interface CombatConfig {
 }
 
 export const DEFAULT_COMBAT: CombatConfig = {
-  mode: 'turnBased',
   turnBased: DEFAULT_TURN_BASED,
   unarmedDamage: 3,
   classes: {
@@ -74,12 +66,8 @@ export const DEFAULT_COMBAT: CombatConfig = {
   },
   bow: { drawTime: 0.75, arrowSpeed: 15, lockRange: 16 },
   lockRange: 8,
-  dodge: { cost: 18, distance: 2.4, time: 0.3 },
-  block: { cost: 14, reduction: 0.8, parry: 0.22 },
   fire: { mp: 6, damage: 14, speed: 9, range: 12, kindle: 20 },
-  sneakMultiplier: 2.5,
   campSafe: 4,
-  hurtGrace: 0.7,
   xpBase: 60,
   xpGrowth: 1.15,
   maxLevel: 50,
@@ -99,7 +87,6 @@ export function combatConfig(data?: CombatData): CombatConfig {
   for (const k of ['light', 'medium', 'heavy'] as WeaponClass[]) classes[k] = { ...d.classes[k], ...s.classes?.[k] };
   const tb = { ...d.turnBased, ...s.turnBased };
   return {
-    mode: s.mode === 'action' ? 'action' : 'turnBased',
     turnBased: {
       ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
       flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(MAX_FOES, Math.round(tb.maxEnemies))),
@@ -109,12 +96,8 @@ export function combatConfig(data?: CombatData): CombatConfig {
     classes,
     bow: { ...d.bow, ...s.bow },
     lockRange: s.lockRange ?? d.lockRange,
-    dodge: { ...d.dodge, ...s.dodge },
-    block: { ...d.block, ...s.block },
     fire: { ...d.fire, ...s.fire },
-    sneakMultiplier: s.sneakMultiplier ?? d.sneakMultiplier,
     campSafe: s.campSafe ?? d.campSafe,
-    hurtGrace: s.hurtGrace ?? d.hurtGrace,
     xpBase: s.xpBase ?? d.xpBase,
     xpGrowth: s.xpGrowth ?? d.xpGrowth,
     maxLevel: clampLevel(s.maxLevel ?? d.maxLevel),

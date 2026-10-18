@@ -1,5 +1,5 @@
 /**
- * Database → Combat (tuning: weapon classes, the bow, dodging, Fire, sneak attacks, levels)
+ * Database → Combat (battles, weapon damage, the sword, bow and spells on the map, forges, levels)
  * and Database → Enemies (the list of enemy types with a form for the selected one).
  */
 import { ailmentChips, buffsField, inflictsField } from './statusFields';
@@ -26,14 +26,14 @@ const num = (v: number, set: (n: number) => void, step = 1, min = 0, label = '')
 
 /** The Combat tab. Edits `data` (only differences from the defaults are kept when saving). */
 export function combatTab(data: CombatData): HTMLElement[] {
-  const c = combatConfig(data), D = DEFAULT_COMBAT;
+  const c = combatConfig(data);
   const setClass = (k: WeaponClass, f: 'speed' | 'reach' | 'damage', v: number) => { ((data.classes ??= {})[k] ??= {})[f] = v; };
   const tb = (data.turnBased ??= {}), T = c.turnBased;
+  // Settings of the real-time battle system (removed in update 65) aren't kept.
+  for (const k of ['mode', 'dodge', 'block', 'sneakMultiplier', 'hurtGrace']) delete (data as Record<string, unknown>)[k];
   return [
-    h('section', { class: 'db-section' }, h('h3', {}, 'Battle system'),
-      field('Battles are', select([['action', 'Action: fought on the map in real time (Zelda / Fable style)'], ['turnBased', 'Turn-based: a battle screen with commands (Final Fantasy X / Pokémon style)']],
-        c.mode, (v) => { if (v === 'action') data.mode = 'action'; else delete data.mode; }),
-        'Turn-based: touching or being hit by an enemy on the map starts a battle with it and its friends nearby. Hitting it first (best of all from behind, unseen) gives the party the first turns. Maps can also have random encounters (map settings → Random encounters).'),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Battles'),
+      h('p', { class: 'note' }, 'Battles are turn-based. An enemy on the map that reaches the hero starts a battle with it and its friends nearby (from behind: an ambush). Hitting it first with the sword, an arrow or a spell gives the party the first turns: lock on with the bow (Q / Tab) to snipe one from afar. Maps can also have random encounters (map settings → Random encounters).'),
       h('div', { class: 'field-row' },
         field('Turn order', select([['ctb', 'Conditional turns (FFX)'], ['rounds', 'Rounds (classic)']],
           T.order, (v) => { tb.order = v === 'rounds' ? 'rounds' : undefined; }),
@@ -56,54 +56,37 @@ export function combatTab(data: CombatData): HTMLElement[] {
       h('div', { class: 'field-row' },
         field('Party damage ×', num(T.partyDamage, (v) => (tb.partyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Party damage')),
         field('Enemy damage ×', num(T.enemyDamage, (v) => (tb.enemyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Enemy damage'), 'Scale either side to make battles quicker or harder. Both start at 1 (the same numbers as on the map).')),
-      h('p', { class: 'note' }, 'The same heroes, stats, gear, items, enemies and rewards work in both systems. In turn-based games, enemies on the map still chase the hero and start a battle when they reach them. The older action system’s settings are folded away below.')),
+      h('p', { class: 'note' }, 'Enemies on the map chase the hero when they see or hear them, and start a battle when they reach them.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Bestiary'),
       h('div', { class: 'field-row' },
         field('Numbers show after', num(c.bestiary.stats, (v) => ((data.bestiary ??= {}).stats = Math.max(0, Math.round(v))), 1, 0), 'Defeats of that kind before its health, attack and defence show in the Journal.'),
         field('Elements show after', num(c.bestiary.elements, (v) => ((data.bestiary ??= {}).elements = Math.max(0, Math.round(v))), 1, 0), 'Its weaknesses and resistances.'),
         field('Drops show after', num(c.bestiary.drops, (v) => ((data.bestiary ??= {}).drops = Math.max(0, Math.round(v))), 1, 0), 'What it can drop.')),
       h('p', { class: 'note' }, 'Pause → Journal → Bestiary lists every enemy the party has met: its picture, description, where it was seen and how many were defeated. Ones not met yet show as “???”. Write each enemy’s description in Enemies.')),
-    // The action system (fighting on the map in real time) is kept, folded away: turn-based is the main system.
-    h('details', { class: 'db-legacy', open: c.mode === 'action' },
-      h('summary', {}, 'Action combat (fighting on the map in real time: the older battle system)'),
-    h('section', { class: 'db-section' }, h('h3', {}, 'Melee (key 1)'),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Weapon damage'),
       h('div', { class: 'db-table classes' },
-        h('span', { class: 'db-head' }, 'Class'), h('span', { class: 'db-head' }, 'Swing speed'), h('span', { class: 'db-head' }, 'Reach (tiles)'), h('span', { class: 'db-head' }, 'Damage ×'),
+        h('span', { class: 'db-head' }, 'Class'), h('span', { class: 'db-head' }, 'Damage ×'), h('span', { class: 'db-head' }, 'Sword swing on the map'), h('span', { class: 'db-head' }, 'Reach (tiles)'),
         ...(['light', 'medium', 'heavy'] as WeaponClass[]).flatMap((k) => [
           h('span', { class: 'db-name' }, k[0].toUpperCase() + k.slice(1)),
+          num(c.classes[k].damage, (v) => setClass(k, 'damage', v), 0.05, 0.1, `${k} damage`),
           num(c.classes[k].speed, (v) => setClass(k, 'speed', v), 0.05, 0.2, `${k} speed`),
           num(c.classes[k].reach, (v) => setClass(k, 'reach', v), 0.05, 0.5, `${k} reach`),
-          num(c.classes[k].damage, (v) => setClass(k, 'damage', v), 0.05, 0.1, `${k} damage`),
         ])),
       field('Unarmed damage', num(c.unarmedDamage, (v) => (data.unarmedDamage = v), 1, 0, 'Unarmed damage')),
-      h('p', { class: 'note' }, `Swing speed 1 = one swing in ${0.46}s. Three swings in a row make a combo; the third is slower and hits harder. Skill-tree bonuses for each class come next.`)),
-    h('section', { class: 'db-section' }, h('h3', {}, 'Bow (key 2) and lock-on (Q / Tab)'),
+      h('p', { class: 'note' }, 'A hero’s Attack in battle: the weapon’s damage × its class, with Strength and skills. Swing speed and reach only change how the sword swings on the map (cutting vines and grass, hitting switches, striking a foe first).')),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Sword, bow and spells on the map'),
       h('div', { class: 'field-row' },
         field('Full draw (s)', num(c.bow.drawTime, (v) => ((data.bow ??= {}).drawTime = Math.max(0.1, v)), 0.05, 0.1, 'Draw time')),
         field('Arrow speed', num(c.bow.arrowSpeed, (v) => ((data.bow ??= {}).arrowSpeed = v), 1, 2, 'Arrow speed'))),
       h('div', { class: 'field-row' },
-        field('Lock-on range with a bow', num(c.bow.lockRange, (v) => ((data.bow ??= {}).lockRange = v), 1, 2, 'Bow lock range')),
+        field('Lock-on range with a bow', num(c.bow.lockRange, (v) => ((data.bow ??= {}).lockRange = v), 1, 2, 'Bow lock range'), 'A bow locks on much further away (Q / Tab), so a distant foe can be sniped to start a battle with the first turns.'),
         field('Lock-on range otherwise', num(c.lockRange, (v) => (data.lockRange = v), 1, 2, 'Lock range'))),
-      h('p', { class: 'note' }, 'A bow locks on much further away, so distant enemies can be picked off before they close in.')),
-    h('section', { class: 'db-section' }, h('h3', {}, 'Dodge (Space while locked on) and block'),
       h('div', { class: 'field-row' },
-        field('Stamina cost', num(c.dodge.cost, (v) => ((data.dodge ??= {}).cost = v), 1, 0, 'Dodge cost')),
-        field('Distance (tiles)', num(c.dodge.distance, (v) => ((data.dodge ??= {}).distance = v), 0.1, 0.5, 'Dodge distance')),
-        field('Time (s)', num(c.dodge.time, (v) => ((data.dodge ??= {}).time = Math.max(0.1, v)), 0.02, 0.1, 'Dodge time'))),
-      h('div', { class: 'field-row' },
-        field('Block: stamina per hit', num(c.block.cost, (v) => ((data.block ??= {}).cost = v), 1, 0, 'Block cost')),
-        field('Block: damage stopped %', num(Math.round(c.block.reduction * 100), (v) => ((data.block ??= {}).reduction = Math.min(100, v) / 100), 5, 0, 'Block reduction')),
-        field('Parry window (s)', num(c.block.parry, (v) => ((data.block ??= {}).parry = v), 0.02, 0, 'Parry window'))),
-      h('p', { class: 'note' }, 'Block (E / RT, hold) stops most of a hit from the front. Raising it just as a hit lands parries: no damage, and the attacker staggers.'),
-      field('Safe after a hit (s)', num(c.hurtGrace, (v) => (data.hurtGrace = v), 0.05, 0, 'Hurt grace'), 'The hero can’t be hurt again for this long after taking a hit. A dodge can’t be hurt at all.')),
-    h('section', { class: 'db-section' }, h('h3', {}, 'Spells (key 3)'),
-      h('div', { class: 'field-row' },
-        field('Speed', num(c.fire.speed, (v) => ((data.fire ??= {}).speed = v), 0.5, 1, 'Spell speed')),
-        field('Range', num(c.fire.range, (v) => ((data.fire ??= {}).range = v), 0.5, 1, 'Spell range'))),
-      h('p', { class: 'note' }, 'Used by spell shards that leave their own speed or range at 0. Each shard’s damage, MP cost, colour and light are set on the item (Database → Items, slot Spell shard).'),
+        field('Spell bolt speed', num(c.fire.speed, (v) => ((data.fire ??= {}).speed = v), 0.5, 1, 'Spell speed')),
+        field('Spell bolt range', num(c.fire.range, (v) => ((data.fire ??= {}).range = v), 0.5, 1, 'Spell range'))),
       field('A fire attack lights a fire for (s)', num(c.fire.kindle, (v) => ((data.fire ??= {}).kindle = Math.max(1, v)), 1, 1, 'Kindle time'),
-        'Fire spells, fire arrows and fire weapons light a torch, brazier or campfire that has run out of fuel, but only for this many seconds (real time). Fuel keeps it going.')),
-    ),
+        'Fire spells, fire arrows and fire weapons light a torch, brazier or campfire that has run out of fuel, but only for this many seconds (real time). Fuel keeps it going.'),
+      h('p', { class: 'note' }, 'The hero always has a sword and a bow on the map (no arrows needed): they cut vines, hit switches and break things, and striking a foe first starts the battle with the party’s turns first. An equipped weapon or bow shows in their place; an equipped arrow lends its element.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Forges (anvils)'),
       h('div', { class: 'field-row' },
         field('Upgrades per item', num(data.forge?.maxLevel ?? 5, (v) => ((data.forge ??= {}).maxLevel = Math.max(1, Math.round(v))), 1, 1, 'Forge max level')),
@@ -111,14 +94,13 @@ export function combatTab(data: CombatData): HTMLElement[] {
         field('A set shard adds % damage', num(data.forge?.enchantPercent ?? 10, (v) => ((data.forge ??= {}).enchantPercent = Math.max(0, v)), 1, 0, 'Enchant percent'))),
       h('p', { class: 'note' }, 'At an anvil (the Anvil prop, or any prop marked as a forge) the player smelts ore into ingots, upgrades weapons and armor with ingots of their material (+1 takes 1 ingot, +2 takes 2…: damage or defence goes up by the percent above each time), and sets an elemental spell shard in them: weapons hit with its element, armor halves damage of it.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Stealth and levels'),
-      field('Sneak attack damage ×', num(c.sneakMultiplier, (v) => (data.sneakMultiplier = Math.max(1, v)), 0.1, 1, 'Sneak multiplier'), 'Hitting an enemy that hasn’t noticed the hero (no ? or !).'),
       field('Campfire safe ground (tiles)', num(c.campSafe, (v) => (data.campSafe = Math.max(0, v)), 0.5, 0, 'Campfire safe radius'),
         'No enemy comes within this many tiles of a lit campfire (a fire that’s also a respawn point), or attacks a hero inside it. 0: off.'),
       h('div', { class: 'field-row' },
         field('Skill points per level', num(c.pointsPerLevel, (v) => (data.pointsPerLevel = Math.round(v)), 1, 0, 'Points per level')),
         field('Party skill points per level', num(c.sharedPointsPerLevel, (v) => (data.sharedPointsPerLevel = Math.round(v)), 1, 0, 'Party tree points each time the hero levels up')),
         field('Skill points at the start', num(c.startPoints, (v) => (data.startPoints = Math.round(v)), 1, 0, 'Start points'))),
-      h('p', { class: 'note' }, `Default sneak attack ×${D.sneakMultiplier}. How much EXP each level takes is under Player → EXP progression.`)),
+      h('p', { class: 'note' }, 'Sneaking past foes (or striking one that hasn’t noticed the hero, no ? or !) gives the first turns. How much EXP each level takes is under Player → EXP progression.')),
   ];
 }
 

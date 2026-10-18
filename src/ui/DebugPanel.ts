@@ -77,7 +77,7 @@ export class DebugPanel {
         </section>
         <section class="group">
           <div class="label">Controls</div>
-          <div class="controls-help">Move <kbd>WASD</kbd> · Run <kbd>Shift</kbd> · Jump <kbd>Space</kbd> · Talk <kbd>Enter</kbd><br>Melee <kbd>1</kbd> · Bow <kbd>2</kbd> (hold) · Magic <kbd>3</kbd> · Switch sword / bow <kbd>R</kbd> · Spell <kbd>F</kbd><br>Block <kbd>E</kbd> · Lock on / next <kbd>Tab</kbd> · Release <kbd>Q</kbd> · Dodge <kbd>Space</kbd> while locked · Sneak <kbd>C</kbd><br>Xbox: LT attack · RT block · X sprint (hold) · A talk / jump · Y switch sword / bow · B spell · RB / LB target · D-pad ↓ release · R-stick click sneak<br>All of them can be changed in Settings → Controls.</div>
+          <div class="controls-help">Move <kbd>WASD</kbd> · Run <kbd>Shift</kbd> · Jump <kbd>Space</kbd> · Talk <kbd>Enter</kbd><br>Melee <kbd>1</kbd> · Bow <kbd>2</kbd> (hold) · Magic <kbd>3</kbd> · Switch sword / bow <kbd>R</kbd> · Spell <kbd>F</kbd><br>Lock on / next <kbd>Tab</kbd> (snipe a foe with the bow to start a battle with the first turns) · Release <kbd>Q</kbd> · Sneak <kbd>C</kbd><br>Xbox: LT attack · X sprint (hold) · A talk / jump · Y switch sword / bow · B spell · RB / LB target · D-pad ↓ release · R-stick click sneak<br>All of them can be changed in Settings → Controls.</div>
           <div class="abilities" id="dbgAbilities"></div>
           <div class="presets" style="margin-top:8px">
             <button class="chip" type="button" id="dbgHurt">−25 HP</button>

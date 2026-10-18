@@ -2,7 +2,7 @@
  * Database → Skills: the skill trees. Pick a tree, click a skill in the preview to edit it (name, place in
  * the grid, ranks, cost, what it needs, what it does), or add trees and skills as new abilities arrive.
  */
-import { DEFAULT_SKILLS, SKILL_STATS, addPartyTree, effectText } from '../game/skills';
+import { DEFAULT_SKILLS, SKILL_STATS, addPartyTree, effectText, oldSkillNodes, updateOldSkills } from '../game/skills';
 import type { AdditionDef, ItemDef, SkillNode, SkillStat, SkillsData, SpellEntry } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 
@@ -65,7 +65,13 @@ export function skillsTab(data: SkillsData, state: { tree: number; sel: string }
     checkbox('Party tree: shared by the whole party (Party points, one each level)', !!tree.shared, (v) => { if (v) tree.shared = true; else delete tree.shared; rerender(); }),
     h('button', { type: 'button', class: 'btn small danger', disabled: nodes.length > 0, title: nodes.length ? 'Remove its skills first' : 'Remove this tree', onclick: () => { data.trees.splice(state.tree, 1); state.tree = 0; rerender(); } }, 'Delete tree'));
 
+  // Skills from the real-time battles (removed): offer to turn them into turn-based ones.
+  const old = oldSkillNodes(data);
+  const oldNote = old.length ? h('div', { class: 'note warn sk-old' },
+    h('span', {}, `${old.length} skill${old.length === 1 ? '' : 's'} (${old.slice(0, 4).map((x) => x.name).join(', ')}${old.length > 4 ? '…' : ''}) still use${old.length === 1 ? 's' : ''} effects from the real-time battles, which do nothing now: swing, weapon and draw speed become Agility, critical hits or Dexterity; cheaper blocking becomes Guard healing; sneak attack damage becomes critical hits. `),
+    h('button', { type: 'button', class: 'btn small', onclick: () => { updateOldSkills(data); rerender(); } }, 'Update them')) : null;
   return [h('div', { class: 'sk-ed' },
+    ...(oldNote ? [oldNote] : []),
     tabs,
     h('div', { class: 'sk-ed-body' },
       h('div', { class: 'sk-ed-left' }, treeForm, svg,
@@ -86,7 +92,7 @@ export function skillsTab(data: SkillsData, state: { tree: number; sel: string }
 function nodeForm(data: SkillsData, n: SkillNode, siblings: SkillNode[], items: ItemDef[], learnable: { spells: SpellEntry[]; additions: AdditionDef[] }, rerender: () => void, remove: () => void): HTMLElement[] {
   const num = (v: number, set: (x: number) => void, min = 0, step = 1) => numberInput(v, (x) => { set(Math.max(min, x)); rerender(); }, { step, min });
   // "Spell: Fire" is from before spell shards: only offered where it's already used.
-  const stats = Object.entries(SKILL_STATS).filter(([k]) => k !== 'spellFire' || n.effects.some((e) => e.stat === 'spellFire')).map(([k, v]) => [k, `${v.name}${v.flag ? ' (on/off)' : v.unit ? ` (${v.unit})` : ''}`] as [string, string]);
+  const stats = Object.entries(SKILL_STATS).filter(([k, v]) => (k !== 'spellFire' && !v.old) || n.effects.some((e) => e.stat === k)).map(([k, v]) => [k, `${v.name}${v.flag ? ' (on/off)' : v.unit ? ` (${v.unit})` : ''}`] as [string, string]);
   return [
     h('div', { class: 'field-row' },
       field('Name', textInput(n.name, (v) => { n.name = v.trim() || n.name; rerender(); })),

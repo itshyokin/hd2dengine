@@ -284,7 +284,9 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
   no importing. Database → Audio shows what was found (*Look again* after adding files). The built site carries the
   folders and a list of them, so the online editor sees them too. Importing single files still works.
 - **Database** (toolbar): fills the screen and stays the same size on every tab. The tabs are icons in groups
-  (People, Items, Battle, Story, World, System): hover one for its name; the open tab's name shows at the right.
+  (Party, Battle, Abilities, Items, Story, World, Game): hover one for its name; the open tab's name shows at the right.
+  Every form is laid out the same way: all its on / off **Switches** together at the top (under the name of the
+  section each belongs to), then its named sections, with a **jump bar** above that goes straight to a section.
   **Apply** puts the changes into the project **and saves `database.json`** straight away: "Changes saved. It's
   safe to close the Database." shows at the bottom left for a few seconds (or "No changes to save"). The window
   stays open; **Close** with changes not applied asks whether to apply and save them or let them go. Every list
@@ -409,7 +411,7 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 
 ### The party on the map (turn-based)
 
-- In turn-based games party members never fight on the map: foes only go for the hero, and touching the hero starts the
+- Party members never fight on the map: foes only go for the hero, and touching the hero starts the
   battle (so a party member can't start one by wandering into a foe). They walk behind the hero and **hop where the
   hero jumped**, over gaps and fences. **Database → Combat → The party follows the hero on the map** (on by default);
   off, only the hero walks the map and the party appears in battles.
@@ -754,51 +756,38 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 - Built-in sprites for events: **Chest**, **Chest (open)** and **Item sparkle** (which glows in the dark).
 - The sample map starts with 60 gold, 2 potions and some bread; a potion sparkle lies by the path.
 
-### Action combat (the older battle system)
+### On the map: the sword, the bow and starting battles
 
-> Turn-based battles (next section) are the engine's main system and the default. Action combat — fighting on the
-> map in real time — still works (Database → Combat → Battles are: Action), and its settings are folded away under
-> *Action combat* in Database → Combat. In turn-based games enemies on the map still chase the hero, and reaching
-> them starts a battle.
+Battles are turn-based (next section); the real-time battle system was removed in update 65. On the map:
 
-Action combat on the map, Zelda / Fable style:
-
-- **Melee (1)**: the weapon in the *Weapon* slot sets the swing. **Light** weapons (daggers, short swords) are fast with
-  short reach; **medium** (longswords, rapiers) are balanced; **heavy** (greatswords, great axes) are slow, reach
-  further and hit hard. Press again mid-swing to chain a 3-hit combo; the third hit is the strongest.
-- **Bow (2)**: needs a bow in the new *Bow* slot. Hold to draw (the meter under the hero fills), let go to shoot; a
-  full draw flies faster and hits harder. Moving while drawing is slow. **Iron Arrows** never run out (∞ in the bag);
-  better arrows (Steel Arrows, stacks of 64) are bought or looted and used up. Choose them in the bag with
-  *Nock these arrows*; when they run out the iron ones take over.
-- **Magic (3)**: Fire, a firebolt that lights its way, once learned in the skill tree (MP cost in Database → Combat).
-- **Block (E / RT, hold)**: hits from the front are mostly stopped, for stamina; out of stamina the guard breaks.
-  Raising the guard just as a hit lands is a **parry**: no damage, and the attacker staggers.
-- **Lock-on (Tab / RB; again for the next target; Q / LB releases)**: the hero faces the target and strafes around it; attacks aim at it.
-  With a bow equipped the lock-on reaches much further, so distant enemies can be picked off.
-- **Dodge (Space while locked on)**: a quick roll that can't be hurt, for stamina.
-- **Carried weapons**: the readied weapon is slung on the hero's back (the sword's hilt or the bow over a shoulder, a
-  shield flat on the back), so what's ready shows at a glance. It comes into the hand only to fight: for a swing (and
-  between the hits of a combo), while guarding, and while drawing and loosing the bow, then goes back. Animated (LPC)
-  heroes hold the weapon's LPC sprite and swing it with their own animation; others show its icon swinging at the hand.
-  With a bow readied a quiver rides on the back too (it stays there while shooting). With Fire selected a small ball
-  of fire burns in each of the hero's hands, flaring up when a spell is cast.
-  Enemies do the same: weapon on the back, in hand from the wind-up to the end of the attack. Database → Enemies →
-  *Holds* (and *Weapon sprite* for animated characters) changes what they carry.
-- **Feel**: hits freeze the action for a moment (hit-stop), knock enemies back, shake the camera a little, and show
-  damage numbers. After being hurt the hero blinks and can't be hurt again for a moment.
-- **Defence**: armor and accessories have a defence value; damage is reduced by defence ÷ (defence + 50).
+- **Bumping into foes**: an enemy that sees or hears the hero chases them, and reaching the hero starts a battle with
+  it and its friends nearby (from behind: an **ambush**, the foes act first). Ranged foes start it when they shoot.
+- **The sword (1) and the bow (2)** are field tools the hero always has (no arrows needed): they cut vines and grass,
+  hit switches and break things. An equipped weapon or bow shows in their place; an equipped arrow lends its element.
+  Hold the bow to draw, let go to shoot. Fire spells, fire arrows and fire weapons light torches and campfires.
+- **Striking first**: a sword swing, an arrow or a spell bolt that reaches a foe starts the battle with the party's
+  turns first. **Lock on with the bow (Tab / RB)** to snipe a foe from afar: with a bow the lock-on reaches much
+  further (Eagle Eye further still). Two skills change an unseen strike: **Assassinate** (a sword strike on an ordinary
+  foe that hasn't noticed the hero ends it on the spot, no battle) and **Silent Shot** (an arrow from 5 tiles or more at
+  a foe that hasn't noticed the hero wounds it before the battle starts, and can finish it).
+- **Carried weapons**: the readied weapon is slung on the hero's back and comes into the hand to swing or draw, then
+  goes back. Animated (LPC) heroes hold the weapon's LPC sprite; others show its icon. Enemies carry theirs the same way
+  (Database → Enemies → *Holds*).
+- **Database → Combat**: *Weapon damage* (each class's damage ×, and how the sword swings on the map) and *Sword, bow and
+  spells on the map* (draw time, arrow speed, lock-on ranges, spell bolt speed and range, how long a fire attack keeps
+  a fire lit). Settings of the old real-time system (dodging, blocking, sneak attack damage) are gone; an older
+  database's are dropped when Database → Combat is opened.
 
 **Stealth (C to sneak)**: sneaking is slow and quiet, and the hero crouches. An eye at the top shows *Hidden*,
 *Noticed* or *Detected*, and the screen's edges darken the better hidden you are (in the dark, sneaking): they ease off
 when someone grows suspicious and clear when you're seen. Enemies see further in light and much less in the dark (the time of day, the map's lamps
 and fires, and the Light spell all count), have a field of view, and hear running and fighting. Each enemy builds up
-awareness: **?** = suspicious (it comes to look), **!** = alert (it attacks and calls nearby friends). **Hitting an
-unaware enemy is a sneak attack** (×2.5 damage by default). An arrow that kills an unaware enemy only makes its
-friends come and look instead of alerting them.
+awareness: **?** = suspicious (it comes to look), **!** = alert (it chases the hero and calls nearby friends). Sneak
+past foes, or catch one unaware to strike first.
 
 **Enemies** (Database → Enemies): health, damage, defence, speed, a behaviour (**melee**, **ranged**: keeps its
-distance and shoots, **charger**: winds up then rushes in a straight line), attack range, wind-up (the glow before
-each attack: the tell to dodge), time between attacks, sight, field of view, hearing, EXP, gold and item drops, a
+distance and shoots, **charger**: winds up then rushes in a straight line), attack range (how close it gets before it reaches the hero), wind-up (the glow before
+it lunges), time between attacks, sight, field of view, hearing, EXP, gold and item drops, a
 size, and a boss flag. They look like a character from the database or a built-in monster (green, blue and ember
 slimes). They walk around cliffs and up ramps to reach the hero. Place one with **Create enemy here** in the Events
 layer, or set an event page's Appearance to **Enemy**. The page's commands run when it's defeated (open a gate,
@@ -809,7 +798,7 @@ shows big beside the bars, and a green EXP bar runs along the bottom of the scre
 level). **Database → Player → EXP progression** sets the highest level (default 50, up to 99) and how much EXP each
 level takes: start from a curve (EXP for level 2 and how much more each level needs), then type over any row of the
 table to set it by hand. A chart shows the shape; *All ±10%* scales the whole table and *Rebuild from the curve*
-drops the hand-set numbers. Database → Combat sets points per level and all the combat tuning above.
+drops the hand-set numbers. Database → Combat sets points per level.
 
 **Sample map**: slimes around the pond and paths, an ember slime (charger) in the east meadow, and a bandit camp
 on the plateau to the north-east (two bandits and an archer), with the ramp as the way up. The hero starts with a
@@ -918,7 +907,7 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   Elements, weaknesses, immunities, absorbing, critical hits and Defence / Magic Defence work as on the map.
 - **Winning** gives EXP to everyone standing, gold and drops straight into the bag (a full bag leaves them on the
   ground) and runs the beaten enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
-  **Losing** sends the party back to the respawn point, as dying does in action mode. Running away leaves the enemies
+  **Losing** sends the party back to the respawn point, as dying on the map does. Running away leaves the enemies
   on the map; they lose track of the hero for a moment.
 - **Tuning**: *Party damage ×* and *Enemy damage ×* scale each side's hits; *Safe after a battle* stops a new
   battle starting straight away. The map's **battle music** plays during battles (the built-in battle theme if the map
@@ -984,9 +973,7 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   **Change class** changes a hero's class or unlocks it; unlocked classes can be chosen in **Menu → Abilities**.
   Without classes, every hero sees every tree.
 - **Menu → Abilities** lists each hero's spells and Additions (with rank and progress), changes class, sets the
-  Addition Attack uses, and in action mode readies a learned attack spell for the spell button (it takes the place of
-  a spell shard there; shards still enchant gear at the forge, and an equipped shard still works when no spell is
-  readied).
+  Addition Attack uses.
 
 ### EXP orbs and loot on the ground
 
@@ -1080,11 +1067,16 @@ Each level gives a **skill point** (and a new game starts with one; quests can g
 points** command). Spend them in **Party → a hero → Skill Tree** (each party member has their own), laid out like Skyrim's constellations: a skill
 opens once at least one rank of the skills it's linked from is learned, and many have several ranks.
 
-- **Might**: Fighter → Quick Hands (swing speed) → Steady Guard (cheaper blocking); Heavy Blows (melee damage);
-  Arms Training → Light, Medium or Heavy Mastery (damage and speed for that weapon class).
-- **Dexterity**: archery (Archer → Steady Draw, Eagle Eye (longer bow lock-on), Power Shot) and stealth (Shadow →
-  Light Step (quieter), Backstab (bigger sneak attacks) → Assassinate (level 5: a sneak attack kills an ordinary
-  enemy outright), and Silent Shot (needs Light Step and Archer: arrow kills from 5+ tiles don't alert anyone)).
+- **Might**: Fighter → Quick Hands (Agility) → Steady Guard (Guard heals more); Heavy Blows (melee damage);
+  Arms Training (trained with medium weapons: untrained, medium and heavy weapons hit for three quarters) → Heavy
+  Arms, and Light, Medium or Heavy Mastery (damage, and critical hits, for that weapon class).
+- **Dexterity**: archery (Archer → Steady Draw (Dexterity), Eagle Eye (longer bow lock-on, for sniping), Power Shot)
+  and stealth (Shadow (harder to see) → Light Step (quieter), Backstab (critical hits) → Assassinate (level 5: a
+  sword strike on an ordinary foe that hasn't noticed the hero ends it, no battle), and Silent Shot (needs Light Step
+  and Archer: an arrow from 5+ tiles at an unaware foe wounds it before the battle)).
+- **Skills from the real-time battles** (swing, weapon and draw speed, cheaper blocking, sneak attack damage) do
+  nothing now. Database → Skills lists any a database still has and **Update them** turns them into Agility,
+  critical hits, Dexterity and Guard healing (the sample project's are updated).
 - **Magic**: perks that make every spell shard better (see below).
 - **Vitality**: Toughness, Endurance and Focus raise max health, stamina and magic.
 - **Party**: a tree the **whole party shares**, shown to every hero whatever their class. It has its own **party
@@ -1349,13 +1341,12 @@ Every key and button can be changed in **Settings → Controls** (per player, ke
 | Move | WASD / arrows | Left stick (push all the way to run) |
 | Run / sprint (hold by default; toggle in Settings → Gameplay) | Shift | X, or a full stick push |
 | Talk / interact | Enter | A (when facing someone or something) |
-| Jump; dodge while locked on | Space | A |
+| Jump | Space | A |
 | Attack with the selected weapon (sword or bow) | — (1 / 2 below) | LT (hold with the bow to draw) |
 | Switch weapon (sword ↔ bow) | R | Y |
 | Sword / bow: select and use at once | 1 / 2 | — |
 | Cast the readied spell shard (a bolt, or switch Light / Water Walk on and off) | F, 3 or 4 | B |
-| Block (hold; just in time = parry) | E | RT |
-| Lock on / next target | Tab | RB (LB cycles the other way) |
+| Lock on / next target (snipe with the bow to strike first) | Tab | RB (LB cycles the other way) |
 | Release target | Q | D-pad ↓ |
 | Quick items (left / up / right) | 5 / 6 / 7 | D-pad ← / ↑ / → |
 | Sneak / crouch (toggle by default; hold in Settings → Gameplay) | C | Right stick click |
