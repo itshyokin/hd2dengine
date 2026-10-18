@@ -6,7 +6,7 @@
  */
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
-import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, attrEffect, baseAttrs } from '../game/attributes';
+import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, attrEffect, baseAttrs, evasionOf } from '../game/attributes';
 import { esc } from './InventoryScreen';
 import { tabKeys, tabStrip, wireTabs, type TabGroup } from './tabs';
 
@@ -76,7 +76,7 @@ export class StatusScreen {
   private get pending(): number { return ATTRS.reduce((s, k) => s + this.add[k], 0); }
   private get left(): number { return this.host.points(this.hero) - this.pending; }
   /** Rows: the five stats, then Confirm (when there are points). */
-  private get rows(): number { return this.host.points(this.hero) > 0 ? 6 : 5; }
+  private get rows(): number { return this.host.points(this.hero) > 0 ? ATTRS.length + 1 : ATTRS.length; }
 
   /** Esc: drop points not yet confirmed first, then close. */
   private cancel(): void {
@@ -95,10 +95,10 @@ export class StatusScreen {
     if (!this.tabs && i.consume('tabNext')) { this.switchHero(1); return; }
     if (i.consume('up')) { this.row = (this.row + this.rows - 1) % this.rows; uiSound('menuMove'); this.render(); return; }
     if (i.consume('down')) { this.row = (this.row + 1) % this.rows; uiSound('menuMove'); this.render(); return; }
-    if (i.consume('right') && this.row < 5) { this.change(ATTRS[this.row], 1); return; }
-    if (i.consume('left') && this.row < 5) { this.change(ATTRS[this.row], -1); return; }
+    if (i.consume('right') && this.row < ATTRS.length) { this.change(ATTRS[this.row], 1); return; }
+    if (i.consume('left') && this.row < ATTRS.length) { this.change(ATTRS[this.row], -1); return; }
     if (i.confirm()) {
-      if (this.row === 5) this.confirm();
+      if (this.row === ATTRS.length) this.confirm();
       else this.change(ATTRS[this.row], 1);
     }
   }
@@ -155,8 +155,11 @@ export class StatusScreen {
         <span>Critical hits <b>${now.crit}%</b>${diff(now.crit, after.crit, '%')}</span>
         <span>Defence <b>${now.armour}</b>${diff(now.armour, after.armour)}</span>
         <span>Magic defence <b>${now.magicArmour}</b>${diff(now.magicArmour, after.magicArmour)}</span>
+        <span>Accuracy <b>${Math.round(accuracyOf(now.attrs.dex))}%</b>${diff(Math.round(accuracyOf(now.attrs.dex)), Math.round(accuracyOf(after.attrs.dex)), '%')}</span>
+        <span>Dodge <b>${Math.round(evasionOf(now.attrs.agi))}%</b>${diff(Math.round(evasionOf(now.attrs.agi)), Math.round(evasionOf(after.attrs.agi)), '%')}</span>
+        <span>Resist ailments <b>${Math.round(ailmentResist(now.attrs.end))}%</b>${diff(Math.round(ailmentResist(now.attrs.end)), Math.round(ailmentResist(after.attrs.end)), '%')}</span>
       </div>
-      ${pts > 0 ? `<div class="mk-foot"><span class="mk-points">Stat points: <b>${this.left}</b> of ${pts} left</span><button type="button" class="menu-item mk-use" data-row="5" aria-selected="${this.row === 5}" ${this.pending ? '' : 'disabled'}><span class="menu-label">Confirm</span></button></div>` : ''}
+      ${pts > 0 ? `<div class="mk-foot"><span class="mk-points">Stat points: <b>${this.left}</b> of ${pts} left</span><button type="button" class="menu-item mk-use" data-row="${ATTRS.length}" aria-selected="${this.row === ATTRS.length}" ${this.pending ? '' : 'disabled'}><span class="menu-label">Confirm</span></button></div>` : ''}
       <div class="menu-note">${pts > 0 ? '↑ ↓ choose · → add a point · ← take one back · Confirm keeps them · ' : 'Level up for stat points · '}${this.tabs ? `${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs · ` : many ? 'LB / RB (Q / E): another hero · ' : ''}Esc: ${this.pending ? 'undo' : 'back'}</div>
     </div>`;
     wireTabs(this.root, this.tabs);

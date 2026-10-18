@@ -162,7 +162,7 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
             rerender();
           }))),
           field('Rerolls', numberInput(cr.rerolls ?? 0, (v) => (cr.rerolls = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }), '0: as many as they like.'),
-          h('p', { class: 'note' }, 'New Game asks: Default stats (the progression curve’s level 1) or Custom. Custom offers the ways ticked: Roll Dice (four dice tumble onto a table, the lowest is dropped, and the player puts each roll on a stat), Point buy (every stat starts at 8, 22 points to raise them up to 15) and Standard array (16, 13, 12, 10, 8 to place). Hard is 3d6 straight down the stats. These settings also go for other heroes set to “Set up stats on joining”.'),
+          h('p', { class: 'note' }, 'New Game asks: Default stats (the progression curve’s level 1) or Custom. Custom offers the ways ticked: Roll Dice (four dice tumble onto a table, the lowest is dropped, and the player puts each roll on a stat), Point buy (every stat starts at 8, 30 points to raise them up to 15) and Standard array (16, 14, 13, 12, 10, 10, 8 to place). Hard is 3d6 straight down the stats. These settings also go for other heroes set to “Set up stats on joining”.'),
         ] : [h('p', { class: 'note' }, 'The hero starts with the stats above.')]))] : []),
       main ? h('span') : h('div', { class: 'item-foot' }, h('button', { type: 'button', class: 'btn danger', onclick: () => { w.heroes.splice(state.sel, 1); state.sel = 0; rerender(); } }, 'Delete hero')),
     );

@@ -1,5 +1,5 @@
 /**
- * Skills & Magic: one tab per tree (Might, Dexterity, Magic, Vitality…), skills drawn as a constellation
+ * Skills & Magic: one tab per tree (Might, Dexterity, Magic, Vitality…, and the Party tree everyone shares), skills drawn as a constellation
  * with lines to the skills they need, and the selected skill's details. Spend skill points to learn ranks.
  * Arrows move between skills, Q / E (LB / RB) switch trees, Enter / A learns (press again to confirm), Esc back.
  */
@@ -23,6 +23,8 @@ export interface SkillHost {
   trees?(): Set<string> | null;
   /** What a skill teaches ("Teaches the spell Fire II"), if anything. */
   teaches?(node: SkillNode): string | null;
+  /** The Party tree (shared by everyone): its ranks, points, the party's level, and learning in it. */
+  party?(): { skills: Skills; points: number; level: number; learn(node: SkillNode): void } | null;
 }
 
 const CELL = 96;
@@ -67,13 +69,23 @@ export class SkillTreeScreen {
     this.onClose();
   }
 
-  private get trees() { const all = this.host.skills().data.trees, only = this.host.trees?.(); return only ? all.filter((t) => only.has(t.id)) : all; }
+  /** The hero's trees (their classes'), then the Party tree, which everyone has. */
+  private get trees() {
+    const all = this.host.skills().data.trees, only = this.host.trees?.(), party = this.host.party?.();
+    return all.filter((t) => (t.shared ? !!party : !only || only.has(t.id))).sort((a, b) => Number(!!a.shared) - Number(!!b.shared));
+  }
   private nodes(): SkillNode[] { const t = this.trees[this.tree]; return t ? this.host.skills().data.nodes.filter((n) => n.tree === t.id) : []; }
+  /** Whose ranks and points the open tree uses: the Party tree's, or this hero's own. */
+  private ctx(): { skills: Skills; points: number; level: number; learn(node: SkillNode): void; party: boolean } {
+    const t = this.trees[this.tree], p = t?.shared ? this.host.party?.() : null;
+    if (p) return { ...p, party: true };
+    return { skills: this.host.skills(), points: this.host.points(), level: this.host.level(), learn: (n) => this.host.learn(n), party: false };
+  }
 
   /** Select something sensible in the current tree: the first skill that can be learned, else the root. */
   private pickDefault(): void {
-    const s = this.host.skills(), list = this.nodes();
-    const ok = list.find((n) => s.check(n, this.host.points(), this.host.level()).ok);
+    const c = this.ctx(), s = c.skills, list = this.nodes();
+    const ok = list.find((n) => s.check(n, c.points, c.level).ok);
     this.sel = (ok ?? [...list].sort((a, b) => a.y - b.y || a.x - b.x)[0])?.id ?? '';
   }
 
@@ -118,11 +130,11 @@ export class SkillTreeScreen {
   private activate(): void {
     const node = this.nodes().find((n) => n.id === this.sel);
     if (!node) return;
-    const c = this.host.skills().check(node, this.host.points(), this.host.level());
+    const x = this.ctx(), c = x.skills.check(node, x.points, x.level);
     if (!c.ok) { uiSound('menuBack'); this.flash(c.why ?? ''); return; }
     if (!this.confirming) { this.confirming = true; uiSound('menuOk'); this.render(); return; }
     this.confirming = false;
-    this.host.learn(node);
+    x.learn(node);
     this.render();
   }
 
@@ -132,8 +144,8 @@ export class SkillTreeScreen {
   }
 
   private render(): void {
-    const s = this.host.skills(), trees = this.trees, t = trees[this.tree], list = this.nodes();
-    const pts = this.host.points(), lvl = this.host.level();
+    const cx = this.ctx(), s = cx.skills, trees = this.trees, t = trees[this.tree], list = this.nodes();
+    const pts = cx.points, lvl = cx.level;
     const maxX = Math.max(4, ...list.map((n) => n.x)), maxY = Math.max(2, ...list.map((n) => n.y));
     const W = (maxX + 1) * CELL, H = (maxY + 1) * CELL;
     const pos = (n: SkillNode) => [n.x * CELL + CELL / 2, (maxY - n.y) * CELL + CELL / 2];
@@ -159,7 +171,7 @@ export class SkillTreeScreen {
       const needs = (node.parents ?? []).map((p) => s.node(p)?.name ?? p);
       detail = `<div class="sk-title">${esc(node.name)}</div>
         <div class="sk-rank">Rank ${r} / ${max}${node.cost && node.cost > 1 ? ` · ${node.cost} points per rank` : ''}</div>
-        ${node.description ? `<p class="sk-desc">${esc(node.description)}</p>` : ''}
+        ${cx.party ? '<p class="sk-req">Counts for everyone in the party, and anyone who joins later.</p>' : ''}${node.description ? `<p class="sk-desc">${esc(node.description)}</p>` : ''}
         <ul class="sk-effects">${node.effects.map((e) => `<li>${esc(effectText(e))}${max > 1 && !SKILL_STATS[e.stat]?.flag ? ' per rank' : ''}</li>`).join('')}${
           (() => { const it = node.teaches ? this.host.item?.(node.teaches) : undefined; return it ? `<li>Gives the spell shard <b${it.color ? ` style="color:${it.color}"` : ''}>${esc(it.name)}</b></li>` : ''; })()}${
           (() => { const t = this.host.teaches?.(node); return t ? `<li><b>${esc(t)}</b></li>` : ''; })()}</ul>
@@ -168,7 +180,7 @@ export class SkillTreeScreen {
         ${chk.ok ? `<button type="button" class="menu-item sk-learn${this.confirming ? ' confirm' : ''}"><span class="menu-label">${this.confirming ? `Learn ${esc(node.name)}? Press again to confirm` : `Learn (${node.cost ?? 1} point${(node.cost ?? 1) > 1 ? 's' : ''})`}</span></button>` : ''}`;
     }
     this.root.innerHTML = `<div class="inv-box sk-box" style="--tree:${color}">
-      <div class="inv-head"><span class="menu-title">${this.host.who ? `${esc(this.host.who())} · ` : ""}Skill Tree</span><span class="sk-points">Level ${lvl} · <b>${pts}</b> skill point${pts === 1 ? '' : 's'}</span></div>
+      <div class="inv-head"><span class="menu-title">${cx.party ? 'Party · ' : this.host.who ? `${esc(this.host.who())} · ` : ""}Skill Tree</span><span class="sk-points">${cx.party ? 'Shared by the whole party · ' : ''}Level ${lvl} · <b>${pts}</b> ${cx.party ? 'party' : 'skill'} point${pts === 1 ? '' : 's'}</span></div>
       <div class="sk-tabs" role="tablist">${trees.map((tr, k) => `<button type="button" role="tab" class="sk-tab" data-tab="${k}" aria-selected="${k === this.tree}" style="--c:${tr.color ?? '#e9c46a'}">${esc(tr.name)}</button>`).join('')}</div>
       <div class="sk-body">
         <svg class="sk-map" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${lines}${dots}</svg>

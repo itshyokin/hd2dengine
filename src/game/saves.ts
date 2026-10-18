@@ -34,7 +34,7 @@ export interface SaveData {
   /** Bag, gold and equipment (older saves have none). */
   inventory?: InventoryData;
   /** Level, experience and unspent skill points. */
-  progress?: { level: number; xp: number; points: number; ranks?: Record<string, number>; taught?: string[]; stats?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>; statPoints?: number };
+  progress?: { level: number; xp: number; points: number; ranks?: Record<string, number>; taught?: string[]; stats?: Partial<Record<'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf', number>>; statPoints?: number };
   /** Party members besides the hero (their stats, gear and gauges). */
   party?: import('./party').MemberData[];
   /** Where the hero stands in the lineup (0: first; 3 or more: on the bench). */

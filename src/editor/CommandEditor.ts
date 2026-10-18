@@ -99,7 +99,7 @@ function itemChoices(store: EditorStore, current: string): [string, string][] {
   return out;
 }
 
-const STAT_NAMES: Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', string> = { str: 'Strength', dex: 'Dexterity', def: 'Defence', mag: 'Magic', mdf: 'Magic Defence' };
+const STAT_NAMES: Record<'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf', string> = { str: 'Strength', dex: 'Dexterity', agi: 'Agility', end: 'Endurance', def: 'Defence', mag: 'Magic', mdf: 'Magic Defence' };
 export const WEATHER_NAMES: Record<WeatherKind, string> = { none: 'Clear', rain: 'Rain', storm: 'Thunderstorm', snow: 'Snow', blizzard: 'Blizzard', haze: 'Haze', sandstorm: 'Sandstorm', pollen: 'Pollen', dust: 'Dust motes', leaves: 'Falling leaves' };
 export const GAUGE_NAMES: Record<Gauge, string> = { hp: 'Health', mp: 'Magic', sp: 'Stamina' };
 export const ABILITY_NAMES: Record<Ability, string> = { run: 'Run', jump: 'Jump', climb: 'Climb', crawl: 'Crawl' };
@@ -181,7 +181,7 @@ function summary(c: Command): string {
     case 'temperature': return c.op === 'reset' ? 'Back to normal' : c.op === 'set' ? `${c.value ?? 70}°F on this map` : `${(c.value ?? 0) >= 0 ? '+' : ''}${c.value ?? 0}°F on this map`;
     case 'weather': return `${c.kind === 'none' ? 'Clear skies' : `${WEATHER_NAMES[c.kind]}${c.amount !== undefined && c.amount !== 1 ? ` × ${c.amount}` : ''}`}${c.wind !== undefined ? `, wind ${c.wind}` : ''}${c.scope === 'world' ? ' (shared outdoor weather)' : ''}`;
     case 'party': return `${heroList().find(([id]) => id === c.hero)?.[1] ?? (c.hero || '(no hero)')} ${c.op === 'add' ? 'joins' : 'leaves'}${c.quiet ? ' (quietly)' : ''}`;
-    case 'skillPoints': return `+${c.value} skill point${c.value === 1 ? '' : 's'}`;
+    case 'skillPoints': return `+${c.value} ${c.party ? 'party' : 'skill'} point${c.value === 1 ? '' : 's'}`;
     case 'fieldWeapons': return c.on ? 'Overworld weapons: enabled' : 'Overworld weapons: disabled';
     case 'achievement': return `Unlock: ${dbNow?.().achievements?.find((a) => a.id === c.id)?.name ?? (c.id || '(none chosen)')}`;
     case 'console': return `> ${c.line}`;
@@ -653,7 +653,8 @@ export class CommandEditor {
         return [field('Overworld weapons', select([['off', 'Disable (greyed out with a red ✕)'], ['on', 'Enable again']], d.on ? 'on' : 'off', (v) => (d.on = v === 'on')),
           'The sword and bow the hero uses on the field (cutting vines, shooting switches). Disable them indoors, in towns or other restricted areas; they stay off (across maps and saves) until an event enables them again.')];
       case 'skillPoints':
-        return [field('Skill points', numberInput(d.value, (v) => (d.value = Math.round(v)), { step: 1 }), 'A quest reward. Negative takes points away.')];
+        return [field('Skill points', numberInput(d.value, (v) => (d.value = Math.round(v)), { step: 1 }), 'A quest reward. Negative takes points away.'),
+          checkbox('Party points (for the Party skill tree everyone shares)', !!d.party, (v) => { if (v) d.party = true; else delete d.party; })];
       case 'battle': {
         const enemies = (this.store.db.enemies ?? []).map((e) => [e.id, e.name] as [string, string]);
         const list = h('div', { class: 'battle-foes' });

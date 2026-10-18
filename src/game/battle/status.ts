@@ -4,8 +4,8 @@
  * the battle (the hero's ailments from the map carry in, and are still there, untouched, when it's over).
  * No three.js and no DOM, so it can be tested on its own.
  */
-import type { Ailment, Inflict } from '../../world/types';
-import { AILMENT_INFO, FREEZE_AT } from '../status';
+import type { Ailment, BuffKind, Inflict } from '../../world/types';
+import { AILMENT_INFO, BUFF_INFO, FREEZE_AT } from '../status';
 
 export type BattleAilment = Ailment | 'frozen';
 
@@ -28,6 +28,11 @@ export const BURN_SHARE = 0.08, POISON_SHARE = 0.05;
 /** Chilled fighters' turns come round this much slower. */
 export const CHILL_AGILITY = 0.7;
 export const BLIND_MISS_CHANCE = 0.5;
+/** Buffs and debuffs in battle: how many of the fighter's own turns they last when nothing says. */
+export const BUFF_TURNS = 3;
+
+/** A buff or debuff on a fighter in battle: how much, and turns left. */
+export interface BattleBuff { amount: number; turns: number }
 
 /** What a turn's start did: damage from burn or poison, and whether the fighter can act. */
 export interface TurnStart { damage: { ailment: 'burn' | 'poison'; amount: number }[]; skip: BattleAilment | null; confused: boolean }
@@ -38,6 +43,8 @@ export class BattleStatus {
   chillStacks = 0;
   /** Guarding: no new ailments until their next turn. */
   ward = false;
+  /** Buffs and debuffs (raised stats, Haste, Slow, Regeneration…), with turns left. */
+  readonly buffs = new Map<BuffKind, BattleBuff>();
 
   constructor(readonly resists: readonly Ailment[] = [], readonly boss = false, undead = false) {
     if (undead) this.turns.set('zombie', Infinity);
@@ -68,6 +75,26 @@ export class BattleStatus {
     const had = this.has(a);
     this.turns.set(a, Math.max(this.turns.get(a) ?? 0, t));
     return had ? 'refreshed' : 'given';
+  }
+
+  /** A buff's amount now (0 if it hasn't got it). */
+  buff(k: BuffKind): number { return this.buffs.get(k)?.amount ?? 0; }
+  /**
+   * Give a buff or debuff (the bigger amount and the longer time win if it's already there). Haste and Slow cancel
+   * each other out: one arriving takes the other away. Returns 'cancelled' when that's all it did.
+   */
+  boost(k: BuffKind, amount = BUFF_INFO[k].amount, turns = BUFF_TURNS): 'given' | 'refreshed' | 'cancelled' {
+    const opposite = k === 'haste' ? 'slow' : k === 'slow' ? 'haste' : null;
+    if (opposite && this.buffs.has(opposite)) { this.buffs.delete(opposite); return 'cancelled'; }
+    const had = this.buffs.get(k);
+    this.buffs.set(k, { amount: Math.max(had?.amount ?? 0, amount), turns: Math.max(had?.turns ?? 0, Math.max(1, Math.round(turns))) });
+    return had ? 'refreshed' : 'given';
+  }
+  /** The end of their turn: buffs tick down one; which wore off. */
+  endBuffs(): BuffKind[] {
+    const gone: BuffKind[] = [];
+    for (const [k, b] of this.buffs) { if (b.turns - 1 <= 0) { this.buffs.delete(k); gone.push(k); } else b.turns--; }
+    return gone;
   }
 
   /** Cure these (an item's list; 'all' cures everything but Zombie, which needs its own cure). */

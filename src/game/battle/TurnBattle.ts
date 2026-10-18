@@ -7,21 +7,22 @@
  */
 import type { Sfx } from '../../audio/sfx';
 import type { BattleScreen, ChoiceItem, FighterView, VictoryReport } from '../../ui/BattleScreen';
-import type { Ailment, Element, EnemyAction, Inflict } from '../../world/types';
+import type { Ailment, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
+import { BUFF_INFO, DEBUFFS, buffLabel } from '../status';
 import type { TurnBasedConfig } from '../combat/config';
 import { ELEMENT_COLORS } from '../elements';
 import { statusIconUrl } from '../../art/statusIcons';
 import type { QteResult } from '../../ui/BattleScreen';
 import {
   type BattleAddition, type Battler, type BattleSpell, type Opening, RANK, type SpellRank, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
-  refreshAgility, roundOrder, spend, startCounters, strike, tickOf,
+  refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
 } from './rules';
-import { AILMENT_WORD, BLIND_MISS_CHANCE, type BattleAilment, ailmentName, rollInflicts } from './status';
+import { AILMENT_WORD, BLIND_MISS_CHANCE, BUFF_TURNS, type BattleAilment, ailmentName, rollInflicts } from './status';
 
 /** One fighter as the game hands it over. */
 export interface BattleEntry { battler: Battler; view: FighterView; /** Party: 0 the hero, 1… members. */ who?: number; /** Enemies: the map's enemy (handed back when it's beaten). */ ref?: unknown }
 
-export interface BattleItem { slot: number; name: string; count: number; detail?: string; icon?: string; restore?: { hp?: number; mp?: number }; percent?: boolean; cures?: string[] }
+export interface BattleItem { slot: number; name: string; count: number; detail?: string; icon?: string; restore?: { hp?: number; mp?: number }; percent?: boolean; cures?: string[]; buffs?: BuffGrant[] }
 
 export type BattleOutcome = 'victory' | 'defeat' | 'fled';
 
@@ -40,7 +41,7 @@ export interface BattleHost {
    * Use the item in bag slot `slot` on party member `who` (0 the hero), who has these battle ailments: what
    * happened, whether it was used up, and what it cures.
    */
-  useItem(slot: number, who: number, ailments: BattleAilment[]): { text: string; used: boolean; cures: (Ailment | 'all')[] } | null;
+  useItem(slot: number, who: number, ailments: BattleAilment[]): { text: string; used: boolean; cures: (Ailment | 'all')[]; buffs?: BuffGrant[] } | null;
   /** Use up one of the item in this bag slot (used on an enemy). */
   spendItem(slot: number): void;
   /** Play a voice clip or other sound file (call-outs, chants). */
@@ -276,7 +277,7 @@ export class TurnBattle {
     const list = b.spells.map((s) => {
       const top = s.ranks[s.ranks.length - 1], low = s.ranks[0];
       return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
-        detail: [s.description, s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one') : `${s.element === 'neutral' ? 'Magic' : s.element[0].toUpperCase() + s.element.slice(1)} damage to ${s.targets === 'all' ? 'every foe' : 'one foe'}`, low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : 'goes off at once'].filter(Boolean).join(' · ') };
+        detail: [s.description, s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one') : s.kind === 'support' ? `${(s.buffs ?? []).map((g) => buffLabel(g.buff)).join(', ') || 'Support'} for ${s.supportTarget === 'foes' ? (s.targets === 'all' ? 'every foe' : 'one foe') : s.targets === 'all' ? 'the whole party' : 'one'}` : `${s.element === 'neutral' ? 'Magic' : s.element[0].toUpperCase() + s.element.slice(1)} damage to ${s.targets === 'all' ? 'every foe' : 'one foe'}`, low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : 'goes off at once'].filter(Boolean).join(' · ') };
     });
     this.screen.choose('Magic', list, (i) => this.rankMenu(b, b.spells[i]), () => this.commandMenu(b), () => this.showOrder(RANK.magic));
   }
@@ -285,14 +286,15 @@ export class TurnBattle {
   private rankMenu(b: Battler, s: BattleSpell): void {
     const go = (r: SpellRank) => {
       const back = () => (s.ranks.length > 1 ? this.rankMenu(b, s) : this.magicMenu(b));
-      const mine = s.kind === 'heal' ? this.sideOf(b) : this.otherSide(b), theirs = s.kind === 'heal' ? this.otherSide(b) : this.sideOf(b);
+      const friendly = s.kind === 'heal' || (s.kind === 'support' && s.supportTarget !== 'foes');
+      const mine = friendly ? this.sideOf(b) : this.otherSide(b), theirs = friendly ? this.otherSide(b) : this.sideOf(b);
       if (s.targets === 'all') {
         // The whole group: the usual one, or (left / right) the other side.
         const a = mine.filter(isUp), o = theirs.filter(isUp);
         this.screen.target(a.map((t) => t.key), (k) => { this.phase = 'busy'; this.doSpell(b, s, r, (a.some((t) => t.key === k) ? a : o)); }, () => { this.showOrder(); back(); }, undefined, true, o.map((t) => t.key));
         return;
       }
-      this.pickTarget(this.anyone(mine, b), (t) => this.doSpell(b, s, r, [t]), back, s.kind === 'heal' ? b : undefined);
+      this.pickTarget(this.anyone(mine, b), (t) => this.doSpell(b, s, r, [t]), back, friendly ? b : undefined);
     };
     if (s.ranks.length === 1) { go(s.ranks[0]); return; }
     this.screen.choose(s.name, s.ranks.map((r) => ({ label: r.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], right: `${r.mp} MP`, disabled: r.mp > b.mp, rank: RANK.magic,
@@ -415,12 +417,16 @@ export class TurnBattle {
   private unleash(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[], color: string): void {
     if (b.side === 'party') { this.host.tally?.('spells'); this.host.tally?.(`spell:${s.id}`); }
     this.screen.animate(b.key, 'cast', color);
-    this.host.sound(s.kind === 'heal' ? 'ringOn' : 'fire');
+    this.host.sound(s.kind === 'bolt' ? 'fire' : 'ringOn');
     this.later(0.4, () => {
+      // A Magic buff (or debuff) on the caster makes the spell stronger (or weaker).
+      const power = r.power * spellBoost(b);
       for (const t of targets) {
         if (!isUp(t)) continue;
-        if (s.kind === 'heal') this.heal(b, t, healAmount(r.power, t));
-        else this.hit(b, t, r.power, s.element, true, s.inflicts, color);
+        if (s.kind === 'heal') this.heal(b, t, healAmount(power, t));
+        else if (s.kind === 'bolt') this.hit(b, t, power, s.element, true, s.inflicts, color);
+        else this.screen.animate(t.key, 'heal', color);
+        if (isUp(t) && s.buffs?.length) this.giveBuffs(b, t, s.buffs);
       }
       this.endTurn(b, RANK.magic, 0.8);
     });
@@ -496,6 +502,7 @@ export class TurnBattle {
     }
     const cured = r.cures.length ? t.status.cure(r.cures) : [];
     if (cured.length) { refreshAgility(t); this.screen.popup(t.key, `Cured ${cured.map(ailmentName).join(', ')}`, 'info'); this.refresh(t); }
+    if (r.buffs?.length) this.giveBuffs(b, t, r.buffs);
     this.host.sound('item');
     this.screen.animate(t.key, 'heal', '#9dffb0');
     const msg = cured.length && !/cured/i.test(r.text) ? `${r.text.replace(/\.$/, '')}: cured ${cured.map(ailmentName).join(', ')}.` : r.text;
@@ -506,15 +513,16 @@ export class TurnBattle {
 
   /** An item used on an enemy: its healing heals them (or hurts the undead), its cures cure them. */
   private itemOnFoe(b: Battler, it: BattleItem, t: Battler): void {
-    const hp = it.restore?.hp ?? 0, cures = it.cures ?? [];
+    const hp = it.restore?.hp ?? 0, cures = it.cures ?? [], buffs = it.buffs ?? [];
     const cured = cures.length ? t.status.cure(cures as (Ailment | 'all')[]) : [];
-    if (!hp && !cured.length) { this.screen.message('It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
+    if (!hp && !cured.length && !buffs.length) { this.screen.message('It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
     this.host.spendItem(it.slot);
     this.screen.message(`${b.name} uses ${it.name} on ${t.name}`);
     this.host.sound('item');
     this.later(0.3, () => {
       if (hp) this.heal(b, t, healAmount(it.percent ? t.maxHp * hp / 100 : hp, t));
       if (cured.length) { refreshAgility(t); this.screen.popup(t.key, `Cured ${cured.map(ailmentName).join(', ')}`, 'info'); this.refresh(t); }
+      if (buffs.length && isUp(t)) this.giveBuffs(b, t, buffs);
       this.endTurn(b, RANK.item, 0.9);
     });
   }
@@ -578,6 +586,13 @@ export class TurnBattle {
     }
     this.screen.message(`${e.name}: ${a.name || this.actionWord(a)}`);
     if (a.kind === 'guard') { this.doGuard(e); return; }
+    if (a.kind === 'buff') {
+      const color = BUFF_INFO[a.buffs?.[0]?.buff ?? 'str'].color;
+      this.screen.animate(e.key, 'cast', color);
+      this.host.sound('ringOn');
+      this.later(0.45, () => { for (const t of move.targets) if (isUp(t)) this.giveBuffs(e, t, a.buffs ?? []); this.endTurn(e, RANK.magic, 0.8); });
+      return;
+    }
     if (a.kind === 'heal') {
       const t = move.targets[0];
       this.screen.animate(e.key, 'cast', '#9dffb0');
@@ -595,7 +610,27 @@ export class TurnBattle {
     });
   }
 
-  private actionWord(a: EnemyAction): string { return { attack: 'Strike', spell: 'Spell', heal: 'Heal', guard: 'Guard' }[a.kind]; }
+  private actionWord(a: EnemyAction): string { return { attack: 'Strike', spell: 'Spell', heal: 'Heal', guard: 'Guard', buff: 'Spell' }[a.kind]; }
+
+  /**
+   * Buffs and debuffs from a spell, an item or an enemy. A debuff (Slow) on the other side can be shrugged off
+   * (Endurance) or warded (guarding); Haste and Slow cancel each other out.
+   */
+  private giveBuffs(by: Battler, t: Battler, list: readonly BuffGrant[]): void {
+    for (const g of list) {
+      if (!BUFF_INFO[g.buff]) continue;
+      const hostile = DEBUFFS.has(g.buff) && by.side !== t.side;
+      if (hostile && t.status.ward) { this.screen.popup(t.key, 'Warded', 'info'); continue; }
+      if (hostile && Math.random() * 100 < (t.resist ?? 0)) { this.screen.popup(t.key, 'Resisted', 'info'); this.host.log(`${t.name} shrugs off ${BUFF_INFO[g.buff].name}`); continue; }
+      const res = t.status.boost(g.buff, g.amount ?? BUFF_INFO[g.buff].amount, g.turns ?? BUFF_TURNS);
+      const other: BuffKind = g.buff === 'haste' ? 'slow' : 'haste';
+      const word = res === 'cancelled' ? `${BUFF_INFO[other].name} ended` : `${buffLabel(g.buff)}!`;
+      this.screen.popup(t.key, word, 'info');
+      this.host.log(`${t.name}: ${res === 'cancelled' ? `${BUFF_INFO[other].name} ended` : buffLabel(g.buff)}`);
+    }
+    refreshAgility(t);
+    this.refresh(t);
+  }
 
   /** One fighter hits another: blindness, elements, criticals, guarding and the side's damage scale, then ailments. */
   private hit(by: Battler, t: Battler, power: number, element: Element, magic: boolean, inflicts?: Inflict[], color?: string, counter = false): void {
@@ -608,6 +643,12 @@ export class TurnBattle {
     }
     const scale = by.side === 'party' ? this.cfg.partyDamage : this.cfg.enemyDamage;
     const r = strike(power, element, magic, by, t, scale);
+    if (r.kind === 'miss') {
+      this.screen.popup(t.key, 'Miss', 'info');
+      this.host.sound('dodge');
+      this.host.log(`${t.name} dodges ${by.name}’s attack`);
+      return;
+    }
     const tint = color ?? (element !== 'neutral' ? ELEMENT_COLORS[element] : undefined);
     if (r.kind === 'immune') { this.screen.popup(t.key, 'Immune', 'info'); this.host.sound('block'); this.host.log(`${t.name} is immune`); return; }
     if (r.kind === 'absorb') {
@@ -631,6 +672,12 @@ export class TurnBattle {
   /** Roll a hit's ailments on someone still standing. */
   private inflict(t: Battler, inflicts?: Inflict[]): void {
     for (const f of rollInflicts(inflicts)) {
+      // Endurance: a chance to shrug it off (not while guarding: the ward says so instead).
+      if (!t.status.ward && f.ailment !== 'stagger' && Math.random() * 100 < (t.resist ?? 0)) {
+        this.screen.popup(t.key, 'Resisted', 'info');
+        this.host.log(`${t.name} shrugs off ${ailmentName(f.ailment)}`);
+        continue;
+      }
       const res = t.status.give(f.ailment, f.turns);
       if (res === 'resisted' && t.status.ward) { this.screen.popup(t.key, 'Warded', 'info'); continue; }
       if (res === 'resisted' || res === 'none') continue;
@@ -683,6 +730,7 @@ export class TurnBattle {
     if (t.charging) { t.charging = null; this.screen.setCharging(t.key, null); }
     for (const a of t.status.list) if (a !== 'zombie') t.status.turns.delete(a);
     t.status.chillStacks = 0;
+    t.status.buffs.clear();
     refreshAgility(t);
     setTimeout(() => this.screen.animate(t.key, 'faint'), 260);
     if (t.side === 'enemy') { this.host.sound('defeat'); this.host.log(`${t.name} defeated`); }
@@ -695,6 +743,14 @@ export class TurnBattle {
     if (gone.length) {
       refreshAgility(b);
       this.screen.popup(b.key, gone.length === 1 ? `${ailmentName(gone[0])} wore off` : 'Recovered', 'info');
+    }
+    // Regeneration gives health back (the undead are hurt by it); then buffs tick down too.
+    const regen = isUp(b) ? regenAmount(b) : 0;
+    if (regen) { if (b.status.zombie) this.damage(b, regen, false); else if (b.hp < b.maxHp) { b.hp = Math.min(b.maxHp, b.hp + regen); this.screen.popup(b.key, `+${regen}`, 'heal'); } }
+    const faded = isUp(b) ? b.status.endBuffs() : [];
+    if (faded.length) {
+      refreshAgility(b);
+      this.screen.popup(b.key, faded.length === 1 ? `${BUFF_INFO[faded[0]].name} wore off` : 'Buffs wore off', 'info');
     }
     this.refresh(b);
     if (this.cfg.order === 'ctb') spend(b, rank);
@@ -758,7 +814,10 @@ export class TurnBattle {
     this.screen.setVitals(b.key, {
       hp: b.hp, maxHp: b.maxHp, mp: b.mp, maxMp: b.maxMp, guarding: b.guarding,
       weak: b.hp > 0 && (b.hp <= b.maxHp * 0.25 || st.list.some((a) => a !== 'zombie')),
-      status: st.list.map((a) => ({ icon: statusIconUrl(a), name: `${ailmentName(a)}${Number.isFinite(st.turns.get(a)!) ? ` (${st.turns.get(a)} turn${st.turns.get(a) === 1 ? '' : 's'})` : ''}` })),
+      status: [
+        ...st.list.map((a) => ({ icon: statusIconUrl(a), name: `${ailmentName(a)}${Number.isFinite(st.turns.get(a)!) ? ` (${st.turns.get(a)} turn${st.turns.get(a) === 1 ? '' : 's'})` : ''}` })),
+        ...[...st.buffs].map(([k, v]) => ({ icon: statusIconUrl(`buff:${k}`), name: `${buffLabel(k)} (${v.turns} turn${v.turns === 1 ? '' : 's'})` })),
+      ],
     });
     // The party's numbers are the game's too (a save, the HUD).
     if (b.side === 'party') this.host.writeVitals(this.entry(b).who ?? 0, b.hp, b.mp);

@@ -4,6 +4,7 @@
  */
 import { statusIconUrl } from '../art/statusIcons';
 import { AILMENTS, AILMENT_INFO, BUFFS, BUFF_INFO } from '../game/status';
+import { BUFF_TURNS } from '../game/battle/status';
 import type { Ailment, BuffGrant, Inflict } from '../world/types';
 import { field, h, numberInput, select } from './dom';
 
@@ -44,19 +45,25 @@ export function ailmentChips(get: () => (Ailment | 'all')[] | undefined, set: (v
     ...AILMENTS.map((a) => chip(a, AILMENT_INFO[a].name)));
 }
 
-/** A consumable's buffs: kind, amount, seconds. */
-export function buffsField(get: () => BuffGrant[] | undefined, set: (v: BuffGrant[] | undefined) => void, rerender: () => void): HTMLElement {
+/**
+ * Buffs (and debuffs like Slow) an item, a spell or an enemy gives: kind, amount, seconds on the map (`seconds`,
+ * items only) and turns in a battle.
+ */
+export function buffsField(get: () => BuffGrant[] | undefined, set: (v: BuffGrant[] | undefined) => void, rerender: () => void, opts: { label?: string; seconds?: boolean } = {}): HTMLElement {
   const list = get() ?? [];
   const save = (l: BuffGrant[]) => set(l.length ? l : undefined);
-  return h('div', { class: 'field st-field' }, h('label', {}, 'Buffs it gives'),
+  const secs = opts.seconds !== false;
+  return h('div', { class: 'field st-field' }, h('label', {}, opts.label ?? 'Buffs it gives'),
     ...list.map((b, k) => h('div', { class: 'st-line' },
       h('img', { src: statusIconUrl(`buff:${b.buff}`), alt: '', class: 'el-icon' }),
       select(BUFFS.map((x) => [x, BUFF_INFO[x].name] as [string, string]), b.buff, (v) => { b.buff = v as BuffGrant['buff']; delete b.amount; save(list); rerender(); }, { 'aria-label': `Buff ${k + 1}` }),
       h('span', { class: 'note' }, '+'),
       numberInput(b.amount ?? BUFF_INFO[b.buff].amount, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_INFO[b.buff].amount) delete b.amount; else b.amount = n; save(list); }, { step: 1, min: 1, 'aria-label': `Buff ${k + 1} amount` }),
       h('span', { class: 'note' }, `${BUFF_INFO[b.buff].unit || ''} for`),
-      numberInput(b.seconds ?? BUFF_INFO[b.buff].seconds, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_INFO[b.buff].seconds) delete b.seconds; else b.seconds = n; save(list); }, { step: 5, min: 1, 'aria-label': `Buff ${k + 1} seconds` }),
-      h('span', { class: 'note' }, 's'),
+      secs ? numberInput(b.seconds ?? BUFF_INFO[b.buff].seconds, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_INFO[b.buff].seconds) delete b.seconds; else b.seconds = n; save(list); }, { step: 5, min: 1, 'aria-label': `Buff ${k + 1} seconds` }) : h('span'),
+      secs ? h('span', { class: 'note' }, 's on the map,') : h('span'),
+      numberInput(b.turns ?? BUFF_TURNS, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_TURNS) delete b.turns; else b.turns = n; save(list); }, { step: 1, min: 1, 'aria-label': `Buff ${k + 1} turns` }),
+      h('span', { class: 'note' }, 'turns in battle'),
       h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove buff ${k + 1}`, onclick: () => { list.splice(k, 1); save(list); rerender(); } }, '✕'))),
     h('button', { type: 'button', class: 'btn small', onclick: () => { list.push({ buff: 'crit' }); save(list); rerender(); } }, '+ Buff'));
 }

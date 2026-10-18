@@ -53,7 +53,8 @@ export interface EventContext {
   /** Change this map's weather (and breeze), kept for the rest of the game. */
   weather(kind: WeatherKind, amount?: number, wind?: number, scope?: 'here' | 'world'): void;
   /** Give skill points (a quest reward). */
-  skillPoints(n: number): void;
+  /** `party`: Party skill tree points instead of the hero's. */
+  skillPoints(n: number, party?: boolean): void;
   /** Start, advance, complete, fail or forget a quest. */
   quest(c: Extract<Command, { cmd: 'quest' }>): void;
   /** A turn-based battle (the event waits while busy() says so). */
@@ -219,7 +220,7 @@ export class Interpreter {
       case 'ambience': this.ctx.ambience(c.ambience); break;
       case 'weather': this.ctx.weather(c.kind, c.amount, c.wind, c.scope); break;
       case 'party': this.ctx.party(c.op, c.hero, c.quiet); break;
-      case 'skillPoints': this.ctx.skillPoints(c.value); break;
+      case 'skillPoints': this.ctx.skillPoints(c.value, c.party); break;
       case 'quest': this.ctx.quest(c); this.ctx.refreshEvents(); break;
       case 'battle': message.close(); this.ctx.battle(c); break;
       case 'learn': { const t = this.ctx.learn(c); if (t && !c.silent) message.showText(t, undefined, next?.cmd === 'choice', undefined, undefined, 'system'); break; }

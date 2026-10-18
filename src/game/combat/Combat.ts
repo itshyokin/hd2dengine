@@ -562,7 +562,7 @@ export class Combat {
     const ty = this.lock ? this.lock.y + 0.6 : p.y + 0.7;
     const dist = this.lock ? Math.hypot(this.lock.x - p.x, this.lock.z - p.z) : range;
     const speed = h.cfg.bow.arrowSpeed * (0.55 + 0.45 * power);
-    const damage = (bow.weapon.damage + (arrow?.ammo?.damage ?? 0)) * (0.35 + 0.65 * power) * (1 + h.skills.get('bowDamage') / 100) * powerMultiplier(h.hero().attrs.str);
+    const damage = (bow.weapon.damage + (arrow?.ammo?.damage ?? 0)) * (0.35 + 0.65 * power) * (1 + h.skills.get('bowDamage') / 100) * powerMultiplier(h.hero().attrs.dex);
     // Elemental arrows hit with their own element; plain ones with the bow's.
     this.launch('arrow', 'player', p.x + dx * 0.3, p.y + 0.7, p.z + dz * 0.3, dx, (ty - (p.y + 0.7)) / Math.max(1, dist), dz, speed, range, damage, undefined, (arrow?.element && arrow.element !== 'neutral' ? arrow.element : bow.element) ?? 'neutral', [...(bow.inflicts ?? []), ...(arrow?.inflicts ?? [])]);
     h.player.faceVector(dx, dz);

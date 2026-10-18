@@ -1,16 +1,18 @@
 /**
- * Character stats (attributes): Strength, Dexterity, Defence, Magic and Magic Defence, what they do, the damage
+ * Character stats (attributes): Strength, Dexterity, Agility, Endurance, Defence, Magic and Magic Defence, what they do, the damage
  * rules every hit follows, and making a new hero's stats (rolled, bought with points, or the standard array).
  * No three.js, so it can be tested on its own.
  */
 
-export type Attr = 'str' | 'dex' | 'def' | 'mag' | 'mdf';
-export const ATTRS: Attr[] = ['str', 'dex', 'def', 'mag', 'mdf'];
+export type Attr = 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf';
+export const ATTRS: Attr[] = ['str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf'];
 export type Attrs = Record<Attr, number>;
 
 export const ATTR_INFO: Record<Attr, { name: string; short: string; does: string }> = {
-  str: { name: 'Strength', short: 'STR', does: 'Melee and bow damage' },
-  dex: { name: 'Dexterity', short: 'DEX', does: 'Swing and draw speed' },
+  str: { name: 'Strength', short: 'STR', does: 'Melee damage' },
+  dex: { name: 'Dexterity', short: 'DEX', does: 'Bow damage, aim, critical hits' },
+  agi: { name: 'Agility', short: 'AGI', does: 'Turn speed in battle and dodging' },
+  end: { name: 'Endurance', short: 'END', does: 'Resisting ailments, a little HP' },
   def: { name: 'Defence', short: 'DEF', does: 'Less damage from physical hits' },
   mag: { name: 'Magic', short: 'MAG', does: 'Spell damage' },
   mdf: { name: 'Magic Defence', short: 'MDF', does: 'Less damage from spells' },
@@ -28,7 +30,7 @@ export const CRIT_MULTIPLIER = 1.5;
 /** No hit does more than this. */
 export const DAMAGE_CAP = 9999;
 
-export const baseAttrs = (v = ATTR_BASE): Attrs => ({ str: v, dex: v, def: v, mag: v, mdf: v });
+export const baseAttrs = (v = ATTR_BASE): Attrs => ({ str: v, dex: v, agi: v, end: v, def: v, mag: v, mdf: v });
 export const clampAttr = (v: number): number => Math.max(ATTR_MIN, Math.min(ATTR_MAX, Math.round(v)));
 export function attrsFrom(p?: Partial<Attrs> | null, fallback = ATTR_BASE): Attrs {
   const a = baseAttrs(fallback);
@@ -40,6 +42,19 @@ export function attrsFrom(p?: Partial<Attrs> | null, fallback = ATTR_BASE): Attr
 export const powerMultiplier = (v: number): number => Math.max(0.1, 1 + (v - ATTR_BASE) / 50);
 /** Dexterity: swings and draws this much faster (1% a point over 10, up to +50%; down to −20% for low DEX). */
 export const speedMultiplier = (dex: number): number => Math.max(0.8, Math.min(1.5, 1 + (dex - ATTR_BASE) / 100));
+/** Dexterity: critical hit chance added (a quarter of a % a point over 10). */
+export const dexCrit = (dex: number): number => (dex - ATTR_BASE) * 0.25;
+/** Dexterity: chance (%) to land a weapon hit, before the target's evasion. */
+export const accuracyOf = (dex: number): number => Math.max(50, Math.min(150, 95 + (dex - ATTR_BASE) * 0.5));
+/** Agility: chance (%) to dodge a weapon hit (half a % a point over 10, up to 40%). */
+export const evasionOf = (agi: number): number => Math.max(0, Math.min(40, (agi - ATTR_BASE) * 0.5));
+/** Endurance: chance (%) to shrug off an ailment (1.5% a point over 10, up to 60%). */
+export const ailmentResist = (end: number): number => Math.max(0, Math.min(60, (end - ATTR_BASE) * 1.5));
+/** Endurance: max HP added (2 a point over 10; less for low Endurance). */
+export const enduranceHp = (end: number): number => Math.round((end - ATTR_BASE) * 2);
+/** The chance (%) a weapon hit lands: accuracy minus evasion, never below 20% or above 100%. */
+export const hitChance = (accuracy: number, evasion: number): number => Math.max(20, Math.min(100, accuracy - evasion));
+
 /** Defence and Magic Defence: added to the armour's defence (10 adds nothing). */
 export const defenceBonus = (v: number): number => v - ATTR_BASE;
 /**
@@ -54,7 +69,9 @@ export const percentText = (m: number): string => { const p = Math.round((m - 1)
 /** What a stat does at this value, for the stat page: "+12% damage". */
 export function attrEffect(a: Attr, v: number): string {
   if (a === 'str' || a === 'mag') return `${percentText(powerMultiplier(v))} damage`;
-  if (a === 'dex') return `${percentText(speedMultiplier(v))} speed`;
+  if (a === 'dex') return `${percentText(powerMultiplier(v))} bow, ${Math.round(accuracyOf(v))}% aim`;
+  if (a === 'agi') return `${percentText(Math.min(2.5, Math.max(0.4, (v + 20) / 30)))} speed, ${Math.round(evasionOf(v))}% dodge`;
+  if (a === 'end') { const h = enduranceHp(v); return `${h >= 0 ? '+' : '−'}${Math.abs(h)} HP, ${Math.round(ailmentResist(v))}% resist`; }
   const f = throughFraction(defenceBonus(v)), p = Math.round(Math.abs(1 - f) * 100);
   return p === 0 ? 'no change' : f < 1 ? `${p}% less damage` : `${p}% more damage`;
 }
@@ -77,14 +94,14 @@ export const CREATION_NAMES: Record<CreationMethod, string> = {
 };
 
 /** Point buy: every stat starts at 8 and can be raised to 15, with this many points (D&D 5e's costs). */
-export const POINT_BUY = { budget: 22, min: 8, max: 15 } as const;
+export const POINT_BUY = { budget: 30, min: 8, max: 15 } as const;
 const BUY_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 export const buyCost = (v: number): number => BUY_COST[Math.max(POINT_BUY.min, Math.min(POINT_BUY.max, v))] ?? 0;
 export const pointsSpent = (a: Attrs): number => ATTRS.reduce((s, k) => s + buyCost(a[k]), 0);
 /** The cost of raising a stat one more step (null at the top). */
 export const nextCost = (v: number): number | null => (v >= POINT_BUY.max ? null : buyCost(v + 1) - buyCost(v));
 
-export const STANDARD_ARRAY = [16, 13, 12, 10, 8];
+export const STANDARD_ARRAY = [16, 14, 13, 12, 10, 10, 8];
 
 export type Rng = () => number;
 const d6 = (rng: Rng) => 1 + Math.floor(rng() * 6);
@@ -134,7 +151,7 @@ const ARMOUR_SLOTS = new Set(['armor', 'shield', 'accessory']);
 /** The hero's own stats plus what their equipment and skills add. `skill` gives a skill stat's total. */
 export function heroTotals(own: Attrs, gear: (StatGear | undefined)[], skill: (s: Attr | 'crit') => number = () => 0): HeroTotals {
   const attrs = { ...own };
-  let crit = BASE_CRIT + skill('crit'), armour = 0, magicArmour = 0;
+  let crit = skill('crit'), armour = 0, magicArmour = 0;
   for (const g of gear) {
     if (!g) continue;
     for (const k of ATTRS) attrs[k] += g.bonus?.[k] ?? 0;
@@ -142,5 +159,6 @@ export function heroTotals(own: Attrs, gear: (StatGear | undefined)[], skill: (s
     if (!g.slot || ARMOUR_SLOTS.has(g.slot)) { armour += g.defense ?? 0; magicArmour += g.magicDefense ?? 0; }
   }
   for (const k of ATTRS) attrs[k] = clampAttr(attrs[k] + skill(k));
-  return { attrs, crit: Math.max(0, Math.min(100, crit)), armour: armour + defenceBonus(attrs.def), magicArmour: magicArmour + defenceBonus(attrs.mdf) };
+  crit += BASE_CRIT + dexCrit(attrs.dex);
+  return { attrs, crit: Math.max(0, Math.min(100, Math.round(crit * 10) / 10)), armour: armour + defenceBonus(attrs.def), magicArmour: magicArmour + defenceBonus(attrs.mdf) };
 }

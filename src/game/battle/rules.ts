@@ -5,7 +5,7 @@
 import type { Element, EnemyAction, Inflict, TurnOrder } from '../../world/types';
 import { type BattleStatus, CHILL_AGILITY } from './status';
 import { type ElementalDefence, elementResult } from '../elements';
-import { CRIT_MULTIPLIER, finalDamage, throughFraction } from '../attributes';
+import { CRIT_MULTIPLIER, finalDamage, hitChance, throughFraction } from '../attributes';
 
 export type Side = 'party' | 'enemy';
 
@@ -21,7 +21,12 @@ export interface BattleSpell {
   chant?: string;
   id: string;
   name: string;
-  kind: 'bolt' | 'heal';
+  /** Bolt: damage; heal: health back; support: only buffs or debuffs (`buffs`). */
+  kind: 'bolt' | 'heal' | 'support';
+  /** Buffs (or debuffs: Slow) it gives each target, on top of anything else it does. */
+  buffs?: import('../../world/types').BuffGrant[];
+  /** Support spells: aimed at the caster's side (default) or the other side. */
+  supportTarget?: 'allies' | 'foes';
   element: Element;
   color?: string;
   targets: 'one' | 'all';
@@ -61,11 +66,20 @@ export interface Battler {
   attackMagic: boolean;
   armour: number;
   magicArmour: number;
-  /** How quickly turns come round now (heroes: Dexterity; Chill slows it), and without ailments. */
+  /** How quickly turns come round now (heroes: Agility; Chill, Haste and Slow change it), and without them. */
   agility: number;
   baseAgility: number;
   /** Critical hit chance, %. */
   crit: number;
+  /** Weapon hits: chance to land (%, heroes: from Dexterity; default 95) and to dodge one (%, heroes: from Agility). */
+  accuracy?: number;
+  evasion?: number;
+  /** Chance (%) to shrug off an ailment (heroes: from Endurance). */
+  resist?: number;
+  /** Their attack is a bow shot (Dexterity buffs raise it rather than Strength). */
+  ranged?: boolean;
+  /** The numbers before buffs and debuffs (kept the first time they're worked out). */
+  plain?: { attack: number; armour: number; magicArmour: number; crit: number; accuracy: number; evasion: number; resist: number };
   /** How much its hits vary either side (0.1 = ±10%, the default). */
   spread?: number;
   defence: ElementalDefence;
@@ -91,8 +105,35 @@ export interface Battler {
   charging?: Charging | null;
 }
 
-/** Chill slows a fighter's turns; set their agility from what's on them. */
-export function refreshAgility(b: Battler): void { b.agility = b.status.chilled ? b.baseAgility * CHILL_AGILITY : b.baseAgility; }
+/** Accuracy of a fighter whose own isn't set. */
+export const BASE_ACCURACY = 95;
+
+/**
+ * Set a fighter's numbers from what's on them: Chill, Haste and Slow change their turn speed; buffs raise (debuffs
+ * lower) their stats. Strength (Dexterity for a bow) and Magic: 2% damage a point; Defence and Magic Defence add to
+ * their defences; Agility: speed and dodging; Dexterity: aim and critical hits; Endurance: resisting ailments.
+ */
+export function refreshAgility(b: Battler): void {
+  const st = b.status, p = (b.plain ??= { attack: b.attack, armour: b.armour, magicArmour: b.magicArmour, crit: b.crit, accuracy: b.accuracy ?? BASE_ACCURACY, evasion: b.evasion ?? 0, resist: b.resist ?? 0 });
+  const agi = st.buff('agi'), dex = st.buff('dex');
+  let a = b.baseAgility * (1 + agi / (b.baseAgility + 20));
+  if (st.chilled) a *= CHILL_AGILITY;
+  a *= (1 + st.buff('haste') / 100) * Math.max(0.2, 1 - st.buff('slow') / 100);
+  b.agility = Math.max(1, a);
+  const up = b.attackMagic ? st.buff('mag') : b.ranged ? dex : st.buff('str');
+  b.attack = p.attack * Math.max(0.1, 1 + up / 50);
+  b.armour = p.armour + st.buff('def');
+  b.magicArmour = p.magicArmour + st.buff('mdf');
+  b.crit = Math.max(0, Math.min(100, p.crit + st.buff('crit') + dex * 0.25));
+  b.accuracy = p.accuracy + dex * 0.5;
+  b.evasion = Math.max(0, Math.min(60, p.evasion + agi * 0.5));
+  b.resist = Math.max(0, Math.min(80, p.resist + st.buff('end') * 1.5));
+}
+
+/** A fighter's Magic buff as a damage multiplier for their spells (2% a point). */
+export const spellBoost = (b: Battler): number => Math.max(0.1, 1 + b.status.buff('mag') / 50);
+/** Health Regeneration gives back at the end of each of their turns. */
+export const regenAmount = (b: Battler): number => (b.status.buff('regen') > 0 ? Math.max(1, Math.round(b.maxHp * 0.06 + b.status.buff('regen') * 2)) : 0);
 
 export const isUp = (b: Battler): boolean => b.hp > 0;
 
@@ -178,7 +219,8 @@ export const turnOrderName: Record<TurnOrder, string> = { ctb: 'Conditional turn
 /* ------------------------------------------------------------------ damage */
 
 export interface HitResult {
-  kind: 'hit' | 'immune' | 'absorb';
+  /** 'miss': a weapon hit that was dodged or went wide. */
+  kind: 'hit' | 'immune' | 'absorb' | 'miss';
   amount: number;
   crit: boolean;
   label: 'Weak!' | 'Resist' | null;
@@ -205,7 +247,9 @@ function climateFactor(element: Element, target: Battler): number {
 }
 
 /** One hit: element, a little spread, a critical, defence (or magic defence), guarding, then the damage scale. */
-export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'>, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
+export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'> & Partial<Pick<Battler, 'accuracy'>>, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
+  // Weapon hits can miss: the attacker's accuracy against the target's evasion (spells always land).
+  if (!magic && rng() * 100 >= hitChance(by.accuracy ?? BASE_ACCURACY, target.evasion ?? 0)) return { kind: 'miss', amount: 0, crit: false, label: null };
   const el = elementResult(element, target.defence);
   if (el.kind === 'immune') return { kind: 'immune', amount: 0, crit: false, label: null };
   const sp = Math.max(0, Math.min(0.9, by.spread ?? 0.1));
@@ -261,7 +305,10 @@ export function enemyChoice(e: Battler, party: Battler[], friends: Battler[], rn
     const w = a.weight ?? 1;
     if (w <= 0) continue;
     if (a.hpBelow !== undefined && e.hp / Math.max(1, e.maxHp) * 100 >= a.hpBelow) continue;
-    if ((a.kind === 'spell' || a.kind === 'heal') && e.status.silenced) continue;
+    if ((a.kind === 'spell' || a.kind === 'heal' || a.kind === 'buff') && e.status.silenced) continue;
+    if (a.kind === 'buff' && !a.buffs?.length) continue;
+    // A buff it (or its side) already has isn't worth a turn.
+    if (a.kind === 'buff' && a.buffTarget !== 'foes' && (a.buffTarget === 'allies' ? mates : [e]).every((m) => a.buffs!.every((g) => m.status.buff(g.buff) > 0))) continue;
     if (a.kind === 'heal' && !hurt.length) continue;
     options.push({ action: a, weight: w });
   }
@@ -269,6 +316,10 @@ export function enemyChoice(e: Battler, party: Battler[], friends: Battler[], rn
   const pick = weighted(options, rng)!;
   const a = pick.action;
   if (a?.kind === 'guard') return { action: a, targets: [e] };
+  if (a?.kind === 'buff') {
+    if (a.buffTarget === 'foes') return { action: a, targets: a.targets === 'all' ? foes : [pickWeak(foes, rng)] };
+    return { action: a, targets: a.buffTarget === 'allies' ? mates : [e] };
+  }
   if (a?.kind === 'heal') return { action: a, targets: [hurt.sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]] };
   if (a?.targets === 'all') return { action: a, targets: foes };
   return { action: a, targets: [pickWeak(foes, rng)] };

@@ -643,7 +643,7 @@ body.hud-arranging .hud-quick:not([hidden]), body.hud-arranging .hud-quick[data-
 .mk-box, .st-box { width: min(720px, 100%); display: grid; gap: 10px; position: relative; }
 .mk-hint { margin: 0; color: #c9c3b4; font-size: 13px; line-height: 1.45; min-height: 19px; }
 .mk-stats { display: grid; gap: 4px; }
-.mk-row, .st-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px minmax(108px, auto) minmax(150px, auto); align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid transparent; cursor: pointer; }
+.mk-row, .st-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px minmax(108px, auto) minmax(150px, auto); align-items: center; gap: 10px; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid transparent; cursor: pointer; }
 .mk-row.sel, .st-row.sel { border-color: var(--ember); background: rgba(255,176,74,0.1); }
 .mk-row.picked { border-style: dashed; border-color: #8fd0ff; background: rgba(143,208,255,0.12); }
 .mk-short { font-family: var(--f-display); font-size: 13px; color: #ffb04a; letter-spacing: 0.05em; }
@@ -678,6 +678,10 @@ body.hud-arranging .hud-quick:not([hidden]), body.hud-arranging .hud-quick[data-
 .mk-preview { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; color: #c9c3b4; font-size: 13px; }
 .mk-preview b { color: #fff; }
 .mk-name .rank-pill { justify-self: start; margin: 2px 0 0; }
+/* Seven stats: the rank pill sits beside the name, so each row stays short. */
+.mk-row .mk-name, .st-row .mk-name { grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; }
+.mk-row .mk-name small, .st-row .mk-name small { grid-column: 1 / -1; }
+.mk-row .mk-name .rank-pill, .st-row .mk-name .rank-pill { margin: 0; }
 .mk-roll { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr) 150px; gap: 12px; align-items: stretch; }
 .mk-slots, .mk-btns { display: grid; gap: 6px; align-content: start; }
 .mk-slot { display: grid; grid-template-columns: 38px minmax(0, 1fr) 64px; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid transparent; cursor: pointer; }
@@ -711,8 +715,8 @@ body.hud-arranging .hud-quick:not([hidden]), body.hud-arranging .hud-quick[data-
 .st-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
 .st-bar i { display: block; height: 100%; }
 .st-gauge.hp i { background: #e0524a; } .st-gauge.mp i { background: #4f8ef0; } .st-gauge.sp i { background: #7cc46a; }
-.st-row { grid-template-columns: 44px minmax(0, 1fr) 54px 40px 54px minmax(108px, auto) auto; }
-.st-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px 40px 54px minmax(108px, auto) auto; gap: 10px; padding: 0 12px; font-size: 11px; color: #8f95a8; text-transform: uppercase; letter-spacing: 0.06em; }
+.st-row { grid-template-columns: 44px minmax(0, 1fr) 54px 40px 54px 170px minmax(0, auto); }
+.st-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px 40px 54px 170px minmax(0, auto); gap: 10px; padding: 0 12px; font-size: 11px; color: #8f95a8; text-transform: uppercase; letter-spacing: 0.06em; }
 .st-head span:nth-child(3), .st-head span:nth-child(5) { text-align: right; }
 .st-own { text-align: right; color: #c9c3b4; font-size: 15px; } .st-own em { color: #ffb04a; font-style: normal; font-size: 12px; margin-left: 2px; }
 .st-gear { font-size: 13px; text-align: center; } .st-gear.up { color: #7ce08a; } .st-gear.down { color: #ff8a7a; }

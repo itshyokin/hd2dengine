@@ -1,6 +1,6 @@
 /**
- * The skill tree: built-in trees (Might, Dexterity, Magic, Vitality), what each skill does, and the
- * hero's ranks. Skill points come from levels (and quest rewards). No three.js, so it can be tested alone.
+ * The skill tree: built-in trees (Might, Dexterity, Magic, Vitality, and the Party tree everyone shares), what
+ * each skill does, and the hero's ranks. Skill points come from levels (and quest rewards). No three.js, so it can be tested alone.
  */
 import type { SkillNode, SkillStat, SkillsData } from '../world/types';
 
@@ -36,6 +36,8 @@ export const SKILL_STATS: Record<SkillStat, { name: string; unit: string; flag?:
   proficientHeavy: { name: 'Trained: heavy weapons', unit: '', flag: true },
   str: { name: 'Strength', unit: '' },
   dex: { name: 'Dexterity', unit: '' },
+  agi: { name: 'Agility', unit: '' },
+  end: { name: 'Endurance', unit: '' },
   def: { name: 'Defence', unit: '' },
   mag: { name: 'Magic', unit: '' },
   mdf: { name: 'Magic Defence', unit: '' },
@@ -45,6 +47,23 @@ export const SKILL_STATS: Record<SkillStat, { name: string; unit: string; flag?:
 const n = (id: string, tree: string, name: string, x: number, y: number, effects: SkillNode['effects'], o: Partial<SkillNode> = {}): SkillNode =>
   ({ id, tree, name, x, y, effects, ...o });
 
+/**
+ * The Party tree: learned once with Party points (one each time the hero levels up), and every skill counts for the
+ * whole party, members who join later included.
+ */
+const PARTY_TREE = { id: 'party', name: 'Party', color: '#5ac8c0', shared: true };
+const PARTY_NODES: SkillNode[] = [
+  n('fellowship', 'party', 'Fellowship', 3, 0, [{ stat: 'maxHp', value: 10 }, { stat: 'maxSp', value: 10 }], { description: 'The party sticks together: more health and stamina for everyone. Opens the Party tree.' }),
+  n('hardy_company', 'party', 'Hardy Company', 0, 1, [{ stat: 'maxHp', value: 15 }], { parents: ['fellowship'], ranks: 3, description: 'More health for everyone in the party.' }),
+  n('second_wind', 'party', 'Second Wind', 1.5, 1, [{ stat: 'maxSp', value: 20 }], { parents: ['fellowship'], ranks: 3, description: 'More stamina for everyone in the party.' }),
+  n('battle_drill', 'party', 'Battle Drill', 4.5, 1, [{ stat: 'meleeDamage', value: 5 }], { parents: ['fellowship'], ranks: 3, description: 'Everyone’s melee hits do more damage.' }),
+  n('arcane_chorus', 'party', 'Arcane Chorus', 6, 1, [{ stat: 'spellDamage', value: 5 }, { stat: 'maxMp', value: 5 }], { parents: ['fellowship'], ranks: 3, description: 'Everyone’s spells hit harder, with a little more magic.' }),
+  n('thick_skin', 'party', 'Thick Skin', 0, 2, [{ stat: 'end', value: 2 }], { parents: ['hardy_company'], ranks: 3, description: 'Everyone’s Endurance goes up: ailments take hold less often.' }),
+  n('quick_step', 'party', 'Quick Step', 1.5, 2, [{ stat: 'agi', value: 2 }], { parents: ['second_wind'], ranks: 3, level: 3, description: 'Everyone’s Agility goes up: quicker turns, more dodging.' }),
+  n('keen_eyes', 'party', 'Keen Eyes', 3, 1, [{ stat: 'dex', value: 2 }], { parents: ['fellowship'], ranks: 3, level: 3, description: 'Everyone’s Dexterity goes up: better aim and more critical hits.' }),
+  n('shield_wall', 'party', 'Shield Wall', 4.5, 2, [{ stat: 'def', value: 2 }, { stat: 'mdf', value: 2 }], { parents: ['battle_drill'], ranks: 3, level: 5, description: 'Everyone’s Defence and Magic Defence go up.' }),
+];
+
 /** The built-in tree, used when the database has none (and copied into it by the editor to change). */
 export const DEFAULT_SKILLS: SkillsData = {
   trees: [
@@ -52,6 +71,7 @@ export const DEFAULT_SKILLS: SkillsData = {
     { id: 'dexterity', name: 'Dexterity', color: '#7cc46a' },
     { id: 'magic', name: 'Magic', color: '#7aa8ff' },
     { id: 'vitality', name: 'Vitality', color: '#e6c25a' },
+    PARTY_TREE,
   ],
   nodes: [
     // Might: swing speed, weapon damage, and mastery of light, medium or heavy weapons.
@@ -86,21 +106,48 @@ export const DEFAULT_SKILLS: SkillsData = {
     n('frost_lore', 'magic', 'Frost Lore', 0, 1, [], { parents: ['fire'], ranks: 3, teachesSpell: 'frost', description: 'Learn Frost; more ranks raise it.' }),
     n('storm_lore', 'magic', 'Storm Lore', 4, 2, [], { parents: ['empower'], ranks: 3, level: 5, teachesSpell: 'spark', description: 'Learn Spark, lightning on every foe; more ranks raise it.' }),
     n('radiance', 'magic', 'Radiance', 1, 2, [{ stat: 'lightReach', value: 25 }], { parents: ['thrift'], ranks: 2, description: 'The Light spell shines further.' }),
+    n('quicken', 'magic', 'Quicken', 0, 2, [], { parents: ['frost_lore'], level: 4, teachesSpell: 'haste', description: 'Learn Haste: one of the party takes turns more often for a while.' }),
+    n('hinder', 'magic', 'Hinder', 0, 3, [], { parents: ['quicken'], level: 6, teachesSpell: 'slow', description: 'Learn Slow: a foe’s turns come round more slowly for a while.' }),
     n('far_cast', 'magic', 'Far Cast', 3, 2, [{ stat: 'spellRange', value: 25 }], { parents: ['empower'], ranks: 2, description: 'Spell bolts fly further.' }),
     // Vitality: health, stamina and magic.
     n('toughness', 'vitality', 'Toughness', 0, 0, [{ stat: 'maxHp', value: 20 }], { ranks: 5, description: 'More health.' }),
     n('endurance', 'vitality', 'Endurance', 2, 0, [{ stat: 'maxSp', value: 20 }], { ranks: 5, description: 'More stamina.' }),
     n('focus', 'vitality', 'Focus', 4, 0, [{ stat: 'maxMp', value: 15 }], { ranks: 5, description: 'More magic.' }),
     n('mending', 'vitality', 'Mending', 6, 0, [], { ranks: 3, teachesSpell: 'mend', description: 'Learn Mend, healing for one of the party; more ranks raise it.' }),
+    ...PARTY_NODES,
   ],
 };
 
-export const skillsData = (data?: SkillsData): SkillsData => (data?.nodes?.length ? data : DEFAULT_SKILLS);
+/** Is this tree the Party (shared) tree? */
+export const isSharedTree = (data: SkillsData, tree: string): boolean => !!data.trees.find((t) => t.id === tree)?.shared;
+
+const withParty = new WeakMap<SkillsData, SkillsData>();
+/**
+ * The database's skills (or the built-in ones). A database made before the Party tree gets the built-in one added
+ * (the same object each time, so it can be compared).
+ */
+export function skillsData(data?: SkillsData): SkillsData {
+  if (!data?.nodes?.length) return DEFAULT_SKILLS;
+  if (data.trees.some((t) => t.shared)) return data;
+  let d = withParty.get(data);
+  if (!d) { d = addPartyTree(data, false); withParty.set(data, d); }
+  return d;
+}
+/** The data with the built-in Party tree added (a copy unless `inPlace`), unless it already has a shared tree. */
+export function addPartyTree(data: SkillsData, inPlace: boolean): SkillsData {
+  if (data.trees.some((t) => t.shared)) return data;
+  const used = new Set(data.nodes.map((x) => x.id)), trees = new Set(data.trees.map((t) => t.id));
+  const tree = trees.has(PARTY_TREE.id) ? { ...PARTY_TREE, id: 'party_shared' } : { ...PARTY_TREE };
+  const nodes = PARTY_NODES.filter((x) => !used.has(x.id)).map((x) => ({ ...x, tree: tree.id, parents: x.parents?.filter((p) => !used.has(p) || PARTY_NODES.some((q) => q.id === p)) }));
+  if (inPlace) { data.trees.push(tree); data.nodes.push(...nodes); return data; }
+  return { ...data, trees: [...data.trees, tree], nodes: [...data.nodes, ...nodes] };
+}
 
 export class Skills {
   private totals = new Map<SkillStat, number>();
 
-  constructor(public data: SkillsData, readonly ranks: Record<string, number>) { this.recount(); }
+  /** `party`: this holds the Party tree's ranks (and counts only its skills); otherwise only the other trees count. */
+  constructor(public data: SkillsData, readonly ranks: Record<string, number>, readonly party = false) { this.recount(); }
 
   node(id: string): SkillNode | undefined { return this.data.nodes.find((x) => x.id === id); }
   rank(id: string): number { return this.ranks[id] ?? 0; }
@@ -112,7 +159,7 @@ export class Skills {
     const missing = (node.parents ?? []).filter((p) => this.rank(p) < 1).map((p) => this.node(p)?.name ?? p);
     if (missing.length) return { ok: false, why: `Needs ${missing.join(' and ')}` };
     if (node.level && level < node.level) return { ok: false, why: `Needs level ${node.level}` };
-    if (points < (node.cost ?? 1)) return { ok: false, why: 'Not enough skill points' };
+    if (points < (node.cost ?? 1)) return { ok: false, why: this.party ? 'Not enough party points' : 'Not enough skill points' };
     return { ok: true };
   }
 
@@ -123,15 +170,18 @@ export class Skills {
     return node.cost ?? 1;
   }
 
-  /** The total of a stat over every skill and rank taken. */
-  get(stat: SkillStat): number { return this.totals.get(stat) ?? 0; }
+  /** The Party tree's skills, counted for this hero too (set by the game). */
+  shared: Skills | null = null;
+
+  /** The total of a stat over every skill and rank taken (the hero's own, and the Party tree's). */
+  get(stat: SkillStat): number { return (this.totals.get(stat) ?? 0) + (this.shared && this.shared !== this ? this.shared.get(stat) : 0); }
   has(stat: SkillStat): boolean { return this.get(stat) > 0; }
 
   recount(): void {
     this.totals.clear();
     for (const [id, r] of Object.entries(this.ranks)) {
       const node = this.node(id);
-      if (!node || r <= 0) continue;
+      if (!node || r <= 0 || isSharedTree(this.data, node.tree) !== this.party) continue;
       const k = Math.min(r, this.maxRank(node));
       for (const e of node.effects) this.totals.set(e.stat, (this.totals.get(e.stat) ?? 0) + e.value * k);
     }

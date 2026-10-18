@@ -71,6 +71,8 @@ interface DicePage {
   lastDrop?: number;
 }
 
+/** Rows after the stats: Continue, then Back. */
+const ROW_CONTINUE = ATTRS.length, ROW_BACK = ATTRS.length + 1;
 const freshDice = (): DicePage => ({ slots: ATTRS.map(() => null), pending: null, rerollsUsed: 0, col: 'buttons', row: 0, btn: 0, shown: [] });
 
 export class CreationScreen {
@@ -86,9 +88,9 @@ export class CreationScreen {
   /** Each page's setup, kept while going back and forth. */
   private roll: DicePage = freshDice();
   private hard: DicePage = freshDice();
-  private arrayOrder = [0, 1, 2, 3, 4];
+  private arrayOrder = ATTRS.map((_, i) => i);
   private bought: Attrs = baseAttrs(POINT_BUY.min);
-  /** Point buy / standard array: the selected row (5: Continue) and a value picked up to swap. */
+  /** Point buy / standard array: the selected row (after the stats: Continue) and a value picked up to swap. */
   private row = 0;
   private picked: number | null = null;
   private table: DiceTable | null = null;
@@ -111,7 +113,7 @@ export class CreationScreen {
     this.done = done; this.back = back;
     this.open = true;
     this.page = 'choice'; this.choiceSel = 0; this.methodSel = 0; this.confirming = false; this.warnedLeft = false;
-    this.roll = freshDice(); this.hard = freshDice(); this.arrayOrder = [0, 1, 2, 3, 4]; this.bought = baseAttrs(POINT_BUY.min);
+    this.roll = freshDice(); this.hard = freshDice(); this.arrayOrder = ATTRS.map((_, i) => i); this.bought = baseAttrs(POINT_BUY.min);
     this.row = 0; this.picked = null;
     this.root.hidden = false;
     this.render();
@@ -293,10 +295,10 @@ export class CreationScreen {
       if (this.picked !== null) { this.picked = null; uiSound('menuBack'); this.render(); return; }
       this.goBack(); return;
     }
-    if (i.consume('up')) { this.row = (this.row + 6) % 7; uiSound('menuMove'); this.render(); return; }
-    if (i.consume('down')) { this.row = (this.row + 1) % 7; uiSound('menuMove'); this.render(); return; }
+    if (i.consume('up')) { this.row = (this.row + ROW_BACK) % (ROW_BACK + 1); uiSound('menuMove'); this.render(); return; }
+    if (i.consume('down')) { this.row = (this.row + 1) % (ROW_BACK + 1); uiSound('menuMove'); this.render(); return; }
     const l = i.consume('left'), r = i.consume('right');
-    if ((l || r) && this.page === 'pointBuy' && this.row < 5) { this.buy(this.row, r ? 1 : -1); return; }
+    if ((l || r) && this.page === 'pointBuy' && this.row < ROW_CONTINUE) { this.buy(this.row, r ? 1 : -1); return; }
     if (i.confirm()) this.activate(this.row);
   }
 
@@ -310,10 +312,10 @@ export class CreationScreen {
     this.render();
   }
 
-  /** OK on a row: pick up / swap a value, Continue (5) or Back (6). */
+  /** OK on a row: pick up / swap a value, Continue or Back. */
   private activate(row: number): void {
-    if (row === 6) { this.goBack(); return; }
-    if (row === 5) {
+    if (row === ROW_BACK) { this.goBack(); return; }
+    if (row === ROW_CONTINUE) {
       if (this.page === 'pointBuy' && pointsSpent(this.bought) < POINT_BUY.budget && !this.warnedLeft) { this.warnedLeft = true; uiSound('menuBack'); this.render(); return; }
       this.askConfirm(); return;
     }
@@ -432,7 +434,7 @@ export class CreationScreen {
     const hint = this.picked !== null ? `Now choose the stat to swap ${ATTR_INFO[ATTRS[this.picked]].name} with.` : METHOD_DOES[m];
     const warn = this.warnedLeft && m === 'pointBuy' && left > 0 ? `<div class="mk-warn">You still have ${left} point${left === 1 ? '' : 's'} to spend. Choose Continue again to go on anyway.</div>` : '';
     return `<p class="mk-hint">${esc(hint)}</p><div class="mk-stats" role="listbox">${rows}</div>
-      <div class="mk-foot">${status}<span class="mk-foot-btns"><button type="button" class="menu-item mk-use" data-row="6" aria-selected="${this.row === 6}"><span class="menu-label">Back</span></button><button type="button" class="menu-item mk-use" data-row="5" aria-selected="${this.row === 5}"><span class="menu-label">Continue</span></button></span></div>${warn}`;
+      <div class="mk-foot">${status}<span class="mk-foot-btns"><button type="button" class="menu-item mk-use" data-row="${ROW_BACK}" aria-selected="${this.row === ROW_BACK}"><span class="menu-label">Back</span></button><button type="button" class="menu-item mk-use" data-row="${ROW_CONTINUE}" aria-selected="${this.row === ROW_CONTINUE}"><span class="menu-label">Continue</span></button></span></div>${warn}`;
   }
 
   private wire(): void {

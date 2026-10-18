@@ -418,7 +418,16 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 
 ### Stats and growth ranks
 
-- **Growth ranks**: each hero's five stats (Strength, Dexterity, Defence, Magic, Magic Defence) have a level 1 value
+- **Seven stats**: **STR** Strength (melee damage), **DEX** Dexterity (bow damage, aim, critical hits, swing and draw
+  speed), **AGI** Agility (how often turns come round in battle, and dodging), **END** Endurance (shrugging off
+  ailments and Slow, and a little more health: +2 HP a point over 10), **DEF** Defence, **MAG** Magic and **MDF**
+  Magic Defence. 10 is normal. The Status page shows what each one does at its value ("+20% bow, 100% aim") and,
+  under the stats, critical hits, Defence, Magic Defence, **Accuracy**, **Dodge** and **Resist ailments**. In
+  battle a weapon hit lands on its accuracy (95% at DEX 10, half a % more a point) minus the target's dodge (half a
+  % a point of AGI over 10, up to 40%), never below 20%; spells always land. Each point of DEX over 10 adds a
+  quarter of a % to critical hits; each point of END over 10 adds 1.5% to the chance of shrugging off an ailment
+  (up to 60%). Saves from before seven stats give Agility and Endurance 10.
+- **Growth ranks**: each hero's seven stats have a level 1 value
   and a **rank** set in **Database → Heroes → Progression curve**: each level adds **A +4, B +3, C +2, D +1, F +0**.
   There are no stat points to spend any more; skill points stay. HP, MP and stamina aren't ranked (the skill tree
   raises them). The Status page shows each stat's rank as a coloured pill (A green, B yellow, C orange, D pink,
@@ -433,7 +442,8 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   the table, the lowest is dropped and the total appears in the first empty box: ↑ ↓ move it to another stat, OK
   places it; ← → go between the boxes and the buttons; OK on a filled box picks its number up again. Re-rolls are
   unlimited unless **Re-rolls allowed** is set; Continue is greyed until every stat has a number. Works with the
-  keyboard, a controller or the mouse.
+  keyboard, a controller or the mouse. **Point Buy**: every stat starts at 8, with 30 points to raise them up to 15.
+  **Standard Array**: 16, 14, 13, 12, 10, 10 and 8 to place.
 - Other heroes use their default stats, or set **Stats when they join → Set up stats on joining** to have the
   player set theirs up the moment they join (then grown by their ranks to the level they join at).
 
@@ -897,8 +907,8 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   **day or night** (game clock), **real-world days of the week** (the player's computer clock: a Friday-only
   troop, say) and a **switch** that must be ON. Unpainted tiles have no random battles (unless the map has its own
   Random encounters list, which still applies outside zones).
-- **Turn order**: *Conditional turns (FFX)*: fast fighters (Dexterity for heroes, **Agility** for enemies in
-  Database → Enemies) act more often, and light actions (Guard, Items, a failed Run) bring the next turn round
+- **Turn order**: *Conditional turns (FFX)*: fast fighters (**Agility**: the heroes' stat, and Database → Enemies →
+  Agility for enemies) act more often, and light actions (Guard, Items, a failed Run) bring the next turn round
   sooner. The bar on the right shows who's coming up, and changes as you move through the commands, like FFX.
   *Rounds (classic)*: everyone acts once a round, fastest first.
 - **Commands**: **Attack** (the equipped weapon; a bow if there's no melee weapon), **Magic** (the spell shard in the
@@ -921,11 +931,24 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   (healing hurts, all battle). Weapons and enemies give them with the same *Ailments its hits can give* settings
   as on the map (a time set in seconds becomes about one turn per 3 seconds); bosses shake them off in half the
   turns. Icons show over each fighter and beside party names. The hero brings their ailments from the map into a
-  battle; battle ailments end with the battle. Buffs don't carry into battles yet.
+  battle; battle ailments end with the battle. A hero's **Endurance** gives a chance to shrug an ailment off
+  ("Resisted"); enemies have *Ailment resist %* in Database → Enemies.
+- **Buffs and debuffs in battle** last a few of the fighter's own turns (3 unless set) and show as icons with turns
+  left: raised Strength, Dexterity, Agility, Endurance, Defence, Magic, Magic Defence or critical hits,
+  **Regeneration** (health back at the end of each turn), **Haste** (turns come round half again as often) and
+  **Slow** (turns come round much more slowly; a debuff). Haste and Slow cancel each other out. A Slow cast on the
+  other side can be shrugged off with Endurance or warded off by guarding. They come from **items** (a consumable's
+  *Buffs it gives*: seconds on the map, turns in battle), **spells** (*Buffs it gives in battle*; the **Support**
+  kind does only that, on the caster's side or the other side) and **enemies** (a *Buff* action, below). The
+  built-in spells include **Haste** and **Slow**, learned from Quicken and Hinder in the Magic tree. On the map,
+  Haste and Slow change walking speed. Buffs from the map stay on the map. Each hit can also **miss** ("Miss"):
+  accuracy against dodging (see *Seven stats*); enemies have *Accuracy %*, *Evasion %* and *Critical hit %*.
 - **Enemy actions** (Database → Enemies → *Turn-based battles*): besides its plain attack (*how often*, 0 for
   never), an enemy can have actions: **Attack** and **Spell** (its damage × power, on one of the party or all of
   them, with their own element and ailments), **Heal** (itself or a hurt friend, % of their health) and **Guard**
-  (enemies only guard when given this). Each has *how often* and can be limited to *only below health %*.
+  (enemies only guard when given this) and **Buff** (raises its own stats or every enemy's, or casts a debuff like
+  Slow on one of the party or all of them; it doesn't use one it already has). Each has *how often* and can be
+  limited to *only below health %*.
   **Counterspell** (on an action or the plain attack) will break a spell being charged once spells can be charged.
 - **Magic** (turn-based): the hero's **learned spells** (see below). Spells known at more than one rank ask which
   rank to cast: a higher rank hits harder and costs more, and **charges** a turn longer for each rank (the caster
@@ -1064,6 +1087,13 @@ opens once at least one rank of the skills it's linked from is learned, and many
   enemy outright), and Silent Shot (needs Light Step and Archer: arrow kills from 5+ tiles don't alert anyone)).
 - **Magic**: perks that make every spell shard better (see below).
 - **Vitality**: Toughness, Endurance and Focus raise max health, stamina and magic.
+- **Party**: a tree the **whole party shares**, shown to every hero whatever their class. It has its own **party
+  points** (one each time the hero levels up; Database → Combat → *Party skill points per level*, and the **Give
+  skill points** command with *Party points* ticked) and is learned once for everyone: party members who join later
+  get it too. Fellowship (health and stamina) → Hardy Company (health), Second Wind (stamina), Battle Drill (melee
+  damage), Arcane Chorus (spell damage and magic), Thick Skin (Endurance), Quick Step (Agility), Keen Eyes
+  (Dexterity) and Shield Wall (Defence and Magic Defence). In Database → Skills any tree can be made a Party tree
+  (*Party tree: shared by the whole party*); databases made before it get the built-in one added.
 
 Every tree, skill, rank, cost, level requirement and effect can be edited in **Database → Skills** (add trees and
 skills as new abilities arrive). A **LEVEL UP** banner appears at the top of the screen on each level.

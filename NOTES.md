@@ -19,9 +19,11 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 63b: soft-blocky bevels closed where they end against higher or square-edged ground (no gaps or
       floating corners); cliff faces flush at their ends (no seams down corners); bridges keep walkers on them (along
       the bridge only, off at open ends; getting on only from the ends) for the hero, the party and enemies.
-- [ ] Update 64: seven stats (STR melee, DEX ranged / accuracy / crits, AGI turn speed and evasion, END ailment
+- [x] Update 64: seven stats (STR melee, DEX ranged / accuracy / crits, AGI turn speed and evasion, END ailment
       resistance and a little HP, DEF, MAG, MDF); buffs and debuffs working in battle, Haste / Slow; a Shared skill
-      tree for the whole party (stamina and party-wide boosts, new members included).
+      tree for the whole party (stamina and party-wide boosts, new members included). Also: hits can miss (accuracy
+      against dodging), Support spells (Haste, Slow), enemy Buff actions, enemy Accuracy / Evasion / Ailment resist /
+      Critical hit % fields, party points (Give skill points → Party points).
 - [ ] Update 65: remove the action battle system (keep bumping into foes, and the sword / bow as field tools with the
       bow's lock-on for sniping foes to start a battle); skills that only worked in real time removed or reworked;
       Database forms reorganised Guerilla-style (all switches together at the top, then named sections with a jump bar)
@@ -72,7 +74,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
 ## Abilities and combat
 - [x] Swapping party members mid-battle (Swap in the battle menu) and battle maps as backdrops (earlier updates).
 - [x] Spells that charge for turns, with chants (earlier updates).
-- [ ] Turn-based, next steps: buffs in battle (update 64), enemy spells that charge and the party's Counterspell,
+- [ ] Turn-based, next steps: ~~buffs in battle (update 64)~~, enemy spells that charge and the party's Counterspell,
       Limit / Overdrive-style specials.
 - [ ] Classes: a class change screen at a trainer (an event command opening it), class stat bonuses. Now: Party → a
       hero → Class changes it.

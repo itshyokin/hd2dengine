@@ -261,7 +261,7 @@ export type Command =
    * Until morning (7:00), until night (21:00), or for some hours; `rest`: health, magic and stamina refill.
    */
   /** Change how a hero's stat grows each level (for good). hero: an id, '' for the hero you play, 'all' for everyone. */
-  | { cmd: 'statRank'; hero: string; stat: 'str' | 'dex' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank }
+  | { cmd: 'statRank'; hero: string; stat: 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank }
   | { cmd: 'sleep'; until?: 'morning' | 'night' | 'hours'; hours?: number; rest?: boolean }
   | { cmd: 'ability'; ability: Ability; on: boolean }
   | { cmd: 'gauge'; gauge: Gauge; op: 'add' | 'set' | 'fill'; value: number }
@@ -293,7 +293,7 @@ export type Command =
   /** Change the temperature on this map (set to, or warmer / colder by, °F) until the player leaves it; reset: back to normal. */
   | { cmd: 'temperature'; op: 'set' | 'add' | 'reset'; value?: number }
   /** Give skill points (a quest reward). */
-  | { cmd: 'skillPoints'; value: number }
+  | { cmd: 'skillPoints'; value: number; /** Party skill tree points instead of the hero's. */ party?: boolean }
   /** Overworld weapons (the field sword and bow) on or off: off indoors or in restricted areas (greyed out on the HUD). */
   | { cmd: 'fieldWeapons'; on: boolean }
   /** Unlock an achievement (Database → Achievements). */
@@ -407,11 +407,11 @@ export type Element = 'neutral' | 'water' | 'fire' | 'nature' | 'earth' | 'shock
 
 /** Ailments a hit can give (each with a chance), and buffs items can give. */
 export type Ailment = 'burn' | 'poison' | 'chill' | 'paralyze' | 'blind' | 'silence' | 'stagger' | 'sleep' | 'confusion' | 'zombie';
-export type BuffKind = 'crit' | 'str' | 'dex' | 'def' | 'mag' | 'mdf' | 'regen';
+export type BuffKind = 'crit' | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf' | 'regen' | 'haste' | 'slow';
 /** A chance (%) for a hit to give an ailment, for `seconds` (0 or missing: its usual time). */
 export interface Inflict { ailment: Ailment; chance: number; seconds?: number }
 /** A buff an item gives: how much (default per kind) for how long. */
-export interface BuffGrant { buff: BuffKind; amount?: number; seconds?: number }
+export interface BuffGrant { buff: BuffKind; amount?: number; seconds?: number; /** In battle: how many of the fighter's turns (default 3). */ turns?: number }
 
 export interface BreakableDef {
   /** How much damage it takes to break. */
@@ -755,9 +755,9 @@ export interface HeroDef {
   /** The Addition Attack performs unless the player picks another (Party → Addition); unset: their first. */
   defaultAddition?: string;
   /** Starting Strength, Dexterity, Defence, Magic and Magic Defence (10 each when left out). */
-  stats?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>;
+  stats?: Partial<Record<'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf', number>>;
   /** How each stat grows a level: A +4, B +3, C +2 (default), D +1, F +0 (game/statRanks.ts). */
-  ranks?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', import('../game/statRanks').Rank>>;
+  ranks?: Partial<Record<'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf', import('../game/statRanks').Rank>>;
   /** Set up their stats when they join (dice, point buy, standard array, or the Database's): the hero you play does by default. */
   setupStats?: boolean;
   /** The first hero: how a new game makes their stats. */
@@ -952,7 +952,7 @@ export interface ItemDef {
   /** Restore amounts are percentages of the maximum. */
   restorePercent?: boolean;
   /** Changes how a stat grows each level: a consumable changes it for good (a Potion of Defense), gear while it's worn. */
-  statRank?: { stat: 'str' | 'dex' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank };
+  statRank?: { stat: 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank };
   /** Equipment: which slot it goes in. */
   slot?: EquipSlot;
   /** Equipment (weapons, armor, spell shards…): how rare it is (default common). Other items have none. */
@@ -1011,7 +1011,7 @@ export interface ItemDef {
   /** The same against spells. */
   magicDefense?: number;
   /** Equipment: stats it adds while worn (negative takes away: a heavy axe might cost Dexterity). */
-  bonus?: Partial<Record<'str' | 'dex' | 'def' | 'mag' | 'mdf', number>>;
+  bonus?: Partial<Record<'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf', number>>;
   /** Equipment: extra critical hit chance, in percent. */
   crit?: number;
   /** Arrows: extra damage, and whether the stack never runs out (the basic arrows). */
@@ -1162,8 +1162,14 @@ export interface EnemyDef {
   boss?: boolean;
   /** Sprite size (1 = normal). */
   scale?: number;
-  /** Turn-based battles: how quickly its turns come round (like the heroes' Dexterity; default from its speed). */
+  /** Turn-based battles: how quickly its turns come round (like the heroes' Agility; default from its speed). */
   agility?: number;
+  /** Turn-based battles: chance (%) its attacks land (default 95), to dodge the party's weapon hits (default 0), and to shrug off ailments (default 0). */
+  accuracy?: number;
+  evasion?: number;
+  ailmentResist?: number;
+  /** Critical hit chance, % (default 5). */
+  crit?: number;
   /** Turn-based battles: what else it can do on its turn, and how often it uses its plain attack (default 1; 0: never). */
   actions?: EnemyAction[];
   attackWeight?: number;
@@ -1179,7 +1185,11 @@ export interface EnemyDef {
  */
 export interface EnemyAction {
   name: string;
-  kind: 'attack' | 'spell' | 'heal' | 'guard';
+  /** Buff: gives `buffs` (to itself, its side, or, for debuffs like Slow, the party). */
+  kind: 'attack' | 'spell' | 'heal' | 'guard' | 'buff';
+  buffs?: BuffGrant[];
+  /** Buffs: on itself (default), everyone on its side, or the party (one or all, by `targets`). */
+  buffTarget?: 'self' | 'allies' | 'foes';
   /** Attacks and spells: × its damage (default 1). Heals: % of the target's health (default 30). */
   power?: number;
   element?: Element;
@@ -1296,6 +1306,8 @@ export interface CombatData {
   pointsPerLevel?: number;
   /** Stat points per level up (default 2), spent on the Status screen. */
   statPointsPerLevel?: number;
+  /** Party (shared) skill tree points per hero level up (default 1). */
+  sharedPointsPerLevel?: number;
   startPoints?: number;
 }
 
@@ -1309,9 +1321,13 @@ export type SkillStat =
   | 'sneakHide' | 'quietSteps' | 'sneakDamage' | 'silentShot' | 'assassinate'
   | 'blockStamina' | 'spellFire'
   | 'spellDamage' | 'spellCost' | 'spellRange' | 'lightReach' | 'proficientMedium' | 'proficientHeavy'
-  | 'str' | 'dex' | 'def' | 'mag' | 'mdf' | 'crit';
+  | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf' | 'crit';
 
-export interface SkillTreeDef { id: string; name: string; color?: string }
+export interface SkillTreeDef {
+  id: string; name: string; color?: string;
+  /** A Party tree: learned once with Party points, and every skill in it counts for the whole party (new members too). */
+  shared?: boolean;
+}
 
 export interface SkillNode {
   id: string;
@@ -1347,8 +1363,15 @@ export interface SpellEntry {
   id: string;
   name: string;
   description?: string;
-  /** bolt: a magic hit (in action mode, the bolt the magic button throws); heal: health back for the party. */
-  kind: 'bolt' | 'heal';
+  /**
+   * bolt: a magic hit (in action mode, the bolt the magic button throws); heal: health back for the party;
+   * support (turn-based): only its buffs or debuffs (Haste, Slow, Protect…).
+   */
+  kind: 'bolt' | 'heal' | 'support';
+  /** Buffs (or debuffs like Slow) it gives each target, on top of its damage or healing. */
+  buffs?: BuffGrant[];
+  /** Support spells: cast on the caster's side (default) or the other side (Slow on the enemies). */
+  supportTarget?: 'allies' | 'foes';
   /** Rank 1's damage (bolts) or health given back (heals), before the caster's Magic. */
   power: number;
   /** Rank 1's magic cost. */

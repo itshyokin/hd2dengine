@@ -11,7 +11,9 @@
 import type { Ailment, BuffKind } from '../world/types';
 
 export const AILMENTS: Ailment[] = ['burn', 'poison', 'chill', 'paralyze', 'blind', 'silence', 'stagger', 'sleep', 'confusion', 'zombie'];
-export const BUFFS: BuffKind[] = ['crit', 'str', 'dex', 'def', 'mag', 'mdf', 'regen'];
+export const BUFFS: BuffKind[] = ['crit', 'str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf', 'regen', 'haste', 'slow'];
+/** Buffs that make things worse (they just wear off). */
+export const DEBUFFS: ReadonlySet<BuffKind> = new Set(['slow']);
 
 /** The kind of effect: an ailment, Frozen (from Chill), or a buff. */
 export type EffectId = Ailment | 'frozen' | `buff:${BuffKind}`;
@@ -34,10 +36,14 @@ export const BUFF_INFO: Record<BuffKind, { name: string; unit: string; amount: n
   crit: { name: 'Critical hits', unit: '%', amount: 15, seconds: 60, color: '#ffd84a' },
   str: { name: 'Strength', unit: '', amount: 5, seconds: 60, color: '#ff9a6a' },
   dex: { name: 'Dexterity', unit: '', amount: 5, seconds: 60, color: '#7ce08a' },
+  agi: { name: 'Agility', unit: '', amount: 5, seconds: 60, color: '#f0e07a' },
+  end: { name: 'Endurance', unit: '', amount: 5, seconds: 60, color: '#e0a86a' },
   def: { name: 'Defence', unit: '', amount: 5, seconds: 60, color: '#9ab8d8' },
   mag: { name: 'Magic', unit: '', amount: 5, seconds: 60, color: '#b48aff' },
   mdf: { name: 'Magic Defence', unit: '', amount: 5, seconds: 60, color: '#8ad8ff' },
   regen: { name: 'Regeneration', unit: ' HP/s', amount: 2, seconds: 30, color: '#7cf0a0' },
+  haste: { name: 'Haste', unit: '% faster', amount: 50, seconds: 30, color: '#5ae0ff' },
+  slow: { name: 'Slow', unit: '% slower', amount: 40, seconds: 20, color: '#c07a5a' },
 };
 
 /** Chill stacks needed to freeze. */
@@ -89,7 +95,8 @@ export class StatusSet {
   get blind(): boolean { return this.has('blind'); }
   get confused(): boolean { return this.has('confusion'); }
   /** Movement and attack speed. */
-  get speed(): number { return this.has('chill') ? CHILL_SPEED : 1; }
+  /** Speed: Chill slows, Haste speeds up, Slow slows down. */
+  get speed(): number { return (this.has('chill') ? CHILL_SPEED : 1) * (1 + this.buff('haste') / 100) * Math.max(0.2, 1 - this.buff('slow') / 100); }
   /** Health doesn't come back on its own. */
   get noRegen(): boolean { return this.has('poison'); }
   buff(k: BuffKind): number { return this.get(`buff:${k}`)?.amount ?? 0; }
@@ -210,5 +217,7 @@ export class StatusSet {
   }
 }
 
-export const effectName = (id: EffectId): string => (id.startsWith('buff:') ? `${BUFF_INFO[id.slice(5) as BuffKind].name} up` : AILMENT_INFO[id as Ailment | 'frozen'].name);
+/** "Strength up", or just "Haste" / "Slow" for the ones that aren't a raised number. */
+export const buffLabel = (k: BuffKind): string => (k === 'haste' || k === 'slow' ? BUFF_INFO[k].name : `${BUFF_INFO[k].name} up`);
+export const effectName = (id: EffectId): string => (id.startsWith('buff:') ? buffLabel(id.slice(5) as BuffKind) : AILMENT_INFO[id as Ailment | 'frozen'].name);
 export const effectColor = (id: EffectId): string => (id.startsWith('buff:') ? BUFF_INFO[id.slice(5) as BuffKind].color : AILMENT_INFO[id as Ailment | 'frozen'].color);

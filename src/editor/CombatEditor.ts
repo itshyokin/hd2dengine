@@ -2,7 +2,7 @@
  * Database → Combat (tuning: weapon classes, the bow, dodging, Fire, sneak attacks, levels)
  * and Database → Enemies (the list of enemy types with a form for the selected one).
  */
-import { ailmentChips, inflictsField } from './statusFields';
+import { ailmentChips, buffsField, inflictsField } from './statusFields';
 import type { Ailment } from '../world/types';
 import { defenceSection, elementSelect } from './elementFields';
 import { ELEMENT_NAMES } from '../game/elements';
@@ -38,7 +38,7 @@ export function combatTab(data: CombatData): HTMLElement[] {
         field('Turn order', select([['ctb', 'Conditional turns (FFX)'], ['rounds', 'Rounds (classic)']],
           T.order, (v) => { tb.order = v === 'rounds' ? 'rounds' : undefined; }),
           'Conditional turns: fast fighters act more often, and Guard or an item brings the next turn sooner. Rounds: everyone acts once a round, fastest first.'),
-        field('Run away chance %', num(T.flee, (v) => (tb.flee = Math.min(100, Math.round(v))), 5, 0, 'Run away chance'), 'When both sides are as fast. Each point of Dexterity / Agility the party has over the enemies adds 2%. Never from a boss.')),
+        field('Run away chance %', num(T.flee, (v) => (tb.flee = Math.min(100, Math.round(v))), 5, 0, 'Run away chance'), 'When both sides are as fast. Each point of Agility the party has over the enemies adds 2%. Never from a boss.')),
       h('div', { class: 'field-row' },
         field('Enemies who join (tiles)', num(T.joinRadius, (v) => (tb.joinRadius = v), 0.5, 0, 'Join radius'), 'Enemies this close to the one that started it join the battle.'),
         field('Most enemies in a battle', num(T.maxEnemies, (v) => (tb.maxEnemies = Math.max(1, Math.min(3, Math.round(v)))), 1, 1, 'Max enemies')),
@@ -116,6 +116,7 @@ export function combatTab(data: CombatData): HTMLElement[] {
         'No enemy comes within this many tiles of a lit campfire (a fire that’s also a respawn point), or attacks a hero inside it. 0: off.'),
       h('div', { class: 'field-row' },
         field('Skill points per level', num(c.pointsPerLevel, (v) => (data.pointsPerLevel = Math.round(v)), 1, 0, 'Points per level')),
+        field('Party skill points per level', num(c.sharedPointsPerLevel, (v) => (data.sharedPointsPerLevel = Math.round(v)), 1, 0, 'Party tree points each time the hero levels up')),
         field('Skill points at the start', num(c.startPoints, (v) => (data.startPoints = Math.round(v)), 1, 0, 'Start points'))),
       h('p', { class: 'note' }, `Default sneak attack ×${D.sneakMultiplier}. How much EXP each level takes is under Player → EXP progression.`)),
   ];
@@ -308,7 +309,12 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
         field('Magic defence', n(d.magicDefense ?? d.defense ?? 0, (v) => (d.magicDefense = Math.round(v) === (d.defense ?? 0) ? undefined : Math.round(v))), 'Against spells (the same as Defence unless changed).'),
         field('Speed', n(d.speed, (v) => (d.speed = v), 0.1, 0.2), 'Tiles per second (the hero walks 3.4).'),
         field('Agility', n(enemyAgility(d), (v) => (d.agility = Math.max(1, Math.round(v)) === enemyAgility({ speed: d.speed }) ? undefined : Math.max(1, Math.round(v))), 1, 1),
-          'Turn-based battles: how often its turns come round, like a hero’s Dexterity (10 is normal). Unset, it follows its speed.')),
+          'Turn-based battles: how often its turns come round, like a hero’s Agility (10 is normal). Unset, it follows its speed.')),
+      h('div', { class: 'field-row' },
+        field('Accuracy %', n(d.accuracy ?? 95, (v) => { const x = Math.round(v); if (x === 95) delete d.accuracy; else d.accuracy = x; }, 1, 0), 'Turn-based: the chance its weapon hits land, before the hero’s dodging (Agility).'),
+        field('Evasion %', n(d.evasion ?? 0, (v) => { const x = Math.round(v); if (x) d.evasion = Math.min(90, x); else delete d.evasion; }, 1, 0), 'Turn-based: the chance it dodges a weapon hit or arrow. Spells always land.'),
+        field('Ailment resist %', n(d.ailmentResist ?? 0, (v) => { const x = Math.round(v); if (x) d.ailmentResist = Math.min(100, x); else delete d.ailmentResist; }, 1, 0), 'Turn-based: the chance it shrugs off an ailment or Slow (like a hero’s Endurance).'),
+        field('Critical hit %', n(d.crit ?? 5, (v) => { const x = Math.round(v); if (x === 5) delete d.crit; else d.crit = Math.min(100, x); }, 1, 0))),
       field('Its attacks are', select([['physical', 'Physical: the hero’s Defence and armour count'], ['magic', d.behaviour === 'ranged' ? 'Magic: it casts firebolts; the hero’s Magic Defence counts' : 'Magic: the hero’s Magic Defence counts']], d.attackType ?? 'physical',
         (v) => { d.attackType = v === 'magic' ? 'magic' : undefined; })),
       field('Light', select([['', 'Makes no difference (only easier to see)'], ['avoid', 'Avoids light: won’t come near a hero by a fire or using a light ring'], ['drawn', 'Drawn to light: spots a lit-up hero much sooner (bandits)']],
@@ -355,6 +361,7 @@ const ACTION_KINDS: [EnemyAction['kind'], string][] = [
   ['spell', 'Spell: a magic hit (its damage × power; Magic Defence counts)'],
   ['heal', 'Heal: itself or a hurt friend (power: % of their health)'],
   ['guard', 'Guard: half damage, some health back, no ailments until its next turn'],
+  ['buff', 'Buff: raises its stats (or casts a debuff like Slow on the party)'],
 ];
 
 /** Database → Enemies → Turn-based battles: its plain attack's weight, Counterspell, and its other actions. */
@@ -363,7 +370,7 @@ function battleActions(d: EnemyDef, rerender: () => void): HTMLElement {
   const list = d.actions ?? [];
   const save = () => { if (list.length) d.actions = list; else delete d.actions; };
   const rows = list.map((a, k) => {
-    const powerLabel = a.kind === 'heal' ? 'Heals % of health' : a.kind === 'guard' ? '' : 'Power × its damage';
+    const powerLabel = a.kind === 'heal' ? 'Heals % of health' : a.kind === 'guard' || a.kind === 'buff' ? '' : 'Power × its damage';
     return h('div', { class: 'db-section enemy-action' },
       h('div', { class: 'field-row' },
         field('Name', textInput(a.name, (v) => { a.name = v.trim(); }, { 'aria-label': `Action ${k + 1} name`, placeholder: 'Shown when it’s used' })),
@@ -377,7 +384,11 @@ function battleActions(d: EnemyDef, rerender: () => void): HTMLElement {
         field('Hits', select([['one', 'One of the party'], ['all', 'The whole party']], a.targets ?? 'one', (v) => { if (v === 'all') a.targets = 'all'; else delete a.targets; }, { 'aria-label': `Action ${k + 1} targets` })),
         field('Element', elementSelect(a.element, (e) => { if (e) a.element = e; else delete a.element; }, `Action ${k + 1} element`, { auto: 'Its attack’s element' })),
         checkbox('Counterspell (breaks a spell being charged)', !!a.counterspell, (v) => { if (v) a.counterspell = true; else delete a.counterspell; })) : h('span'),
-      a.kind === 'attack' || a.kind === 'spell' ? inflictsField(() => a.inflicts, (v) => { if (v) a.inflicts = v; else delete a.inflicts; }, rerender, 'Ailments it can give (empty: its usual ones, for attacks)') : h('span'));
+      a.kind === 'attack' || a.kind === 'spell' ? inflictsField(() => a.inflicts, (v) => { if (v) a.inflicts = v; else delete a.inflicts; }, rerender, 'Ailments it can give (empty: its usual ones, for attacks)') : h('span'),
+      a.kind === 'buff' ? h('div', { class: 'field-row' },
+        field('On', select([['self', 'Itself'], ['allies', 'Every enemy in the battle (its side)'], ['foes', 'The party (debuffs: Slow)']], a.buffTarget ?? 'self', (v) => { if (v === 'self') delete a.buffTarget; else a.buffTarget = v as 'allies' | 'foes'; rerender(); }, { 'aria-label': `Action ${k + 1} buff target` })),
+        a.buffTarget === 'foes' ? field('Who', select([['one', 'One of the party'], ['all', 'The whole party']], a.targets ?? 'one', (v) => { if (v === 'all') a.targets = 'all'; else delete a.targets; }, { 'aria-label': `Action ${k + 1} buff targets` })) : h('span')) : h('span'),
+      a.kind === 'buff' ? buffsField(() => a.buffs, (v) => { if (v) a.buffs = v; else delete a.buffs; }, rerender, { label: 'Buffs it gives', seconds: false }) : h('span'));
   });
   return h('section', { class: 'db-section' }, h('h3', {}, 'Turn-based battles'),
     h('div', { class: 'field-row' },

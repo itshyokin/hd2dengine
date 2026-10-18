@@ -56,6 +56,8 @@ export interface CombatConfig {
   startPoints: number;
   /** Stat points each level up. */
   statPointsPerLevel: number;
+  /** Party (shared) skill tree points each hero level up. */
+  sharedPointsPerLevel: number;
   /** The Journal's Bestiary: how many of a kind must be defeated before its numbers, its elements and its drops show. */
   bestiary: { stats: number; elements: number; drops: number };
 }
@@ -84,6 +86,7 @@ export const DEFAULT_COMBAT: CombatConfig = {
   pointsPerLevel: 1,
   startPoints: 1,
   statPointsPerLevel: ATTR_POINTS_PER_LEVEL,
+  sharedPointsPerLevel: 1,
   bestiary: { stats: 1, elements: 3, drops: 5 },
 };
 
@@ -119,6 +122,7 @@ export function combatConfig(data?: CombatData): CombatConfig {
     pointsPerLevel: s.pointsPerLevel ?? d.pointsPerLevel,
     startPoints: s.startPoints ?? d.startPoints,
     statPointsPerLevel: Math.max(0, Math.round(s.statPointsPerLevel ?? d.statPointsPerLevel)),
+    sharedPointsPerLevel: Math.max(0, Math.round(s.sharedPointsPerLevel ?? d.sharedPointsPerLevel)),
     bestiary: { ...d.bestiary, ...s.bestiary },
   };
 }
@@ -171,10 +175,13 @@ export class Progression {
   abilities: AbilityData = {};
   /** Growth ranks changed for good (potions, events); the rest are the Database's. */
   statRanks: Partial<Record<keyof Attrs, import('../statRanks').Rank>> = {};
+  /** The Party (shared) skill tree: points for it (one each hero level) and the ranks taken, for everyone. */
+  sharedPoints = 0;
+  sharedRanks: Record<string, number> = {};
   /** What a level adds to each stat (from the hero's ranks; set by the game). */
   growth: () => Partial<Attrs> = () => ({});
 
-  constructor(private cfg: XpRules & Pick<CombatConfig, 'pointsPerLevel'> & Partial<Pick<CombatConfig, 'startPoints' | 'statPointsPerLevel'>>) {
+  constructor(private cfg: XpRules & Pick<CombatConfig, 'pointsPerLevel'> & Partial<Pick<CombatConfig, 'startPoints' | 'statPointsPerLevel' | 'sharedPointsPerLevel'>>) {
     this.points = cfg.startPoints ?? 0;
   }
 
@@ -191,6 +198,7 @@ export class Progression {
       this.xp -= this.toNext;
       this.level++;
       this.points += this.cfg.pointsPerLevel;
+      this.sharedPoints += this.cfg.sharedPointsPerLevel ?? 1;
       // Stats grow by their ranks (A +4 … F +0).
       const g = this.growth();
       for (const k of ATTRS) this.stats[k] = Math.min(ATTR_MAX, this.stats[k] + (g[k] ?? 0));
@@ -202,7 +210,7 @@ export class Progression {
 
   toJSON(): ProgressData & { level: number; xp: number; points: number } {
     return { level: this.level, xp: this.xp, points: this.points, ranks: { ...this.ranks }, ...(this.taught.length ? { taught: [...this.taught] } : {}),
-      stats: { ...this.stats }, ...(Object.keys(this.statRanks).length ? { statRanks: { ...this.statRanks } } : {}), ...(Object.keys(abilityJSON(this.abilities)).length ? { abilities: abilityJSON(this.abilities) } : {}) };
+      stats: { ...this.stats }, sharedPoints: this.sharedPoints, ...(Object.keys(this.sharedRanks).length ? { sharedRanks: { ...this.sharedRanks } } : {}), ...(Object.keys(this.statRanks).length ? { statRanks: { ...this.statRanks } } : {}), ...(Object.keys(abilityJSON(this.abilities)).length ? { abilities: abilityJSON(this.abilities) } : {}) };
   }
   /**
    * Restore from a save, or start fresh (no argument) with `base` stats (the hero's, or what character creation
@@ -219,6 +227,9 @@ export class Progression {
     // Stat points are gone (stats grow by rank now); any left unspent in an older save are dropped.
     this.statPoints = 0;
     this.statRanks = { ...(d?.statRanks ?? {}) };
+    // Saves from before the Party tree get the points their levels would have given.
+    this.sharedRanks = { ...(d?.sharedRanks ?? {}) };
+    this.sharedPoints = Math.max(0, d?.sharedPoints ?? (this.level - 1) * (this.cfg.sharedPointsPerLevel ?? 1));
   }
 
   /** Spend stat points: `add` is how many go on each stat. False if there aren't enough or a stat would pass 100. */
@@ -235,6 +246,8 @@ export interface ProgressData {
   level?: number; xp?: number; points?: number; ranks?: Record<string, number>; taught?: string[];
   stats?: Partial<Attrs>; statPoints?: number;
   abilities?: AbilityData;
+  /** The Party skill tree: unspent points and ranks taken. */
+  sharedPoints?: number; sharedRanks?: Record<string, number>;
   /** Stat growth ranks changed by potions and events (game/statRanks.ts). */
   statRanks?: Partial<Record<keyof Attrs, import('../statRanks').Rank>>;
 }

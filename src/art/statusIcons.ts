@@ -1,5 +1,5 @@
 /**
- * Status effect icons (12 × 12, outlined): a little picture for each ailment and an up-arrow for buffs, in the
+ * Status effect icons (12 × 12, outlined): a little picture for each ailment and an up-arrow for buffs (chevrons for Haste, a down-arrow for Slow), in the
  * effect's colour. For the HUD and enemy tags.
  */
 import { Pix } from '../core/pixel';
@@ -18,6 +18,8 @@ const GLYPHS: Record<string, string[]> = {
   sleep: ['.........', '.######..', '.....#...', '....#....', '...#.....', '..#......', '.######..', '......###', '.......#.'],
   confusion: ['..#####..', '.##...##.', '.......##', '......##.', '....##...', '....#....', '.........', '....#....', '....#....'],
   zombie: ['..#####..', '.#######.', '#########', '#..###..#', '#..###..#', '####.####', '.#######.', '..#.#.#..', '..#.#.#..'],
+  haste: ['....#....', '...###...', '..##+##..', '.##...##.', '....#....', '...###...', '..##+##..', '.##...##.', '.........'],
+  slow: ['...###...', '...###...', '...###...', '...#+#...', '####+####', '.###+###.', '..#####..', '...###...', '....#....'],
   buff: ['....#....', '...###...', '..#####..', '.###+###.', '####+####', '...#+#...', '...###...', '...###...', '...###...'],
 };
 
@@ -26,7 +28,7 @@ const cache = new Map<string, string>();
 export function statusIconUrl(id: EffectId): string {
   let u = cache.get(id);
   if (u) return u;
-  const glyph = GLYPHS[id.startsWith('buff:') ? 'buff' : id] ?? GLYPHS.buff;
+  const glyph = GLYPHS[id.startsWith('buff:') ? (GLYPHS[id.slice(5)] ? id.slice(5) : 'buff') : id] ?? GLYPHS.buff;
   const color = effectColor(id), p = new Pix(12, 12);
   glyph.forEach((row, y) => [...row].forEach((c, x) => { if (c !== '.') p.set(x + 1, y + 1, c === '+' ? '#ffffff' : color); }));
   p.outline('#1a1420');

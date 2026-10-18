@@ -2,13 +2,15 @@
  * Database → Skills: the skill trees. Pick a tree, click a skill in the preview to edit it (name, place in
  * the grid, ranks, cost, what it needs, what it does), or add trees and skills as new abilities arrive.
  */
-import { DEFAULT_SKILLS, SKILL_STATS, effectText } from '../game/skills';
+import { DEFAULT_SKILLS, SKILL_STATS, addPartyTree, effectText } from '../game/skills';
 import type { AdditionDef, ItemDef, SkillNode, SkillStat, SkillsData, SpellEntry } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 
 const CELL = 70;
 
 export function skillsTab(data: SkillsData, state: { tree: number; sel: string }, rerender: () => void, items: ItemDef[] = [], learnable: { spells: SpellEntry[]; additions: AdditionDef[] } = { spells: [], additions: [] }): HTMLElement[] {
+  // Databases from before the Party tree get the built-in one (the game adds it too).
+  if (data.nodes.length) addPartyTree(data, true);
   state.tree = Math.min(state.tree, data.trees.length - 1);
   const tree = data.trees[state.tree];
   const nodes = tree ? data.nodes.filter((n) => n.tree === tree.id) : [];
@@ -60,6 +62,7 @@ export function skillsTab(data: SkillsData, state: { tree: number; sel: string }
   const treeForm = h('div', { class: 'field-row' },
     field('Tree name', textInput(tree.name, (v) => { tree.name = v.trim() || tree.name; rerender(); })),
     field('Colour', (() => { const c = h('input', { type: 'color', value: tree.color ?? '#e9c46a' }); c.addEventListener('change', () => { tree.color = c.value; rerender(); }); return c; })()),
+    checkbox('Party tree: shared by the whole party (Party points, one each level)', !!tree.shared, (v) => { if (v) tree.shared = true; else delete tree.shared; rerender(); }),
     h('button', { type: 'button', class: 'btn small danger', disabled: nodes.length > 0, title: nodes.length ? 'Remove its skills first' : 'Remove this tree', onclick: () => { data.trees.splice(state.tree, 1); state.tree = 0; rerender(); } }, 'Delete tree'));
 
   return [h('div', { class: 'sk-ed' },
@@ -69,10 +72,10 @@ export function skillsTab(data: SkillsData, state: { tree: number; sel: string }
         h('div', { class: 'stack row' },
           h('button', { type: 'button', class: 'btn', onclick: addSkill }, '+ Skill'),
           h('button', { type: 'button', class: 'btn ghost', onclick: () => {
-            if (!confirm('Replace every tree with the built-in Might, Dexterity, Magic and Vitality trees?')) return;
+            if (!confirm('Replace every tree with the built-in Might, Dexterity, Magic, Vitality and Party trees?')) return;
             data.trees = JSON.parse(JSON.stringify(DEFAULT_SKILLS.trees)); data.nodes = JSON.parse(JSON.stringify(DEFAULT_SKILLS.nodes)); state.tree = 0; state.sel = ''; rerender();
           } }, 'Reset to built-in')),
-        h('p', { class: 'note' }, 'Row 0 is the bottom: trees grow upwards. A skill needs at least one rank in each skill it’s linked from. Players earn skill points from levels (Database → Combat) and the “Give skill points” event command.')),
+        h('p', { class: 'note' }, 'Row 0 is the bottom: trees grow upwards. A skill needs at least one rank in each skill it’s linked from. Players earn skill points from levels (Database → Combat) and the “Give skill points” event command. A Party tree is learned once with Party points (one each time the hero levels up) and counts for everyone in the party, members who join later too; every hero sees it, whatever their class.')),
       h('div', { class: 'item-form' }, ...(node ? nodeForm(data, node, nodes, items, learnable, rerender, () => {
         data.nodes = data.nodes.filter((x) => x !== node);
         for (const x of data.nodes) if (x.parents) x.parents = x.parents.filter((p) => p !== node.id);

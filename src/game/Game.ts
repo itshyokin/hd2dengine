@@ -84,9 +84,9 @@ import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './invento
 import { forgeRules, forgedDef, settableShard, upgradable, enchantable, upgradeCost } from './forge';
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, STYLE_NAMES, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
-import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
+import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
-import { BUFF_INFO, effectColor, effectName, type EffectId } from './status';
+import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
 import type { CharacterDef, EnemyDef } from '../world/types';
 import { statusIconUrl } from '../art/statusIcons';
@@ -269,6 +269,8 @@ export class Game {
   /** The hero's level, experience and skill points. */
   private progress!: Progression;
   private skills!: Skills;
+  /** The Party skill tree's ranks, shared by everyone (counted in the hero's and every member's skills). */
+  private partySkills!: Skills;
   private skillScreen!: SkillTreeScreen;
   private statusScreen!: StatusScreen;
   private saveScreen!: SaveScreen;
@@ -548,6 +550,7 @@ export class Game {
         return out.length ? out.join('. ') : null;
       },
       item: (id) => { const d = this.items.get(id); return d ? { name: d.name, color: itemColor(d) } : undefined; },
+      party: () => (this.partySkills.data.trees.some((t) => t.shared) ? { skills: this.partySkills, points: this.progress.sharedPoints, level: this.progress.level, learn: (n) => this.learnPartySkill(n) } : null),
     });
     this.state.fireText = () => this.fireLeftText();
     this.statusScreen = new StatusScreen(this.ui, this.input, {
@@ -799,7 +802,11 @@ export class Game {
       console: (line) => { const r = this.devConsole.exec(line, false); if (r && !/^Done/.test(r)) console.info(`[console] ${line}: ${r}`); },
       learn: (c) => this.eventLearn(c),
       heroClass: (c) => this.eventClass(c),
-      skillPoints: (n) => { this.progress.points = Math.max(0, this.progress.points + n); if (n > 0) { this.menu.notice(`+${n} skill point${n === 1 ? '' : 's'}`); this.audio.play('skill'); } },
+      skillPoints: (n, party) => {
+        if (party) this.progress.sharedPoints = Math.max(0, this.progress.sharedPoints + n);
+        else this.progress.points = Math.max(0, this.progress.points + n);
+        if (n > 0) { this.menu.notice(`+${n} ${party ? 'party' : 'skill'} point${n === 1 ? '' : 's'}`); this.audio.play('skill'); }
+      },
     };
     this.interpreter = new Interpreter(ctx);
 
@@ -1430,23 +1437,27 @@ export class Game {
     this.xpBurst = 0;
   }
 
+  /** ", +1 party point" for levels gained (the Party skill tree), or nothing. */
+  private partyPointsText(ups: number): string { const n = ups * this.combatCfg.sharedPointsPerLevel; return n ? `, +${n} party point${n === 1 ? '' : 's'}` : ''; }
+
   /** Add experience; a level-up shows its banner (and is logged). */
   private gainXp(n: number, announce = true, quiet = false): void {
     if (n <= 0) return;
     if (announce) this.log.add(`+${n} EXP`, 'xp');
     const ups = this.progress.add(n);
     if (!ups) return;
+    this.applySkillStats();
     if (quiet) {
       // The battle's results screen shows it.
       const pts = ups * this.combatCfg.pointsPerLevel;
-      this.log.add(`Level ${this.progress.level}!${pts ? ` +${pts} skill point${pts === 1 ? '' : 's'}` : ''}`, 'level');
+      this.log.add(`Level ${this.progress.level}!${pts ? ` +${pts} skill point${pts === 1 ? '' : 's'}` : ''}${this.partyPointsText(ups)}`, 'level');
       return;
     }
     // The EXP that did it is logged before the level-up.
     if (this.xpBurst > 0) this.flushXp();
     const points = ups * this.combatCfg.pointsPerLevel;
     this.overlay.levelUp(this.progress.level, points, `${pauseLabel(this.db.menus, 'skills')} in the menu`);
-    this.log.add(`Level ${this.progress.level}!${points ? ` +${points} skill point${points === 1 ? '' : 's'}` : ''}`, 'level');
+    this.log.add(`Level ${this.progress.level}!${points ? ` +${points} skill point${points === 1 ? '' : 's'}` : ''}${this.partyPointsText(ups)}`, 'level');
     this.audio.play('levelUp');
     this.bursts.spawn(this.player.position.x, this.player.position.y + 0.6, this.player.position.z, { color: '#ffe48a', n: 26, speed: 1.6, up: 3, life: 0.9, size: 0.09, gravity: 2, additive: true });
   }
@@ -1835,6 +1846,7 @@ export class Game {
     const lock = this.combat.lock;
     if (lock) this.player.faceToward(lock.x, lock.z);
     else if (res.face && !this.combat.busy) this.player.faceVector(...DIR_VECTOR[res.face]);
+    this.applySkillStats();
     this.stats.update(dt, { running: m.running && res.moving, climbing: m.climbing, swimming: m.swimming, jumped: !!res.jumped, mpDrain: this.rings.mpDrain * this.spellThrift });
     // Out of magic: the ring's power fades.
     if (this.rings.active && this.rings.mpDrain > 0 && this.stats.mp <= 0) { this.rings.off(); this.menu.notice(`${this.rings.ring?.name ?? 'The spell'} fades: out of MP`); }
@@ -2097,7 +2109,8 @@ export class Game {
    * Use a consumable: cure ailments, restore health / magic / stamina, give buffs. Nothing is used up if it would do
    * nothing. A zombie is hurt by healing (cures come first, so curing Zombie and healing in one item heals).
    */
-  private useItem(i: number, who = 0): string | null {
+  /** `battle`: used in a turn-based battle, where its buffs go on the fighter for turns (the battle gives them). */
+  private useItem(i: number, who = 0, battle = false): string | null {
     const s = this.inventory.slots[i], d = s && this.items.get(s.id);
     if (!s || !d || d.kind !== 'consumable') return null;
     if (who > 0) {
@@ -2117,6 +2130,7 @@ export class Game {
         const n = Math.round(m.data[g] - before);
         if (n > 0) got.push(`+${n} ${g.toUpperCase()}`);
       }
+      if (battle) for (const b of d.buffs ?? []) got.push(buffLabel(b.buff));
       if (!got.length) return `${d.name} wouldn’t do anything for ${m.def.name} right now.`;
       this.inventory.removeAt(i, 1);
       this.state.tally('itemsUsed');
@@ -2148,7 +2162,7 @@ export class Game {
       const got = Math.round(this.stats[g] - before);
       if (got > 0) gains.push(`+${got} ${g.toUpperCase()}`);
     }
-    for (const b of d.buffs ?? []) { st.boost(b.buff, b.amount, b.seconds); gains.push(`${BUFF_INFO[b.buff].name} up`); }
+    for (const b of d.buffs ?? []) { if (!battle) st.boost(b.buff, b.amount, b.seconds); gains.push(buffLabel(b.buff)); }
     if (!gains.length) return `${d.name} wouldn’t do anything right now.`;
     this.inventory.removeAt(i, 1);
     this.state.tally('itemsUsed');
@@ -2380,7 +2394,7 @@ export class Game {
         const w = gear.weapon ? this.items.get(gear.weapon) : undefined, cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
         const melee = (cls === 'unarmed' ? this.combatCfg.unarmedDamage : w!.weapon!.damage) * this.combatCfg.classes[cls].damage * powerMultiplier(t.attrs.str);
         const bowDef = gear.ranged ? this.items.get(gear.ranged) : undefined, ammo = arrow ? this.items.get(arrow) : undefined;
-        const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.str) : 0;
+        const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.dex) : 0;
         const shard = gear.magic ? this.items.get(gear.magic) : undefined;
         const spell = shard?.spell ? (shard.spell.damage ?? this.combatCfg.fire.damage) * powerMultiplier(t.attrs.mag) : 0;
         return { ...t, melee, bow, spell };
@@ -3248,7 +3262,11 @@ export class Game {
 
   /** Rebuild the hero's skills from the progression (after loading or a new game) and apply their stat bonuses. */
   private syncSkills(): void {
-    this.skills = new Skills(skillsData(this.db.skills), this.progress.ranks);
+    const data = skillsData(this.db.skills);
+    this.partySkills = new Skills(data, this.progress.sharedRanks, true);
+    this.skills = new Skills(data, this.progress.ranks);
+    this.skills.shared = this.partySkills;
+    this.memberSkillCache.clear();
     this.applySkillStats();
     // Saves from before spell shards: skills already learned give their shard now.
     this.teachShards(true);
@@ -3391,11 +3409,13 @@ export class Game {
   /** The hero's starting stats from the database (character creation replaces them on a new game). */
   private heroBase(): Attrs { return heroBase(mainHero(this.db)); }
 
-  /** Max health, magic and stamina: the database's, plus skills. */
+  /** Max health, magic and stamina: the database's, plus skills and Endurance (checked every frame on the map). */
   private applySkillStats(): void {
     const base = playerConfig(this.db.stats).max, max = this.stats.cfg.max, sk = this.skills;
     const before = { ...max };
-    max.hp = base.hp + sk.get('maxHp'); max.mp = base.mp + sk.get('maxMp'); max.sp = base.sp + sk.get('maxSp');
+    // Endurance adds a little health (worn gear and skills count, not short buffs).
+    const end = heroTotals(this.progress.stats, this.inventory ? this.wornGear() : [], (k) => sk.get(k)).attrs.end;
+    max.hp = Math.max(1, base.hp + sk.get('maxHp') + enduranceHp(end)); max.mp = base.mp + sk.get('maxMp'); max.sp = base.sp + sk.get('maxSp');
     // Raising a maximum adds the same to the current amount; lowering one caps it.
     for (const g of ['hp', 'mp', 'sp'] as const) this.stats[g] = Math.min(max[g], this.stats[g] + Math.max(0, max[g] - before[g]));
   }
@@ -3409,6 +3429,18 @@ export class Game {
     this.audio.play('skill');
     const extra = [...shards.map((x) => `received ${x}`), ...got];
     this.menu.notice(`Learned ${node.name}${this.skills.maxRank(node) > 1 ? ` (rank ${this.skills.rank(node.id)})` : ''}${extra.length ? `: ${extra.join(', ')}` : ''}`);
+  }
+
+  /** Learn a rank in the Party tree: it counts for the hero and every party member (and anyone who joins later). */
+  private learnPartySkill(node: SkillNode): void {
+    this.progress.sharedPoints = Math.max(0, this.progress.sharedPoints - this.partySkills.take(node));
+    this.applySkillStats();
+    const got = new Set<string>();
+    for (const g of teachFromSkills(this.db, this.progress.abilities, this.partySkills.ranks, this.partySkills.data.nodes)) got.add(g);
+    for (const m of this.members()) for (const g of teachFromSkills(this.db, (m.data.abilities ??= {}), this.partySkills.ranks, this.partySkills.data.nodes)) got.add(g);
+    for (const g of got) this.log.add(`The party learned ${g}`, 'level');
+    this.audio.play('skill');
+    this.menu.notice(`The party learned ${node.name}${this.partySkills.maxRank(node) > 1 ? ` (rank ${this.partySkills.rank(node.id)})` : ''}${got.size ? `: ${[...got].join(', ')}` : ''}`);
   }
 
   /** Music and background sound for where the hero is: the map's, an event's choice, night ambience, battle music. */
@@ -3858,7 +3890,7 @@ export class Game {
           this.cheat();
           const nodes = skillsData(this.db.skills).nodes, full = Object.fromEntries(nodes.map((n) => [n.id, Math.max(1, n.ranks ?? 1)]));
           const t = target(a, 'all');
-          if (t.whos.includes(0)) { Object.assign(this.progress.ranks, full); this.syncSkills(); }
+          if (t.whos.includes(0)) { Object.assign(this.progress.ranks, full); Object.assign(this.progress.sharedRanks, full); this.syncSkills(); }
           for (const w of t.whos) if (w) this.members()[w - 1].data.skills = { ...full };
           return `${nodes.length} skills unlocked.`;
         } },
@@ -4336,7 +4368,7 @@ export class Game {
         const at = spellAtRank(s, i + 1);
         return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
       });
-      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks });
+      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget });
     }
     return out;
   }
@@ -4377,7 +4409,7 @@ export class Game {
       const classPct = cls === 'unarmed' ? 1 : pct(sk, `${cls}Damage` as 'lightDamage');
       const melee = (cls === 'unarmed' ? cfg.unarmedDamage : w!.weapon!.damage) * cfg.classes[cls].damage * powerMultiplier(t.attrs.str) * pct(sk, 'meleeDamage') * classPct;
       const bowDef = gear.ranged ? this.items.get(gear.ranged) : undefined, ammo = this.inventory.arrow() ? this.items.get(this.inventory.arrow()!) : undefined;
-      const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.str) * pct(sk, 'bowDamage') : 0;
+      const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.dex) * pct(sk, 'bowDamage') : 0;
       const useBow = !w && bow > melee;
       const a = this.progress.abilities;
       const spells = this.battleSpells(a, powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), this.spellThrift);
@@ -4387,7 +4419,8 @@ export class Game {
         battler: {
           key: 'p0', side: 'party', name: hero.name, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp,
           attack: useBow ? bow : melee, attackElement: (useBow ? bowDef?.element : w?.element) ?? 'neutral', attackMagic: false,
-          armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.dex, baseAgility: t.attrs.dex, crit: t.crit,
+          armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: t.crit,
+          accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow,
           defence: { ...hero, halve: this.wornGear().flatMap((g) => g?.wards ?? []) }, spells, ct: 0, guarding: false,
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
           additions: this.battleAdditions(a), addition: a.addition,
@@ -4411,7 +4444,8 @@ export class Game {
       battler: {
         key, side: 'party', name: m.def.name, hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp,
         attack: useBow ? n.bow : n.melee, attackElement: useBow ? n.bowElement : n.meleeElement, attackMagic: false,
-        armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.dex, baseAgility: t.attrs.dex, crit: n.crit,
+        armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: n.crit,
+        accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow,
         defence: { elements: m.def.elements, immune: m.def.immune, absorb: m.def.absorb, halve: this.wornGear(m.data.equip).flatMap((g) => g?.wards ?? []) },
         spells, ct: 0, guarding: false,
         status: new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]),
@@ -4484,7 +4518,8 @@ export class Game {
       const battler: Battler = {
         key: `e${i}`, side: 'enemy', name, hp: Math.max(1, hp), maxHp, mp: 0, maxMp: 0, spread: (d.damageVariance ?? 10) / 100,
         attack: d.damage, attackElement: enemyElement(d), attackMagic: d.attackType === 'magic',
-        armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), baseAgility: enemyAgility(d), crit: 5,
+        armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), baseAgility: enemyAgility(d), crit: d.crit ?? 5,
+        accuracy: d.accuracy, evasion: d.evasion, resist: d.ailmentResist,
         defence: d, spells: [], ct: 0, guarding: false, boss: d.boss,
         status: new BattleStatus(d.resists ?? [], !!d.boss, !!d.undead), inflicts: d.inflicts,
         actions: d.actions, attackWeight: d.attackWeight, counterspell: d.counterspell,
@@ -4662,14 +4697,14 @@ export class Game {
         const d = s && this.items.get(s.id);
         if (!s || !d || d.kind !== 'consumable' || !(d.restore || d.cures?.length || d.buffs?.length)) return [];
         const r = d.restore, bits = r ? (['hp', 'mp', 'sp'] as const).filter((g) => r[g]).map((g) => `+${r[g]}${d.restorePercent ? '%' : ''} ${g.toUpperCase()}`) : [];
-        return [{ slot: i, name: d.name, icon: this.itemIcon(d.id), count: s.n, detail: [bits.join(' · '), d.description].filter(Boolean).join(' — '), restore: r ? { hp: r.hp, mp: r.mp } : undefined, percent: !!d.restorePercent, cures: d.cures as string[] | undefined }];
+        return [{ slot: i, name: d.name, icon: this.itemIcon(d.id), count: s.n, detail: [bits.join(' · '), d.description].filter(Boolean).join(' — '), restore: r ? { hp: r.hp, mp: r.mp } : undefined, percent: !!d.restorePercent, cures: d.cures as string[] | undefined, buffs: d.buffs }];
       }),
       useItem: (slot, who, ailments) => {
         const s0 = this.inventory.slots[slot], id = s0?.id, d = id ? this.items.get(id) : undefined, before = id ? this.inventory.count(id) : 0;
         // What it cures of the battle's ailments on the one it's used on.
         const cures = d?.cures ?? [], all = cures.includes('all');
         const cured = ailments.filter((a) => (a === 'zombie' ? cures.includes('zombie') : all || cures.includes(a as never) || (a === 'frozen' && cures.includes('chill'))));
-        let text = this.useItem(slot, who);
+        let text = this.useItem(slot, who, true);
         let used = !!id && this.inventory.count(id) < before;
         if (!used && cured.length && d) {
           // Only a cure (party members' items on the map don't cure): used up here.
@@ -4678,7 +4713,7 @@ export class Game {
           used = true;
           text = `${who ? this.members()[who - 1]?.def.name ?? '' : mainHero(this.db).name} used ${d.name}.`;
         }
-        return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [] };
+        return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [], buffs: used ? d?.buffs : undefined };
       },
       voice: (src) => this.audio.play(src),
       reserves: () => this.lineupWhos().flatMap((who) => {
@@ -5041,6 +5076,7 @@ export class Game {
     m.skills ??= {};
     let s = this.memberSkillCache.get(m.id);
     if (!s || s.ranks !== m.skills || s.data !== this.skills.data) { s = new Skills(this.skills.data, m.skills); this.memberSkillCache.set(m.id, s); }
+    s.shared = this.partySkills;
     return s;
   }
   private readonly memberSkillCache = new Map<string, Skills>();
@@ -5057,10 +5093,10 @@ export class Game {
     const bowDef = g('ranged'), shard = this.readiedSpell(m.abilities ?? {}) ?? g('magic');
     const base = playerConfig(this.db.stats).max;
     return {
-      max: { hp: base.hp + sk.get('maxHp'), mp: base.mp + sk.get('maxMp'), sp: base.sp + sk.get('maxSp') },
+      max: { hp: Math.max(1, base.hp + sk.get('maxHp') + enduranceHp(t.attrs.end)), mp: base.mp + sk.get('maxMp'), sp: base.sp + sk.get('maxSp') },
       melee, meleeElement: w?.element ?? 'neutral', meleeInflicts: w?.inflicts,
       swing: SWING_TIME / (ct.speed * speedMultiplier(t.attrs.dex)),
-      bow: bowDef?.weapon ? bowDef.weapon.damage * powerMultiplier(t.attrs.str) * pct('bowDamage') : 0, bowElement: bowDef?.element ?? 'neutral',
+      bow: bowDef?.weapon ? bowDef.weapon.damage * powerMultiplier(t.attrs.dex) * pct('bowDamage') : 0, bowElement: bowDef?.element ?? 'neutral',
       spell: shard?.spell ? (shard.spell.damage ?? this.combatCfg.fire.damage) * powerMultiplier(t.attrs.mag) * pct('spellDamage') : 0,
       spellMp: Math.round((shard?.spell?.mp ?? this.combatCfg.fire.mp) * (1 - Math.min(75, sk.get('spellCost')) / 100)), spellColor: shard?.spell?.color, spellElement: shard?.element ?? 'neutral',
       heal: Math.round(22 * powerMultiplier(t.attrs.mag)),
