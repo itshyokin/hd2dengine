@@ -405,7 +405,7 @@ function bindShortcuts(updateStatus: () => void): void {
     if (store.mode === 'height' && k === 'e') { store.heightTool = 'ramp'; store.rampTool = 'erase'; store.emit('ui'); return; }
     if (store.mode === 'water' && 'fpxrg'.includes(k) && k.length === 1) { store.waterMode = ({ f: 'fill', p: 'paint', x: 'remove', r: 'style', g: 'fish' } as const)[k as 'f' | 'p' | 'x' | 'r' | 'g']; store.emit('ui'); return; }
     if (store.mode === 'height' && k === 'w') { store.mode = 'water'; store.emit('ui'); return; }
-    if (store.mode === 'height' && 'rlsag'.includes(k) && k.length === 1) { store.heightTool = ({ r: 'raise', l: 'lower', s: 'set', a: 'ramp', g: 'fill' } as const)[k as 'r' | 'l' | 's' | 'a' | 'g']; if (k === 'a') store.rampTool = 'place'; store.emit('ui'); return; }
+    if (store.mode === 'height' && 'rlsagy'.includes(k) && k.length === 1) { store.heightTool = ({ r: 'raise', l: 'lower', s: 'set', a: 'ramp', g: 'fill', y: 'style' } as const)[k as 'r' | 'l' | 's' | 'a' | 'g' | 'y']; if (k === 'a') store.rampTool = 'place'; store.emit('ui'); return; }
     if (store.mode === 'passage' && 'clxoe'.includes(k) && k.length === 1) { store.passageFlag = k === 'e' ? '.' : (k as 'c' | 'l' | 'x' | 'o'); store.emit('ui'); return; }
     if (store.mode === 'terrain' && (k === 'b' || k === 'r' || k === 'g')) { store.terrainTool = k === 'b' ? 'pencil' : k === 'r' ? 'rect' : 'fill'; store.emit('ui'); return; }
     if (store.mode === 'props' && 'psve'.includes(k) && k.length === 1) { store.propTool = ({ p: 'place', s: 'scatter', v: 'select', e: 'erase' } as const)[k as 'p' | 's' | 'v' | 'e']; store.emit('ui'); return; }

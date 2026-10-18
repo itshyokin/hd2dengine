@@ -1,4 +1,5 @@
 /** Editor state: the open map, the current tool, selection, and undo history. */
+import { type HeightStyle, formatHeightStyles, parseHeightStyles } from '../world/heights';
 import { formatFishing, parseFishing } from '../world/fishing';
 import { PropCatalog, alignFootProps, blockedTiles } from '../world/props';
 import type { AssetRegistry, Command, Database, EventData, LightData, MapData } from '../world/types';
@@ -14,7 +15,7 @@ import { LIGHT_PRESETS, type LightPreset } from './lightPresets';
 
 export type Mode = 'terrain' | 'height' | 'passage' | 'props' | 'lights' | 'buildings' | 'events' | 'water' | 'zones';
 export type BuildingTool = 'select' | 'draw';
-export type HeightTool = 'raise' | 'lower' | 'set' | 'fill' | 'ramp' | 'water';
+export type HeightTool = 'raise' | 'lower' | 'set' | 'fill' | 'ramp' | 'water' | 'style';
 export type WaterMode = 'fill' | 'paint' | 'remove' | 'style' | 'fish';
 export type TerrainTool = 'pencil' | 'rect' | 'fill';
 export type ObjectTool = 'select' | 'place' | 'scatter' | 'erase';
@@ -61,6 +62,8 @@ export class EditorStore {
   terrainTool: TerrainTool = 'pencil';
   brushSize = 1;
   heightTool: HeightTool = 'raise';
+  /** The Style brush's shape for raised and lowered ground. */
+  heightStyleBrush: HeightStyle = 'h';
   /** Value the Set tool paints. */
   heightValue = 2;
   /** Fill: set the whole connected area to Height, or raise / lower it all by Steps. */
@@ -347,6 +350,15 @@ export class EditorStore {
     this.hCache = { src: this.map.heights, w: this.map.width, h: this.map.height, grid };
     return true;
   }
+
+  /** Change height styles (blocky, soft, hills, cliffs) through `fn`, then write them back. */
+  editHeightStyles(fn: (grid: HeightStyle[], w: number) => boolean): boolean {
+    const m = this.map, grid = parseHeightStyles(m.heightStyles, m.width, m.height);
+    if (!fn(grid, m.width)) return false;
+    m.heightStyles = formatHeightStyles(grid, m.width, m.height) ?? undefined;
+    return true;
+  }
+  heightStyleAt(x: number, z: number): HeightStyle { return (this.inMap(x, z) ? (this.map.heightStyles?.[z]?.[x] as HeightStyle | undefined) : undefined) ?? '.'; }
 
   private wCache: { src: string[] | undefined; w: number; h: number; grid: (WaterCell | null)[] } | null = null;
 

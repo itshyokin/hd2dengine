@@ -253,11 +253,21 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
   bed. New built-in props: cactus, dry bush, sandstone rock, snowy pine (snow all year) and snowy rock.
 - Saving a map now keeps every setting it has (before, a few — the season, climate, autumn sound, water kinds and
   fishing spots — could be left out of the saved file).
+- **Height styles** (Heights → **Style**, key Y): paint how raised and lowered ground is shaped, without changing
+  the heights: **Blocky** (square blocks, as before), **Soft blocky** (bevelled edges), **Smooth hills** (heights blend
+  into rolling slopes the hero walks up and down; next to lower ground a hill comes down to meet it, next to higher
+  ground that keeps its wall) and **Cliffs** (jagged rock faces, bare rock unless the map or tile chose a wall look).
+  Each cell shows its style's symbol (◫ ∿ ▲) in the Heights layer.
+- **Waterfalls**: wherever water drops more than two steps to water below, a sheet of falling water runs down between
+  them, with spray where it lands and its own sound (louder for taller falls).
 - **Bridges and platforms** (Props → built-in): wooden bridges (with rails and posts), rope bridges, stone bridges (low
   parapets and piers), docks and stone platforms, each one tile, east–west or north–south. Paint a row across a river,
   a chasm or lower ground: they're built in 3D, joined pieces share one height (the highest bank they touch, so they
   run level from side to side), and the hero, the party and enemies walk across them; water flows and chasms drop
   away underneath. Fishing from a dock works.
+  Bridges have two levels: walked on from the bank, or swum and walked under from below (a gorge, a high bridge) when
+  there's headroom; a low bridge stops a swimmer like a wall instead of letting them climb onto it. The party and
+  enemies follow the same rules.
 - **Beyond the edges follows the ground**: the scenery outside the map carries on at the height of the map's edge tiles
   (a −4 edge continues at −4), with rock faces where it steps up or down, and its trees, rocks and cliffs stand on it.
 - **Props in water** stand half under the surface instead of on the bed (a rock in a stream, a post in a pond).

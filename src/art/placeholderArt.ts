@@ -606,7 +606,8 @@ export function groundCanvas(map: TileMap): HTMLCanvasElement {
   const wet = (x: number, z: number) => !!map.waterAt(x, z);
   // Edges only blend between cells at the same height (and both wet or both dry): across a height
   // change the ground is cut by a straight cliff.
-  const sameLevel = (ax: number, az: number, bx: number, bz: number) => map.step(ax, az) === map.step(bx, bz) && wet(ax, az) === wet(bx, bz);
+  // Hills run into each other, so they blend whatever their heights.
+  const sameLevel = (ax: number, az: number, bx: number, bz: number) => (map.step(ax, az) === map.step(bx, bz) || (map.isHill(ax, az) && map.isHill(bx, bz))) && wet(ax, az) === wet(bx, bz);
 
   // What each cell paints when nothing spreads into it. Imported tiles are drawn on top separately; under
   // them goes the highest-priority built-in neighbour, so their edges can give way to it.

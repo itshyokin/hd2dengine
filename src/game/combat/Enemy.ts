@@ -455,7 +455,7 @@ export class Enemy {
     let moved = false;
     if (dx && this.free(this.x + dx, this.z, w) && !this.intoSafe(this.x + dx, this.z, w)) { this.x += dx; moved = true; }
     if (dz && this.free(this.x, this.z + dz, w) && !this.intoSafe(this.x, this.z + dz, w)) { this.z += dz; moved = true; }
-    if (moved) this.y = this.map.standY(this.x, this.z);
+    if (moved) this.y = this.map.standY(this.x, this.z, this.y);
     return moved;
   }
 
@@ -469,13 +469,13 @@ export class Enemy {
   }
 
   private free(x: number, z: number, w: EnemyWorld): boolean {
-    const r = ENEMY_RADIUS, fromY = this.map.standY(this.x, this.z);
+    const r = ENEMY_RADIUS, fromY = this.y;
     for (const [px, pz] of [[x - r, z - r * 0.6], [x + r, z - r * 0.6], [x - r, z + r * 0.6], [x + r, z + r * 0.6]]) {
       const cx = Math.floor(px), cz = Math.floor(pz), m = this.map;
       if (!m.inMap(cx, cz) || m.isBlocked(cx, cz) || w.blockedAt(cx, cz) || m.inBox(px, pz)) return false;
-      const wtr = m.footWaterAt(cx, cz);
+      const wtr = m.footWaterAt(cx, cz, this.y);
       if (wtr && wtr.kind !== 'shallow') return false;
-      if (Math.abs(m.standY(px, pz) - fromY) > 0.25) return false;
+      if (Math.abs(m.standY(px, pz, this.y) - fromY) > 0.25) return false;
     }
     return true;
   }

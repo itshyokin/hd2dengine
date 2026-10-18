@@ -576,6 +576,12 @@ export interface MapData {
   season?: import('./seasons').Season;
   /** What can be caught where fishing is painted: a catch table per spot (a pond, the river, the sea…). */
   fishZones?: FishZone[];
+  /**
+   * How each cell's raised or lowered ground is shaped (the Heights layer's Style brush): one character per cell,
+   * "." blocky (default), "b" soft blocky (bevelled edges), "h" smooth hills (heights blended into slopes),
+   * "c" cliffs (jagged rock faces). Omitted when all blocky.
+   */
+  heightStyles?: string[];
   /** Ramps and stairs, each rising one step towards a higher neighbour. */
   ramps?: RampData[];
   /**

@@ -1,3 +1,4 @@
+import { HEIGHT_STYLES, type HeightStyle } from '../world/heights';
 import { openDatabase } from './DatabaseEditor';
 /** Left panel: layer tabs, tools, brush options and the swatch / sprite palette. */
 import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSteps } from './assets';
@@ -50,7 +51,7 @@ export function setMapPropertiesOpener(fn: () => void): void { openMapProperties
 
 const TERRAIN_TOOLS: [TerrainTool, string, string][] = [['pencil', 'Pencil', 'B'], ['rect', 'Rectangle', 'R'], ['fill', 'Fill', 'G']];
 const PROP_TOOLS: [ObjectTool, string, string][] = [['place', 'Place', 'P'], ['scatter', 'Scatter', 'S'], ['select', 'Select', 'V'], ['erase', 'Erase', 'E']];
-const HEIGHT_TOOLS: [HeightTool, string, string][] = [['raise', 'Raise', 'R'], ['lower', 'Lower', 'L'], ['set', 'Set', 'S'], ['fill', 'Fill', 'G'], ['ramp', 'Ramp', 'A']];
+const HEIGHT_TOOLS: [HeightTool, string, string][] = [['raise', 'Raise', 'R'], ['lower', 'Lower', 'L'], ['set', 'Set', 'S'], ['fill', 'Fill', 'G'], ['ramp', 'Ramp', 'A'], ['style', 'Style', 'Y']];
 const BUILDING_TOOLS: [BuildingTool, string, string][] = [['draw', 'Draw', 'D'], ['select', 'Select', 'V']];
 const LIGHT_TOOLS: [ObjectTool, string, string][] = [['place', 'Place', 'P'], ['select', 'Select', 'V'], ['erase', 'Erase', 'E']];
 
@@ -58,6 +59,7 @@ export const MODE_HINTS: Record<string, string> = {
   'terrain:pencil': 'Click and drag to paint. Brush size changes the footprint.',
   'terrain:rect': 'Drag to fill a rectangle.',
   'terrain:fill': 'Click to fill a connected area of the same terrain.',
+  'height:style': 'Paint how raised and lowered ground is shaped: blocky, soft blocky, smooth hills or cliffs.',
   'height:raise': 'Click or drag to raise the ground one step (half a tile). Each cell rises once per stroke.',
   'height:lower': 'Click or drag to lower the ground one step. Go below 0 for pits and riverbeds.',
   'height:set': 'Click or drag to set the ground to the chosen height.',
@@ -198,6 +200,19 @@ export class Palette {
               { set: 'Set to', raise: 'Raise by', lower: 'Lower by' }[md]))),
           h('div', { class: 'height-set' }, h('span', { class: 'section-label' }, setting ? 'Height' : 'Steps'), slider, out),
           h('p', { class: 'note' }, 'Click a cell: every connected cell at the same height as it changes together (a whole wall, a whole floor, a plateau), up to where the height changes. Undo (Ctrl+Z) puts it back.'));
+      }
+      if (s.heightTool === 'style') {
+        const NOTES: Record<HeightStyle, string> = {
+          '.': 'Square blocks with straight walls (as before).',
+          b: 'Blocks with bevelled edges: softer, less sharp.',
+          h: 'Heights blend into rolling slopes you can walk up and down.',
+          c: 'Jagged rock faces instead of smooth walls.',
+        };
+        body.push(h('div', { class: 'section-label' }, 'Paint the shape'),
+          h('div', { class: 'swatches' }, ...HEIGHT_STYLES.map(([k, name, sym]) =>
+            h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(s.heightStyleBrush === k), onclick: () => { s.heightStyleBrush = k; s.emit('ui'); } },
+              h('span', { class: 'swatch-thumb height-style-sym' }, sym), h('span', { class: 'swatch-name' }, name), h('span', { class: 'swatch-note' }, NOTES[k])))),
+          h('p', { class: 'note' }, 'Paint over raised or lowered ground to change how it’s shaped; the heights stay as they are. Hills: paint the whole slope (and a cell or two of the ground around it) so it rolls down to meet it. The symbol shows in each cell’s corner.'));
       }
       if (s.heightTool === 'set') {
         const out = h('output', { class: 'height-out' }, String(s.heightValue));

@@ -691,3 +691,4 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .sw-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
 .sw-row.current .sw-name { border-color: var(--accent, #ffb04a); }
 .sw-row.unlisted .sw-name { opacity: 0.75; font-style: italic; }
+.height-style-sym { display: grid; place-items: center; font-size: 22px; color: var(--ink); background: rgba(255,255,255,0.05); border-radius: 6px; }

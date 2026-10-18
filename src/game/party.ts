@@ -333,12 +333,12 @@ export class Ally implements AllyFighter {
   private swimT = Math.random() * 6;
   /** In water too deep to wade: they sink in up to the chest like the hero (bobbing). */
   get swimming(): boolean {
-    const w = this.map?.footWaterAt(Math.floor(this.x), Math.floor(this.z));
+    const w = this.map?.footWaterAt(Math.floor(this.x), Math.floor(this.z), this.y);
     return !!w && w.kind !== 'shallow';
   }
   /** Where their feet are drawn: the ground, or sunk into swimmable water. */
   private feetY(): number {
-    const w = this.map?.footWaterAt(Math.floor(this.x), Math.floor(this.z));
+    const w = this.map?.footWaterAt(Math.floor(this.x), Math.floor(this.z), this.y);
     return w && w.kind !== 'shallow' ? w.surface - SWIM_SINK + Math.sin(this.swimT * 3) * 0.03 : this.y;
   }
 
@@ -352,7 +352,7 @@ export class Ally implements AllyFighter {
     this.sprite.faceVector(dx, dz);
     if (ghost) {
       this.x += (dx / d) * step; this.z += (dz / d) * step;
-      if (this.map) this.y = this.map.standY(this.x, this.z);
+      if (this.map) this.y = this.map.standY(this.x, this.z, this.y);
       return true;
     }
     if (this.tryMove((dx / d) * step, (dz / d) * step)) return true;
@@ -367,16 +367,16 @@ export class Ally implements AllyFighter {
     let moved = false;
     if (dx && this.free(this.x + dx, this.z)) { this.x += dx; moved = true; }
     if (dz && this.free(this.x, this.z + dz)) { this.z += dz; moved = true; }
-    if (moved) this.y = m.standY(this.x, this.z);
+    if (moved) this.y = m.standY(this.x, this.z, this.y);
     return moved;
   }
 
   private free(x: number, z: number): boolean {
-    const m = this.map!, r = 0.22, fromY = m.standY(this.x, this.z);
+    const m = this.map!, r = 0.22, fromY = this.y;
     for (const [px, pz] of [[x - r, z - r * 0.6], [x + r, z - r * 0.6], [x - r, z + r * 0.6], [x + r, z + r * 0.6]]) {
       const cx = Math.floor(px), cz = Math.floor(pz);
       if (!m.inMap(cx, cz) || m.isBlocked(cx, cz) || m.inBox(px, pz)) return false;
-      if (Math.abs(m.standY(px, pz) - fromY) > 0.3) return false;
+      if (Math.abs(m.standY(px, pz, this.y) - fromY) > 0.3) return false;
     }
     return true;
   }

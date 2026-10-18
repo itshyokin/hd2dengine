@@ -38,6 +38,58 @@ export interface BuiltWorld {
   props: Map<PropData, { mesh: THREE.InstancedMesh; index: number }>;
   /** Each building's materials, to fade it while it hides the player. */
   buildings: BuiltBuilding[];
+  /** Waterfalls (where water drops more than two steps to water below): the foot of each, for spray and sound. */
+  waterfalls: { x: number; z: number; y: number; top: number }[];
+}
+
+/** Falling water: soft streaks running down, foamy white at the edges. */
+function fallsTexture(): HTMLCanvasElement {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128;
+  const g = c.getContext('2d')!, img = g.createImageData(64, 128);
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 64; x++) {
+    const streak = 0.5 + 0.5 * Math.sin(x * 0.9 + Math.sin(y * 0.05 + x) * 2) * Math.sin(x * 0.37 + 1.3);
+    const n = (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+    const v = Math.min(1, 0.45 + streak * 0.45 + Math.abs(n) * 0.15);
+    const i = (y * 64 + x) * 4;
+    img.data[i] = 170 + v * 85; img.data[i + 1] = 210 + v * 45; img.data[i + 2] = 240 + v * 15;
+    img.data[i + 3] = 120 + v * 120;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+/**
+ * Waterfalls: wherever a water cell's surface is more than two steps above the water next to it, a sheet of falling
+ * water runs down the wall between them (scrolling, see the returned flow), with its foot listed for spray and sound.
+ */
+function buildWaterfalls(scene: THREE.Object3D, map: TileMap): { flow: WaterFlow | null; spots: BuiltWorld['waterfalls'] } {
+  const q = new QuadList(), spots: BuiltWorld['waterfalls'] = [];
+  const DROP = 1.0 + 1e-3;
+  for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) {
+    const up = map.waterAt(x, z);
+    if (!up) continue;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, nz = z + dz, lo = map.waterAt(nx, nz);
+      if (!lo || up.surface - lo.surface <= DROP) continue;
+      // The sheet stands on the shared edge, a hair out over the lower water.
+      const ex = dx === 1 ? x + 1 : dx === -1 ? x : null, ez = dz === 1 ? z + 1 : dz === -1 ? z : null;
+      const o = 0.04;
+      const a: [number, number] = ex !== null ? [ex + dx * o, z] : [x, ez! + dz * o];
+      const b: [number, number] = ex !== null ? [ex + dx * o, z + 1] : [x + 1, ez! + dz * o];
+      const top = up.surface, bot = lo.surface - 0.05;
+      q.add([[a[0], top, a[1]], [b[0], top, b[1]], [b[0], bot, b[1]], [a[0], bot, a[1]]],
+        [[0, top], [1, top], [1, bot], [0, bot]], [dx, 0, dz]);
+      spots.push({ x: (a[0] + b[0]) / 2 + dx * 0.3, z: (a[1] + b[1]) / 2 + dz * 0.3, y: lo.surface, top });
+    }
+  }
+  if (!q.quads) return { flow: null, spots };
+  const tex = makeTexture(fallsTexture(), { repeat: true, linear: false });
+  tex.repeat.set(1, 0.6);
+  const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.35, emissive: new THREE.Color('#9fc8e8'), emissiveIntensity: 0.25, depthWrite: false, side: THREE.DoubleSide });
+  const m = mesh(q, mat);
+  m.renderOrder = 3;
+  scene.add(m);
+  return { flow: { tex, flow: 3, flowDir: -90 }, spots };
 }
 
 /**
@@ -54,7 +106,9 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
   // Cliff walls look the way the tile on top of them says (or the map's default).
   const wallLook = (x: number, z: number) => {
     const look = map.tiles.cliffFor(map.terrain(x, z), data.cliffTile);
-    return look === BRICKS || tileTextures.has(look) || !map.tiles.isCustom(look) ? look : BRICKS;
+    const out = look === BRICKS || tileTextures.has(look) || !map.tiles.isCustom(look) ? look : BRICKS;
+    // Cliff-style ground: bare rock unless the map or tile chose a look of its own.
+    return out === BRICKS && map.heightStyle(x, z) === 'c' ? '▲' : out;
   };
   const geo = buildTerrainGeometry(map, spans, wallLook);
 
@@ -114,7 +168,9 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
   buildBorder(scene, map, data, waterNormals, tileTextures, edgeWater);
   const buildings = buildBuildings(scene, map, data.buildings ?? [], tileTextures);
   const props = buildProps(scene, map, data, sprites);
-  return { waterNormals, waterFlows, ground: [ground], props, buildings };
+  const falls = buildWaterfalls(scene, map);
+  if (falls.flow) waterFlows.push(falls.flow);
+  return { waterNormals, waterFlows, ground: [ground], props, buildings, waterfalls: falls.spots };
 }
 
 function mesh(q: QuadList, mat: THREE.Material): THREE.Mesh {

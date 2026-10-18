@@ -8,7 +8,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
       is picked, the names kept in the Database.
 - [x] Update 62: the scenery beyond the map edge follows the height of the edge tiles (cliff faces between steps);
       bridges and platforms (plank, rope and stone bridges, docks; a "walk on top" prop setting).
-- [ ] Update 62b: height styles for raised and lowered ground, painted like water kinds with their own symbols:
+- [x] Update 62b: height styles for raised and lowered ground, painted like water kinds with their own symbols:
       Blocky (as now), Soft blocky (bevelled, rounded edges and corners), Smooth / hills (heights blended into rolling
       hills), Cliffs (1×1 like blocks but jagged rock faces); waterfalls where water drops more than 2 heights.
       (Props in water half-submerged: done in update 62.)

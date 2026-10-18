@@ -304,6 +304,9 @@ export class Game {
   private readonly party = new PartyState();
   private allies: Ally[] = [];
   private spotTimer = 0;
+  /** Waterfalls on this map: one per run (sound), and every foot (spray). */
+  private waterfalls: { x: number; z: number; y: number; top: number }[] = [];
+  private fallFeet: { x: number; z: number; y: number; top: number }[] = [];
   /** Party members fighting on the map (not the hero walking behind someone else leading). */
   private get fighters(): Ally[] { return this.allies.filter((a) => !a.passive); }
   private trail: { x: number; z: number }[] = [];
@@ -856,6 +859,10 @@ export class Game {
     this.world = { group: worldGroup, built, origin };
     this.waterNormals = built.waterNormals;
     this.waterFlows = built.waterFlows;
+    // Waterfalls: one sound for each run of falling water (cells near each other share one).
+    this.waterfalls = [];
+    for (const f of built.waterfalls) if (!this.waterfalls.some((o) => Math.hypot(o.x - f.x, o.z - f.z) < 2.5)) this.waterfalls.push(f);
+    this.fallFeet = built.waterfalls;
     this.findWetProps();
     tagAOMeshes(level);
     this.groundMeshes = built.ground;
@@ -3425,7 +3432,8 @@ export class Game {
         return [{ key: `${this.mapName}:${e.data.id}`, src: snd.src, x: e.x + e.w / 2, z: e.z + e.h / 2, range: snd.range ?? 8, volume: (snd.volume ?? 80) / 100 }];
       }).concat(this.onTitle ? [] : this.litFires().filter((f) => this.sprites.def(f.type)?.respawn).map((f) => (
         // Lit campfires crackle softly on their own.
-        { key: `${this.mapName}:fire:${f.x},${f.z}`, src: 'builtin:fire', x: f.x, z: f.z, range: 6, volume: 0.55 }))));
+        { key: `${this.mapName}:fire:${f.x},${f.z}`, src: 'builtin:fire', x: f.x, z: f.z, range: 6, volume: 0.55 })))
+        .concat(this.onTitle ? [] : this.waterfalls.map((f) => ({ key: `${this.mapName}:falls:${f.x.toFixed(1)},${f.z.toFixed(1)}`, src: 'builtin:falls', x: f.x, z: f.z, range: 9 + Math.min(8, (f.top - f.y) * 2), volume: Math.min(0.9, 0.45 + (f.top - f.y) * 0.1) }))));
     }
     // Battle music while an enemy is hunting the hero nearby (and a moment after).
     const p = this.player.position;
@@ -5541,6 +5549,12 @@ export class Game {
     this.updateCharring(dt);
     this.updateSeason();
     this.ripples.update(dt);
+    // Spray where waterfalls land (near the hero only).
+    const hp = this.player.position;
+    for (const f of this.fallFeet) {
+      if (Math.abs(f.x - hp.x) > 14 || Math.abs(f.z - hp.z) > 12 || Math.random() > dt * 6) continue;
+      this.bursts.spawn(f.x + (Math.random() - 0.5) * 0.7, f.y + 0.05, f.z + (Math.random() - 0.5) * 0.4, { color: '#eef8ff', n: 3, speed: 0.9, up: 1.6, life: 0.7, size: 0.07, gravity: 3 });
+    }
     // The water's ripples drift; a flowing river or stream carries them along its current.
     this.waterFlow.x += 0.03 * dt; this.waterFlow.y += 0.018 * dt;
     this.waterNormals.offset.set(this.waterFlow.x, this.waterFlow.y);

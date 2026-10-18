@@ -1,5 +1,5 @@
 import { clamp } from '../core/math';
-import { STEP, cornerHeights, cornerMask, parseHeights, parseWater, rampDirection, resolveWater, surfaceInCell } from './heights';
+import { type HeightStyle, STEP, cornerHeights, cornerMask, parseHeightStyles, parseHeights, parseWater, rampDirection, resolveWater, surfaceInCell } from './heights';
 import { type PassageFlag, parsePassage } from './passage';
 import { TileCatalog } from './tiles';
 import type { Dir, MapData, RampData } from './types';
@@ -8,6 +8,9 @@ type Corners = [number, number, number, number];
 export type Water = NonNullable<ReturnType<typeof resolveWater>>;
 
 /** Grid queries over a map: tiles, heights, ramps, and which cells block movement. */
+/** How far below a deck a walker can be and still step up onto it; and the room needed to pass under one. */
+const DECK_REACH = 0.35, DECK_HEADROOM = 1.1;
+
 export class TileMap {
   readonly w: number;
   readonly h: number;
@@ -47,6 +50,9 @@ export class TileMap {
         const r = this.ramps.get(i);
         this.corners.push(cornerHeights(this.heights[i], r?.dir ?? null, r?.raised));
       }
+    // Smooth hills: their corners are shared with every neighbour, so the heights run into slopes.
+    this.styles = parseHeightStyles(data.heightStyles, this.w, this.h);
+    this.hillGrid = this.styles.includes('h') ? this.buildHills() : null;
     const rawWater = parseWater(data.water, this.w, this.h);
     this.water = rawWater.map((c, i) => resolveWater(c, this.heights[i] * STEP));
     this.ice = this.water.map((w) => (w && frozen?.(w.style) ? w.surface : null));
@@ -79,10 +85,61 @@ export class TileMap {
   rampAt(x: number, z: number): { ramp: RampData; dir: Dir | null; raised?: boolean[] | null } | undefined {
     return this.inMap(x, z) ? this.ramps.get(z * this.w + x) : undefined;
   }
-  /** Ground height at any point (in tiles), following ramps smoothly. */
+  /** Ground height at any point (in tiles), following ramps smoothly (and hills along their curves). */
   surfaceY(x: number, z: number): number {
     const cx = Math.floor(x), cz = Math.floor(z);
+    if (this.hillGrid && this.isHill(cx, cz)) return this.hillY(x, z);
     return surfaceInCell(this.cornersAt(cx, cz), x - cx, z - cz);
+  }
+
+  /* Height styles (blocky, soft blocky, smooth hills, cliffs). */
+  private readonly styles: HeightStyle[];
+  /** Hills: the height at every corner point ((w + 1) × (h + 1)), NaN where no hill touches it. */
+  private readonly hillGrid: Float32Array | null;
+  heightStyle(x: number, z: number): HeightStyle { return this.inMap(x, z) ? this.styles[z * this.w + x] : '.'; }
+  /** A smooth-hill cell (ramps and stairs keep their own shape). */
+  isHill(x: number, z: number): boolean { return this.heightStyle(x, z) === 'h' && !this.ramps.has(z * this.w + x); }
+
+  private buildHills(): Float32Array {
+    const W = this.w, H = this.h, g = new Float32Array((W + 1) * (H + 1)).fill(NaN);
+    for (let j = 0; j <= H; j++) for (let i = 0; i <= W; i++) {
+      const hills: number[] = [], others: number[] = [];
+      for (const [cx, cz] of [[i - 1, j - 1], [i, j - 1], [i - 1, j], [i, j]]) {
+        if (!this.inMap(cx, cz)) continue;
+        const k = cz * W + cx, hgt = this.heights[k] * STEP;
+        if (this.styles[k] === 'h' && !this.ramps.has(k)) hills.push(hgt); else others.push(hgt);
+      }
+      if (!hills.length) continue;
+      // Among hills the heights average; next to lower ground a hill comes down to meet it (no wall), but it doesn't
+      // climb up the side of higher ground (that keeps its wall).
+      const avg = hills.reduce((a, b) => a + b, 0) / hills.length;
+      g[j * (W + 1) + i] = others.length ? Math.min(avg, ...others) : avg;
+    }
+    // The hill cells' corners come from the grid (walls and the rest read corners).
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) {
+      if (!(this.styles[z * W + x] === 'h' && !this.ramps.has(z * W + x))) continue;
+      const at = (i: number, j: number) => g[j * (W + 1) + i];
+      this.corners[z * W + x] = [at(x, z), at(x + 1, z), at(x + 1, z + 1), at(x, z + 1)];
+    }
+    return g;
+  }
+
+  /** A hill's height at a point: a Catmull-Rom curve through the corner heights, so slopes roll smoothly. */
+  private hillY(x: number, z: number): number {
+    const g = this.hillGrid!, W = this.w, cx = Math.floor(x), cz = Math.floor(z), fx = x - cx, fz = z - cz;
+    const pt = (i: number, j: number) => {
+      const v = i >= 0 && j >= 0 && i <= W && j <= this.h ? g[j * (W + 1) + i] : NaN;
+      if (!Number.isNaN(v)) return v;
+      // Beyond the hills: the nearest corner of this cell.
+      const ci = Math.max(cx, Math.min(cx + 1, i)), cj = Math.max(cz, Math.min(cz + 1, j));
+      return g[cj * (W + 1) + ci];
+    };
+    const cr = (a: number, b: number, c: number, d: number, t: number) => b + 0.5 * t * (c - a + t * (2 * a - 5 * b + 4 * c - d + t * (3 * (b - c) + d - a)));
+    const row = (j: number) => cr(pt(cx - 1, j), pt(cx, j), pt(cx + 1, j), pt(cx + 2, j), fx);
+    const y = cr(row(cz - 1), row(cz), row(cz + 1), row(cz + 2), fz);
+    // Never above the highest or below the lowest corner nearby (no bumps from overshoot).
+    const c = this.corners[cz * W + cx];
+    return Math.max(Math.min(...c) - 0.25, Math.min(Math.max(...c) + 0.25, y));
   }
   /** Water at a cell (surface height, depth, and shallow / swim / deep), or null where it's dry. */
   waterAt(x: number, z: number): Water | null {
@@ -92,9 +149,19 @@ export class TileMap {
    * The height the player moves at: the ground, or the water surface where there's water to wade or swim in.
    * Using the surface lets the player walk from a bank straight into a pond dug lower than it.
    */
-  standY(x: number, z: number): number {
+  standY(x: number, z: number, fromY?: number): number {
     const d = this.deckAt(Math.floor(x), Math.floor(z));
-    if (d !== null) return d;
+    if (d !== null) {
+      // On a bridge (or arriving at its level): its deck. From below (swimming up a river, walking along a chasm's
+      // floor): the ground or water under it, if there's headroom to pass; too low, it stops them like a wall.
+      if (fromY === undefined || fromY >= d - DECK_REACH) return d;
+      const below = this.standBelow(x, z);
+      return d - below >= DECK_HEADROOM ? below : d;
+    }
+    return this.standBelow(x, z);
+  }
+  /** standY ignoring bridges. */
+  private standBelow(x: number, z: number): number {
     const g = this.surfaceY(x, z), wtr = this.waterAt(Math.floor(x), Math.floor(z)), ice = this.iceAt(Math.floor(x), Math.floor(z));
     if (ice !== null) return Math.max(g, ice);
     return wtr && wtr.kind !== 'deep' ? Math.max(g, wtr.surface) : g;
@@ -131,13 +198,18 @@ export class TileMap {
   deckAt(x: number, z: number): number | null {
     return this.inMap(x, z) ? this.decks.get(z * this.w + x) ?? null : null;
   }
-  /** Water a walker is in: none on a bridge or platform. */
-  footWaterAt(x: number, z: number): Water | null {
-    return this.deckAt(x, z) !== null ? null : this.waterAt(x, z);
+  /** Is a walker at height y up on this cell's bridge (rather than under it)? */
+  onDeck(x: number, z: number, y?: number): boolean {
+    const d = this.deckAt(x, z);
+    return d !== null && (y === undefined || y >= d - DECK_REACH);
   }
-  /** The ground under a walker's feet: a deck, or the terrain. */
-  groundY(x: number, z: number): number {
-    return this.deckAt(Math.floor(x), Math.floor(z)) ?? this.surfaceY(x, z);
+  /** Water a walker is in: none up on a bridge or platform (under one, the water as usual). */
+  footWaterAt(x: number, z: number, y?: number): Water | null {
+    return this.onDeck(x, z, y) ? null : this.waterAt(x, z);
+  }
+  /** The ground under a walker's feet: a deck they're on, or the terrain. */
+  groundY(x: number, z: number, y?: number): number {
+    return this.onDeck(Math.floor(x), Math.floor(z), y) ? this.deckAt(Math.floor(x), Math.floor(z))! : this.surfaceY(x, z);
   }
   /** Only passable while crawling. */
   isLow(x: number, z: number): boolean {

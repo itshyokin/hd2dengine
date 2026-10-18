@@ -1,3 +1,4 @@
+import { HEIGHT_STYLES } from '../world/heights';
 import { blockedTiles, footTiles, propBoxes } from '../world/props';
 import { tintCanvas } from '../render/tint';
 /**
@@ -492,6 +493,19 @@ export class MapView {
     const s = this.store, st = this.stroke;
     if (!st || st.kind !== 'height') return;
     const n = s.brushSize, o = Math.floor((n - 1) / 2);
+    if (s.heightTool === 'style') {
+      const done = s.editHeightStyles((grid, w) => {
+        let any = false;
+        for (let dz = 0; dz < n; dz++) for (let dx = 0; dx < n; dx++) {
+          const x = t.x - o + dx, z = t.z - o + dz;
+          if (!s.inMap(x, z) || grid[z * w + x] === s.heightStyleBrush) continue;
+          grid[z * w + x] = s.heightStyleBrush; any = true;
+        }
+        return any;
+      });
+      if (done) { st.changed = true; s.changed(); }
+      return;
+    }
     const changed = s.editHeights((grid, w) => {
       let any = false;
       for (let dz = 0; dz < n; dz++) for (let dx = 0; dx < n; dx++) {
@@ -1467,10 +1481,32 @@ export class MapView {
       }
   }
 
+  /** Each cell's height style (soft blocky, hills, cliffs) as a small symbol in its corner. */
+  private drawHeightStyles(): void {
+    const s = this.store, ctx = this.ctx, m = s.map, cell = TS * this.zoom;
+    if (!m.heightStyles) return;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.font = `700 ${Math.round(Math.max(8, Math.min(12, cell * 0.36)))}px system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const r = this.canvas.getBoundingClientRect();
+    const x0 = Math.max(0, Math.floor(-this.ox / cell)), x1 = Math.min(m.width, Math.ceil((r.width - this.ox) / cell));
+    const z0 = Math.max(0, Math.floor(-this.oy / cell)), z1 = Math.min(m.height, Math.ceil((r.height - this.oy) / cell));
+    const col: Record<string, string> = { b: '#9fe0c0', h: '#b8e86a', c: '#e8b58a' };
+    for (let z = z0; z < z1; z++) for (let x = x0; x < x1; x++) {
+      const k = s.heightStyleAt(x, z);
+      if (k === '.') continue;
+      const sym = HEIGHT_STYLES.find(([c]) => c === k)![2];
+      const sx = this.ox + x * cell + 2, sy = this.oy + z * cell + 1;
+      ctx.fillStyle = 'rgba(8,10,18,0.75)'; ctx.fillText(sym, sx + 1, sy + 1);
+      ctx.fillStyle = col[k]; ctx.fillText(sym, sx, sy);
+    }
+  }
+
   /** Event names and the start flag, drawn at screen resolution so they stay readable. */
   private drawLabels(): void {
     const s = this.store, ctx = this.ctx;
-    if (s.mode === 'height' && this.zoom >= 1.4) { this.drawHeightNumbers(); return; }
+    if (s.mode === 'height') { if (this.zoom >= 0.7) this.drawHeightStyles(); if (this.zoom >= 1.4) this.drawHeightNumbers(); return; }
     if (s.mode !== 'events' || this.zoom < 1.5) return;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.font = '600 11px "Atkinson Hyperlegible", system-ui, sans-serif';

@@ -85,7 +85,21 @@ export function cellSurfaces(map: TileMap, x: number, z: number): Surface[] {
     }
     return out;
   }
+  // Smooth hills: a fine grid following the hill's curve.
+  if (map.isHill(x, z)) {
+    const out: Surface[] = [], N = HILL_DIV;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const p = (a: number, b: number): V3 => { const px = x + a / N, pz = z + b / N; return [px, map.surfaceY(Math.min(px, x + 0.9999), Math.min(pz, z + 0.9999)), pz]; };
+      out.push([p(i, j), p(i + 1, j), p(i + 1, j + 1), p(i, j + 1)]);
+    }
+    return out;
+  }
   const c = map.cornersAt(x, z);
+  // Soft blocky: edges that drop to lower ground are bevelled (the top slopes down a little before the wall).
+  if (map.heightStyle(x, z) === 'b' && !r) {
+    const b = bevels(map, x, z);
+    if (b.some((v) => v > 0)) return bevelSurfaces(x, z, c[0], b);
+  }
   // A corner slope: four triangles from its centre, so the raised corner (or the one left low) curves evenly.
   if (r?.ramp.style === 'corner' && r.raised) {
     const xz: [number, number][] = [[x, z], [x + 1, z], [x + 1, z + 1], [x, z + 1]];
@@ -104,6 +118,43 @@ export function cellSurfaces(map: TileMap, x: number, z: number): Surface[] {
     return out;
   }
   return [[[x, c[0], z], [x + 1, c[1], z], [x + 1, c[2], z + 1], [x, c[3], z + 1]]];
+}
+
+/** Hill cells are split into this many strips each way. */
+const HILL_DIV = 4;
+/** How far a soft-blocky edge is bevelled (tiles across and down). */
+const BEVEL = 0.26;
+
+/** The bevel on each edge (N, S, W, E) of a soft-blocky cell: how much it drops there (0: no drop, no bevel). */
+export function bevels(map: TileMap, x: number, z: number): number[] {
+  const top = map.heightAt(x, z);
+  return [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dz]) => {
+    const nx = x + dx, nz = z + dz;
+    if (!map.inMap(nx, nz)) return 0;
+    const drop = top - Math.max(...map.cornersAt(nx, nz));
+    return drop > 0.01 ? Math.min(BEVEL, drop) : 0;
+  });
+}
+
+/** A bevelled top: the flat middle, a sloped strip on each dropping edge, and the corners between them. */
+function bevelSurfaces(x: number, z: number, y: number, b: number[]): Surface[] {
+  const [bn, bs, bw, be] = b;
+  const x0 = x, x1 = x + 1, z0 = z, z1 = z + 1, ix0 = x0 + bw, ix1 = x1 - be, iz0 = z0 + bn, iz1 = z1 - bs;
+  const out: Surface[] = [[[ix0, y, iz0], [ix1, y, iz0], [ix1, y, iz1], [ix0, y, iz1]]];
+  if (bn) out.push([[ix0, y - bn, z0], [ix1, y - bn, z0], [ix1, y, iz0], [ix0, y, iz0]]);
+  if (bs) out.push([[ix0, y, iz1], [ix1, y, iz1], [ix1, y - bs, z1], [ix0, y - bs, z1]]);
+  if (bw) out.push([[x0, y - bw, iz0], [ix0, y, iz0], [ix0, y, iz1], [x0, y - bw, iz1]]);
+  if (be) out.push([[ix1, y, iz0], [x1, y - be, iz0], [x1, y - be, iz1], [ix1, y, iz1]]);
+  // Corners: where two bevels meet, a slanted patch; where only one, its strip carries on to the corner.
+  const corner = (cx: number, cz: number, ex: number, ez: number, dX: number, dZ: number) => {
+    const d = Math.max(dX, dZ);
+    out.push([[cx, y - d, cz], [ex, y - dZ, cz], [ex, y, ez], [cx, y - dX, ez]]);
+  };
+  corner(x0, z0, ix0, iz0, bw, bn);
+  corner(x1, z0, ix1, iz0, be, bn);
+  corner(x1, z1, ix1, iz1, be, bs);
+  corner(x0, z1, ix0, iz1, bw, bs);
+  return out;
 }
 
 /* ------------------------------------------------------------------ rounded shorelines */
@@ -252,7 +303,7 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
     const lift = lifts.get(key) ?? 0.004;
     listFor(m, key).add(s.map((p) => [p[0], p[1] + lift, p[2]] as V3) as Surface, s.map((p) => [p[0] / span, -p[2] / span] as [number, number]), UP);
   };
-  const level = (x: number, z: number) => map.step(x, z) * 2 + (map.waterAt(x, z) ? 1 : 0) * 1000;
+  const level = (x: number, z: number) => (map.isHill(x, z) ? 777 : map.step(x, z) * 2) + (map.waterAt(x, z) ? 1 : 0) * 1000;
   /** Can imported tile `key` (on neighbour tx, tz) spread into cell x, z? */
   const spreads = (key: string, x: number, z: number, tx: number, tz: number) => {
     const own = map.terrain(x, z), bk = cat.blendFor(key), bo = cat.blendFor(own);
@@ -310,17 +361,43 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
   return { ground, overlays, walls, slivers, lifts };
 }
 
+/**
+ * A cliff face: the wall split into a grid whose points (all but the top row, which meets the ground above) jut out
+ * by noise, so it reads as broken rock rather than a smooth block.
+ */
+function jaggedWall(walls: QuadList, p1: [number, number], p2: [number, number], t1: number, t2: number, b1: number, b2: number, out: V3, along: 'x' | 'z'): void {
+  const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), cols = Math.max(2, Math.round(len * 4));
+  const height = Math.max(t1, t2) - Math.min(b1, b2), rows = Math.max(2, Math.round(height * 3));
+  const pt = (i: number, j: number): V3 => {
+    const u = i / cols, v = j / rows;
+    const x = p1[0] + (p2[0] - p1[0]) * u, zz = p1[1] + (p2[1] - p1[1]) * u;
+    const top = t1 + (t2 - t1) * u, bot = b1 + (b2 - b1) * u, y = top + (bot - top) * v;
+    // Out from the face, never in (no gaps with the ground on top); the ends stay put to meet the next wall.
+    const edge = i === 0 || i === cols ? 0.35 : 1;
+    const k = j === 0 ? 0 : (valueNoise(x * 3.7 + y * 1.3, zz * 3.7 - y * 2.1) * 0.75 + valueNoise(x * 9.1, y * 8.3 + zz * 9.1) * 0.25) * 0.16 * edge;
+    return [x + out[0] * k, y, zz + out[2] * k];
+  };
+  const u = (p: V3) => (along === 'x' ? p[0] : p[2]);
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const a = pt(i, j), b = pt(i + 1, j), c = pt(i + 1, j + 1), d = pt(i, j + 1);
+    walls.add([a, b, c, d], [[u(a), a[1]], [u(b), b[1]], [u(c), c[1]], [u(d), d[1]]], out);
+  }
+}
+
 function addWalls(map: TileMap, x: number, z: number, walls: QuadList, rounded: boolean[] = [false, false, false, false]): void {
   const c = map.cornersAt(x, z);
   const ramp = map.rampAt(x, z);
   const stairs = ramp?.ramp.style === 'stairs' && ramp.dir ? ramp.dir : null;
-  for (const e of EDGES) {
+  const style = ramp ? '.' : map.heightStyle(x, z);
+  const bev = style === 'b' ? bevels(map, x, z) : [0, 0, 0, 0];
+  for (const [ei, e] of EDGES.entries()) {
     const nx = x + e.nb[0], nz = z + e.nb[1];
     const inside = map.inMap(nx, nz);
     const nc = map.cornersAt(nx, nz);
     const p1 = CORNER_XZ[e.a[0]], p2 = CORNER_XZ[e.a[1]];
     const x1 = x + p1[0], z1 = z + p1[1], x2 = x + p2[0], z2 = z + p2[1];
-    const a1 = c[e.a[0]], a2 = c[e.a[1]];
+    // A bevelled edge's wall starts below the bevel.
+    const a1 = c[e.a[0]] - bev[ei], a2 = c[e.a[1]] - bev[ei];
     const b1 = inside ? nc[e.nbCorners[0]] : 0, b2 = inside ? nc[e.nbCorners[1]] : 0;
     const u = (px: number, pz: number) => (e.along === 'x' ? px : pz);
 
@@ -369,6 +446,7 @@ function addWalls(map: TileMap, x: number, z: number, walls: QuadList, rounded: 
       if (rounded[e.a[1]]) [sx2, sz2, sa2, sb2] = [mx, mz, ma, mb];
       if (rounded[e.a[0]] && rounded[e.a[1]]) continue;
       const lo1 = Math.min(sa1, sb1) - SINK, lo2 = Math.min(sa2, sb2) - SINK;
+      if (style === 'c') { jaggedWall(walls, [sx1, sz1], [sx2, sz2], sa1, sa2, lo1, lo2, e.out, e.along); continue; }
       walls.add([[sx1, sa1, sz1], [sx2, sa2, sz2], [sx2, lo2, sz2], [sx1, lo1, sz1]],
         [[u(sx1, sz1), sa1], [u(sx2, sz2), sa2], [u(sx2, sz2), lo2], [u(sx1, sz1), lo1]], e.out);
     }

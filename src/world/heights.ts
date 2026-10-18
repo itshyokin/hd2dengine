@@ -99,6 +99,25 @@ export function cornerHeights(h: number, rampDir: Dir | null, raised?: boolean[]
   }
 }
 
+/** How raised and lowered ground is shaped, per cell. */
+export type HeightStyle = '.' | 'b' | 'h' | 'c';
+export const HEIGHT_STYLES: [HeightStyle, string, string][] = [
+  ['.', 'Blocky', '▢'], ['b', 'Soft blocky', '◫'], ['h', 'Smooth hills', '∿'], ['c', 'Cliffs', '▲'],
+];
+export function parseHeightStyles(rows: string[] | undefined, w: number, h: number): HeightStyle[] {
+  const out: HeightStyle[] = new Array(w * h).fill('.');
+  if (!rows) return out;
+  for (let z = 0; z < h; z++) for (let x = 0; x < w; x++) {
+    const c = rows[z]?.[x];
+    if (c === 'b' || c === 'h' || c === 'c') out[z * w + x] = c;
+  }
+  return out;
+}
+export function formatHeightStyles(grid: HeightStyle[], w: number, h: number): string[] | null {
+  if (grid.every((c) => c === '.')) return null;
+  return Array.from({ length: h }, (_, z) => grid.slice(z * w, z * w + w).join(''));
+}
+
 /** Ground height inside a cell (fx, fz in 0..1), blending its corners. */
 export function surfaceInCell(c: [number, number, number, number], fx: number, fz: number): number {
   const n = c[0] + (c[1] - c[0]) * fx, s = c[3] + (c[2] - c[3]) * fx;
