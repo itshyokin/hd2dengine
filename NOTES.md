@@ -75,5 +75,4 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Turn-based party on the map: never fights or starts battles, follows (toggle in Combat) and hops where the hero jumped; the lineup's leader walks the map with their own sprite; achievement pop-up shows the description; points bar on the Achievements page (update 57). Everyone stands in their plain idle in battle, not the combat stance (update 57b).
 - [x] Event sounds: a page's sound plays all the time, fading with distance and panned (built-in campfire, shore, waterfall, hum); lit campfires crackle (update 58).
 - [x] Map themes (Database tab, Theme default in Map Properties), more edges (plains, rocky, desert, snowfield, snowy forest), built-in dirt / stone / rock / snow terrain and desert and snow props; map saves keep every setting (update 59).
-- [x] Built-in effects and music remade as Game Boy-style chiptune (pulse, wave and noise channels), with Classic kept as a choice in Database → Audio (update 60).
-- [ ] Back burner: water freezing / thawing tile by tile with the temperature.
+- [x] Built-in effects and music remade as Game Boy-style chiptune (pulse, wave and noise channels), with Classic kept as a choice in Database → Audio (update 60); console audio_chiptune true / false to hear them in place of imported sounds (update 60b).

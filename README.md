@@ -574,6 +574,10 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   motifs over each track's chords. **Database → Audio → Built-in sounds → Style**: *Chiptune* or *Classic* (the older
   soft synth). Background sounds (wind, birds, rain, campfires…) stay natural either way, and your own files are
   never changed.
+- **Console: `audio_chiptune true`** (playtests): hear every effect and theme in its built-in chip version, whatever
+  the Database has swapped in, without changing anything. Music files give way to the matching built-in theme (battle,
+  victory, title, cave in dark maps, night outdoors at night, otherwise field). `audio_chiptune false` puts your
+  sounds back. Voices and event sounds from files stay as they are.
 
 ### Event sounds
 

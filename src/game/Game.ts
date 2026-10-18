@@ -424,6 +424,15 @@ export class Game {
     this.audio = new AudioManager(resolve);
     this.audio.overrides = { ...(this.db.audio?.sfx ?? {}) } as Partial<Record<Sfx, string>>;
     this.audio.setStyle(this.db.audio?.style);
+    // Testing the chiptune (console: audio_chiptune): which built-in theme stands in for a music file.
+    this.audio.chipMusic = (src) => {
+      const au = this.db.audio;
+      if (this.onTitle || src === au?.titleMusic) return 'builtin:title';
+      if (src === au?.victoryMusic) return 'builtin:victory';
+      if (this.battle.active || src === au?.battleMusic || src === this.mapData?.battleMusic) return 'builtin:battle';
+      if (this.time.environment === 'dark') return 'builtin:cave';
+      return this.time.environment === 'outdoor' && this.time.night > 0.5 ? 'builtin:night' : 'builtin:field';
+    };
     setUiSound((s) => this.audio.play(s));
     this.isPlaytest = !!pt;
     this.saves = new SaveStore(this.db.title || 'game', !!pt);
@@ -3851,6 +3860,8 @@ export class Game {
           this.requestTransfer(map, to.x < 0 ? { x: 0.5, z: 0.5 } : to, 'black');
           return `Off to ${map}.`; } },
       { name: 'time', args: '<hour>', help: 'Set the time of day (0–23.75)', run: (a) => { this.time.set(Math.max(0, Math.min(23.75, num(a[0], 12))), true); return this.time.label(this.settings.clock12); } },
+      { name: 'audio_chiptune', args: '[true|false]', help: 'Hear the built-in chiptune instead of imported sounds and music (nothing in the Database changes)', complete: () => ['true', 'false'],
+        run: (a) => { this.audio.chipTest = onOff(a[0], this.audio.chipTest); return this.audio.chipTest ? 'Chiptune test on: every effect and theme plays its built-in chip version. audio_chiptune false puts your sounds back.' : 'Chiptune test off: your own sounds are back.'; } },
       { name: 'weather', args: '<kind> [amount]', help: 'Change this map’s weather', complete: () => [...WEATHER_KINDS],
         run: (a) => run([{ cmd: 'weather', kind: need(a[0], 'weather') as WeatherKind, amount: num(a[1], 1) }]) },
       { name: 'season', args: '<spring|summer|autumn|winter|auto>', help: 'Show a season (auto: the real one)', complete: () => ['spring', 'summer', 'autumn', 'winter', 'auto'],

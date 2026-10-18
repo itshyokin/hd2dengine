@@ -39,9 +39,28 @@ export class AudioManager {
     const st = style ?? 'chip';
     if (st === this.builtinStyle) return;
     this.builtinStyle = st;
+    this.refreshBuiltins();
+  }
+  private get chipNow(): boolean { return this.chipOnly || this.builtinStyle === 'chip'; }
+  /** Forget made sounds and start the music again (after the style or the chiptune test changes). */
+  private refreshBuiltins(): void {
     for (const k of [...this.buffers.keys()]) if (k.startsWith('builtin:')) this.buffers.delete(k);
-    // Built-in music that's playing starts again in the new style.
-    for (const k of ['music'] as const) { const src = this.want[k]; if (src.startsWith('builtin:')) { this.want[k] = ''; this.playLoop(k, src, 0.5); } }
+    const src = this.want.music;
+    if (src) { this.want.music = ''; this.playLoop('music', src, 0.5); }
+  }
+
+  /**
+   * Testing the chiptune (console: audio_chiptune true): every effect plays its built-in chip version, whatever the
+   * Database swapped it for, and music from files gives way to the built-in theme `chipMusic` picks for it. Nothing is
+   * changed in the Database; false puts everything back.
+   */
+  private chipOnly = false;
+  chipMusic: (src: string) => string = () => 'builtin:field';
+  get chipTest(): boolean { return this.chipOnly; }
+  set chipTest(on: boolean) {
+    if (on === this.chipOnly) return;
+    this.chipOnly = on;
+    this.refreshBuiltins();
   }
   /** Where the listener is (the hero), for effects placed in the world. */
   listener = { x: 0, z: 0 };
@@ -87,7 +106,7 @@ export class AudioManager {
   /** Play an effect. With a world position it gets quieter with distance and pans left / right. */
   play(name: Sfx | string, x?: number, z?: number, gain = 1): void {
     if (!this.ready) return;
-    const src = (SFX_NAMES as readonly string[]).includes(name) ? (this.overrides[name as Sfx] ?? `builtin:${name}`) : name;
+    const src = (SFX_NAMES as readonly string[]).includes(name) ? (this.chipOnly ? `builtin:${name}` : this.overrides[name as Sfx] ?? `builtin:${name}`) : name;
     if (!src) return;
     let vol = gain, pan = 0;
     if (x !== undefined && z !== undefined) {
@@ -132,7 +151,9 @@ export class AudioManager {
       this.loops[kind] = null;
     }
     if (!src) return;
-    void this.buffer(src).then((buf) => {
+    // Testing the chiptune: music files give way to a built-in theme.
+    const play = kind === 'music' && this.chipOnly && !src.startsWith('builtin:') ? this.chipMusic(src) : src;
+    void this.buffer(play).then((buf) => {
       if (!buf || this.want[kind] !== src || !this.ctx) return;
       const node = ctx.createBufferSource();
       node.buffer = buf;
@@ -161,7 +182,7 @@ export class AudioManager {
     if (!ctx) return null;
     if (src.startsWith('builtin:')) {
       const name = src.slice(8);
-      const chip = this.builtinStyle === 'chip';
+      const chip = this.chipNow;
       if ((SFX_NAMES as readonly string[]).includes(name)) return mono(ctx, chip ? makeChipSfx(name as SfxName) : makeSfx(name as SfxName));
       if (name in MUSIC_NAMES) return stereo(ctx, chip ? makeChipMusic(name as MusicName) : makeMusic(name as MusicName));
       if (name in AMBIENCE_NAMES) return stereo(ctx, makeAmbience(name as AmbienceName));
