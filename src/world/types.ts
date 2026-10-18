@@ -215,8 +215,13 @@ export interface TileBlend {
 }
 
 /** When a page applies. With several matching pages, the last one wins (as in RPG Maker). */
+export type SelfSwitch = 'A' | 'B' | 'C' | 'D';
+export const SELF_SWITCHES: SelfSwitch[] = ['A', 'B', 'C', 'D'];
+
 export type Condition =
   | { switch: string; is?: boolean }
+  /** One of this event's own self-switches (A–D), no name needed. */
+  | { self: SelfSwitch; is?: boolean }
   | { var: string; op: '>=' | '<=' | '==' | '>' | '<'; value: number }
   /** The player carries at least `count` of an item (equipped counts too). */
   | { item: string; count?: number }
@@ -242,6 +247,8 @@ export type Command =
   | { cmd: 'choice'; options: string[]; branches: Command[][]; cancel?: number }
   | { cmd: 'if'; condition: Condition; then: Command[]; else?: Command[] }
   | { cmd: 'setSwitch'; switch: string; value: boolean }
+  /** One of the running event's own switches (A–D). */
+  | { cmd: 'selfSwitch'; letter: SelfSwitch; value: boolean }
   | { cmd: 'setVar'; var: string; op: 'set' | 'add'; value: number }
   | { cmd: 'wait'; seconds: number }
   | { cmd: 'fadeOut'; seconds?: number }
@@ -781,6 +788,8 @@ export interface Database {
   markers?: import('./landmarks').MarkerKind[];
   /** Map themes (Database → Map themes). Unset: the starter themes. */
   mapThemes?: import('./mapThemes').MapTheme[];
+  /** The game's list of switch names (the editor's Switches window). Switches not listed still work. */
+  switches?: string[];
   /** Named text colours for messages: [id]words[/id] (Database → Text colours). */
   textColors?: import('../ui/richText').TextColor[];
   /** Text box styles for messages (Database → Text boxes): Speech, Sign, Item received… and your own. */

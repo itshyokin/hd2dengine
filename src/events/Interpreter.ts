@@ -2,7 +2,7 @@
  * Runs event command lists one step at a time inside the game loop.
  * It is a stack machine (like RPG Maker's), so a running event could later be saved and resumed.
  */
-import type { GameState } from '../game/GameState';
+import { GameState } from '../game/GameState';
 import type { MessageWindow } from '../ui/MessageWindow';
 import type { Ailment, Command, Gauge, WeatherKind } from '../world/types';
 
@@ -89,7 +89,11 @@ export class Interpreter {
     this.ctx.message.close();
   }
 
-  start(commands: Command[]): void {
+  /** The event running ("map:eventId"), for its self-switches. */
+  private self = '';
+
+  start(commands: Command[], self = ''): void {
+    this.self = self;
     this.stack = [{ list: commands, i: 0 }];
     this.waitTime = 0;
     this.awaitingChoice = null;
@@ -130,13 +134,16 @@ export class Interpreter {
         this.awaitingChoice = c;
         break;
       case 'if': {
-        const branch = state.test(c.condition) ? c.then : c.else ?? [];
+        const branch = state.test(c.condition, this.self) ? c.then : c.else ?? [];
         if (branch.length) this.stack.push({ list: branch, i: 0 });
         break;
       }
       case 'setSwitch':
         state.setSwitch(c.switch, c.value);
         this.ctx.refreshEvents();
+        break;
+      case 'selfSwitch':
+        if (this.self) { state.setSwitch(GameState.selfKey(this.self, c.letter), c.value); this.ctx.refreshEvents(); }
         break;
       case 'setVar':
         state.setVar(c.var, c.op === 'add' ? state.getVar(c.var) + c.value : c.value);

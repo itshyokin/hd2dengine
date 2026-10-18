@@ -870,7 +870,7 @@ export class Game {
     this.lights.padTo(this.lightTarget);
     this.fireflies = new Fireflies(level, this.map);
     this.weatherPending = true;
-    this.events = data.events.map((e) => new GameEvent(e, level, this.sprites, this.db, this.map));
+    this.events = data.events.map((e) => { const ev = new GameEvent(e, level, this.sprites, this.db, this.map); ev.selfId = `${this.mapName}:${e.id}`; return ev; });
     this.combat.attach(this.combatHost(level));
     this.warmup = true;
     this.initFires();
@@ -1172,7 +1172,7 @@ export class Game {
       broken: (b) => {
         // Its page's commands (set a switch, open a way…), then pages may change (a switch shows the rubble).
         const ev = b.key as unknown as GameEvent;
-        if (ev.page?.commands.length && !this.interpreter.running) this.interpreter.start(ev.page.commands);
+        if (ev.page?.commands.length && !this.interpreter.running) this.interpreter.start(ev.page.commands, ev.selfId);
         this.refreshEvents();
       },
       log: (t, k) => this.log.add(t, k),
@@ -1207,7 +1207,7 @@ export class Game {
     for (const a of this.fighters) if (!a.down && d.xp > 0) a.data.pendingXp = (a.data.pendingXp ?? 0) + d.xp;
     this.refreshEvents();
     const ev = e.key as GameEvent;
-    if (ev.page?.commands.length && !this.interpreter.running) this.interpreter.start(ev.page.commands);
+    if (ev.page?.commands.length && !this.interpreter.running) this.interpreter.start(ev.page.commands, ev.selfId);
   }
 
   /** Walked over an item with no room for it: say so, and offer the bag to make room (drop something). */
@@ -1559,7 +1559,7 @@ export class Game {
     this.moveTarget = null;
     this.pendingEvent = null;
     this.setSpeaker(ev);
-    this.interpreter.start(ev.page.commands);
+    this.interpreter.start(ev.page.commands, ev.selfId);
   }
 
   /** Messages from this event float over it (or under it), as the player set in Settings. */
@@ -4460,7 +4460,7 @@ export class Game {
       const b = this.partyBattler(who);
       if (!b) continue;
       entries.push({ battler: b.battler, view: b.view, who });
-      if (stageData) specs.push(this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow, b.fig.lift));
+      if (stageData) specs.push({ ...this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow, b.fig.lift), color: b.view.color });
     }
     // Several of a kind are told apart: Slime A, Slime B…
     const counts = new Map<string, number>(), seen = new Map<string, number>();
@@ -4691,7 +4691,7 @@ export class Game {
         if (!b) return null;
         this.battleWhos.delete(outWho);
         this.battleWhos.add(inWho);
-        if (this.stage) this.stage.stage.replaceFighter(outKey, this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow, b.fig.lift));
+        if (this.stage) this.stage.stage.replaceFighter(outKey, { ...this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow, b.fig.lift), color: b.view.color });
         return { battler: b.battler, view: b.view, who: inWho };
       },
       attackVoice: (who) => {
@@ -4756,7 +4756,7 @@ export class Game {
         const evs = this.battleCommands;
         this.battleCommands = [];
         const cmds = evs.flatMap((ev) => ev.page?.commands ?? []);
-        if (cmds.length && !this.interpreter.running) this.interpreter.start(cmds);
+        if (cmds.length && !this.interpreter.running) this.interpreter.start(cmds, evs.length === 1 ? evs[0].selfId : '');
       },
       log: (t) => this.log.add(t, 'hit'),
       mastered: (who, id) => {

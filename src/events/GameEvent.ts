@@ -18,6 +18,8 @@ export class GameEvent {
   character: CharacterSprite | null = null;
   /** For 'auto' pages: has this page already run since it became active? */
   autoDone = false;
+  /** "map:eventId": whose self-switches its pages and commands use (set by the game). */
+  selfId = '';
   /** A breakable page that's been broken (until its page changes): gone from view, not solid. */
   broken = false;
 
@@ -51,7 +53,7 @@ export class GameEvent {
   /** Re-evaluate page conditions; rebuild visuals when the active page changes. */
   refresh(state: GameState): void {
     let idx = -1;
-    this.data.pages.forEach((p, i) => { if (!p.condition || state.test(p.condition)) idx = i; });
+    this.data.pages.forEach((p, i) => { if (!p.condition || state.test(p.condition, this.selfId)) idx = i; });
     if (idx === this.pageIndex) return;
     this.pageIndex = idx;
     this.page = idx >= 0 ? this.data.pages[idx] : null;

@@ -1,3 +1,4 @@
+import { switchInput } from './switchPicker';
 import { TRANSITIONS, TRANSITION_NAMES } from '../ui/BattleTransition';
 import { formatFishing, parseFishing } from '../world/fishing';
 import type { Season } from '../world/seasons';
@@ -876,7 +877,7 @@ export class Inspector {
     if (k) out.push(h('div', { class: 'marker-preview' }, h('img', { src: markerIcon(k.symbol, k.color, 26), alt: '' }), h('span', {}, `${k.name}${eventW(ev) > 1 || eventH(ev) > 1 ? ' · its area is outlined on the map' : ''}`)));
     out.push(field('Tooltip', textInput(m.label ?? '', (v) => this.edit(() => { if (v.trim()) m.label = v.trim(); else delete m.label; }, true), { placeholder: ev.name })),
       h('div', { class: 'field-row' },
-        field('Only while switch', textInput(m.switch ?? '', (v) => this.edit(() => { if (v.trim()) m.switch = v.trim(); else { delete m.switch; delete m.whenOff; } }, true), { placeholder: '(always)', list: 'dl-switches' })),
+        field('Only while switch', switchInput(m.switch ?? '', (v) => this.edit(() => { if (v) m.switch = v; else { delete m.switch; delete m.whenOff; } }, true), { placeholder: '(always)' })),
         m.switch ? field('is', select([['on', 'ON'], ['off', 'OFF']], m.whenOff ? 'off' : 'on', (v) => this.edit(() => { if (v === 'off') m.whenOff = true; else delete m.whenOff; }, true))) : h('span')),
       h('p', { class: 'hint' }, 'Show a quest location only while its quest is on: turn a switch on when the quest starts and off when it ends. Kinds, symbols and colours: Database → Map markers.'));
     return out;

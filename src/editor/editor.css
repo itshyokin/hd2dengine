@@ -683,3 +683,11 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .climate-chances { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; margin: 8px 0; }
 .climate-chance { display: grid; grid-template-columns: 1fr 64px 38px; align-items: center; gap: 6px; font-size: 13px; }
 .climate-chance small { color: var(--muted); text-align: right; }
+/* Switch fields: the name and a ☰ button opening the Switches window. */
+.sw-input { display: flex; gap: 4px; align-items: center; }
+.sw-input input { flex: 1; min-width: 0; }
+.sw-window { display: grid; gap: 10px; min-width: min(460px, 80vw); }
+.sw-list { display: grid; gap: 4px; max-height: 50vh; overflow: auto; }
+.sw-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+.sw-row.current .sw-name { border-color: var(--accent, #ffb04a); }
+.sw-row.unlisted .sw-name { opacity: 0.75; font-style: italic; }

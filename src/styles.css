@@ -1151,7 +1151,8 @@ body.in-battle #view { filter: blur(3px) saturate(0.8); }
 .battle-status { grid-column: 2; padding: 8px 12px; display: grid; gap: 2px; align-self: end; }
 .bstat { display: grid; grid-template-columns: minmax(70px, 1fr) minmax(60px, 1.4fr) 64px minmax(40px, 0.9fr) 52px; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 7px; cursor: pointer;
   border-left: 3px solid var(--hero, transparent); }
-.bstat.active { background: rgba(255, 176, 74, 0.12); }
+.bstat.active { background: color-mix(in srgb, var(--hero, #ffb04a) 14%, transparent); box-shadow: inset 0 0 0 1.5px var(--hero, #ffb04a), 0 0 14px color-mix(in srgb, var(--hero, #ffb04a) 55%, transparent); border-radius: 8px; animation: turn-glow-row 1.6s ease-in-out infinite; }
+@keyframes turn-glow-row { 50% { box-shadow: inset 0 0 0 1.5px var(--hero, #ffb04a), 0 0 6px color-mix(in srgb, var(--hero, #ffb04a) 30%, transparent); } }
 .bstat.down { opacity: 0.5; }
 .bstat.down .bstat-name::after { content: " KO"; color: #ff7a6b; font-size: 11px; }
 .bstat-name { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1336,7 +1337,9 @@ body.in-battle.staged-battle #view { filter: none; }
 .dl-hp.low, .dl-mp.low { color: #ff5a4a; }
 /* Whose turn: a gold frame. Chosen for a spell or item: silver. */
 .dl-card.targeted { border-color: #d9dee8; background: linear-gradient(180deg, rgba(110, 120, 142, 0.75), rgba(36, 42, 58, 0.95)); }
-.dl-card.active { border-color: #ffc46e; box-shadow: 0 0 0 2px rgba(255, 196, 110, 0.35), 0 0 20px rgba(255, 176, 74, 0.55), 0 10px 26px rgba(0, 0, 0, 0.5); }
+/* Their turn: an outline glowing in the hero's own colour (Database → Heroes), pulsing gently. */
+.dl-card.active { border-color: var(--hero, #ffc46e); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hero, #ffc46e) 55%, transparent), 0 0 22px color-mix(in srgb, var(--hero, #ffc46e) 70%, transparent), 0 10px 26px rgba(0, 0, 0, 0.5); animation: turn-glow 1.6s ease-in-out infinite; }
+@keyframes turn-glow { 50% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--hero, #ffc46e) 35%, transparent), 0 0 12px color-mix(in srgb, var(--hero, #ffc46e) 40%, transparent), 0 10px 26px rgba(0, 0, 0, 0.5); } }
 .dl-card.down { opacity: 0.55; }
 .dl-card.down .dl-name::after { content: " KO"; color: #ff7a6b; font-size: 11px; }
 /* Items and Magic in the middle; what the chosen one does in a box at the top. */

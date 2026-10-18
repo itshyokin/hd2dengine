@@ -2,6 +2,7 @@
  * Event command list: a readable outline of an event's commands (with nested branches)
  * and a form dialog for each command type.
  */
+import { SELF_SWITCHES, type SelfSwitch } from '../world/types';
 import { WEEKDAYS } from '../world/seasons';
 import { MOON_NAMES, MOON_PHASES, moonPhase } from '../world/moon';
 import { ABILITIES, WEATHER_KINDS, type WeatherKind, type Ailment, type Ability, type Command, type Database, type Condition, type Gauge, type QuestDef, type QuestOp, type QuestStatus } from '../world/types';
@@ -10,6 +11,7 @@ import { checkbox, field, h, numberInput, openModal, select, textInput } from '.
 import { transferFields, transferSummary } from './TransferPicker';
 import { AMBIENCE_NAMES, MUSIC_NAMES, SFX_LABELS, SFX_NAMES } from '../audio/synth';
 import { loopChoices } from '../audio/sfx';
+import { initSwitches, switchInput } from './switchPicker';
 import { additionList, classList, findAddition, findClass, findSpell, rankName, spellList, spellMaxRank } from '../game/abilities';
 import type { EditorStore } from './store';
 import { applyLook, messageStyles, parseRich, richHTML, setTextColors, textColors, type TextLook } from '../ui/richText';
@@ -18,7 +20,7 @@ type Cmd = Command['cmd'];
 
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
-  ['setSwitch', 'Set switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
+  ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
   ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
@@ -27,7 +29,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -39,6 +41,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'choice': return { cmd, options: ['Yes', 'No'], branches: [[], []], cancel: 1 };
     case 'if': return { cmd, condition: { switch: '', is: true }, then: [], else: [] };
     case 'setSwitch': return { cmd, switch: '', value: true };
+    case 'selfSwitch': return { cmd, letter: 'A', value: true };
     case 'setVar': return { cmd, var: '', op: 'set', value: 0 };
     case 'wait': return { cmd, seconds: 0.5 };
     case 'fadeOut': return { cmd, seconds: 1 };
@@ -135,6 +138,7 @@ export function conditionText(c: Condition): string {
     return `quest ${questName(c.quest)} is ${QUEST_STATUS_NAMES.find(([k]) => k === c.is)?.[1].toLowerCase() ?? c.is}`;
   }
   if ('switch' in c) return `switch ${c.switch || '(unnamed)'} is ${c.is === false ? 'OFF' : 'ON'}`;
+  if ('self' in c) return `self switch ${c.self} is ${c.is === false ? 'OFF' : 'ON'}`;
   if ('item' in c) return `has ${(c.count ?? 1) > 1 ? `${c.count} × ` : ''}${itemName(c.item)}`;
   if ('gold' in c) return `gold ≥ ${c.gold}`;
   if ('moon' in c) return `the moon is ${c.moon.length ? c.moon.map((m) => MOON_NAMES[m].toLowerCase()).join(' or ') : '(no phase picked)'} (real world)`;
@@ -154,6 +158,7 @@ function summary(c: Command): string {
     case 'choice': return c.options.join(' / ');
     case 'if': return conditionText(c.condition);
     case 'setSwitch': return `${c.switch || '(unnamed)'} = ${c.value ? 'ON' : 'OFF'}`;
+    case 'selfSwitch': return `Self switch ${c.letter} = ${c.value ? 'ON' : 'OFF'}`;
     case 'setVar': return `${c.var || '(unnamed)'} ${c.op === 'add' ? (c.value < 0 ? '−=' : '+=') : '='} ${c.op === 'add' ? Math.abs(c.value) : c.value}`;
     case 'wait': return `${c.seconds} s`;
     case 'fadeOut': case 'fadeIn': return `${c.seconds ?? 0.8} s`;
@@ -211,6 +216,7 @@ export class CommandEditor {
   constructor(private readonly store: EditorStore) {
     setItemNameLookup((id) => store.db.items?.find((d) => d.id === id)?.name ?? `${id} (missing)`);
     setConditionItems(() => (store.db.items ?? []).map((d) => [d.id, d.name] as [string, string]));
+    initSwitches(store);
     setQuestLookup(() => store.db.quests ?? []);
     setHeroLookup(() => (store.db.heroes ?? []).slice(1).map((h) => [h.id, h.name] as [string, string]));
     dbNow = () => store.db;
@@ -499,8 +505,13 @@ export class CommandEditor {
       }
       case 'if':
         return [conditionForm(d.condition, (c) => (d.condition = c), false)];
+      case 'selfSwitch':
+        return [h('div', { class: 'field-row' },
+          field('Self switch', select(SELF_SWITCHES.map((l) => [l, l] as [string, string]), d.letter, (v) => (d.letter = v as SelfSwitch))),
+          field('Set to', select([['on', 'ON'], ['off', 'OFF']], d.value ? 'on' : 'off', (v) => (d.value = v === 'on')))),
+          h('p', { class: 'hint' }, 'This event’s own switch: no name needed, and every event has its own A–D. A chest sets A when opened; its second page (Condition → Self switch A is ON) shows it open. Copies of the event each keep their own.')];
       case 'setSwitch':
-        return [field('Switch', textInput(d.switch, (v) => (d.switch = v.trim()), { list: 'dl-switches', placeholder: 'e.g. met_mira' })),
+        return [field('Switch', switchInput(d.switch, (v) => (d.switch = v))),
           field('Set to', select([['on', 'ON'], ['off', 'OFF']], d.value ? 'on' : 'off', (v) => (d.value = v === 'on')))];
       case 'setVar':
         return [field('Variable', textInput(d.var, (v) => (d.var = v.trim()), { list: 'dl-vars', placeholder: 'e.g. gold' })),
@@ -751,11 +762,11 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
-      cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
+      cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'self' ? { self: 'A', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
         : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
@@ -776,8 +787,14 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
       }
     } else if (cur && 'switch' in cur) {
       const c = cur;
-      parts.push(field('Switch', textInput(c.switch, (v) => { c.switch = v.trim(); onchange(c); }, { list: 'dl-switches', placeholder: 'e.g. met_mira' })),
+      parts.push(field('Switch', switchInput(c.switch, (v) => { c.switch = v; onchange(c); })),
         field('Is', select([['on', 'ON'], ['off', 'OFF']], c.is === false ? 'off' : 'on', (v) => { c.is = v === 'on'; onchange(c); })));
+    } else if (cur && 'self' in cur) {
+      const c = cur;
+      parts.push(h('div', { class: 'field-row' },
+        field('Self switch', select(SELF_SWITCHES.map((l) => [l, l] as [string, string]), c.self, (v) => { c.self = v as SelfSwitch; onchange(c); })),
+        field('Is', select([['on', 'ON'], ['off', 'OFF']], c.is === false ? 'off' : 'on', (v) => { c.is = v === 'on'; onchange(c); }))),
+        h('p', { class: 'hint' }, 'This event’s own switch (Set self switch). In a Conditional branch it means the event running the commands.'));
     } else if (cur && 'item' in cur) {
       const c = cur;
       const opts = conditionItems();

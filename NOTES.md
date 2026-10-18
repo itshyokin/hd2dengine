@@ -3,7 +3,7 @@
 Kept in the project so they travel with the code. Tick them off as they're built.
 
 ## Next (planned Oct 17)
-- [ ] Update 61: active fighter's ring in their Database colour and a glowing outline on their card; self-switches
+- [x] Update 61: active fighter's ring in their Database colour and a glowing outline on their card; self-switches
       (A–D per event, Set self switch command, page condition); a Switches window (+ / − / rename) wherever a switch
       is picked, the names kept in the Database.
 - [ ] Update 62: the scenery beyond the map edge follows the height of the edge tiles (cliff faces between steps);

@@ -565,6 +565,11 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Database → Map markers**: each kind's name, symbol (star, circle, diamond, square, triangle, !, ?, flag, skull,
   house, cross, heart) and colour, and new kinds.
 
+### Battles: whose turn it is
+
+- The ring under whoever's turn it is, and the glowing, gently pulsing outline on their card (and their row in the
+  Forbidden Fantasy layout), are in their own colour from Database → Heroes.
+
 ### Built-in sounds: chiptune
 
 - The built-in effects and music are **Game Boy-style chiptune** by default: two pulse channels, a wave channel (bass)
@@ -578,6 +583,16 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   the Database has swapped in, without changing anything. Music files give way to the matching built-in theme (battle,
   victory, title, cave in dark maps, night outdoors at night, otherwise field). `audio_chiptune false` puts your
   sounds back. Voices and event sounds from files stay as they are.
+
+### Self-switches and the switch list
+
+- **Self-switches**: every event has its own switches **A–D**, no names needed. **Set self switch** (event command)
+  turns one on or off for the event running it; a page's **Condition → Self switch** (or a Conditional branch) checks
+  it. A chest: page 1 gives the item and sets A; page 2 (Self switch A is ON) shows it open. Each event keeps its
+  own, saved with the game.
+- **Switches window**: every switch field has a **☰** button opening the game's switch list (kept in the Database):
+  **+ New switch**, **−** to take one off the list, type over a name to rename it (its uses on the open map follow),
+  **Use** to pick it. Names used on the map but not in the list show underneath, with + to add them.
 
 ### Event sounds
 

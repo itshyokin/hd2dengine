@@ -1,6 +1,7 @@
 /** Form fields for light settings, shared by the light inspector and the prop importer. */
+import { switchInput } from './switchPicker';
 import type { Flicker, LightSchedule } from '../world/types';
-import { checkbox, field, h, numberInput, select, textInput } from './dom';
+import { checkbox, field, h, numberInput, select } from './dom';
 
 export const SCHEDULES: [LightSchedule, string][] = [
   ['always', 'Always on'],
@@ -58,7 +59,7 @@ export function lightFields<T extends LightFields>(l: T, commit: (apply: (l: T) 
     if (o.shadowHint) out.push(h('p', { class: 'hint' }, o.shadowHint));
   }
   if (o.showSwitch) {
-    out.push(field('Only on while switch is ON', textInput(l.switch ?? '', (v) => commit((x) => (x.switch = v.trim() || undefined)), { list: 'dl-switches', placeholder: 'Leave empty: not tied to a switch' })));
+    out.push(field('Only on while switch is ON', switchInput(l.switch ?? '', (v) => commit((x) => (x.switch = v || undefined)), { placeholder: 'Leave empty: not tied to a switch' })));
   }
   return out;
 }

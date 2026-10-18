@@ -85,7 +85,12 @@ export class GameState {
     this.variables.set(id, v);
   }
 
-  test(c: Condition): boolean {
+  /** A self-switch's key: `self` is "map:eventId". */
+  static selfKey(self: string, letter: string): string { return `@self:${self}:${letter}`; }
+
+  /** Is a condition met? `self` ("map:eventId") answers self-switch conditions. */
+  test(c: Condition, self?: string): boolean {
+    if ('self' in c) return !!self && this.getSwitch(GameState.selfKey(self, c.self)) === (c.is ?? true);
     if ('quest' in c) {
       const q = this.quests;
       if ('objective' in c) {
