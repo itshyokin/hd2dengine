@@ -5,6 +5,7 @@
  * file path like "assets/audio/forest.ogg". Effects can be swapped for files in Database → Audio.
  * Browsers only start audio after the player clicks or presses a key, so nothing plays before that.
  */
+import { makeChipMusic, makeChipSfx } from './chip';
 import { AMBIENCE_NAMES, type AmbienceName, JINGLE_SFX, MUSIC_NAMES, type MusicName, RATE, SFX_NAMES, type SfxName, type Stereo, UI_SFX, makeAmbience, makeMusic, makeSfx } from './synth';
 
 /** The volume groups (Settings → Sound), 0 – 100 each. */
@@ -32,6 +33,16 @@ export class AudioManager {
   private volumes: Record<Bus | 'master', number> = { master: 0.25, music: 0.49, ambience: 0.49, sfx: 0.64, ui: 0.49, jingle: 0.64 };
   /** Effects swapped for other sounds (Database → Audio): name → source ('' = silent). */
   overrides: Partial<Record<Sfx, string>> = {};
+  /** The built-in effects and music: Game Boy-style chiptune (default) or the older classic synth. */
+  private builtinStyle: 'chip' | 'classic' = 'chip';
+  setStyle(style: 'chip' | 'classic' | undefined): void {
+    const st = style ?? 'chip';
+    if (st === this.builtinStyle) return;
+    this.builtinStyle = st;
+    for (const k of [...this.buffers.keys()]) if (k.startsWith('builtin:')) this.buffers.delete(k);
+    // Built-in music that's playing starts again in the new style.
+    for (const k of ['music'] as const) { const src = this.want[k]; if (src.startsWith('builtin:')) { this.want[k] = ''; this.playLoop(k, src, 0.5); } }
+  }
   /** Where the listener is (the hero), for effects placed in the world. */
   listener = { x: 0, z: 0 };
 
@@ -150,8 +161,9 @@ export class AudioManager {
     if (!ctx) return null;
     if (src.startsWith('builtin:')) {
       const name = src.slice(8);
-      if ((SFX_NAMES as readonly string[]).includes(name)) return mono(ctx, makeSfx(name as SfxName));
-      if (name in MUSIC_NAMES) return stereo(ctx, makeMusic(name as MusicName));
+      const chip = this.builtinStyle === 'chip';
+      if ((SFX_NAMES as readonly string[]).includes(name)) return mono(ctx, chip ? makeChipSfx(name as SfxName) : makeSfx(name as SfxName));
+      if (name in MUSIC_NAMES) return stereo(ctx, chip ? makeChipMusic(name as MusicName) : makeMusic(name as MusicName));
       if (name in AMBIENCE_NAMES) return stereo(ctx, makeAmbience(name as AmbienceName));
       return null;
     }

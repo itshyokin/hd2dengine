@@ -565,6 +565,16 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Database → Map markers**: each kind's name, symbol (star, circle, diamond, square, triangle, !, ?, flag, skull,
   house, cross, heart) and colour, and new kinds.
 
+### Built-in sounds: chiptune
+
+- The built-in effects and music are **Game Boy-style chiptune** by default: two pulse channels, a wave channel (bass)
+  and a noise channel (drums, hits, footsteps), with stepped volume fades and pitch sweeps like the handheld's sound
+  chip. Every effect (menus, hits, jumps, coins, level-ups, loot, battle stings, the victory fanfare…) and every theme
+  (title, field, night, battle, cave, victory) has a chip version; the tunes are original, built from repeating
+  motifs over each track's chords. **Database → Audio → Built-in sounds → Style**: *Chiptune* or *Classic* (the older
+  soft synth). Background sounds (wind, birds, rain, campfires…) stay natural either way, and your own files are
+  never changed.
+
 ### Event sounds
 
 - An event page can make a sound all the time (**Inspector → event page → Sound → Plays all the time**): a crackling

@@ -423,6 +423,7 @@ export class Game {
     await this.loadItemIcons(resolve);
     this.audio = new AudioManager(resolve);
     this.audio.overrides = { ...(this.db.audio?.sfx ?? {}) } as Partial<Record<Sfx, string>>;
+    this.audio.setStyle(this.db.audio?.style);
     setUiSound((s) => this.audio.play(s));
     this.isPlaytest = !!pt;
     this.saves = new SaveStore(this.db.title || 'game', !!pt);

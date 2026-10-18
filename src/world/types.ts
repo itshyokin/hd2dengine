@@ -811,7 +811,7 @@ export interface Database {
   /** Combat tuning (Database → Combat); anything left out uses the defaults (see game/combat/config.ts). */
   combat?: CombatData;
   /** Sound (Database → Audio): imported files, effects swapped for files, title music. */
-  audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; /** After the victory fanfare (unset: the map's music). */ victoryMusic?: string; /** Every battle's music unless a map, zone, troop or Start battle command overrides it (unset: the built-in theme). */ battleMusic?: string };
+  audio?: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; /** After the victory fanfare (unset: the map's music). */ victoryMusic?: string; /** Every battle's music unless a map, zone, troop or Start battle command overrides it (unset: the built-in theme). */ battleMusic?: string; /** Built-in effects and music: 'chip' (Game Boy-style chiptune, default) or 'classic'. */ style?: 'chip' | 'classic' };
   /** The skill tree (Database → Skills). Without it, the built-in tree is used. */
   skills?: SkillsData;
   /** Troops: groups of enemies for random encounters (encounter zones on maps). */

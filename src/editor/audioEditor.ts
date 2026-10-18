@@ -12,6 +12,7 @@ import type { EditorStore } from './store';
 
 let manager: AudioManager | null = null;
 const urls = new Map<string, string>();
+let styleSet = false;
 
 /** The editor's player (it plays imported files straight from memory). */
 export function editorAudio(store: EditorStore): AudioManager {
@@ -23,6 +24,7 @@ export function editorAudio(store: EditorStore): AudioManager {
     return u;
   });
   manager.setVolumes({ master: 70, music: 70, sfx: 80, ambience: 70, ui: 70, jingle: 80 });
+  if (!styleSet) { styleSet = true; manager.setStyle(store.db.audio?.style); }
   return manager;
 }
 
@@ -110,7 +112,7 @@ export function mapAudioFields(store: EditorStore, m: MapData, edit: (fn: () => 
   ];
 }
 
-export interface AudioWork { files: string[]; sfx: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string }
+export interface AudioWork { files: string[]; sfx: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string; style?: 'chip' | 'classic' }
 
 /** Database → Audio. */
 export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void): HTMLElement[] {
@@ -126,6 +128,9 @@ export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void)
         : h('p', { class: 'note' }, 'No audio folders found. Put sounds in your project’s audio/ folder (audio/music, audio/ambience, audio/footsteps, audio/sound_effects, audio/voices, audio/spells… any subfolders) and they can be picked everywhere, no importing.'),
       h('button', { type: 'button', class: 'btn', onclick: () => { void scanAudioFolders(store).then(() => { toast(`Found ${library.length} sound${library.length === 1 ? '' : 's'}`); rerender(); }); } }, 'Look again'),
       h('p', { class: 'note' }, 'Files are used where they are. Music and background sounds loop: use files that loop cleanly.')),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Built-in sounds'),
+      field('Style', select([['chip', 'Chiptune (Game Boy style)'], ['classic', 'Classic (soft synth)']], w.style ?? 'chip', (v) => { w.style = v === 'classic' ? 'classic' : undefined; editorAudio(store).setStyle(w.style); }),
+        'The built-in effects and music (menus, hits, jingles, the title, field, battle, night and cave themes): two pulse channels, a wave channel and a noise channel, like the handheld. Classic: the older soft synth. Background sounds (wind, birds, rain…) stay natural either way. Every ▶ below plays in the style chosen.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Battle music'),
       h('div', { class: 'field-row audio-row' },
         field('Every battle', select([['', 'Built-in battle theme'], ...titleOpts.filter(([v]) => v && v !== 'builtin:battle')], w.battleMusic ?? '', (v) => { w.battleMusic = v || undefined; }),
@@ -164,8 +169,9 @@ export function audioTab(store: EditorStore, w: AudioWork, rerender: () => void)
 }
 
 /** Only what differs from the defaults, for database.json. */
-export function cleanAudio(w: AudioWork): { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string } | undefined {
-  const out: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string } = {};
+export function cleanAudio(w: AudioWork): { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string; style?: 'classic' } | undefined {
+  const out: { files?: string[]; sfx?: Record<string, string>; titleMusic?: string; victoryMusic?: string; battleMusic?: string; style?: 'classic' } = {};
+  if (w.style === 'classic') out.style = 'classic';
   if (w.victoryMusic) out.victoryMusic = w.victoryMusic;
   if (w.battleMusic) out.battleMusic = w.battleMusic;
   if (w.files.length) out.files = w.files;
