@@ -222,68 +222,6 @@
       "image": "assets/props/wall_torch.png"
     },
     {
-      "id": "oak",
-      "name": "Oak tree",
-      "w": 2,
-      "h": 3,
-      "foot": {
-        "w": 2,
-        "d": 1,
-        "solid": [
-          "##"
-        ]
-      },
-      "shape": "crossX",
-      "block": [
-        -0.5,
-        0.5
-      ],
-      "filter": "point",
-      "sway": 1,
-      "image": "assets/props/oak.png"
-    },
-    {
-      "id": "pine",
-      "name": "Pine tree",
-      "w": 2,
-      "h": 3,
-      "foot": {
-        "w": 2,
-        "d": 1,
-        "solid": [
-          "##"
-        ]
-      },
-      "shape": "crossX",
-      "block": [
-        -0.5,
-        0.5
-      ],
-      "filter": "point",
-      "sway": 0.8,
-      "image": "assets/props/pine.png"
-    },
-    {
-      "id": "bush",
-      "name": "Bush",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "shape": "crossX",
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "sway": 0.5,
-      "image": "assets/props/bush.png"
-    },
-    {
       "id": "tuft",
       "name": "Grass tuft",
       "w": 1,
@@ -674,6 +612,103 @@
       ],
       "filter": "point",
       "image": "assets/props/rock.png"
+    },
+    {
+      "id": "pine",
+      "name": "Pine tree",
+      "w": 3,
+      "h": 3,
+      "foot": {
+        "w": 3,
+        "d": 1,
+        "solid": [
+          ".#."
+        ]
+      },
+      "shape": "crossX",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 0.8,
+      "image": "assets/props/pine.png"
+    },
+    {
+      "id": "oak",
+      "name": "Oak tree",
+      "w": 3,
+      "h": 3,
+      "foot": {
+        "w": 3,
+        "d": 1,
+        "solid": [
+          ".#."
+        ]
+      },
+      "shape": "crossX",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 1,
+      "image": "assets/props/oak.png"
+    },
+    {
+      "id": "bush",
+      "name": "Bush",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "shape": "crossX",
+      "block": [],
+      "filter": "point",
+      "sway": 0.5,
+      "image": "assets/props/bush.png"
+    },
+    {
+      "id": "snowy_pine",
+      "name": "Snowy pine",
+      "w": 3,
+      "h": 3,
+      "foot": {
+        "w": 3,
+        "d": 1,
+        "solid": [
+          ".#."
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 0.6,
+      "season": "off",
+      "image": "assets/props/snowy_pine.png"
+    },
+    {
+      "id": "log_seat",
+      "name": "Log seat",
+      "w": 2,
+      "h": 1,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "image": "assets/props/log_seat.png"
     }
   ],
   "tiles": [
