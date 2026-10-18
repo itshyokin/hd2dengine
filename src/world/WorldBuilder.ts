@@ -2,6 +2,7 @@
  * Turns map data into scene geometry: the ground with its heights, cliff walls and stairs,
  * imported tiles, animated water, and instanced prop sprites.
  */
+import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
 import { builtinTileArt, glowPattern, iceTile, groundCanvas, grassTile, rippleNormals, rockFace } from '../art/placeholderArt';
@@ -270,6 +271,26 @@ function softenSpecular(mat: THREE.MeshStandardMaterial): void {
  * The land around the map, per side: open ground (grass, forest, meadow), raised rocky cliffs, water,
  * or nothing at all (darkness, for caves and interiors). It's a frame, so pits inside the map stay open.
  */
+/**
+ * The ground height beyond the edge at a point along side `side` (tile index along the edge; past the corners it
+ * keeps the corner's): the height of the map's edge tile there, so the scenery carries on at the level the map ends.
+ */
+function edgeHeight(map: TileMap, side: Side, i: number): number {
+  const W = map.w, H = map.h, a = Math.floor(i);
+  const [x, z] = side === 'n' ? [Math.max(0, Math.min(W - 1, a)), 0] : side === 's' ? [Math.max(0, Math.min(W - 1, a)), H - 1]
+    : side === 'w' ? [0, Math.max(0, Math.min(H - 1, a))] : [W - 1, Math.max(0, Math.min(H - 1, a))];
+  const c = map.cornersAt(x, z);
+  // The edge's outer corners (a ramp at the edge: its height on the outside).
+  const outer = side === 'n' ? [c[0], c[1]] : side === 's' ? [c[3], c[2]] : side === 'w' ? [c[0], c[3]] : [c[1], c[2]];
+  return Math.min(outer[0], outer[1]);
+}
+
+/** The height beyond the edge at an outside cell (x, z): its side's edge tile. */
+export function borderHeightAt(map: TileMap, x: number, z: number): number {
+  const side = sideOf(x, z, map.w, map.h);
+  return edgeHeight(map, side, side === 'n' || side === 's' ? x : z);
+}
+
 function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple: THREE.Texture, tileTextures: Map<string, TileTexture>, edgeWater: EdgeWater[]): void {
   const sides = borderSides(data.border), E = 70, W = map.w, H = map.h;
   // The four strips: top and bottom run the full width (corners included), left and right fill between.
@@ -278,16 +299,19 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
   const rockTop = new QuadList(), rockWall = new QuadList(), water = new QuadList(), bed = new QuadList();
   const roads = edgeRoads(W, H, (x, z) => map.terrain(x, z), (k) => map.tiles.isRoad(k), sides);
   // A vertical stone face between two points on the ground plan, from height `top` down to `bottom`, facing `facing`.
-  const wall = (a: [number, number], b: [number, number], top: number, bottom: number, facing: [number, number, number]) =>
-    rockWall.add([[a[0], top, a[1]], [b[0], top, b[1]], [b[0], bottom, b[1]], [a[0], bottom, a[1]]],
-      [[a[0] + a[1], top], [b[0] + b[1], top], [b[0] + b[1], bottom], [a[0] + a[1], bottom]], facing);
   const rect = (q: QuadList, x0: number, z0: number, x1: number, z1: number, y: number) =>
     q.add([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], [[x0, -z0], [x1, -z0], [x1, -z1], [x0, -z1]], [0, 1, 0]);
+  const wall = (a: [number, number], b: [number, number], top: number, bottom: number, facing: [number, number, number]) => {
+    if (top - bottom < 0.005) return;
+    rockWall.add([[a[0], top, a[1]], [b[0], top, b[1]], [b[0], bottom, b[1]], [a[0], bottom, a[1]]],
+      [[a[0] + a[1], top], [b[0] + b[1], top], [b[0] + b[1], bottom], [a[0] + a[1], bottom]], facing);
+  };
   for (const [side, x0, z0, x1, z1] of strips) {
     const kind = sides[side];
     // Seamless: the neighbouring map is drawn there instead (the game adds it).
     if (kind === 'none' || kind === 'seamless') continue;
     const ns = side === 'n' || side === 's';
+    const hAt = (i: number) => edgeHeight(map, side, i);
     // Roads leaving on this side, as [start, end] along the edge.
     const gaps = roads.filter((r) => r.side === side).map((r) => [r.from, r.to + 1] as [number, number]).sort((p, q) => p[0] - q[0]);
     // Water leaving on this side: a channel cut into the ground (or through the cliffs).
@@ -297,23 +321,51 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
     const out0 = side === 'n' ? 0 : side === 's' ? H : side === 'w' ? 0 : W;
     const outE = side === 'n' ? -E : side === 's' ? H + E : side === 'w' ? -E : W + E;
     const pt = (along: number, out: number): [number, number] => (ns ? [along, out] : [out, along]);
+    const lo = ns ? x0 : z0, hi = ns ? x1 : z1;
+    const oLo = Math.min(out0, outE), oHi = Math.max(out0, outE);
+    const flat = (q: QuadList, p: number, r: number, y: number) => { if (ns) rect(q, p, oLo, r, oHi, y); else rect(q, oLo, p, oHi, r, y); };
+    /** Split [p, r) along the edge into runs of one height: [from, to, height]. */
+    const runs = (p: number, r: number): [number, number, number][] => {
+      const out: [number, number, number][] = [];
+      let a = p;
+      while (a < r) {
+        const hgt = hAt(a);
+        let b = Math.min(r, Math.floor(a) + 1);
+        while (b < r && hAt(b) === hgt) b = Math.min(r, b + 1);
+        out.push([a, b, hgt]);
+        a = b;
+      }
+      return out;
+    };
+    /** Faces where the ground steps up or down between runs (across the whole strip). */
+    const steps = (list: [number, number, number][], lift = 0) => {
+      for (let k = 1; k < list.length; k++) {
+        const [, , h0] = list[k - 1], [b, , h1] = list[k];
+        if (h0 === h1) continue;
+        // Facing the lower side.
+        const face: [number, number, number] = h0 > h1 ? (ns ? [1, 0, 0] : [0, 0, 1]) : (ns ? [-1, 0, 0] : [0, 0, -1]);
+        wall(pt(b, out0), pt(b, outE), Math.max(h0, h1) + lift, Math.min(h0, h1) - 0.02, face);
+      }
+    };
     if (kind === 'water') {
-      rect(water, x0, z0, x1, z1, -0.12); rect(bed, x0, z0, x1, z1, -0.9);
+      const list = runs(lo, hi);
+      for (const [p, r, hgt] of list) { flat(water, p, r, hgt - 0.12); flat(bed, p, r, hgt - 0.9); }
+      steps(list.map(([p, r, hgt]) => [p, r, hgt - 0.12]), 0);
       // Roads cross on a stone causeway: its sides drop into the water.
       for (const [a, b] of gaps) {
-        wall(pt(a, out0), pt(a, outE), -0.012, -0.9, ns ? [-1, 0, 0] : [0, 0, -1]);
-        wall(pt(b, out0), pt(b, outE), -0.012, -0.9, ns ? [1, 0, 0] : [0, 0, 1]);
+        const ha = hAt(a), hb = hAt(b - 1);
+        wall(pt(a, out0), pt(a, outE), ha - 0.012, ha - 0.9, ns ? [-1, 0, 0] : [0, 0, -1]);
+        wall(pt(b, out0), pt(b, outE), hb - 0.012, hb - 0.9, ns ? [1, 0, 0] : [0, 0, 1]);
       }
       continue;
     }
     // The channel: a bed, and banks down to it on both sides (from the ground or the cliff's foot).
     for (const r of streams) {
-      const a = r.from, b = r.to + 1, top = Math.max(-0.02, r.surface);
-      if (ns) rect(bed, a, Math.min(out0, outE), b, Math.max(out0, outE), r.bed); else rect(bed, Math.min(out0, outE), a, Math.max(out0, outE), b, r.bed);
-      wall(pt(a, out0), pt(a, outE), top, r.bed, ns ? [1, 0, 0] : [0, 0, 1]);
-      wall(pt(b, out0), pt(b, outE), top, r.bed, ns ? [-1, 0, 0] : [0, 0, -1]);
+      const a = r.from, b = r.to + 1, ga = hAt(a), top = Math.max(ga - 0.02, r.surface);
+      flat(bed, a, b, r.bed);
+      wall(pt(a, out0), pt(a, outE), Math.max(hAt(a - 1) - 0.02, top), r.bed, ns ? [1, 0, 0] : [0, 0, 1]);
+      wall(pt(b, out0), pt(b, outE), Math.max(hAt(b) - 0.02, top), r.bed, ns ? [-1, 0, 0] : [0, 0, -1]);
     }
-    const lo = ns ? x0 : z0, hi = ns ? x1 : z1;
     // Pieces of the strip between the channels (and, for cliffs, the roads).
     const pieces = (list: [number, number][]) => {
       const segs: [number, number][] = [];
@@ -323,24 +375,31 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
       return segs;
     };
     if (kind !== 'rocks') {
-      const grass = grounds[borderGround(kind)];
-      for (const [p, q] of pieces(streams.map((r) => [r.from, r.to + 1] as [number, number]).sort((u, v) => u[0] - v[0])))
-        if (ns) rect(grass, p, z0, q, z1, -0.02); else rect(grass, x0, p, x1, q, -0.02);
+      const ground = grounds[borderGround(kind)];
+      for (const [p, q] of pieces(streams.map((r) => [r.from, r.to + 1] as [number, number]).sort((u, v) => u[0] - v[0]))) {
+        const list = runs(p, q);
+        for (const [a, b, hgt] of list) flat(ground, a, b, hgt - 0.02);
+        steps(list);
+      }
       continue;
     }
     const y = cliffHeight(side);
-    // The cliff, split wherever a road or a stream passes through.
-    const segs = pieces(cuts);
+    // The cliff, split wherever a road or a stream passes through, standing on the edge's own height.
     const inward: [number, number, number] = side === 'n' ? [0, 0, 1] : side === 's' ? [0, 0, -1] : side === 'w' ? [1, 0, 0] : [-1, 0, 0];
-    for (const [p, q] of segs) {
-      if (ns) rect(rockTop, p, z0, q, z1, y); else rect(rockTop, x0, p, x1, q, y);
-      // The cliff face along the map's edge, facing in.
-      wall(pt(p, out0), pt(q, out0), y, -0.02, inward);
+    for (const [p, q] of pieces(cuts)) {
+      const list = runs(p, q);
+      for (const [a, b, hgt] of list) {
+        flat(rockTop, a, b, hgt + y);
+        // The cliff face along the map's edge, facing in.
+        wall(pt(a, out0), pt(b, out0), hgt + y, hgt - 0.02, inward);
+      }
+      steps(list, y);
     }
     // The walls of each cut, facing the road or stream.
     for (const [a, b] of cuts) {
-      wall(pt(a, out0), pt(a, outE), y, -0.02, ns ? [1, 0, 0] : [0, 0, 1]);
-      wall(pt(b, out0), pt(b, outE), y, -0.02, ns ? [-1, 0, 0] : [0, 0, -1]);
+      const ha = hAt(a - 1), hb = hAt(b);
+      wall(pt(a, out0), pt(a, outE), ha + y, Math.min(ha, hAt(a)) - 0.02, ns ? [1, 0, 0] : [0, 0, 1]);
+      wall(pt(b, out0), pt(b, outE), hb + y, Math.min(hb, hAt(b - 1)) - 0.02, ns ? [-1, 0, 0] : [0, 0, -1]);
     }
   }
   const add = (q: QuadList, mat: THREE.Material) => { if (q.quads) scene.add(mesh(q, patchAreaTint(mat))); };
@@ -371,7 +430,7 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
 /** Roads that reach the map edge carry on straight out over the scenery, as wide as they were painted. */
 function buildEdgeRoads(scene: THREE.Object3D, map: TileMap, sides: Record<Side, BorderKind>, roads: EdgeRoad[], tileTextures: Map<string, TileTexture>): void {
   if (!roads.length) return;
-  const E = 70, W = map.w, H = map.h, y = -0.012;
+  const E = 70, W = map.w, H = map.h;
   const byKey = new Map<string, { q: QuadList; edge: number[] }>();
   for (const r of roads) {
     // Grass grows over the sides only on open ground; through cliffs and over water the edges are clean.
@@ -379,7 +438,7 @@ function buildEdgeRoads(scene: THREE.Object3D, map: TileMap, sides: Record<Side,
     const gk = `${r.key}|${open ? 'open' : 'clean'}`;
     let g = byKey.get(gk);
     if (!g) byKey.set(gk, (g = { q: new QuadList(), edge: [] }));
-    const width = r.to - r.from + 1, a = r.from, b = r.to + 1;
+    const width = r.to - r.from + 1, a = r.from, b = r.to + 1, y = edgeHeight(map, r.side, r.from) - 0.012;
     // Corners in order, and each corner's distance to the road's two sides.
     let pts: [number, number][];
     if (r.side === 'n') pts = [[a, -E], [b, -E], [b, 0], [a, 0]];
@@ -435,6 +494,9 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (def) for (const [x, z] of blockedTiles(def, p.x, p.z, p.s ?? 1)) map.setBlocked(x, z, true);
     if (def) for (const b of propBoxes(def, p.x, p.z, p.s ?? 1)) map.addBox(b, p);
   }
+  // Bridges and platforms: walkable at their deck height, built in 3D (not as upright cards).
+  buildDecks(scene, map, placeDecks(map, data, (t) => sprites.def(t)));
+  for (const t of [...groups.keys()]) if (sprites.def(t)?.deck) groups.delete(t);
   // Scenery beyond the map edge, per side. The bottom side (toward the camera) is kept sparse near the
   // edge so it doesn't hide the map.
   const sides = borderSides(data.border), R = rng(data.border?.seed ?? 1);
@@ -445,7 +507,9 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
       if (map.inMap(x, z)) continue;
       const side = sideOf(x, z, map.w, map.h), kind = sides[side];
       const near = side === 's' && z < map.h + 2;
-      const at = (s: number, y?: number) => ({ x: x + 0.5 + (R() - 0.5) * 0.5, z: z + 0.5 + (R() - 0.5) * 0.4, s, y });
+      // Standing on the scenery's own ground: the height of the map's edge on that side (cliff tops above it).
+      const base = borderHeightAt(map, x, z);
+      const at = (s: number, y?: number) => ({ x: x + 0.5 + (R() - 0.5) * 0.5, z: z + 0.5 + (R() - 0.5) * 0.4, s, y: base + (y ?? 0) });
       const r = R();
       // Keep roads clear: no trees right beside them, nothing at all on them.
       if (onEdgeRoad(roads, x, z, map.w, map.h, kind === 'forest' ? 1 : 0)) continue;

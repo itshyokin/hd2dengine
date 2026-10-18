@@ -116,11 +116,11 @@ export class PlayerMotion {
     return true;
   }
   /** In swimmable water (not wading, not jumping over it). */
-  get swimming(): boolean { return this.state.kind === 'ground' && !this.onWater && this.map.waterAt(Math.floor(this.x), Math.floor(this.z))?.kind === 'swim'; }
+  get swimming(): boolean { return this.state.kind === 'ground' && !this.onWater && this.map.footWaterAt(Math.floor(this.x), Math.floor(this.z))?.kind === 'swim'; }
   /** Walking on water right now (ring power active). */
   get onWater(): boolean { return !!this.w.waterWalk?.(); }
   /** Water under the player that slows or sinks them (none while walking on water). */
-  private waterHere(x = this.x, z = this.z) { return this.onWater ? null : this.map.waterAt(Math.floor(x), Math.floor(z)); }
+  private waterHere(x = this.x, z = this.z) { return this.onWater ? null : this.map.footWaterAt(Math.floor(x), Math.floor(z)); }
   /** The height the player moves at; walking on water, every water surface is ground. */
   private stand(x: number, z: number): number {
     if (this.onWater) {
@@ -153,7 +153,7 @@ export class PlayerMotion {
   private updateGround(dt: number, inp: MotionInput): MotionResult {
     const m = this.map, res: MotionResult = { moving: false, blocked: false, fell: false, face: null };
     // Water walking ended over deep water: back to the last safe spot.
-    const under = m.waterAt(Math.floor(this.x), Math.floor(this.z));
+    const under = m.footWaterAt(Math.floor(this.x), Math.floor(this.z));
     if (!this.onWater && under?.kind === 'deep' && this.safe) {
       this.place(this.safe[0], this.safe[1]);
       return { ...res, fell: true };
@@ -233,6 +233,8 @@ export class PlayerMotion {
   /** Where the player's feet are on the ground: the surface, or sunk into swimmable water (bobbing). */
   private groundY(): number {
     if (this.onWater) return this.stand(this.x, this.z);
+    const deck = this.map.deckAt(Math.floor(this.x), Math.floor(this.z));
+    if (deck !== null) return deck;
     const wtr = this.map.waterAt(Math.floor(this.x), Math.floor(this.z));
     const ice = this.map.iceAt(Math.floor(this.x), Math.floor(this.z));
     if (ice !== null) return Math.max(ice, this.map.surfaceY(this.x, this.z));
@@ -294,7 +296,7 @@ export class PlayerMotion {
     if (edging && (probes(this.x, this.z).every(([px, pz]) => this.stand(px, pz) < st.from[1] - MAX_STEP) || (this.x === ox && this.z === oz))) st.auto = undefined;
 
     // Into deep water: splash, and back to where the jump started.
-    const wtr = m.waterAt(Math.floor(this.x), Math.floor(this.z));
+    const wtr = m.footWaterAt(Math.floor(this.x), Math.floor(this.z));
     if (wtr?.kind === 'deep' && this.y <= wtr.surface && !this.onWater) return this.fall(st, res);
 
     if (st.vy < 0) {
@@ -369,7 +371,7 @@ export class PlayerMotion {
     const tz = ddz > 0 ? nz + RZ + 0.06 : ddz < 0 ? nz + 1 - RZ - 0.06 : clampIn(this.z, nz, RZ);
     const fromY = this.stand(this.x, this.z), toY = this.stand(tx, tz);
     if (fromY - toY <= MAX_STEP || !this.groundFree(tx, tz, toY)) return false;
-    if (m.waterAt(Math.floor(tx), Math.floor(tz))?.kind === 'deep' && !this.onWater) return false;
+    if (m.footWaterAt(Math.floor(tx), Math.floor(tz))?.kind === 'deep' && !this.onWater) return false;
     if (fromY - toY > MAX_FALL && !probes(tx, tz).every(([px, pz]) => this.dropAllowed(Math.floor(px), Math.floor(pz)))) return false;
     this.push = { t: 0, key: '' };
     this.state = { kind: 'air', vy: 0, speed: Math.max(speed, this.sp.walk * 0.8), from: [this.x, fromY, this.z], auto: [ddx, ddz], drop: true };

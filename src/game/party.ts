@@ -333,12 +333,12 @@ export class Ally implements AllyFighter {
   private swimT = Math.random() * 6;
   /** In water too deep to wade: they sink in up to the chest like the hero (bobbing). */
   get swimming(): boolean {
-    const w = this.map?.waterAt(Math.floor(this.x), Math.floor(this.z));
+    const w = this.map?.footWaterAt(Math.floor(this.x), Math.floor(this.z));
     return !!w && w.kind !== 'shallow';
   }
   /** Where their feet are drawn: the ground, or sunk into swimmable water. */
   private feetY(): number {
-    const w = this.map?.waterAt(Math.floor(this.x), Math.floor(this.z));
+    const w = this.map?.footWaterAt(Math.floor(this.x), Math.floor(this.z));
     return w && w.kind !== 'shallow' ? w.surface - SWIM_SINK + Math.sin(this.swimT * 3) * 0.03 : this.y;
   }
 

@@ -6,8 +6,12 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 61: active fighter's ring in their Database colour and a glowing outline on their card; self-switches
       (A–D per event, Set self switch command, page condition); a Switches window (+ / − / rename) wherever a switch
       is picked, the names kept in the Database.
-- [ ] Update 62: the scenery beyond the map edge follows the height of the edge tiles (cliff faces between steps);
+- [x] Update 62: the scenery beyond the map edge follows the height of the edge tiles (cliff faces between steps);
       bridges and platforms (plank, rope and stone bridges, docks; a "walk on top" prop setting).
+- [ ] Update 62b: height styles for raised and lowered ground, painted like water kinds with their own symbols:
+      Blocky (as now), Soft blocky (bevelled, rounded edges and corners), Smooth / hills (heights blended into rolling
+      hills), Cliffs (1×1 like blocks but jagged rock faces); waterfalls where water drops more than 2 heights.
+      (Props in water half-submerged: done in update 62.)
 - [ ] Update 63: window themes (Ember, Medieval Parchment, Medieval Wood, Dwarven, Elvish, Titan) for menus, text
       boxes and the HUD; a default in the Database, chosen by players in Settings; a preview page first.
 - [ ] Update 64: seven stats (STR melee, DEX ranged / accuracy / crits, AGI turn speed and evasion, END ailment
