@@ -51,7 +51,7 @@ export function placeDecks(map: TileMap, data: MapData, defOf: (type: string) =>
       y = Math.max(y, map.standY(nx + 0.5, nz + 0.5));
     }
     if (!Number.isFinite(y)) y = Math.max(...group.map((c) => map.standY(c.x + 0.5, c.z + 0.5)));
-    for (const c of group) { c.y = y; map.setDeck(c.x, c.z, y); }
+    for (const c of group) { c.y = y; map.setDeck(c.x, c.z, y, c.def.dir ?? 'any'); }
   }
   return [...cells.values()];
 }

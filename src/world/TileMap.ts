@@ -190,9 +190,31 @@ export class TileMap {
 
   /* Bridges and platforms: cells walked on at a deck's height (over water, chasms, lower ground). */
   private readonly decks = new Map<number, number>();
-  setDeck(x: number, z: number, y: number | null): void {
+  /** Which way each bridge piece runs ('h' east–west, 'v' north–south; platforms and docks: either way). */
+  private readonly deckDirs = new Map<number, 'h' | 'v' | 'any'>();
+  setDeck(x: number, z: number, y: number | null, dir: 'h' | 'v' | 'any' = 'any'): void {
     if (!this.inMap(x, z)) return;
-    if (y === null) this.decks.delete(z * this.w + x); else this.decks.set(z * this.w + x, y);
+    const i = z * this.w + x;
+    if (y === null) { this.decks.delete(i); this.deckDirs.delete(i); } else { this.decks.set(i, y); this.deckDirs.set(i, dir); }
+  }
+  /** The way a bridge piece runs, or null where there's none. */
+  deckDir(x: number, z: number): 'h' | 'v' | 'any' | null {
+    return this.inMap(x, z) ? this.deckDirs.get(z * this.w + x) ?? null : null;
+  }
+  /**
+   * Bridges keep walkers on them: from a piece running east–west they can only leave east or west (onto the next
+   * piece, the bank, or off an open end), north–south pieces only north or south; a piece beside it (a wide bridge)
+   * can always be stepped onto. Getting on works the same way: only along the bridge, never over its rails.
+   * `fx, fz`: the cell the walker is in; `tx, tz`: a cell part of them would move into; `y`: their feet.
+   */
+  deckStepOK(fx: number, fz: number, tx: number, tz: number, y: number): boolean {
+    if (fx === tx && fz === tz) return true;
+    const from = this.onDeck(fx, fz, y) ? this.deckDir(fx, fz) : null, to = this.onDeck(tx, tz, y) ? this.deckDir(tx, tz) : null;
+    if (!from && !to) return true;
+    if (from && to) return true;
+    const dx = tx - fx, dz = tz - fz;
+    const along = (d: 'h' | 'v' | 'any') => d === 'any' || (d === 'h' ? dz === 0 : dx === 0);
+    return along((from ?? to)!);
   }
   /** The height of a bridge or platform over this cell, or null. */
   deckAt(x: number, z: number): number | null {

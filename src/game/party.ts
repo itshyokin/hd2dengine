@@ -376,6 +376,7 @@ export class Ally implements AllyFighter {
     for (const [px, pz] of [[x - r, z - r * 0.6], [x + r, z - r * 0.6], [x - r, z + r * 0.6], [x + r, z + r * 0.6]]) {
       const cx = Math.floor(px), cz = Math.floor(pz);
       if (!m.inMap(cx, cz) || m.isBlocked(cx, cz) || m.inBox(px, pz)) return false;
+      if (!m.deckStepOK(Math.floor(this.x), Math.floor(this.z), cx, cz, this.y)) return false;
       if (Math.abs(m.standY(px, pz, this.y) - fromY) > 0.3) return false;
     }
     return true;

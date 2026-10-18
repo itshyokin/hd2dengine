@@ -268,6 +268,10 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
   Bridges have two levels: walked on from the bank, or swum and walked under from below (a gorge, a high bridge) when
   there's headroom; a low bridge stops a swimmer like a wall instead of letting them climb onto it. The party and
   enemies follow the same rules.
+  On a bridge, walkers move only along it: east–west pieces east or west, north–south pieces north or south (a piece
+  laid beside it, for a wider bridge, can be stepped onto). Nobody falls or jumps off the sides; they leave at the ends
+  (onto the bank, or off an open end like any ledge), and get on only from the ends too. Docks and platforms can be
+  walked in any direction.
 - **Beyond the edges follows the ground**: the scenery outside the map carries on at the height of the map's edge tiles
   (a −4 edge continues at −4), with rock faces where it steps up or down, and its trees, rocks and cliffs stand on it.
 - **Props in water** stand half under the surface instead of on the bed (a rock in a stream, a post in a pond).
