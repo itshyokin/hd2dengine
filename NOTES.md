@@ -2,33 +2,53 @@
 
 Kept in the project so they travel with the code. Tick them off as they're built.
 
+## Next (planned Oct 17)
+- [ ] Update 61: active fighter's ring in their Database colour and a glowing outline on their card; self-switches
+      (A–D per event, Set self switch command, page condition); a Switches window (+ / − / rename) wherever a switch
+      is picked, the names kept in the Database.
+- [ ] Update 62: the scenery beyond the map edge follows the height of the edge tiles (cliff faces between steps);
+      bridges and platforms (plank, rope and stone bridges, docks; a "walk on top" prop setting).
+- [ ] Update 63: window themes (Ember, Medieval Parchment, Medieval Wood, Dwarven, Elvish, Titan) for menus, text
+      boxes and the HUD; a default in the Database, chosen by players in Settings; a preview page first.
+- [ ] Update 64: seven stats (STR melee, DEX ranged / accuracy / crits, AGI turn speed and evasion, END ailment
+      resistance and a little HP, DEF, MAG, MDF); buffs and debuffs working in battle, Haste / Slow; a Shared skill
+      tree for the whole party (stamina and party-wide boosts, new members included).
+- [ ] Update 65: remove the action battle system (keep bumping into foes, and the sword / bow as field tools with the
+      bow's lock-on for sniping foes to start a battle); skills that only worked in real time removed or reworked;
+      Database forms reorganised Guerilla-style (all switches together at the top, then named sections with a jump bar)
+      and the tabs regrouped.
+
 ## World
-- [ ] Bridges and platforms; moving platforms (left ↔ right, rising ↔ falling).
-- [ ] Water at level 0: wet puddles on the floor, little splashes when walked through.
+- [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
+- [x] Shallow water to wade through, with ripples round the feet and splashing footsteps (earlier updates).
 - [x] Real-world date under the game time in the HUD (update 37). Events that happen on certain days or days of the week
       (every Saturday a certain enemy spawns in a certain place with rare items…).
+- [x] Enemies walking the maps as events, to bump into or attack to start a battle (earlier updates).
 
 ## Menus and saving
-- [ ] Journal: Achievements tab.
+- [x] Achievements: their own tab in the pause menu (update 48), with a points bar (update 57).
 - [ ] Journal: Story tab. Like the quest log but for the main storyline; each entry shows the game time and real-world
       date it was unlocked, with a screenshot of the moment (an event command "Story note" that takes it).
 
 ## Messages
-- [ ] Speech bubble position chosen in the editor (per message or per character), not a player setting.
-- [ ] Message window backgrounds: imported images, cropped like props (a "Window backgrounds" tab).
-      Default: white with black text. Text colour, bold, italic options.
+- [ ] Speech bubble position chosen in the editor (per message or per character). Now: text box styles choose
+      speech bubble or plain box (update 51), but above / below / top / bottom is still the player's setting.
+- [ ] Message window backgrounds: imported images, cropped like props. (Text box styles cover colours, bold, italic.)
 
 ## Abilities and combat
-- [ ] Turn-based battles, next steps: buffs in battle, swapping party members mid-battle (FFX), a battle backdrop
-      image per map, enemy spells that charge (and the party's Counterspell), Limit / Overdrive-style specials.
-- [ ] Classes: a class change screen at a trainer (an event command opening Abilities), class stat bonuses.
+- [x] Swapping party members mid-battle (Swap in the battle menu) and battle maps as backdrops (earlier updates).
+- [x] Spells that charge for turns, with chants (earlier updates).
+- [ ] Turn-based, next steps: buffs in battle (update 64), enemy spells that charge and the party's Counterspell,
+      Limit / Overdrive-style specials.
+- [ ] Classes: a class change screen at a trainer (an event command opening it), class stat bonuses. Now: Party → a
+      hero → Class changes it.
 
 ## Gathering
 - [ ] Fishing, next steps: cooking fish at a campfire; a reeling mini-game for big fish.
 
 ## Resting
-- [ ] Resting at a campfire: the hero sits down, the camera tilts up to the sky as day and night roll by fast, then
-      back down as the hero stands up.
+- [x] The Sleep command: the camera tilts up to the sky as the hours roll by, then back down (update 53).
+- [ ] The hero sits down at a campfire when resting there (before the sky turns).
 - [ ] Party members gather round a campfire and sit when the hero is within 3–5 tiles of it (they still get up to
       fight if the party is attacked).
 
