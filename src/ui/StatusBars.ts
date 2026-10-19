@@ -10,7 +10,7 @@ import type { PlayerStats } from '../game/stats';
 const BARS: ['mp' | 'hp' | 'xp', string][] = [['mp', 'MP'], ['hp', 'HP'], ['xp', 'EXP']];
 type BarKey = typeof BARS[number][0];
 
-export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string; /** The real moon's phase: a picture and its name. */ moon?: { svg: string; name: string; key: string }; /** The temperature here, "72°F". */ temp?: string }
+export interface ClockInfo { time: string; hour: number; night: number; weather: string; /** The real-world date (and season), under the game time. */ date?: string; /** The real moon's phase: a picture and its name. */ moon?: { svg: string; name: string; key: string }; /** The temperature here, "72°F". */ temp?: string; /** Riding: the horse's stamina shows in the ring instead. */ mount?: { sp: number; max: number; tired: boolean } }
 export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string; /** Disabled by an event (indoors): greyed with a red ✕. */ blocked?: boolean }
 
 /** The HUD pieces a player can move and scale. */
@@ -416,13 +416,16 @@ export class StatusBars {
       r.row.classList.toggle('low', f < 0.3);
     }
     // Stamina ring: shows while stamina is below full (or while arranging), fades a moment after it fills.
-    const sp = s.cfg.max.sp > 0 ? Math.max(0, Math.min(1, s.sp / s.cfg.max.sp)) : 1;
+    const mt = clock?.mount, tired = mt ? mt.tired : s.exhausted;
+    const sp = mt ? (mt.max > 0 ? Math.max(0, Math.min(1, mt.sp / mt.max)) : 1) : s.cfg.max.sp > 0 ? Math.max(0, Math.min(1, s.sp / s.cfg.max.sp)) : 1;
     this.stamina.style.setProperty('--sp', sp.toFixed(3));
     this.staminaFull = sp >= 0.999 ? this.staminaFull + dt : 0;
     this.stamina.classList.toggle('idle', this.staminaFull > 1.2);
-    this.stamina.classList.toggle('exhausted', s.exhausted);
-    this.stamina.classList.toggle('low', !s.exhausted && sp < 0.25);
-    this.stamina.setAttribute('aria-valuenow', String(Math.round(s.sp)));
+    this.stamina.classList.toggle('exhausted', tired);
+    this.stamina.classList.toggle('low', !tired && sp < 0.25);
+    this.stamina.classList.toggle('mount', !!mt);
+    this.stamina.setAttribute('aria-label', mt ? 'Horse stamina' : 'Stamina');
+    this.stamina.setAttribute('aria-valuenow', String(Math.round(mt ? mt.sp : s.sp)));
     const hp = s.cfg.max.hp > 0 ? s.hp / s.cfg.max.hp : 1;
     const danger = s.drowning || hp < 0.3;
     this.rows.get('hp')!.row.classList.toggle('danger', danger);

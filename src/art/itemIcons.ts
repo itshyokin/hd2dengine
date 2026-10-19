@@ -280,6 +280,14 @@ export const ITEM_ICONS: Record<string, { name: string; draw: Draw }> = {
     fill(p, (x, y) => x >= 11 && x <= 12.5 && y >= 3 && y <= 13.5, ['#fff4d8']);
     fill(p, (x, y) => x >= 5 && x <= 9 && y >= 5 && y <= 7, ['#ffd86a']);
   } },
+  saddle: { name: 'Saddle', draw: (p) => {
+    // The seat (a dipped curve), the horn at the front, the flap and a stirrup hanging below.
+    fill(p, (x, y) => y >= 5 && y <= 9 && x >= 2 && x <= 14 && y >= 5 + Math.round(2.2 - Math.abs(x - 8) * 0.38), ['#c8844a', '#9a5a2e', '#6a3a1a']);
+    fill(p, (x, y) => ell(x, y, 12.5, 4.5, 1.6, 1.8), ['#d89a5a', '#9a5a2e']);
+    fill(p, (x, y) => x >= 6 && x <= 10 && y >= 9 && y <= 11, ['#7a4220', '#5a2e14']);
+    line(p, 8, 11, 8, 13, 0.5, ['#c8c0b0']);
+    line(p, 6.5, 14, 9.5, 14, 0.6, ['#e0d8c8', '#a8a090']);
+  } },
   bag: { name: 'Pouch', draw: (p) => {
     fill(p, (x, y) => ell(x, y, 8, 10.5, 5.5, 4.5) || (x >= 6 && x <= 10 && y >= 4 && y <= 7), ['#c8946a', '#9a6a44', '#6a442a']);
     line(p, 5.5, 5, 10.5, 5, 0.6, ['#e0b43a']);

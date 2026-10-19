@@ -15,7 +15,7 @@ import { rankName, spellAtRank, spellMaxRank } from '../game/abilities';
 const n = (v: number, set: (x: number) => void, step = 1, min = 0, label = '') => numberInput(v, (x) => set(Math.max(min, x)), { step, min, 'aria-label': label, class: 'db-num' });
 
 /** A list on the left (with a "+ New" button) and the selected entry's form on the right. */
-function listLayout<T extends { id: string; name: string }>(list: T[], state: { sel: number }, label: string, make: (id: string) => T, form: (d: T) => HTMLElement[], rerender: () => void, empty: string): HTMLElement[] {
+export function listLayout<T extends { id: string; name: string }>(list: T[], state: { sel: number }, label: string, make: (id: string) => T, form: (d: T) => HTMLElement[], rerender: () => void, empty: string): HTMLElement[] {
   state.sel = Math.max(0, Math.min(state.sel, list.length - 1));
   const add = () => {
     let id = label.toLowerCase().replace(/\W+/g, '_'), k = 2;
@@ -35,7 +35,7 @@ function listLayout<T extends { id: string; name: string }>(list: T[], state: { 
 }
 
 /** Name and id fields (the id is what skills, events and saves refer to). */
-function nameId<T extends { id: string; name: string }>(list: T[], d: T, rerender: () => void, what: string): HTMLElement {
+export function nameId<T extends { id: string; name: string }>(list: T[], d: T, rerender: () => void, what: string): HTMLElement {
   return h('div', { class: 'field-row' },
     field('Name', textInput(d.name, (v) => { d.name = v.trim() || d.name; rerender(); }, { 'aria-label': `${what} name` })),
     field('Id', textInput(d.id, (v) => {

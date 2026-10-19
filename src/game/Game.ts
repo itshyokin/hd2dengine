@@ -90,7 +90,7 @@ import { classStatGear, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
-import type { CharacterDef, EncounterPick, EnemyDef, LevelRange, TroopDef } from '../world/types';
+import type { CharacterDef, EncounterPick, EnemyDef, HorseDef, LevelRange, TroopDef } from '../world/types';
 import { atLevel, partyLevel, rollLevel } from './enemyLevels';
 import { statusIconUrl } from '../art/statusIcons';
 import { elementIconUrl } from '../art/elementIcons';
@@ -128,6 +128,8 @@ import { waitForPlaytest } from '../shared/playtest';
 import { CharacterSprite, DIR_VECTOR } from './CharacterSprite';
 import { eventCovers } from '../world/eventArea';
 import { GameState } from './GameState';
+import { GALLOP_COST, HORSE_SCALE, JUMP_COST, RECOVER_AT, REST_GAIN, SEAT, findHorse, horseList, stars } from './horses';
+import { horseSheet } from '../art/horseArt';
 import { type Action, BINDINGS_VERSION, DEFAULT_BINDINGS, Input } from './Input';
 import { PlayerMotion } from './PlayerMotion';
 import { PlayerStats, configFromDb } from './stats';
@@ -777,6 +779,8 @@ export class Game {
         gold: (op, v) => { this.inventory.gold = Math.max(0, op === 'set' ? v : this.inventory.gold + v); if (op === 'add' && v > 0) { this.audio.play('coin'); this.log.add(`Received ${v} G`, 'loot'); } },
         name: (id) => this.items.get(id)?.name ?? id,
       },
+      stable: (c) => this.stableCommands(c),
+      horse: (c) => this.horseCommand(c),
       openShop: (c) => this.shop.show(c.name || 'Shop', shopGoods(c.goods, (id) => this.items.get(id)?.price ?? 0), c.canSell !== false, () => {}),
       sound: (src) => this.audio.play(src),
       music: (src, fade) => { this.musicOverride = src; this.updateAudio(0, fade ?? 1.5); },
@@ -845,6 +849,8 @@ export class Game {
   /** Build a map and put the player on it (or take over a neighbour already built beside it). The previous map goes. */
   private enterMap(name: string, data: MapData, start: Start | null, pre?: Preview): void {
     if (pre) pre.group.removeFromParent();
+    // Riding in: where the horse was (it waits outside an indoor map).
+    const fromMap = this.mapName, fromPos = this.motion ? { x: this.motion.x, z: this.motion.z } : null;
     this.leaveMap();
     this.mapName = name;
     this.cutThisVisit.clear();
@@ -914,12 +920,16 @@ export class Game {
     this.preloadBattleMaps(data);
 
     const s = start ?? this.findOpenTile(data);
+    const game = this;
     this.motion = new PlayerMotion({
       map: this.map,
       solidEvent: (x, z) => this.events.some((e) => e.solid && e.covers(x, z)),
       // Out of stamina: only walking (and crawling, so nobody gets stuck in a tunnel) until it refills.
-      has: (a) => this.state.has(a) && (a === 'crawl' || !this.stats.exhausted),
-      speed: this.stats.cfg.speed,
+      // Riding: no climbing or crawling; galloping while the horse has stamina.
+      has: (a) => (this.riding ? a === 'jump' || (a === 'run' && !this.horseTired) : this.state.has(a) && (a === 'crawl' || !this.stats.exhausted)),
+      get speed() { const h = game.riding; return h ? { ...game.stats.cfg.speed, walk: h.speed * 0.5, run: h.speed, wade: h.speed * 0.35 } : game.stats.cfg.speed; },
+      noSwim: () => !!this.riding,
+      leap: () => this.riding?.jump ?? null,
       ledges: this.stats.cfg.ledges,
       waterWalk: () => this.rings.waterWalk,
       current: (cx, cz) => {
@@ -944,6 +954,7 @@ export class Game {
     this.calmFor = 99;
     if (!this.onTitle) this.updateAudio(0);
     this.debug.setLights(this.lights.budget);
+    this.horseArrive(name, data, fromMap, fromPos);
     this.spawnAllies();
     this.buildPreviews();
   }
@@ -1689,6 +1700,7 @@ export class Game {
       this.updateTileAilment(dt);
       this.updateFires(dt);
     }
+    this.updateHorse(paused ? 0 : dt);
     // Quests: carried items count towards collect objectives; the tracker follows along.
     if (!paused && !this.onTitle) this.quests.itemsChanged();
     this.tracker.update(this.quests);
@@ -1765,6 +1777,7 @@ export class Game {
       date: `${new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}${this.season ? ` · ${SEASON_NAMES[this.season]}` : ''}`,
       moon: this.moonInfo(),
       temp: formatTemp(this.temperature(), this.settings.tempUnit ?? 'F'),
+      mount: this.riding && this.state.horse ? { sp: this.state.horse.sp, max: this.riding.stamina, tired: this.horseTired } : undefined,
     });
     this.debug.update(dt, this.time.hour, this.time.label(), this.post.lastDrawCalls, this.state.toJSON());
     this.input.endFrame();
@@ -1788,6 +1801,8 @@ export class Game {
       if (ev) { this.runEvent(ev); return; }
       if (fire) { this.openFire(fire); return; }
       if (forge) { this.openForge(); return; }
+      // Beside the rented horse: get on.
+      if (!rest && this.horseNear()) { i.consume('jump'); this.mount(); return; }
       // Facing a fishing spot: cast (with a rod in the bag).
       if (!rest) {
         const spot = this.fishSpotAhead();
@@ -1803,6 +1818,8 @@ export class Game {
     if (i.consume('cancel') && !this.motion.airborne && !this.motion.climbing) { this.openPauseMenu(); return; }
     // B / F / 3: the key item assigned to it (a lantern…) switches on or off; otherwise cast the readied shard — a
     // field spell (Light, Water Walk) switches on or off; the rest fire a bolt.
+    // Riding, B gets off the horse instead.
+    if (this.state.horse?.mounted && !this.motion.airborne && i.consume('ring')) this.dismount();
     if (i.consume('ring') && !this.motion.climbing) {
       const tool = this.inventory.bTool;
       if (tool && this.inventory.count(tool) > 0) this.toggleTool(tool);
@@ -1852,7 +1869,17 @@ export class Game {
     if (lock) this.player.faceToward(lock.x, lock.z);
     else if (res.face && !this.combat.busy) this.player.faceVector(...DIR_VECTOR[res.face]);
     this.applySkillStats();
-    this.stats.update(dt, { running: m.running && res.moving, climbing: m.climbing, swimming: m.swimming, jumped: !!res.jumped, mpDrain: this.rings.mpDrain * this.spellThrift });
+    const rh = this.riding;
+    this.stats.update(dt, { running: m.running && res.moving && !rh, climbing: m.climbing, swimming: m.swimming, jumped: !!res.jumped && !rh, mpDrain: this.rings.mpDrain * this.spellThrift });
+    // Riding: the horse's own stamina (galloping and jumping use it; walking and standing bring it back).
+    this.horseMoving = res.moving && !m.airborne;
+    if (rh && this.state.horse) {
+      const hs = this.state.horse;
+      if (res.jumped) hs.sp -= JUMP_COST;
+      hs.sp = m.running && res.moving ? hs.sp - GALLOP_COST * dt : Math.min(rh.stamina, hs.sp + REST_GAIN * dt);
+      if (hs.sp <= 0) { hs.sp = 0; if (!this.horseTired) this.menu.notice(`${rh.name} is out of breath`); this.horseTired = true; }
+      else if (this.horseTired && hs.sp >= rh.stamina * RECOVER_AT) this.horseTired = false;
+    }
     // Out of magic: the ring's power fades.
     if (this.rings.active && this.rings.mpDrain > 0 && this.stats.mp <= 0) { this.rings.off(); this.menu.notice(`${this.rings.ring?.name ?? 'The spell'} fades: out of MP`); }
     // Water Walk switches itself off when the hero walks from water back onto land.
@@ -1894,7 +1921,9 @@ export class Game {
       this.pendingEvent = null;
     }
     // Animated sheets have their own run, jump, climb and combat-stance animations; walk-only sheets speed up instead.
-    if (this.player.animated) this.player.animate(dt * (m.crawling ? 0.7 : 1), { moving: res.moving, running: m.running, airborne: m.airborne, climbing: m.climbing, combat: this.combat.locked });
+    // Riding: the hero sits still while the horse walks.
+    if (rh) this.player.animate(dt, false);
+    else if (this.player.animated) this.player.animate(dt * (m.crawling ? 0.7 : 1), { moving: res.moving, running: m.running, airborne: m.airborne, climbing: m.climbing, combat: this.combat.locked });
     else this.player.animate(dt * (m.running ? 1.6 : m.crawling ? 0.7 : 1), res.moving && !m.airborne);
     this.syncPlayer(dt);
     if (m.airborne || m.climbing) return;
@@ -1917,9 +1946,157 @@ export class Game {
     } else this.bumpT = 0;
   }
 
+  /* ---------------------------------------------------------------- horses */
+
+  /** The horse being ridden (its Database entry), or null. */
+  private get riding(): HorseDef | null { const h = this.state.horse; return h?.mounted ? findHorse(this.db, h.id) ?? null : null; }
+  /** The ridden horse ran out of stamina: no galloping until it gets some back. */
+  private horseTired = false;
+  private horseMoving = false;
+  private horseSprite: CharacterSprite | null = null;
+  private horseLook = '';
+
+  /** A stable: rent a horse (one at a time), or send yours home first. */
+  private stableCommands(c: Extract<Command, { cmd: 'stable' }>): Command[] {
+    const speaker = c.name || 'Stable keeper', h = this.state.horse;
+    if (h) {
+      const have = findHorse(this.db, h.id), where = h.mounted ? 'with you' : h.map === this.mapName ? 'just outside' : `at ${h.map.replace(/[_-]+/g, ' ')}`;
+      return [{ cmd: 'text', speaker, text: `You already have ${have?.name ?? 'a horse'} (${where}). One at a time! Send it home first: here, or with a Saddle from your bag.` },
+        { cmd: 'choice', options: ['Send it home', 'Never mind'], branches: [[{ cmd: 'horse', op: 'home' }], []], cancel: 1 }];
+    }
+    const list = horseList(this.db).filter((x) => !c.horses?.length || c.horses.includes(x.id));
+    if (!list.length) return [{ cmd: 'text', speaker, text: 'No horses today, sorry.' }];
+    return [{ cmd: 'text', speaker, text: `Need a horse? Faster on the road, and it jumps gaps. (You have ${this.inventory.gold} G.)` },
+      { cmd: 'choice', options: [...list.map((x) => `${x.name} ${stars(x.tier)} · ${x.price} G`), 'Never mind'], branches: [...list.map((x) => [{ cmd: 'horse', op: 'rent', id: x.id }] as Command[]), []], cancel: list.length }];
+  }
+
+  /** Rent a horse, send it home, get on or off (stables, the Saddle and events). What to say, if anything. */
+  private horseCommand(c: Extract<Command, { cmd: 'horse' }>): string | null {
+    const h = this.state.horse;
+    switch (c.op) {
+      case 'rent': {
+        const d = findHorse(this.db, c.id) ?? horseList(this.db)[0];
+        if (!d) return null;
+        if (h) return 'You already have a horse: send it home first.';
+        if (!c.free) {
+          if (this.inventory.gold < d.price) return `Not enough gold: ${d.name} costs ${d.price} G.`;
+          this.inventory.gold -= d.price;
+          this.audio.play('coin');
+        }
+        const spot = this.horseSpot();
+        this.state.horse = { id: d.id, map: this.mapName, x: spot.x, z: spot.z, dir: this.player.dir, sp: d.stamina };
+        this.horseTired = false;
+        // A Saddle comes with it (to send it home from anywhere), if the game has one.
+        const saddle = [...this.items.values()].find((x) => x.saddle);
+        if (saddle && this.inventory.count(saddle.id) < 1) this.inventory.add(saddle.id, 1);
+        this.log.add(`Rented ${d.name}`, 'loot');
+        return `${d.name} is yours to ride! ${this.input.label('ok')} beside it to get on, ${this.input.label('ring')} to get off.`;
+      }
+      case 'home': {
+        if (!h) return 'You don’t have a horse.';
+        const d = findHorse(this.db, h.id);
+        this.state.horse = null;
+        this.horseTired = false;
+        this.syncPlayer();
+        this.log.add(`${d?.name ?? 'Your horse'} went home`, 'info');
+        return `${d?.name ?? 'Your horse'} trots off home to its stable.`;
+      }
+      case 'mount': if (h && !h.mounted) { if (h.map !== this.mapName) { h.map = this.mapName; h.x = this.motion.x; h.z = this.motion.z; } this.mount(); } return null;
+      case 'dismount': this.dismount(); return null;
+    }
+    return null;
+  }
+
+  /** Where a newly rented horse stands: a free spot beside the hero. */
+  private horseSpot(): { x: number; z: number } {
+    const m = this.motion, [fx, fz] = DIR_VECTOR[this.player.dir];
+    for (const [ax, az] of [[fz, -fx], [-fz, fx], [-fx, -fz], [fx, fz]]) {
+      const x = m.x + ax * 1.2, z = m.z + az * 1.2;
+      if (m.groundFree(x, z, m.y)) return { x, z };
+    }
+    return { x: m.x, z: m.z };
+  }
+
+  /** Close enough to the (unridden) horse to get on. */
+  private horseNear(): boolean {
+    const h = this.state.horse;
+    return !!h && !h.mounted && h.map === this.mapName && !this.motion.swimming && Math.hypot(h.x - this.motion.x, h.z - this.motion.z) < 1.5;
+  }
+
+  private mount(): void {
+    const h = this.state.horse, m = this.motion;
+    if (!h || h.mounted) return;
+    if (h.map === this.mapName && m.groundFree(h.x, h.z, m.y)) m.place(h.x, h.z);
+    h.mounted = true;
+    this.player.faceVector(...DIR_VECTOR[h.dir]);
+    this.audio.play('jump');
+    this.syncPlayer();
+  }
+
+  /** Off the horse: it stays where it is (saved on this map); the hero steps down beside it. */
+  private dismount(): void {
+    const h = this.state.horse, m = this.motion;
+    if (!h?.mounted) return;
+    h.mounted = false;
+    h.map = this.mapName; h.x = m.x; h.z = m.z; h.dir = this.player.dir;
+    const [fx, fz] = DIR_VECTOR[this.player.dir];
+    // Step down beside it: either side, behind, in front, then the corners.
+    const tries = [[fz, -fx], [-fz, fx], [-fx, -fz], [fx, fz], [fz - fx, -fx - fz], [-fz - fx, fx - fz], [fz + fx, fz - fx], [fx - fz, fx + fz]];
+    for (const r of [0.9, 1.3]) {
+      const t = tries.find(([ax, az]) => { const l = Math.hypot(ax, az); return m.groundFree(m.x + (ax / l) * r, m.z + (az / l) * r, m.y); });
+      if (t) { const l = Math.hypot(t[0], t[1]); m.place(m.x + (t[0] / l) * r, m.z + (t[1] / l) * r); break; }
+    }
+    this.horseTired = false;
+    this.audio.play('jump');
+    this.syncPlayer();
+  }
+
+  /** Arriving on a map riding: the horse comes along, or waits outside an indoor map (where the hero left from). */
+  private horseArrive(name: string, data: MapData, fromMap: string, fromPos: { x: number; z: number } | null): void {
+    const h = this.state.horse;
+    if (!h?.mounted) return;
+    if ((data.environment ?? 'outdoor') !== 'outdoor' && fromMap && fromPos) {
+      h.mounted = false; h.map = fromMap; h.x = fromPos.x; h.z = fromPos.z;
+      this.horseTired = false;
+      this.syncPlayer();
+      this.menu.notice(`${findHorse(this.db, h.id)?.name ?? 'Your horse'} waits outside`);
+    } else h.map = name;
+  }
+
+  /** The horse on the map: under the rider, or standing where it was left (getting its breath back). */
+  private updateHorse(dt: number): void {
+    const h = this.state.horse, d = h ? findHorse(this.db, h.id) : undefined;
+    if (!h || !d) { if (this.horseSprite) { this.horseSprite.mesh.removeFromParent(); this.horseSprite = null; } return; }
+    const look = `${d.color}|${d.mane}`;
+    if (!this.horseSprite || this.horseLook !== look) {
+      this.horseSprite?.mesh.removeFromParent();
+      this.horseSprite = new CharacterSprite(this.sprites, this.sprites.sheet(horseSheet(d.color, d.mane)), h.dir);
+      this.horseSprite.mesh.scale.setScalar(HORSE_SCALE);
+      this.horseLook = look;
+      this.scene.add(this.horseSprite.mesh);
+    }
+    const s = this.horseSprite, m = this.motion;
+    s.mesh.visible = !this.onTitle && !this.battle.active && !!m && (h.mounted ? this.player.mesh.visible : h.map === this.mapName);
+    if (!h.mounted) h.sp = Math.min(d.stamina, h.sp + REST_GAIN * dt);
+    if (!s.mesh.visible) return;
+    if (h.mounted) {
+      // Just behind the rider (so the rider draws in front).
+      s.position.set(m.x, m.y, m.z - 0.03);
+      s.faceVector(...DIR_VECTOR[this.player.dir]);
+      s.animate(dt * (m.running ? 1.9 : 1.1), this.horseMoving);
+      h.dir = this.player.dir;
+    } else {
+      s.position.set(h.x, this.map.standY(h.x, h.z), h.z);
+      s.faceVector(...DIR_VECTOR[h.dir]);
+      s.animate(dt, false);
+    }
+  }
+
   /** Out of health: fade out, then back to the respawn point with full stats. */
   private die(): void {
     if (this.dying) return;
+    // The horse stays where its rider fell.
+    this.dismount();
     this.dying = 1;
     // Out of health while swimming: the hero sinks under and drowns.
     this.drowning = this.motion.swimming;
@@ -2524,6 +2701,8 @@ export class Game {
   /** Switch a key item's field use (a lantern, water-walking boots) on or off; another one in use goes off first. */
   private toggleTool(id: string): string | null {
     const d = this.items.get(id);
+    // A Saddle: the rented horse goes home.
+    if (d?.saddle) return this.horseCommand({ cmd: 'horse', op: 'home' });
     // EXP All: on or off (those sitting battles out share the EXP while it's on).
     if (d?.exp?.all) {
       const on = this.state.expAllOff.has(id);
@@ -3923,6 +4102,8 @@ export class Game {
         run: (a) => run([{ cmd: 'weather', kind: need(a[0], 'weather') as WeatherKind, amount: num(a[1], 1) }]) },
       { name: 'season', args: '<spring|summer|autumn|winter|auto>', help: 'Show a season (auto: the real one)', complete: () => ['spring', 'summer', 'autumn', 'winter', 'auto'],
         run: (a) => { const v = need(a[0], 'season'); this.seasonTest = v === 'auto' ? null : v as Season; return `Season: ${v}`; } },
+      { name: 'horse', args: '[horse id|home|on|off]', help: 'Get a horse for free (or send it home, get on, get off)', complete: () => [...horseList(this.db).map((x) => x.id), 'home', 'on', 'off'],
+        run: (a) => run([a[0] === 'home' ? { cmd: 'horse', op: 'home' } : a[0] === 'on' ? { cmd: 'horse', op: 'mount' } : a[0] === 'off' ? { cmd: 'horse', op: 'dismount' } : { cmd: 'horse', op: 'rent', id: a[0], free: true }]) },
       { name: 'battle', args: '<troop|enemy…>', help: 'Start a battle with a troop or some enemies', complete: () => [...ids(this.db.troops), ...ids(this.db.enemies)],
         run: (a) => {
           const troop = this.db.troops?.find((t) => t.id === a[0]);
@@ -5493,7 +5674,8 @@ export class Game {
   /** Put the sprite where the motion says, squashed down while crawling. */
   private syncPlayer(dt = 0): void {
     const m = this.motion, p = this.player.position;
-    p.set(m.x, m.y, m.z);
+    // Riding: up in the saddle.
+    p.set(m.x, m.y + (this.state.horse?.mounted ? SEAT : 0), m.z);
     this.crouch += ((m.crawling ? 1 : this.combat.sneaking ? 0.3 : 0) - this.crouch) * (dt ? 1 - Math.exp(-dt * 14) : 1);
     this.player.mesh.scale.set(1 + this.crouch * 0.12, 1 - this.crouch * 0.42, 1);
     this.touch?.update((a) => this.state.has(a));

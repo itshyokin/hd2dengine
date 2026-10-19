@@ -44,6 +44,10 @@ export interface EventContext {
   };
   /** Open a shop; the event waits until the player leaves it. */
   openShop(c: Extract<Command, { cmd: 'shop' }>): void;
+  /** A stable: the commands to run (what the stable keeper says, the horses to pick from). */
+  stable?(c: Extract<Command, { cmd: 'stable' }>): Command[];
+  /** The rented horse: rent, send home, get on or off. What to say (or nothing). */
+  horse?(c: Extract<Command, { cmd: 'horse' }>): string | null;
   /** Sound: an effect, the music and the background sound (undefined = back to the map's own). */
   sound(src: string): void;
   music(src: string | undefined, fade?: number): void;
@@ -218,6 +222,16 @@ export class Interpreter {
         message.close();
         this.ctx.openShop(c);
         break;
+      case 'stable': {
+        const list = this.ctx.stable?.(c) ?? [];
+        if (list.length) this.stack.push({ list, i: 0 });
+        break;
+      }
+      case 'horse': {
+        const say = this.ctx.horse?.(c);
+        if (say) message.showText(say, undefined, next?.cmd === 'choice');
+        break;
+      }
       case 'sound': this.ctx.sound(c.sound); break;
       case 'music': this.ctx.music(c.music, c.fade); break;
       case 'ambience': this.ctx.ambience(c.ambience); break;

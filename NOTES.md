@@ -82,7 +82,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
       (Done in update 66; the overdrive gauge fills as the boss is hurt and makes its next move hit half again as hard.)
 
 ## Travel (ideas, Oct 17)
-- [ ] Horses: rented at stables (one at a time, tiers with their own stamina and jump, priced by tier); A next to
+- [x] Horses (update 75): rented at stables (one at a time, tiers with their own stamina and jump, priced by tier); A next to
       the horse mounts, B dismounts (B's key item / spell otherwise); faster on the map; jump 1★ 3 tiles, 2★ 4,
       3★ 5; left where the player got off (saved per map); a Saddle key item sends it home to its stable (so a new
       one can be rented elsewhere). Not shown in battles; still mounted after one. Placeholder horse art for now.

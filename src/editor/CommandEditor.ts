@@ -2,6 +2,7 @@
  * Event command list: a readable outline of an event's commands (with nested branches)
  * and a form dialog for each command type.
  */
+import { findHorse, horseList, stars } from '../game/horses';
 import type { EncounterPick } from '../world/types';
 import { SELF_SWITCHES, type SelfSwitch } from '../world/types';
 import { WEEKDAYS } from '../world/seasons';
@@ -23,7 +24,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
   ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
-  ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
+  ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
   ['battle', 'Start battle'], ['learn', 'Teach spell / Addition'], ['heroClass', 'Change class'],
@@ -31,7 +32,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 
 const CATEGORY: Record<Cmd, string> = {
   text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
-  giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
+  giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
 };
@@ -60,6 +61,8 @@ function defaultCommand(cmd: Cmd): Command {
     case 'takeItem': return { cmd, item: '', count: 1 };
     case 'gold': return { cmd, op: 'add', value: 10 };
     case 'shop': return { cmd, goods: [], canSell: true };
+    case 'stable': return { cmd };
+    case 'horse': return { cmd, op: 'rent', free: true };
     case 'sound': return { cmd, sound: 'item' };
     case 'music': return { cmd, music: 'builtin:field', fade: 1.5 };
     case 'ambience': return { cmd, ambience: 'builtin:wind' };
@@ -205,6 +208,8 @@ function summary(c: Command): string {
       if (c.op === 'objective') return `${q}: ${objectiveName(c.quest, c.objective)}${c.add !== undefined ? ` ${c.add < 0 ? '−' : '+'}${Math.abs(c.add)}` : ' done'}`;
       return `${{ start: 'Start', complete: 'Complete', fail: 'Fail', reset: 'Forget', objective: '' }[c.op]} ${q}`;
     }
+    case 'stable': return `${c.name || 'Stable'}: ${c.horses?.length ? c.horses.map((id) => (dbNow ? findHorse(dbNow(), id)?.name : undefined) ?? id).join(', ') : 'every horse'}`;
+    case 'horse': return c.op === 'rent' ? `Rent ${(dbNow ? findHorse(dbNow(), c.id)?.name : undefined) ?? 'a horse'}${c.free ? ' (free)' : ''}` : c.op === 'home' ? 'Send the horse home' : c.op === 'mount' ? 'Get on the horse' : 'Get off the horse';
     case 'shop': return `${c.name || 'Shop'}: ${c.goods.length ? c.goods.map((g) => itemName(g.item)).join(', ') : 'nothing for sale'}${c.canSell === false ? ' (no selling)' : ''}`;
   }
 }
@@ -706,6 +711,20 @@ export class CommandEditor {
           field('Class', select(classes.length ? classes : [['', '(add classes in Database → Classes)']], d.cls, (v) => (d.cls = v))),
           checkbox('Quietly (no message)', !!d.silent, (v) => (d.silent = v || undefined)),
           h('p', { class: 'hint' }, 'A class opens its skill trees. Changing class keeps every skill, spell and Addition already learned.')];
+      }
+      case 'stable': {
+        const all = horseList(this.store.db), on = new Set(d.horses ?? []);
+        return [field('Keeper’s name', textInput(d.name ?? '', (v) => (d.name = v.trim() || undefined), { placeholder: 'Stable keeper' })),
+          h('div', { class: 'field' }, h('label', {}, 'Horses for rent (none ticked: all of them)'),
+            ...all.map((x) => checkbox(`${x.name} ${stars(x.tier)} · ${x.price} G`, on.has(x.id), (v) => { if (v) on.add(x.id); else on.delete(x.id); const l = all.filter((y) => on.has(y.id)).map((y) => y.id); if (l.length) d.horses = l; else delete d.horses; }))),
+          h('p', { class: 'hint' }, 'The keeper offers these (Database → Horses). One horse at a time: with one already, they offer to send it home. A rented horse stands beside the hero; the Talk button beside it gets on, B gets off, and it stays where it was left. A key item marked Saddle (Database → Items) comes with it, to send it home from anywhere.')];
+      }
+      case 'horse': {
+        const all = horseList(this.store.db);
+        return [field('Do', select([['rent', 'Give a horse (rent one)'], ['home', 'Send the horse home'], ['mount', 'Put the hero on the horse'], ['dismount', 'Get the hero off the horse']], d.op, (v) => (d.op = v as typeof d.op))),
+          field('Horse (giving one)', select(all.map((x) => [x.id, `${x.name} ${stars(x.tier)}`] as [string, string]), d.id ?? all[0]?.id ?? '', (v) => (d.id = v))),
+          checkbox('Free (no gold taken)', !!d.free, (v) => { if (v) d.free = true; else delete d.free; }),
+          h('p', { class: 'hint' }, 'For story moments: a horse given as a reward, sent home before a cave, the hero put on it for a ride. Getting off leaves it here.')];
       }
       case 'shop': {
         const goods = h('div', { class: 'shop-goods' });

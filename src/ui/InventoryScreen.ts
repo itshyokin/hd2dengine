@@ -287,6 +287,8 @@ export class InventoryScreen {
       options.push({ label: on ? 'Turn off' : 'Turn on', run: () => after(this.actions.toggleTool!(this.sel)) });
       if (def.tool && this.actions.assignB) options.push({ label: inv.bTool === s.id ? `Take off the ${b} button` : `Assign to the ${b} button`, run: () => after(this.actions.assignB!(this.sel)) });
     }
+    // A Saddle: send the rented horse home (so another can be rented).
+    if (def?.saddle && this.actions.toggleTool) options.push({ label: 'Send your horse home', run: () => after(this.actions.toggleTool!(this.sel)) });
     // In use: let go of it (it stays in the bag).
     const user = this.actions.usedBy?.(this.sel);
     if (user && this.actions.takeOff) options.push({ label: user.startsWith('In ') ? `Take it out of ${user.slice(3)}` : `Take it off ${user}`, run: () => after(this.actions.takeOff!(this.sel)) });
@@ -494,7 +496,7 @@ export class InventoryScreen {
 }
 
 function kindLine(d: ItemDef): string {
-  if (d.kind === 'key') return `Key item${d.tool ? ` · ${POWER_NAMES[d.tool]} (switch on and off here, or assign it to B)` : d.exp?.all ? ` · EXP All: those sitting a battle out get ${d.exp.share}% (switch on and off here)` : ''}`;
+  if (d.kind === 'key') return `Key item${d.tool ? ` · ${POWER_NAMES[d.tool]} (switch on and off here, or assign it to B)` : d.exp?.all ? ` · EXP All: those sitting a battle out get ${d.exp.share}% (switch on and off here)` : d.saddle ? ' · Saddle: sends your rented horse home' : ''}`;
   if (d.kind === 'material') return `Loot${d.fuel ? ` · fire fuel +${d.fuel} h` : ''}${d.smelt ? ' · smelt it at a forge' : ''}`;
   if (d.kind === 'ammo') return `Arrows${d.element && d.element !== 'neutral' ? ` · ${ELEMENT_NAMES[d.element]}` : ''} · +${d.ammo?.damage ?? 0} damage${d.ammo?.infinite ? ' · never run out' : ''}`;
   if (d.kind === 'equipment') {

@@ -1,4 +1,7 @@
 import { organizeForm } from './formLayout';
+import { horsesTab } from './HorsesEditor';
+import { DEFAULT_HORSES, horseList } from '../game/horses';
+import type { HorseDef } from '../world/types';
 import { UI_THEMES } from '../ui/themes';
 import type { HeroDef } from '../world/types';
 import { toast } from './dom';
@@ -55,7 +58,7 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
@@ -64,11 +67,12 @@ const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
-  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin']]],
+  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Horses', 'horse']]],
   ['Game', [['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
   person: '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  horse: '<path d="M5 20v-6l2-4h7l3-5 2 1-1 3 2 2-1 2-2-1-1 2v6M7 20v-4M14 20v-4"/><path d="M15 5l1-2"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
   sprite: '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="9" r="2.5"/><path d="M8 17c1-2.5 7-2.5 8 0"/>',
   badge: '<circle cx="12" cy="9" r="5"/><path d="M9 13.5L7 21l5-2.5 5 2.5-2-7.5"/>',
@@ -122,6 +126,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const spellState = { sel: 0 }, additionState = { sel: 0 }, classState = { sel: 0 };
   const troops: TroopDef[] = JSON.parse(JSON.stringify(store.db.troops ?? []));
   const troopState = { sel: 0 };
+  const horses: HorseDef[] = structuredClone(horseList(store.db)), horseState = { sel: 0 };
   const achievements: AchievementDef[] = JSON.parse(JSON.stringify(store.db.achievements ?? []));
   const achState = { sel: 0 };
   const markers: MarkerKind[] = structuredClone(markerKinds(store.db.markers));
@@ -192,6 +197,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       case 'spells': return L(spells, spellState);
       case 'additions': return L(additions, additionState);
       case 'classes': return L(classes, classState);
+      case 'horses': return L(horses, horseState);
       case 'achievements': return L(achievements, achState);
       case 'messageStyles': return L(msgStyles, msgState);
       case 'mapThemes': return L(themes, themeState);
@@ -296,6 +302,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
     if (tab === 'additions') { content.replaceChildren(...additionsTab(additions, additionState, render)); return; }
     if (tab === 'classes') { content.replaceChildren(...classesTab(classes, skills, classState, render)); return; }
+    if (tab === 'horses') { content.replaceChildren(...horsesTab(horses, horseState, render)); return; }
     if (tab === 'audio') { content.replaceChildren(...audioTab(store, audio, render)); return; }
     if (tab === 'combat') { content.replaceChildren(...combatTab(combat)); return; }
     if (tab === 'enemies') { content.replaceChildren(...enemiesTab(store, enemies, enemyState, render)); return; }
@@ -495,6 +502,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const additionsOut = JSON.stringify(additions) === JSON.stringify(DEFAULT_ADDITIONS) && !db.additions ? null : additions;
       const classesOut = classes.length ? classes : null;
       const troopsOut = troops.length ? troops : null;
+      const horsesOut = JSON.stringify(horses) === JSON.stringify(DEFAULT_HORSES) && !db.horses ? null : horses.length ? horses : null;
       const achOut = achievements.length ? achievements : null;
       const dcOut = devConsole === 'playtest' ? null : devConsole;
       const markersOut = JSON.stringify(markers) === JSON.stringify(markerKinds(undefined)) ? null : markers;
@@ -513,7 +521,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(heroesOut) === JSON.stringify(db.heroes?.length ? db.heroes : null) &&
         JSON.stringify(spellsOut) === JSON.stringify(db.spells ?? null) && JSON.stringify(additionsOut) === JSON.stringify(db.additions ?? null) &&
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
-        JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) &&
+        JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
         JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null)) return 'same';
       store.checkpoint();
@@ -537,6 +545,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (additionsOut) db.additions = C(additionsOut); else delete db.additions;
       if (classesOut) db.classes = C(classesOut); else delete db.classes;
       if (troopsOut) db.troops = C(troopsOut); else delete db.troops;
+      if (horsesOut) db.horses = C(horsesOut); else delete db.horses;
       if (achOut) db.achievements = C(achOut); else delete db.achievements;
       if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
       if (markersOut) db.markers = C(markersOut); else delete db.markers;

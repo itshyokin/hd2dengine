@@ -4183,6 +4183,14 @@
         "stat": "dex",
         "rank": "A"
       }
+    },
+    {
+      "id": "saddle",
+      "name": "Saddle",
+      "kind": "key",
+      "icon": "builtin:saddle",
+      "description": "Your rented horse's saddle. Use it to send the horse home to its stable.",
+      "saddle": true
     }
   ],
   "enemies": [

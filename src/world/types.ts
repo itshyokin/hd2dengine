@@ -285,6 +285,10 @@ export type Command =
   | { cmd: 'gold'; op: 'add' | 'set'; value: number; silent?: boolean }
   /** A shop: what it sells (price overrides optional) and whether the player can sell to it. */
   | { cmd: 'shop'; goods: { item: string; price?: number }[]; canSell?: boolean; name?: string }
+  /** A stable: rent one of these horses (Database → Horses; empty: all of them), or send yours home. */
+  | { cmd: 'stable'; horses?: string[]; name?: string }
+  /** The rented horse: rent one (free, from an event), send it home, get on or off. */
+  | { cmd: 'horse'; op: 'rent' | 'home' | 'mount' | 'dismount'; id?: string; free?: boolean }
   /** Move the player to a map (this one or another) at x, z. Ends the event. */
   | { cmd: 'transfer'; map: string; x: number; z: number; dir?: Dir; fade?: 'black' | 'white' | 'none' }
   /** Play a sound effect (a built-in name like "levelUp", or a file path). */
@@ -547,6 +551,26 @@ export interface TroopDef {
    * wild encounter), or one at a time, the next stepping in as each falls (a trainer). Up to eight in Single mode.
    */
   pick?: EncounterPick;
+}
+
+/** A horse to rent at a stable: faster on the map, its own stamina, and a jump over gaps. */
+export interface HorseDef {
+  id: string;
+  name: string;
+  description?: string;
+  /** 1 – 3 stars. */
+  tier: number;
+  /** Gold to rent it. */
+  price: number;
+  /** Galloping speed, tiles a second (walking is a little over half). */
+  speed: number;
+  /** Its stamina: galloping and jumping use it, walking and standing bring it back. */
+  stamina: number;
+  /** How far it jumps, in tiles (over gaps, streams, fences). */
+  jump: number;
+  /** Placeholder art: its coat and its mane and tail. */
+  color: string;
+  mane: string;
 }
 
 /** Single battle mode: all at once (a swarm), one picked at random (a wild encounter) or one at a time (a trainer). */
@@ -868,6 +892,8 @@ export interface Database {
   skills?: SkillsData;
   /** Troops: groups of enemies for random encounters (encounter zones on maps). */
   troops?: TroopDef[];
+  /** Horses rented at stables (Database → Horses; unset: the built-in three). */
+  horses?: HorseDef[];
   /** Learned spells, Additions and classes (built-in ones when left out). */
   spells?: SpellEntry[];
   additions?: AdditionDef[];
@@ -1030,6 +1056,8 @@ export interface ItemDef {
   tool?: FieldPower;
   /** Weapons: breaks rock (pickaxes, hammers): mineable boulders and ore veins. */
   mines?: boolean;
+  /** Key items: a Saddle (using it from the bag sends the rented horse home to its stable). */
+  saddle?: boolean;
   /** A fishing rod: with one in the bag, Talk / interact facing a fishing spot casts. `power` (0 … 100) brings bites sooner and rarer fish. */
   rod?: { power?: number };
   /** A fish: its usual length in cm (each catch is a little bigger or smaller; Records keep the biggest). */

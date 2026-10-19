@@ -786,6 +786,26 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 - Built-in sprites for events: **Chest**, **Chest (open)** and **Item sparkle** (which glows in the dark).
 - The sample map starts with 60 gold, 2 potions and some bread; a potion sparkle lies by the path.
 
+### Horses
+
+Stables rent horses: the event command **Stable** (Items group) has the keeper offer the horses you tick (none
+ticked: all of them), each with its stars and price. **Database → Horses** sets each one: stars (1 – 3), price,
+galloping speed, stamina, jump length and its colours (placeholder art for now). The built-in three: a Brown Horse
+(★, 200 G, jumps 3 tiles), a Grey Steed (★★, 600 G, 4 tiles) and a Black Charger (★★★, 1500 G, 5 tiles).
+
+- **One at a time.** A rented horse stands beside the hero. The Talk button beside it gets on; **B** gets off (while
+  riding, B does that instead of the key item or spell on it). It stays where it was left, on that map, and in saves.
+- **Riding**: walking is half the gallop; running gallops. The horse has its own **stamina**, shown in the stamina
+  ring: galloping and jumping use it, walking and standing bring it back; run out and it can only walk until it has
+  its breath back. **Jump** while moving is a long leap (the horse's jump length) over gaps, streams and fences. No
+  climbing, crawling or swimming: water too deep to wade stops the horse. It **waits outside** an indoor map (where
+  the hero went in). Battles don't show it, and the hero is still riding afterwards.
+- **Sending it home**: a key item marked **Saddle** (Database → Items → Field use; the project has one) comes with
+  a rented horse; *Send your horse home* from the bag returns it to its stable, so another can be rented anywhere.
+  A stable keeper offers the same when you already have one.
+- The event command **Horse** gives one (free or not), sends it home, or puts the hero on or off it, for story
+  moments. Console: `horse grey_steed` (free), `horse home`, `horse on`, `horse off`.
+
 ### On the map: the sword, the bow and starting battles
 
 Battles are turn-based (next section); the real-time battle system was removed in update 65. On the map:

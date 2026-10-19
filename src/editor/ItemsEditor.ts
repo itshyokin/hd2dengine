@@ -214,6 +214,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
         rerender();
       }), 'Light: a lantern, torch or floating orb lights the way in the dark. Water Walk: walk on water of any depth (it switches off back on land). The player switches it on and off in the bag, or assigns it to the B button. No magic needed.'),
       d.tool === 'light' ? lightForm(d, rerender) : h('span'),
+      d.tool ? h('span') : checkbox('Saddle: using it from the bag sends the rented horse home (stables give one with a horse)', !!d.saddle, (v) => { if (v) d.saddle = true; else delete d.saddle; }),
       d.tool ? h('span') : field('EXP All: % for everyone sitting a battle out', numberInput(d.exp?.all ? d.exp.share : 0, (v) => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n) d.exp = { share: n, all: true }; else delete d.exp; }, { step: 5, min: 0, max: 100 }),
         'While held and switched on (the player switches it on and off in the bag’s Key items), everyone on the bench gets this percent of the foes’ EXP. Fighters always get the most. 0: not an EXP All.')));
   }

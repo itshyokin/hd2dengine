@@ -43,6 +43,10 @@ export interface MotionWorld {
   ledges?: LedgeRules;
   /** A ring power lets the player walk on water (any depth) as if it were ground. */
   waterWalk?(): boolean;
+  /** Riding: water too deep to wade stops the horse (it doesn't swim). */
+  noSwim?(): boolean;
+  /** Riding: a jump is a leap this many tiles long the way the horse is going (null: an ordinary jump). */
+  leap?(): number | null;
   /** The current at a cell (tiles per second, east and south): rivers carry swimmers along. */
   current?(cx: number, cz: number): [number, number] | null;
 }
@@ -166,8 +170,17 @@ export class PlayerMotion {
     this.running = inp.run && !inp.sneak && this.w.has('run') && !here && !this.crawling;
 
     if (inp.jump && this.w.has('jump') && !this.crawling && here?.kind !== 'swim') {
-      const sp = this.sp, speed = here ? sp.wade : this.running ? sp.run : sp.walk;
-      const fy = this.stand(this.x, this.z);
+      const sp = this.sp, fy = this.stand(this.x, this.z);
+      // Riding and moving: a leap of the horse's length, the way it's going.
+      const leap = (inp.dx || inp.dz) && !here ? this.w.leap?.() ?? null : null;
+      if (leap) {
+        const vy = Math.sqrt(2 * GRAVITY * 1.0), air = (2 * vy) / GRAVITY, len = Math.hypot(inp.dx, inp.dz);
+        this.state = { kind: 'air', vy, speed: leap / air, from: [this.x, fy, this.z], auto: [inp.dx / len, inp.dz / len] };
+        this.y = fy;
+        res.face = faceOf(inp.dx, inp.dz);
+        return { ...this.updateAir(dt, inp, this.state), face: res.face, jumped: true };
+      }
+      const speed = here ? sp.wade : this.running ? sp.run : sp.walk;
       this.state = { kind: 'air', vy: JUMP_SPEED, speed, from: [this.x, fy, this.z] };
       this.y = fy;
       this.crawling = false;
@@ -252,6 +265,8 @@ export class PlayerMotion {
     const m = this.map;
     if (m.isSolid(cx, cz) || this.w.solidEvent(cx, cz)) return true;
     if (m.isLow(cx, cz)) return air || !this.w.has('crawl');
+    // A horse doesn't swim: water deeper than wading stops it (unless walking on water).
+    if (!air && !this.onWater && this.w.noSwim?.()) { const w = m.waterAt(cx, cz); if (w && w.kind !== 'shallow' && !m.onDeck(cx, cz, this.y)) return true; }
     return !air && (this.onWater ? m.isSolid(cx, cz) : m.isBlocked(cx, cz));
   }
 

@@ -73,6 +73,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   (`TroopDef.pick`); Game's `singlePool` limits who can swap in.
 - 74: Single mode defaults: Game's `pickFor()` (troop / event `pick`, then `MapData.encounterPick`, then
   `turnBased.singlePick`, default wild).
+- 75: horses (`src/game/horses.ts`, `src/art/horseArt.ts`; `GameState.horse`; Game's `riding`, `mount`,
+  `dismount`, `updateHorse`, `horseArrive`; Stable / Horse event commands; PlayerMotion `noSwim` and `leap`).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

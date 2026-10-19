@@ -715,3 +715,5 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .seq-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
 .seq-slot { display: inline-flex; gap: 2px; align-items: center; }
 .seq-slot select { width: 56px; }
+/* Database → Horses: the placeholder horse, big and crisp. */
+.horse-preview { image-rendering: pixelated; background: rgba(120, 170, 100, 0.25); border-radius: 8px; margin-top: 6px; }
