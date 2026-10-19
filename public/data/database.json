@@ -4723,7 +4723,8 @@
           "min": 1,
           "max": 2
         }
-      ]
+      ],
+      "pick": "random"
     },
     {
       "id": "troop_2",
@@ -4757,6 +4758,12 @@
         "id": "tree",
         "name": "Additions",
         "color": "#c8a0ff"
+      },
+      {
+        "id": "party",
+        "name": "Party",
+        "color": "#5ac8c0",
+        "shared": true
       }
     ],
     "nodes": [
@@ -5322,6 +5329,179 @@
           "quick_strike"
         ],
         "teachesAddition": "double_slash"
+      },
+      {
+        "id": "fellowship",
+        "tree": "party",
+        "name": "Fellowship",
+        "x": 3,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "maxHp",
+            "value": 10
+          },
+          {
+            "stat": "maxSp",
+            "value": 10
+          }
+        ],
+        "description": "The party sticks together: more health and stamina for everyone. Opens the Party tree."
+      },
+      {
+        "id": "hardy_company",
+        "tree": "party",
+        "name": "Hardy Company",
+        "x": 0,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "maxHp",
+            "value": 15
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "More health for everyone in the party."
+      },
+      {
+        "id": "second_wind",
+        "tree": "party",
+        "name": "Second Wind",
+        "x": 1.5,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "maxSp",
+            "value": 20
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "More stamina for everyone in the party."
+      },
+      {
+        "id": "battle_drill",
+        "tree": "party",
+        "name": "Battle Drill",
+        "x": 4.5,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "meleeDamage",
+            "value": 5
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "Everyone’s melee hits do more damage."
+      },
+      {
+        "id": "arcane_chorus",
+        "tree": "party",
+        "name": "Arcane Chorus",
+        "x": 6,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "spellDamage",
+            "value": 5
+          },
+          {
+            "stat": "maxMp",
+            "value": 5
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "Everyone’s spells hit harder, with a little more magic."
+      },
+      {
+        "id": "thick_skin",
+        "tree": "party",
+        "name": "Thick Skin",
+        "x": 0,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "end",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "hardy_company"
+        ],
+        "ranks": 3,
+        "description": "Everyone’s Endurance goes up: ailments take hold less often."
+      },
+      {
+        "id": "quick_step",
+        "tree": "party",
+        "name": "Quick Step",
+        "x": 1.5,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "agi",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "second_wind"
+        ],
+        "ranks": 3,
+        "level": 3,
+        "description": "Everyone’s Agility goes up: quicker turns, more dodging."
+      },
+      {
+        "id": "keen_eyes",
+        "tree": "party",
+        "name": "Keen Eyes",
+        "x": 3,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "dex",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "level": 3,
+        "description": "Everyone’s Dexterity goes up: better aim and more critical hits."
+      },
+      {
+        "id": "shield_wall",
+        "tree": "party",
+        "name": "Shield Wall",
+        "x": 4.5,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "def",
+            "value": 2
+          },
+          {
+            "stat": "mdf",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "battle_drill"
+        ],
+        "ranks": 3,
+        "level": 5,
+        "description": "Everyone’s Defence and Magic Defence go up."
       }
     ]
   },
@@ -5735,5 +5915,10 @@
       "symbol": "square",
       "color": "#000000"
     }
-  ]
+  ],
+  "combat": {
+    "turnBased": {
+      "mode": "single"
+    }
+  }
 }
