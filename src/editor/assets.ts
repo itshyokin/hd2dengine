@@ -141,6 +141,20 @@ export async function commitTile(store: EditorStore, def: TileDef, images: TileI
   return true;
 }
 
+/**
+ * A built-in tile's picture: your own (true) or the built-in art (false). The picture stays in the asset list
+ * either way, to switch back to; the tile keeps everything else.
+ */
+export async function setTileSkin(store: EditorStore, key: string, on: boolean): Promise<void> {
+  const tiles = store.assets.tiles.map((t) => (t.key === key ? { ...t, skin: on } : t));
+  const next = { ...store.assets, tiles };
+  if (store.project.canSave && store.project.canStoreImages) {
+    try { await store.project.write('assets.json', formatAssets(next)); }
+    catch (err) { toast(`Couldn’t save the tile setting: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+  }
+  store.setAssets(next);
+}
+
 /** Remove a tile from the asset list. Cells using it on the open map turn back into grass (undoable). */
 export async function deleteTile(store: EditorStore, key: string): Promise<void> {
   const next = { ...store.assets, tiles: store.assets.tiles.filter((t) => t.key !== key) };

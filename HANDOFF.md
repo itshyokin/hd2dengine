@@ -57,11 +57,15 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 68: support spells on either side (`supportTarget: 'any'`), whole-battle buffs (`BuffGrant.whole`), battle
   weather (`WEATHER_EFFECT` / `battleWeather` in `battle/rules.ts`; TurnBattle's `setWeather`; Game's `battleSky`
   shows it around the battle); Haste, Slow and Rain Call added to the project's spell list.
+- 69: built-in tiles can take a picture of your own (`TileDef.skin`; an entry in assets.json with the built-in key;
+  `TileCatalog.textured()` / `isCustom()` mean "drawn from a picture").
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
+0. **Combat and classes** (NOTES: updates 70–73): class boosts and proficiency, enemy levels + EXP rework +
+   misses, spell additions, Single battle mode.
 1. **Travel**: horses (stables, tiers with stamina and jump of 3 / 4 / 5 tiles, A to mount, B to dismount, Saddle
    key item sends the horse home, placeholder art) and griffin flights (roosts unlocked by talking to the griffin
    master, fly over the World layout's maps at one speed, no skip).

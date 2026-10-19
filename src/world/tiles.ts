@@ -52,7 +52,13 @@ export class TileCatalog {
     this.steps = { ...(assets?.tileSteps ?? {}) };
     this.ailments = { ...(assets?.tileAilments ?? {}) };
     for (const t of BUILTIN_TILES) this.byKey.set(t.key, t);
-    for (const t of assets?.tiles ?? []) if (t.key && !BUILTIN_KEYS.has(t.key)) this.byKey.set(t.key, t);
+    for (const t of assets?.tiles ?? []) {
+      if (!t.key) continue;
+      if (!BUILTIN_KEYS.has(t.key)) { this.byKey.set(t.key, t); continue; }
+      // A built-in tile with a picture of your own: the picture, everything else as built in.
+      const b = this.byKey.get(t.key);
+      if (b && t.skin && t.image) this.byKey.set(t.key, { ...b, image: t.image, normal: t.normal, span: t.span || 1, filter: t.filter, skin: true });
+    }
   }
 
   /** The ailment standing on this tile gives (lava, a poison swamp), if any. */
@@ -68,6 +74,11 @@ export class TileCatalog {
 
   custom(): TileDef[] {
     return this.all().filter((t) => !t.builtin);
+  }
+
+  /** Every tile drawn from a picture: imported ones, and built-in ones given a picture of your own. */
+  textured(): TileDef[] {
+    return this.all().filter((t) => !!t.image);
   }
 
   /** How this tile's edges blend (unknown keys behave like grass). */
@@ -118,9 +129,8 @@ export class TileCatalog {
     return c && this.isCliffLook(c) ? c : BRICKS;
   }
 
-  /** Imported tile with this key? (Unknown keys are drawn as grass.) */
+  /** Drawn from a picture (an imported tile, or a built-in one with a picture of your own)? Unknown keys are grass. */
   isCustom(key: string): boolean {
-    const t = this.byKey.get(key);
-    return !!t && !t.builtin;
+    return !!this.byKey.get(key)?.image;
   }
 }

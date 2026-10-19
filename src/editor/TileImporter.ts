@@ -17,13 +17,17 @@ interface Src { canvas: HTMLCanvasElement; name: string }
 const MAX_OUTPUT = 4096;
 const PREVIEW_COLS = 6, PREVIEW_ROWS = 4;
 
-export async function openTileImporter(store: EditorStore, existing?: TileDef): Promise<void> {
-  if (!existing && store.tiles.custom().length >= MAX_CUSTOM_TILES) {
+/**
+ * `skinOf`: a built-in tile getting a picture of its own (its key, name and everything else kept; `existing` is
+ * its current picture, if it has one).
+ */
+export async function openTileImporter(store: EditorStore, existing?: TileDef, skinOf?: TileDef): Promise<void> {
+  if (!existing && !skinOf && store.tiles.custom().length >= MAX_CUSTOM_TILES) {
     toast(`You’ve reached the limit of ${MAX_CUSTOM_TILES} imported tiles.`, 'error');
     return;
   }
   const st = {
-    name: existing?.name ?? '',
+    name: skinOf?.name ?? existing?.name ?? '',
     span: existing?.span ?? 1,
     res: 'keep' as Res,
     filter: existing?.filter ?? ('point' as 'point' | 'smooth'),
@@ -134,7 +138,8 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef): 
 
   function renderForm(): void {
     const parts: Node[] = [
-      field('Name', textInput(st.name, (v) => (st.name = v.trim()), { placeholder: 'e.g. Cobblestone', oninput: (e: Event) => (st.name = (e.target as HTMLInputElement).value.trim()) })),
+      skinOf ? h('p', { class: 'hint' }, `This picture replaces the built-in “${skinOf.name}” everywhere it’s painted, on every map. Its sounds, edge blending, cliffs and everything else stay as they are; switch back to Built-in any time.`)
+        : field('Name', textInput(st.name, (v) => (st.name = v.trim()), { placeholder: 'e.g. Cobblestone', oninput: (e: Event) => (st.name = (e.target as HTMLInputElement).value.trim()) })),
       slot('image', 'Texture', 'Seamless textures repeat without visible seams. Non-square images are cropped to a square from the centre.'),
     ];
     if (st.image && st.image.canvas.width !== st.image.canvas.height) parts.push(h('p', { class: 'warn' }, `This texture isn’t square (${st.image.canvas.width} × ${st.image.canvas.height}), so the middle square is used.`));
@@ -146,8 +151,8 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef): 
         field('Resolution', select([['keep', 'Keep texture detail'], ['16', '16 px per tile'], ['24', '24 px per tile'], ['32', '32 px per tile'], ['48', '48 px per tile'], ['64', '64 px per tile']], st.res, (v) => { st.res = v as Res; rebuild(); })),
         field('Filtering', select([['point', 'Point (crisp pixels)'], ['smooth', 'Smooth']], st.filter, (v) => { st.filter = v as 'point' | 'smooth'; rebuild(); }))),
       h('p', { class: 'hint' }, 'Characters are drawn at 32 px per tile: draw tiles at 32 × 32 (or a seamless 64 × 64 or 128 × 128 covering 2 × 2 or 4 × 4 tiles) and keep Point filtering for crisp pixels.'),
-      checkbox('Blocks movement (water, walls…)', st.blocks, (v) => (st.blocks = v)),
-      field('Cliff walls under this tile', select([['', `Map default (${mapCliffName(store)})`], ['self', 'This tile'],
+      skinOf ? h('span') : checkbox('Blocks movement (water, walls…)', st.blocks, (v) => (st.blocks = v)),
+      skinOf ? h('span') : field('Cliff walls under this tile', select([['', `Map default (${mapCliffName(store)})`], ['self', 'This tile'],
         ...cliffChoices(store).filter(([k]) => k !== existing?.key)], st.cliff, (v) => (st.cliff = v)),
         'When this tile is on top of a cliff, the wall below shows this. “This tile” uses the same texture for the wall.'),
       checkbox('Show grid in preview', st.grid, (v) => { st.grid = v; draw(); }),
@@ -162,7 +167,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef): 
   async function save(close: () => void, btn: HTMLButtonElement): Promise<void> {
     if (!st.image || !processed) { toast('Choose a texture first.', 'error'); return; }
     if (!st.name) { toast('Give the tile a name.', 'error'); return; }
-    const key = existing?.key ?? freeTileKey((k) => !!store.tiles.get(k));
+    const key = skinOf?.key ?? existing?.key ?? freeTileKey((k) => !!store.tiles.get(k));
     if (!key) { toast(`You’ve reached the limit of ${MAX_CUSTOM_TILES} imported tiles.`, 'error'); return; }
     btn.disabled = true;
     try {
@@ -173,13 +178,14 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef): 
         if (st.flipGreen) flipGreen(n);
         images.normal = await toPng(n);
       }
-      const id = existing?.id ?? uniqueId(st.name, (x) => store.tiles.all().some((t) => t.id === x));
+      const id = skinOf?.id ?? existing?.id ?? uniqueId(st.name, (x) => store.tiles.all().some((t) => t.id === x));
       const def: TileDef = { key, id, name: st.name, span: st.span, filter: st.filter };
+      if (skinOf) def.skin = true;
       if (existing?.credits) def.credits = existing.credits;
       if (st.blocks) def.blocks = true;
       if (await commitTile(store, def, images, processed)) {
         const look = st.cliff === 'self' ? key : st.cliff || undefined;
-        if (look !== store.tiles.cliffChoice(key)) await setTileCliff(store, key, look);
+        if (!skinOf && look !== store.tiles.cliffChoice(key)) await setTileCliff(store, key, look);
         store.terrain = key;
         store.mode = 'terrain';
         store.emit('ui');
@@ -194,9 +200,9 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef): 
       h('p', { class: 'hint' }, 'The preview shows a patch of ground covered with this tile. The orange box is one copy of the texture.')),
     form, inputs.image, inputs.normal);
   let closeFn: () => void = () => {};
-  closeFn = openModal(existing ? `Edit tile “${existing.name}”` : 'Import tile', body, [
+  closeFn = openModal(skinOf ? `Picture for “${skinOf.name}”` : existing ? `Edit tile “${existing.name}”` : 'Import tile', body, [
     { label: 'Cancel' },
-    { label: existing ? 'Save changes' : 'Import tile', primary: true, onClick: () => {
+    { label: skinOf ? 'Use this picture' : existing ? 'Save changes' : 'Import tile', primary: true, onClick: () => {
       const btn = [...document.querySelectorAll<HTMLButtonElement>('.modal-foot .btn.primary')].pop()!;
       void save(closeFn, btn);
       return false;

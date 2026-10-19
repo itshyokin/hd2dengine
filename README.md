@@ -205,6 +205,16 @@ settings inside them now) and *Export all* .zip files. Ones already there are on
 importing the same file twice doesn't make duplicates. Character PNGs exported before this change only hold the
 sprite sheet: open those characters in the builder they were made in and export them again (or back them up).
 
+### Your own picture for a built-in tile
+
+Terrain → select a built-in tile (Grass, Path, Sand, Dirt, Stone paving, Rock, Snow, Lake bed) → **Picture**:
+*Built-in* or *Custom picture*. Choosing Custom picture the first time opens the tile importer (same settings as
+importing a tile: how many tiles one copy covers, resolution, filtering, a normal map); *Change…* picks a new one.
+The picture replaces the painted look everywhere the tile is used, on every map, in the editor and the game (cliff
+walls and the scenery past the map edge too), so nothing needs repainting. The tile keeps its footsteps, edge
+blending, cliffs, road setting and the rest. Switching back to Built-in keeps the picture, to switch again later. It's
+saved in `assets/tiles/` (named after the tile) and listed in `data/assets.json` under the built-in tile's key.
+
 ### LPC library (tiles and props)
 
 Terrain → *+ Add from the LPC library…* (tiles) and Props → *+ Add from the LPC library…* (props) open a browser of

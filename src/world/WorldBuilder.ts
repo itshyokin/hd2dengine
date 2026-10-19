@@ -459,11 +459,21 @@ function buildBorder(scene: THREE.Object3D, map: TileMap, data: MapData, ripple:
     }
   }
   const add = (q: QuadList, mat: THREE.Material) => { if (q.quads) scene.add(mesh(q, patchAreaTint(mat))); };
-  if (grounds.grass.quads) scene.add(mesh(grounds.grass, patchSeason(patchAreaTint(new THREE.MeshStandardMaterial({ map: makeTexture(grassTile(41), { mip: true, repeat: true }), roughness: 1 })), 'ground')));
-  add(grounds.sand, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt(':'), { mip: true, repeat: true }), roughness: 1 }));
-  add(grounds.snow, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('❄'), { mip: true, repeat: true }), roughness: 0.9 }));
-  add(grounds.rock, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('▲'), { mip: true, repeat: true }), roughness: 1 }));
-  add(rockTop, new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('rock'), { mip: true, repeat: true }), roughness: 1 }));
+  // A built-in tile given a picture of your own (Tiles → Picture) shows it out here too.
+  const own = (key: string, roughness: number): THREE.MeshStandardMaterial | null => {
+    const t = tileTextures.get(key);
+    if (!t) return null;
+    const span = Math.max(0.25, t.def.span || 1), m2 = t.map.clone(), n2 = t.normal.clone();
+    for (const tx of [m2, n2]) { tx.repeat.set(1 / span, 1 / span); tx.needsUpdate = true; }
+    const mat = new THREE.MeshStandardMaterial({ map: m2, roughness });
+    registerNormalMap(mat, n2);
+    return mat;
+  };
+  if (grounds.grass.quads) scene.add(mesh(grounds.grass, patchSeason(patchAreaTint(own('.', 1) ?? new THREE.MeshStandardMaterial({ map: makeTexture(grassTile(41), { mip: true, repeat: true }), roughness: 1 })), 'ground')));
+  add(grounds.sand, own(':', 1) ?? new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt(':'), { mip: true, repeat: true }), roughness: 1 }));
+  add(grounds.snow, own('❄', 0.9) ?? new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('❄'), { mip: true, repeat: true }), roughness: 0.9 }));
+  add(grounds.rock, own('▲', 1) ?? new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('▲'), { mip: true, repeat: true }), roughness: 1 }));
+  add(rockTop, own('▲', 1) ?? new THREE.MeshStandardMaterial({ map: makeTexture(builtinTileArt('rock'), { mip: true, repeat: true }), roughness: 1 }));
   if (rockWall.quads) {
     const art = rockFace();
     const wallMat = new THREE.MeshStandardMaterial({ map: makeTexture(art, { repeat: true, mip: true }), roughness: 0.95 });

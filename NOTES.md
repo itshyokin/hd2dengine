@@ -38,6 +38,30 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 68: support spells on either side (Cast on → Either side: Haste a friend or a foe); buffs that last the
       whole battle; battle weather (starts as the map's; spells and enemy Buff actions can bring Rain, Sunlight,
       Sandstorm… for some rounds or the whole battle, strengthening and weakening elements); a Rain Call spell.
+- [x] Update 69: Terrain → a built-in tile → Picture: Built-in or Custom picture (swap its look on every map without
+      repainting; everything else about the tile stays).
+
+## Combat and classes (planned Oct 19, before Travel)
+- [ ] Update 70: classes give a one-time stat boost when joined (classes can't be changed); per class, each weapon
+      type (swords, daggers, axes, maces, spears, bows, staves, wands…) and armor weight (light, medium, heavy,
+      shields) is Trained / Untrained (weaker: ¾ damage, armor costs Agility and Evasion) / Can't use; items get a
+      weapon type; skill trees can still teach a proficiency.
+- [ ] Update 71: enemy levels: a level range per troop / spawn on the map (stats grow per level); an event command
+      for "dynamic" levels (spawns come out near the party's average level, a couple either side). EXP rework: only
+      active fighters earn EXP (others with an EXP Share accessory or the EXP All key item, switched on and off in
+      Key items, each giving a % set on the item); EXP given per foe as it falls, bonuses for the finishing blow,
+      Additions (more for faster and more accurate ones; a "+10 EXP" pop-up at the bottom left per strike, like
+      Legend of Dragoon's SP), no KOs, weakness; a breakdown on the victory screen.
+      Misses: an Addition that misses (the hero runs up, no prompt, MISS, a pause, snaps back); accuracy on weapons
+      and spells (spells against MDF); Accuracy / Evasion buffs; a Never miss option.
+- [ ] Update 72: spell additions: a fixed button sequence per spell (more at higher ranks) while the camera pulls in on
+      the caster; mistakes weaken it, a fast and accurate cast earns bonus EXP; per spell, a good cast makes support
+      spells stronger or last longer.
+- [ ] Update 73: Single battle mode (Database → Combat; Pokémon-style): one hero out at a time, swap any time (the
+      swap goes first) or after a KO, items on the reserve, both sides pick and the faster acts first (no turn bar);
+      up to 8 active members in this mode. Troops: Full troop (a normal group fight), One at random (wild
+      encounters), One at a time (trainers: the next steps in), up to 8 foes in this mode. A map sprite you bump into
+      is the foe you fight.
 
 ## Combat (ideas, Oct 18)
 - [x] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,

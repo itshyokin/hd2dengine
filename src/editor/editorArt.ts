@@ -44,7 +44,7 @@ export function tileImage(t: string, x: number, z: number): HTMLCanvasElement {
  */
 export function drawTile(ctx: CanvasRenderingContext2D, t: string, x: number, z: number, px: number, py: number, at: (x: number, z: number) => string): void {
   const def = tileCatalog.get(t);
-  if (def && !def.builtin) {
+  if (def?.image) {
     const img = customTiles.get(t);
     if (!img) { ctx.drawImage(missingTile, px, py); return; }
     const span = Math.max(1, Math.round(def.span || 1));
@@ -75,7 +75,7 @@ export function tileThumb(key: string, size = 36): HTMLCanvasElement {
   c.width = c.height = size;
   const ctx = c.getContext('2d')!;
   const def = tileCatalog.get(key);
-  const img = def && !def.builtin ? customTiles.get(key) : tileImage(key, 0, 0);
+  const img = def?.image ? customTiles.get(key) : tileImage(key, 0, 0);
   if (!img) { ctx.drawImage(missingTile, 0, 0, size, size); return c; }
   ctx.imageSmoothingEnabled = img.width > size || def?.filter === 'smooth';
   ctx.imageSmoothingQuality = 'high';

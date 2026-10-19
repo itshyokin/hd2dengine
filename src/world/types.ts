@@ -178,6 +178,12 @@ export interface TileDef {
   blocks?: boolean;
   /** Built-in tiles only: painted in code. */
   builtin?: boolean;
+  /**
+   * A built-in tile with a picture of your own (kept in the asset list under the built-in tile's key): the picture
+   * replaces the painted art everywhere, the tile keeps everything else. False: back to the built-in art (the picture
+   * is kept, to switch back to).
+   */
+  skin?: boolean;
   /** Who made the art (tiles added from the LPC library); shown in the Credits screen. */
   credits?: SpriteCredit[];
 }

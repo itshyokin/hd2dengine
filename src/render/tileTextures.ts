@@ -30,7 +30,7 @@ function texture(canvas: HTMLCanvasElement, def: TileDef, linear: boolean): THRE
 /** Load the textures of every imported tile. Missing files become a visible chequerboard. */
 export async function loadTileTextures(catalog: TileCatalog, resolve: (path: string) => string, problems: string[]): Promise<Map<string, TileTexture>> {
   const out = new Map<string, TileTexture>();
-  await Promise.all(catalog.custom().map(async (def) => {
+  await Promise.all(catalog.textured().map(async (def) => {
     let img: HTMLCanvasElement;
     try { img = await loadCanvas(resolve(def.image!)); }
     catch { problems.push(`Tile ${def.name}: texture “${def.image}” is missing`); img = missingImage(32, 32); }

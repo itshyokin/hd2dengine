@@ -1,7 +1,7 @@
 import { HEIGHT_STYLES, type HeightStyle } from '../world/heights';
 import { openDatabase } from './DatabaseEditor';
 /** Left panel: layer tabs, tools, brush options and the swatch / sprite palette. */
-import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSteps } from './assets';
+import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSkin, setTileSteps } from './assets';
 import { AILMENTS, AILMENT_INFO } from '../game/status';
 import type { Ailment } from '../world/types';
 import { FOOT_MATERIALS, guessFootstep } from '../world/footsteps';
@@ -11,6 +11,7 @@ import { characterImage, paletteProps, propImage, tileNote, tileThumb } from './
 import { openTileImporter } from './TileImporter';
 import { openBlendSettings } from './BlendSettings';
 import type { TileDef } from '../world/types';
+import { BUILTIN_TILES } from '../world/tiles';
 import { LIGHT_PRESETS } from './lightPresets';
 import { openPropImporter } from './PropImporter';
 import { openLpcLibrary } from './LpcLibrary';
@@ -146,11 +147,25 @@ export class Palette {
         c.title = 'Where this tile touches the map edge, it carries on straight out: through the scenery, a gap in cliffs, or a causeway over water.';
         return c;
       };
+      // A built-in tile's picture: the built-in art, or one of your own (the tile keeps everything else).
+      const pictureField = (t: TileDef) => {
+        const own = s.assets.tiles.find((x) => x.key === t.key && x.image);
+        const edit = () => void openTileImporter(s, own, BUILTIN_TILES.find((b) => b.key === t.key) ?? t);
+        const sel = select([['builtin', 'Built-in'], ['custom', 'Custom picture']], t.skin ? 'custom' : 'builtin', (v) => {
+          if (v === 'builtin') void setTileSkin(s, t.key, false);
+          else if (own) void setTileSkin(s, t.key, true);
+          else { edit(); s.emit('ui'); }
+        }, { 'aria-label': `${t.name} picture` });
+        const f = h('div', { class: 'cliff-field' }, h('span', { class: 'swatch-note' }, 'Picture'), h('div', { class: 'el-pick' }, sel,
+          own ? h('button', { type: 'button', class: 'btn small', onclick: edit }, 'Change…') : null));
+        f.title = 'Swap this built-in tile’s look for a picture of your own, on every map, without repainting. Everything else about the tile stays.';
+        return f;
+      };
       if (cur?.builtin) {
         body.push(h('div', { class: 'prop-current' },
           h('span', { class: 'prop-current-thumb' }, tileThumb(cur.key, 40)),
-          h('div', { class: 'prop-current-info' }, h('div', { class: 'prop-current-name' }, cur.name), h('div', { class: 'swatch-note' }, `Built-in · ${tileNote(cur)}`)),
-          h('div', { class: 'prop-current-actions' }, cliffField(cur.key), stepsField(cur.key), ailmentField(cur.key), roadField(cur.key),
+          h('div', { class: 'prop-current-info' }, h('div', { class: 'prop-current-name' }, cur.name), h('div', { class: 'swatch-note' }, `${cur.skin ? 'Built-in, your picture' : 'Built-in'} · ${tileNote(cur)}`)),
+          h('div', { class: 'prop-current-actions' }, pictureField(cur), cliffField(cur.key), stepsField(cur.key), ailmentField(cur.key), roadField(cur.key),
             h('button', { type: 'button', class: 'btn small', onclick: () => openBlendSettings(s, cur.key) }, `Edge blending… (${blendSummary(cur.key)})`))));
       }
       if (cur && !cur.builtin) {

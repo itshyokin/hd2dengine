@@ -602,7 +602,7 @@ export function groundCanvas(map: TileMap): HTMLCanvasElement {
   const Rk = ['#3a3540', '#4a4552', '#5a5463', '#6b6474', '#7c7584'];
   const Sn = ['#b8c7da', '#c9d6e6', '#d8e3f0', '#e6eef7', '#f4f8fc'];
   const BUILT_IN = '.=:~▒▦▲❄';
-  const cat = map.tiles, isB = (k: string) => BUILT_IN.includes(k);
+  const cat = map.tiles, isB = (k: string) => BUILT_IN.includes(k) && !cat.isCustom(k);
   const wet = (x: number, z: number) => !!map.waterAt(x, z);
   // Edges only blend between cells at the same height (and both wet or both dry): across a height
   // change the ground is cut by a straight cliff.
