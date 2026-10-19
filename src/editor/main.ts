@@ -9,7 +9,10 @@ import { openDatabase } from './DatabaseEditor';
 import { setCombatPreview } from './combatPreview';
 import { openWorldLayout } from './WorldEditor';
 import type { MapData } from '../world/types';
-import { confirmModal, field, h, numberInput, openModal, select, textInput, toast } from './dom';
+import { backspaceAsEscape, confirmModal, field, h, numberInput, openModal, select, textInput, toast } from './dom';
+
+// Backspace works as Esc outside text boxes (tablet keyboards without an Esc key).
+backspaceAsEscape();
 import { tileName } from './editorArt';
 import { Inspector } from './Inspector';
 import { save } from './io';

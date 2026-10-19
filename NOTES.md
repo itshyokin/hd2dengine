@@ -34,6 +34,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 67: Push to GitHub and Pull from GitHub in the online editor (Project menu): a fine-grained token kept
       in the browser, one commit per Push on top of what's there, Pull brings in the PC's pushes, files changed in
       both places ask which to keep; the site records the commit it was built from (data/build.json).
+- [x] Update 67b: Backspace works as Esc everywhere outside text boxes (editor, game, Character Builder).
 
 ## Combat (ideas, Oct 18)
 - [x] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,

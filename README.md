@@ -53,6 +53,10 @@ on GitHub and keeps your changes **in that browser, on that device** (they're st
   device); its maps, database and imported files replace the ones on this device.
 - **Forget my changes…**: back to the project as it is on GitHub.
 
+**No Esc key?** (Many tablet keyboards.) **Backspace** does everything Esc does, in the editor, the game and the
+Character Builder: it closes windows and menus, cancels and deselects. While typing in a text box it still deletes
+letters. (In the event command list, the Delete key or the ✕ button removes a command.)
+
 Playtest works from the online editor too.
 
 ### Testing on an Android phone
@@ -1381,7 +1385,7 @@ Every key and button can be changed in **Settings → Controls** (per player, ke
 | Release target | Q | D-pad ↓ |
 | Quick items (left / up / right) | 5 / 6 / 7 | D-pad ← / ↑ / → |
 | Sneak / crouch (toggle by default; hold in Settings → Gameplay) | C | Right stick click |
-| Menu / back | Esc or X | Start |
+| Menu / back | Esc, Backspace or X | Start |
 
 The selected weapon shows top left, with the other under it (greyed out when there's no bow equipped). Spells
 aren't on the weapon wheel: ready a shard in Bag → **Shards** and cast it with its own button, so a sword swing

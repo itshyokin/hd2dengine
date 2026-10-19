@@ -152,6 +152,8 @@ export class Input {
   get current(): Bindings { return this.bindings; }
 
   private actionsForKey(code: string): Action[] {
+    // Backspace does what Esc does (tablet keyboards often have no Esc), unless the player bound it to something.
+    if (code === 'Backspace' && !this.keyMap.has('Backspace')) code = 'Escape';
     const out = [...(this.keyMap.get(code) ?? [])];
     if (this.mode === 'menu') { const m = MENU_KEYS[code]; if (m && !out.includes(m)) out.push(m); }
     return out;

@@ -101,3 +101,25 @@ export function toast(message: string, kind: 'ok' | 'error' = 'ok'): void {
   setTimeout(() => t.classList.add('out'), 2200);
   setTimeout(() => t.remove(), 2700);
 }
+
+/** Inputs where Backspace deletes text (it stays Backspace there). */
+const TYPING = /^(text|search|email|url|tel|password|number|date|time|datetime-local|month|week)$/;
+const isTyping = (t: EventTarget | null): boolean => {
+  if (!(t instanceof HTMLElement)) return false;
+  if (t.isContentEditable || t.tagName === 'TEXTAREA') return true;
+  return t instanceof HTMLInputElement && TYPING.test(t.type || 'text');
+};
+
+/**
+ * Backspace works as Esc everywhere except while typing (tablet keyboards often have no Esc): it closes windows and
+ * menus, cancels and deselects, just as Esc does.
+ */
+export function backspaceAsEscape(): void {
+  addEventListener('keydown', (e) => {
+    if (e.key !== 'Backspace' || e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const t = e.target instanceof HTMLElement ? e.target : document.body;
+    t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true, composed: true }));
+  }, true);
+}

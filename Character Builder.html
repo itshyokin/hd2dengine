@@ -1707,7 +1707,8 @@ function wire() {
     s.addEventListener('click', (e) => { if (e.target === s || e.target.closest('[data-close]')) closeSheets(); });
   }
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeSheets();
+    // Backspace closes too (tablet keyboards without Esc), except while typing.
+    if (e.key === 'Escape' || (e.key === 'Backspace' && !e.target.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=button]), textarea, [contenteditable]'))) closeSheets();
     if (e.target.matches('input, select, textarea')) return;
     const turn = { ArrowDown: 0, ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3 }[e.key];
     if (turn !== undefined && $('libSheet').hidden && $('charsSheet').hidden) { S.row = turn; redraw(); e.preventDefault(); }

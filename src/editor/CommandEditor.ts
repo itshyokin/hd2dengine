@@ -338,7 +338,7 @@ export class CommandEditor {
     else if (e.altKey && e.key === 'ArrowDown') this.move(1);
     else if (e.key === 'ArrowUp' && s && s.i > 0) this.select(s.list, s.i - 1);
     else if (e.key === 'ArrowDown' && s && s.i < s.list.length - 1) this.select(s.list, s.i + 1);
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && s) this.remove();
+    else if (e.key === 'Delete' && s) this.remove();
     else if (e.key === 'Enter' && s?.list[s.i]) this.edit(s.list[s.i], s.list, false);
     else if (e.key === 'Escape' && s) { this.sel = null; this.draw(); }
     else done = false;

@@ -541,7 +541,8 @@ function wire() {
   for (const b of $('bgs').children) b.onclick = () => { S.bg = b.dataset.bg; saveDraft(); redraw(); };
   for (const s of document.querySelectorAll('.scrim')) s.addEventListener('click', (e) => { if (e.target === s || e.target.closest('[data-close]')) closeSheets(); });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeSheets();
+    // Backspace closes too (tablet keyboards without Esc), except while typing.
+    if (e.key === 'Escape' || (e.key === 'Backspace' && !e.target.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=button]), textarea, [contenteditable]'))) closeSheets();
     if (e.target.matches('input, select, textarea')) return;
     const d = { ArrowUp: 0, ArrowLeft: 1, ArrowDown: 2, ArrowRight: 3 }[e.key];
     if (d !== undefined) { S.dir = d; redraw(); e.preventDefault(); }
