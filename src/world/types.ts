@@ -321,7 +321,7 @@ export type Command =
    * party may run away (default false); `lose: 'continue'`: losing doesn't send the party back (the event goes
    * on, with the party on 1 health); `resultVar`: a variable set to 1 (won), 2 (ran away) or 0 (lost).
    */
-  | { cmd: 'battle'; enemies: string[]; canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; /** The battle map to fight on (unset: the map's). */ map?: string }
+  | { cmd: 'battle'; enemies: string[]; /** Single mode: wild (one at random), trainer (one at a time) or swarm (all); unset: the map's default. */ pick?: EncounterPick; canRun?: boolean; lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; /** The battle map to fight on (unset: the map's). */ map?: string }
   /** Teach a spell (at a rank) or an Addition: to the hero you play (''), a party hero by id, or everyone ('@party'). */
   | { cmd: 'learn'; who: string; spell?: string; rank?: number; addition?: string; silent?: boolean }
   /** Change a hero's class, or let them change to it later (unlock). */
@@ -546,8 +546,11 @@ export interface TroopDef {
    * Single battle mode: all of them at once (a normal group fight; the default), one of them picked at random (a
    * wild encounter), or one at a time, the next stepping in as each falls (a trainer). Up to eight in Single mode.
    */
-  pick?: 'full' | 'random' | 'oneByOne';
+  pick?: EncounterPick;
 }
+
+/** Single battle mode: all at once (a swarm), one picked at random (a wild encounter) or one at a time (a trainer). */
+export type EncounterPick = 'full' | 'random' | 'oneByOne';
 
 /** One troop in a zone: how often it comes, and when it can. */
 export interface ZoneTroop {
@@ -638,6 +641,8 @@ export interface MapData {
   battleMusic?: string;
   /** Turn-based battles: random encounters while walking (Pokémon tall grass, classic JRPG overworlds). */
   encounters?: EncounterTable;
+  /** Single battle mode: how battles on this map come out unless a troop or event says (unset: Database → Combat's). */
+  encounterPick?: EncounterPick;
   /**
    * Encounter zones painted on the map (the editor's Spawns layer): one character per cell, A–Z for a zone, "."
    * for none. Each zone's troops and how often battles come are in `zones`.
@@ -1346,6 +1351,8 @@ export interface TurnBasedData {
   mode?: 'group' | 'single';
   /** Single mode: heroes who can be swapped in (the lineup's first, 1 – 8; default 3). */
   singleParty?: number;
+  /** Single mode: how foes come out when the troop, the map and the event don't say (default: one at random, a wild encounter). */
+  singlePick?: EncounterPick;
 }
 
 /**

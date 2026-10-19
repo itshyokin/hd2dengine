@@ -2,6 +2,7 @@
  * Event command list: a readable outline of an event's commands (with nested branches)
  * and a form dialog for each command type.
  */
+import type { EncounterPick } from '../world/types';
 import { SELF_SWITCHES, type SelfSwitch } from '../world/types';
 import { WEEKDAYS } from '../world/seasons';
 import { MOON_NAMES, MOON_PHASES, moonPhase } from '../world/moon';
@@ -667,9 +668,11 @@ export class CommandEditor {
         const render = () => list.replaceChildren(...d.enemies.map((id, k) => h('div', { class: 'field-row' },
           select(enemies.length ? enemies : [['', '(add enemies in Database → Enemies)']], id, (v) => (d.enemies[k] = v), { 'aria-label': `Enemy ${k + 1}` }),
           h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove enemy ${k + 1}`, onclick: () => { d.enemies.splice(k, 1); render(); } }, '✕'))),
-          d.enemies.length < 3 && enemies.length ? h('button', { type: 'button', class: 'btn', onclick: () => { d.enemies.push(d.enemies[d.enemies.length - 1] ?? enemies[0][0]); render(); } }, '+ Add enemy') : h('span'));
+          d.enemies.length < 8 && enemies.length ? h('button', { type: 'button', class: 'btn', onclick: () => { d.enemies.push(d.enemies[d.enemies.length - 1] ?? enemies[0][0]); render(); } }, '+ Add enemy') : h('span'));
         render();
         return [list,
+          field('In Single battle mode', select([['', 'The map’s default'], ...[['random', 'Wild encounter: one at random'], ['oneByOne', 'Trainer battle: one at a time'], ['full', 'Swarm: all at once']]] as [string, string][], d.pick ?? '', (v) => { if (v) d.pick = v as EncounterPick; else delete d.pick; }),
+            'Wild: one of these, at random. Trainer: one at a time, the next stepping in as each falls (up to 8). Swarm: all at once (3 at most). Group battle mode fights the first three together.'),
           checkbox('The party may run away', !!d.canRun, (v) => (d.canRun = v || undefined)),
           field('If the party loses', select([['respawn', 'Back to the respawn point (as dying does); the event stops'], ['continue', 'The event goes on (a story battle meant to be lost)']], d.lose ?? 'respawn', (v) => { if (v === 'continue') d.lose = 'continue'; else delete d.lose; })),
           field('Result into variable', textInput(d.resultVar ?? '', (v) => (d.resultVar = v.trim() || undefined), { placeholder: 'Optional, e.g. boss_result' }), '1 if won, 2 if the party ran away, 0 if lost. Branch on it afterwards.'),

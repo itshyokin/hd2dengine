@@ -951,10 +951,13 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   it goes first, and the newcomer takes that round's hits. Items, Guard and Escape also go first. When the hero is
   knocked out, the player picks who steps in at once; the party falls when everyone who can fight is down (passing
   out and respawning, as usual). *Heroes who fight (Single)* sets how many of the lineup can be swapped in (1 – 8).
-  Each troop's *In Single battle mode* (Database → Troops): **Full troop** (all at once, as a group fight, three at
-  most), **One at random** (one of its foes, picked at random: a wild encounter) or **One at a time** (the next steps
-  in as each falls: a trainer), with up to 8 foes in a troop. An enemy bumped into on the map comes out first and its
-  friends follow one at a time. EXP, Additions, spells and spell additions work the same.
+  How foes come out: a **wild encounter** (one of them, picked at random; an enemy bumped into on the map fights
+  alone), a **trainer battle** (one at a time, the next stepping in as each falls, up to 8) or a **swarm** (all at
+  once, as a group fight, three at most). Each battle uses the first of these that's set: the troop's *In Single
+  battle mode* (Database → Troops) or the Start battle event's *In Single battle mode*; then the map's *Single mode:
+  battles here are* (Map Properties → Battles); then Database → Combat → *Single mode: battles are* (a wild encounter
+  unless changed). So every random battle, troop and event battle is a wild encounter by default, and only the
+  trainers and swarms need setting. EXP, Additions, spells and spell additions work the same.
 - **Spell additions** (Database → Spells → *Spell addition*): give a spell a button sequence (A, B, X, Y) and, as it
   goes off, the camera holds on the caster while the buttons show in a row with a timer; the player presses them in
   order (keys A B X Y, a controller's face buttons, or the on-screen pads). Each rank above the first adds one more

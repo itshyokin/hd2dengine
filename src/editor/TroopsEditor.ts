@@ -2,6 +2,7 @@
  * Database → Troops: groups of enemies that fight together in random encounters (each kind with how many of it),
  * with their own battle music and whether the party may run. Maps say which troops come where (Spawns layer).
  */
+import type { EncounterPick } from '../world/types';
 import type { EnemyDef, TroopDef } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { loopChoices } from '../audio/sfx';
@@ -48,8 +49,8 @@ export function troopsTab(list: TroopDef[], enemies: EnemyDef[], audioFiles: str
       h('section', { class: 'db-section' }, h('h3', {}, 'Battle'),
         field('Battle music', select([['', 'The usual (map override, else the game’s)'], ...loopChoices('music', audioFiles).filter(([v]) => v)], t.music ?? '', (v) => { if (v) t.music = v; else delete t.music; })),
         checkbox('The party can’t run from this troop', !!t.noRun, (v) => { if (v) t.noRun = true; else delete t.noRun; }),
-        field('In Single battle mode', select([['full', 'Full troop: all at once (a group fight)'], ['random', 'One at random (a wild encounter)'], ['oneByOne', 'One at a time: the next steps in as each falls (a trainer)']], t.pick ?? 'full', (v) => { if (v === 'full') delete t.pick; else t.pick = v as 'random' | 'oneByOne'; }),
-          'Database → Combat → Battle mode: Single. Group battles always fight the troop together.'),
+        field('In Single battle mode', select([['', 'The map’s default (Map Properties → Battles, else Database → Combat)'], ...[['random', 'Wild encounter: one at random'], ['oneByOne', 'Trainer battle: one at a time'], ['full', 'Swarm: all at once']]] as [string, string][], t.pick ?? '', (v) => { if (v) t.pick = v as EncounterPick; else delete t.pick; }),
+          'Wild: one of its foes, at random. Trainer: one at a time, the next stepping in as each falls. Swarm: all at once (a group fight). Group battle mode always fights the troop together.'),
         combatPreviewRow(battleMaps, () => t.members.flatMap((m) => Array.from({ length: Math.max(1, m.max ?? m.min ?? 1) }, () => m.enemy)).slice(0, 3))),
     );
   }

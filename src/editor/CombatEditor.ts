@@ -12,7 +12,7 @@ import { enemyWeaponSprites } from '../game/combat/weaponSprites';
 import { weaponSpriteField } from './weaponPicker';
 import { DEFAULT_COMBAT, combatConfig } from '../game/combat/config';
 import { enemyAgility } from '../game/battle/rules';
-import type { CombatData, EnemyAction, EnemyBehaviour, EnemyDef, FlatLook, ImpactFx, Material, WeaponClass } from '../world/types';
+import type { CombatData, EncounterPick, EnemyAction, EnemyBehaviour, EnemyDef, FlatLook, ImpactFx, Material, WeaponClass } from '../world/types';
 import { FX_INFO, IMPACT_FX, MATERIALS, MATERIAL_INFO, materialOf } from '../game/battle/impact';
 import { playSound } from './CommandEditor';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
@@ -39,6 +39,8 @@ export function combatTab(data: CombatData): HTMLElement[] {
       h('div', { class: 'field-row' },
         field('Battle mode', select([['group', 'Group: up to three a side, with the turn order bar'], ['single', 'Single: one hero out at a time (Pokémon-style)']], T.mode, (v) => { if (v === 'single') tb.mode = 'single'; else delete tb.mode; }),
           'Single: one hero fights at a time; Swap brings in another (it goes first, and they take that round’s hits); a knocked-out hero’s place is filled at once. The hero picks, then the faster side goes first (Agility, Haste and Slow decide). Items can be used on anyone in the party. Each troop chooses how its foes come out (Database → Troops). The party falls when everyone who can fight is down.'),
+        field('Single mode: battles are', select([['random', 'Wild encounter: one at random'], ['oneByOne', 'Trainer battle: one at a time'], ['full', 'Swarm: all at once']], T.singlePick, (v) => { if (v === 'random') delete tb.singlePick; else tb.singlePick = v as EncounterPick; }),
+          'How foes come out unless a map (Map Properties → Battles), a troop or a Start battle event says otherwise.'),
         field('Heroes who fight (Single)', num(T.singleParty, (v) => (tb.singleParty = Math.max(1, Math.min(8, Math.round(v)))), 1, 1, 'Single mode party'), 'Single mode: how many of the lineup can be swapped in (1 – 8). Group battles keep three.')),
       h('div', { class: 'field-row' },
         field('Turn order', select([['ctb', 'Conditional turns (FFX)'], ['rounds', 'Rounds (classic)']],

@@ -62,6 +62,8 @@ Kept in the project so they travel with the code. Tick them off as they're built
       up to 8 active members in this mode. Troops: Full troop (a normal group fight), One at random (wild
       encounters), One at a time (trainers: the next steps in), up to 8 foes in this mode. A map sprite you bump into
       is the foe you fight.
+- [x] Update 74: Single mode defaults: wild encounter (one at random) unless a troop, a Start battle event (wild /
+      trainer / swarm), the map (Map Properties → Battles) or Database → Combat says otherwise.
 
 ## Combat (ideas, Oct 18)
 - [x] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,

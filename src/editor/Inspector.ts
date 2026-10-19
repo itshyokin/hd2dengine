@@ -1,4 +1,5 @@
 import { switchInput } from './switchPicker';
+import type { EncounterPick } from '../world/types';
 import { levelRangeField } from './levelFields';
 import { TRANSITIONS, TRANSITION_NAMES } from '../ui/BattleTransition';
 import { formatFishing, parseFishing } from '../world/fishing';
@@ -108,6 +109,9 @@ export class Inspector {
       out.push(field('Battle map', select([['', 'None: the flat battle screen'], ...names.map((n) => [n, n] as [string, string])], m.battleMap ?? '', (v) => this.edit(() => { if (v) m.battleMap = v; else delete m.battleMap; })),
         names.length ? 'Turn-based battles on this map are fought on this battle map (a zone in the Spawns layer can choose another).'
           : 'No battle maps yet: make a new map, tick “This is a battle map”, and place party and enemy markers on it (Spawns layer, key 9).'));
+      // Single battle mode: how battles on this map come out unless a troop or event says.
+      out.push(field('Single mode: battles here are', select([['', `The game’s default (Database → Combat)`], ...[['random', 'Wild encounter: one at random'], ['oneByOne', 'Trainer battle: one at a time'], ['full', 'Swarm: all at once']]] as [string, string][], m.encounterPick ?? '', (v) => this.edit(() => { if (v) m.encounterPick = v as EncounterPick; else delete m.encounterPick; })),
+        'For Single battle mode: random battles, troops left on their default, enemies bumped into on the map and Start battle events left on their default all come out this way. Wild: one at random (an enemy bumped into fights alone). Trainer: one at a time. Swarm: all at once.'));
       // How battles here begin: one transition, or several picked at random (none chosen: any of them).
       const chosen = new Set(m.battleTransitions ?? []);
       out.push(h('div', { class: 'field' }, h('label', {}, 'Battle transition'),

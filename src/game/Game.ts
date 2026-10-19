@@ -90,7 +90,7 @@ import { classStatGear, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
-import type { CharacterDef, EnemyDef, LevelRange, TroopDef } from '../world/types';
+import type { CharacterDef, EncounterPick, EnemyDef, LevelRange, TroopDef } from '../world/types';
 import { atLevel, partyLevel, rollLevel } from './enemyLevels';
 import { statusIconUrl } from '../art/statusIcons';
 import { elementIconUrl } from '../art/elementIcons';
@@ -793,9 +793,11 @@ export class Game {
       quest: (c) => { this.questQuiet = !!c.silent; try { this.quests.run(c.quest, c.op, c.objective, c.add); } finally { this.questQuiet = false; } },
       battle: (c) => {
         const defs = new Map((this.db.enemies ?? []).map((x) => [x.id, x]));
-        const list = c.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).slice(0, MAX_FOES).map((def) => ({ def, hp: def.hp, enemy: null }));
+        // Single mode: a wild encounter, a trainer battle or a swarm (the event's choice, else the map's default).
+        const pick = this.pickFor(c.pick), cap = this.combatCfg.turnBased.mode === 'single' && pick !== 'full' ? 8 : MAX_FOES;
+        const list = c.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).slice(0, cap).map((def) => ({ def, hp: def.hp, enemy: null }));
         if (!list.length) return;
-        this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined });
+        this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined, pick });
       },
       busy: () => this.battle.active || this.battlePending || !!this.sleeping,
       sleep: (c) => this.startSleep(c),
@@ -4239,10 +4241,11 @@ export class Game {
     const near = this.combat.enemies
       .filter((o) => o !== e && !o.dead && Math.hypot(o.x - e.x, o.z - e.z) <= tb.joinRadius && (o.alert || Math.hypot(o.x - e.x, o.z - e.z) < 3))
       .sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z));
-    // Single mode: the one bumped into comes out first, its friends one at a time after it.
-    const single = tb.mode === 'single';
-    const group = [e, ...near].slice(0, single ? 8 : Math.min(MAX_FOES, tb.maxEnemies));
-    this.startBattle(group.map((en) => ({ def: en.def, hp: en.hp, enemy: en })), opening, single ? { pick: 'oneByOne' } : {});
+    // Single mode, by the map's default: a wild encounter is just the one bumped into; one at a time, it comes out first
+    // and its friends follow; all at once, a group fight.
+    const single = tb.mode === 'single', pick = this.pickFor();
+    const group = single && pick === 'random' ? [e] : [e, ...near].slice(0, single && pick === 'oneByOne' ? 8 : Math.min(MAX_FOES, tb.maxEnemies));
+    this.startBattle(group.map((en) => ({ def: en.def, hp: en.hp, enemy: en })), opening, single ? { pick: pick === 'random' ? 'full' : pick } : {});
     return true;
   }
 
@@ -4281,16 +4284,16 @@ export class Game {
       const troop = pick ? (this.db.troops ?? []).find((x) => x.id === pick.troop) : undefined;
       if (!troop) return;
       const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
+      // Single mode takes up to eight from a troop (one at a time, or one picked at random).
+      const tp = this.pickFor(troop.pick), cap = this.combatCfg.turnBased.mode === 'single' && tp !== 'full' ? 8 : MAX_FOES;
       for (const mem of troop.members) {
         const def = defs.get(mem.enemy);
         if (!def) continue;
         const lo = Math.max(0, Math.round(mem.min ?? 1)), hi = Math.max(lo, Math.round(mem.max ?? mem.min ?? 1));
         const n = lo + Math.floor(Math.random() * (hi - lo + 1));
-        // Single mode takes up to eight from a troop (one at a time, or one picked at random).
-        const cap = this.combatCfg.turnBased.mode === 'single' && troop.pick && troop.pick !== 'full' ? 8 : MAX_FOES;
         for (let k = 0; k < n && list.length < cap; k++) { const at = this.levelled(def, pick?.levels ?? zone.levels); list.push({ def: at, hp: at.hp, enemy: null }); }
       }
-      if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music, stage: zone.battleMap || undefined, pick: troop.pick });
+      if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music, stage: zone.battleMap || undefined, pick: tp });
       return;
     }
     const table = t!.enemies.filter((x) => defs.has(x.enemy));
@@ -4299,7 +4302,12 @@ export class Game {
     const n = lo + Math.floor(Math.random() * (hi - lo + 1));
     const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
     for (let k = 0; k < n; k++) { const pick = weighted(table)!, def = this.levelled(defs.get(pick.enemy)!, t!.levels); list.push({ def, hp: def.hp, enemy: null }); }
-    this.startBattle(list, opening);
+    this.startBattle(list, opening, { pick: this.pickFor() });
+  }
+
+  /** Single mode: how foes come out: the troop's or event's own choice, else this map's, else Database → Combat's. */
+  private pickFor(own?: EncounterPick): EncounterPick {
+    return own ?? this.mapData?.encounterPick ?? this.combatCfg.turnBased.singlePick;
   }
 
   /** A hero's aim: Dexterity's accuracy times their weapon's (Database → Items → Accuracy), or never missing. */
