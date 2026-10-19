@@ -411,7 +411,10 @@ export type BuffKind = 'crit' | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 
 /** A chance (%) for a hit to give an ailment, for `seconds` (0 or missing: its usual time). */
 export interface Inflict { ailment: Ailment; chance: number; seconds?: number }
 /** A buff an item gives: how much (default per kind) for how long. */
-export interface BuffGrant { buff: BuffKind; amount?: number; seconds?: number; /** In battle: how many of the fighter's turns (default 3). */ turns?: number }
+export interface BuffGrant { buff: BuffKind; amount?: number; seconds?: number; /** In battle: how many of the fighter's turns (default 3). */ turns?: number; /** In battle: it lasts the whole battle (Pokémon-style). */ whole?: boolean }
+
+/** Battle weather (a weather spell, or the map's weather a battle starts in): it makes some elements stronger. */
+export type BattleWeather = 'none' | 'rain' | 'storm' | 'snow' | 'blizzard' | 'sun' | 'sandstorm';
 
 export interface BreakableDef {
   /** How much damage it takes to break. */
@@ -1201,6 +1204,9 @@ export interface EnemyAction {
   buffs?: BuffGrant[];
   /** Buffs: on itself (default), everyone on its side, or the party (one or all, by `targets`). */
   buffTarget?: 'self' | 'allies' | 'foes';
+  /** Buff actions: the battle's weather it brings, and for how many rounds (0: the whole battle; default 5). */
+  weather?: BattleWeather;
+  weatherTurns?: number;
   /** Attacks and spells: × its damage (default 1). Heals: % of the target's health (default 30). */
   power?: number;
   element?: Element;
@@ -1374,8 +1380,12 @@ export interface SpellEntry {
   kind: 'bolt' | 'heal' | 'support';
   /** Buffs (or debuffs like Slow) it gives each target, on top of its damage or healing. */
   buffs?: BuffGrant[];
-  /** Support spells: cast on the caster's side (default) or the other side (Slow on the enemies). */
-  supportTarget?: 'allies' | 'foes';
+  /** Support spells: cast on the caster's side (default), the other side (Slow on the enemies), or either. */
+  supportTarget?: 'allies' | 'foes' | 'any';
+  /** Turn-based: the battle's weather it brings (rain makes water stronger and fire weaker…), for turns or the whole battle. */
+  weather?: BattleWeather;
+  /** Rounds the weather lasts (default 5); 0: the whole battle. */
+  weatherTurns?: number;
   /** Rank 1's damage (bolts) or health given back (heals), before the caster's Magic. */
   power: number;
   /** Rank 1's magic cost. */

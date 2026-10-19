@@ -13,8 +13,9 @@ export const DEFAULT_SPELLS: SpellEntry[] = [
   { id: 'frost', name: 'Frost', kind: 'bolt', power: 12, mp: 6, element: 'water', color: '#8ad8ff', maxRank: 3, description: 'A shard of ice that can chill.', inflicts: [{ ailment: 'chill', chance: 35 }] },
   { id: 'spark', name: 'Spark', kind: 'bolt', power: 10, mp: 8, element: 'shock', color: '#ffe04a', maxRank: 3, targets: 'all', description: 'Lightning that strikes every foe.' },
   { id: 'mend', name: 'Mend', kind: 'heal', power: 26, mp: 8, color: '#9dffb0', maxRank: 3, description: 'Closes wounds on one of the party.' },
-  { id: 'haste', name: 'Haste', kind: 'support', power: 0, mp: 10, color: '#5ae0ff', description: 'One of the party takes their turns half again as often, for a few turns.', buffs: [{ buff: 'haste', amount: 50, turns: 4 }] },
-  { id: 'slow', name: 'Slow', kind: 'support', power: 0, mp: 8, color: '#c07a5a', supportTarget: 'foes', description: 'A foe’s turns come round much more slowly, for a few turns. Endurance can shrug it off.', buffs: [{ buff: 'slow', amount: 40, turns: 4 }] },
+  { id: 'haste', name: 'Haste', kind: 'support', power: 0, mp: 10, color: '#5ae0ff', supportTarget: 'any', description: 'Someone (a friend, or a foe to undo its Slow) takes their turns half again as often, for a few turns.', buffs: [{ buff: 'haste', amount: 50, turns: 4 }] },
+  { id: 'slow', name: 'Slow', kind: 'support', power: 0, mp: 8, color: '#c07a5a', supportTarget: 'any', description: 'Someone’s turns come round much more slowly (or undo a Haste), for a few turns. Endurance can shrug it off.', buffs: [{ buff: 'slow', amount: 40, turns: 4 }] },
+  { id: 'rain_call', name: 'Rain Call', kind: 'support', power: 0, mp: 12, color: '#5a9cff', description: 'Brings rain over the battle for five rounds: water spells hit harder, fire ones weaker.', weather: 'rain', weatherTurns: 5 },
 ];
 
 export const DEFAULT_ADDITIONS: AdditionDef[] = [

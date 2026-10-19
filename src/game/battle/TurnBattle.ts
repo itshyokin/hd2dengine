@@ -7,7 +7,7 @@
  */
 import type { Sfx } from '../../audio/sfx';
 import type { BattleScreen, ChoiceItem, FighterView, VictoryReport } from '../../ui/BattleScreen';
-import type { Ailment, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
+import type { Ailment, BattleWeather, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
 import { BUFF_INFO, DEBUFFS, buffLabel } from '../status';
 import type { TurnBasedConfig } from '../combat/config';
 import { ELEMENT_COLORS } from '../elements';
@@ -15,7 +15,7 @@ import { statusIconUrl } from '../../art/statusIcons';
 import type { QteResult } from '../../ui/BattleScreen';
 import {
   type BattleAddition, type Battler, type BattleSpell, type Opening, RANK, type SpellRank, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
-  refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
+  WEATHER_EFFECT, battleWeather, refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
 } from './rules';
 import { AILMENT_WORD, BLIND_MISS_CHANCE, BUFF_TURNS, type BattleAilment, ailmentName, rollInflicts } from './status';
 
@@ -54,6 +54,10 @@ export interface BattleHost {
   swapIn?(outKey: string, outWho: number, inWho: number): BattleEntry | null;
   /** Health and magic of party member `who` as the game has them now (after an item, say). */
   readVitals(who: number): { hp: number; mp: number };
+  /** The weather the battle starts in (the map's: rain, snow…). */
+  startWeather?(): BattleWeather;
+  /** The battle's weather changed (null: the battle is over): show it (rain falling on a battle map, say). */
+  weather?(kind: BattleWeather | null): void;
   /** Write a party member's health and magic back to the game. */
   writeVitals(who: number, hp: number, mp: number): void;
   /** The battle was won: hand out the rewards for these enemies and say what was won (lines for the panel). */
@@ -105,12 +109,16 @@ export class TurnBattle {
     for (const e of entries) { e.battler.guarding = false; refreshAgility(e.battler); }
     this.screen.setLayout(cfg.layout);
     this.screen.setBlocks(cfg.statBlocks);
+    // The weather it starts in (the map's), for the whole battle unless a spell changes it.
+    this.weatherLeft = Infinity;
+    battleWeather.kind = this.baseWeather = this.host.startWeather?.() ?? 'none';
     // Overdrive gauges only show (and work) with the stat blocks.
     for (const e of entries) if (!cfg.statBlocks || !e.view.overdrive) e.battler.overdrive = undefined;
     this.screen.open(entries.map((e) => e.view));
     this.refreshAll();
     startCounters(this.battlers, opening);
     this.screen.flash();
+    this.screen.setWeather(this.weatherText());
     const foes = this.foes;
     const names = foes.length === 1 ? foes[0].name : `${foes.length} enemies`;
     this.screen.message(opening === 'preemptive' ? `You caught ${names} off guard!` : opening === 'ambush' ? `Ambushed by ${names}!` : `${names} ${foes.length === 1 ? 'appears' : 'appear'}!`, true);
@@ -283,7 +291,7 @@ export class TurnBattle {
     const list = b.spells.map((s) => {
       const top = s.ranks[s.ranks.length - 1], low = s.ranks[0];
       return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
-        detail: [s.description, s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one') : s.kind === 'support' ? `${(s.buffs ?? []).map((g) => buffLabel(g.buff)).join(', ') || 'Support'} for ${s.supportTarget === 'foes' ? (s.targets === 'all' ? 'every foe' : 'one foe') : s.targets === 'all' ? 'the whole party' : 'one'}` : `${s.element === 'neutral' ? 'Magic' : s.element[0].toUpperCase() + s.element.slice(1)} damage to ${s.targets === 'all' ? 'every foe' : 'one foe'}`, low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : 'goes off at once'].filter(Boolean).join(' · ') };
+        detail: [s.description, s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one') : s.kind === 'support' ? [s.buffs?.length ? `${s.buffs.map((g) => buffLabel(g.buff)).join(', ')} for ${s.supportTarget === 'foes' ? (s.targets === 'all' ? 'every foe' : 'one foe') : s.supportTarget === 'any' ? (s.targets === 'all' ? 'either side' : 'anyone') : s.targets === 'all' ? 'the whole party' : 'one'}` : '', s.weather ? `${WEATHER_EFFECT[s.weather].name}: ${WEATHER_EFFECT[s.weather].text.toLowerCase()}` : ''].filter(Boolean).join('; ') || 'Support' : `${s.element === 'neutral' ? 'Magic' : s.element[0].toUpperCase() + s.element.slice(1)} damage to ${s.targets === 'all' ? 'every foe' : 'one foe'}`, low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : 'goes off at once'].filter(Boolean).join(' · ') };
     });
     this.screen.choose('Magic', list, (i) => this.rankMenu(b, b.spells[i]), () => this.commandMenu(b), () => this.showOrder(RANK.magic));
   }
@@ -294,13 +302,17 @@ export class TurnBattle {
       const back = () => (s.ranks.length > 1 ? this.rankMenu(b, s) : this.magicMenu(b));
       const friendly = s.kind === 'heal' || (s.kind === 'support' && s.supportTarget !== 'foes');
       const mine = friendly ? this.sideOf(b) : this.otherSide(b), theirs = friendly ? this.otherSide(b) : this.sideOf(b);
+      // A weather spell with nothing else to give: it covers the whole battle, no target to choose.
+      if (s.kind === 'support' && s.weather && !s.buffs?.length) { this.phase = 'busy'; this.doSpell(b, s, r, [b]); return; }
+      // Support spells keep to their side unless they can go on either.
+      const oneSide = s.kind === 'support' && s.supportTarget !== 'any';
       if (s.targets === 'all') {
         // The whole group: the usual one, or (left / right) the other side.
-        const a = mine.filter(isUp), o = theirs.filter(isUp);
+        const a = mine.filter(isUp), o = oneSide ? [] : theirs.filter(isUp);
         this.screen.target(a.map((t) => t.key), (k) => { this.phase = 'busy'; this.doSpell(b, s, r, (a.some((t) => t.key === k) ? a : o)); }, () => { this.showOrder(); back(); }, undefined, true, o.map((t) => t.key));
         return;
       }
-      this.pickTarget(this.anyone(mine, b), (t) => this.doSpell(b, s, r, [t]), back, friendly ? b : undefined);
+      this.pickTarget(oneSide ? mine.filter(isUp) : this.anyone(mine, b), (t) => this.doSpell(b, s, r, [t]), back, friendly ? b : undefined);
     };
     if (s.ranks.length === 1) { go(s.ranks[0]); return; }
     this.screen.choose(s.name, s.ranks.map((r) => ({ label: r.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], right: `${r.mp} MP`, disabled: r.mp > b.mp, rank: RANK.magic,
@@ -434,6 +446,7 @@ export class TurnBattle {
         else this.screen.animate(t.key, 'heal', color);
         if (isUp(t) && s.buffs?.length) this.giveBuffs(b, t, s.buffs);
       }
+      if (s.weather) this.setWeather(s.weather, s.weatherTurns ?? 5);
       this.endTurn(b, RANK.magic, 0.8);
     });
   }
@@ -605,7 +618,11 @@ export class TurnBattle {
       const color = BUFF_INFO[a.buffs?.[0]?.buff ?? 'str'].color;
       this.screen.animate(e.key, 'cast', color);
       this.host.sound('ringOn');
-      this.later(0.45, () => { for (const t of move.targets) if (isUp(t)) this.giveBuffs(e, t, a.buffs ?? []); this.endTurn(e, RANK.magic, 0.8); });
+      this.later(0.45, () => {
+        for (const t of move.targets) if (isUp(t) && a.buffs?.length) this.giveBuffs(e, t, a.buffs);
+        if (a.weather) this.setWeather(a.weather, a.weatherTurns ?? 5);
+        this.endTurn(e, RANK.magic, 0.8);
+      });
       return;
     }
     if (a.kind === 'heal') {
@@ -625,6 +642,36 @@ export class TurnBattle {
     });
   }
 
+  private clearWeather(): void { battleWeather.kind = 'none'; this.weatherLeft = Infinity; this.host.weather?.(null); }
+
+  /** Rounds of weather left, counted in fighters' turns (one round: everyone standing has had a turn). */
+  private weatherLeft = Infinity;
+  /** The weather the battle started in: a spell's weather gives way to it again when it wears off. */
+  private baseWeather: BattleWeather = 'none';
+
+  /** Change the battle's weather for `rounds` (0: the whole battle). */
+  private setWeather(kind: BattleWeather, rounds: number): void {
+    const up = Math.max(1, this.battlers.filter(isUp).length);
+    this.weatherLeft = rounds > 0 && kind !== 'none' ? rounds * up : Infinity;
+    if (battleWeather.kind === kind) { this.screen.setWeather(this.weatherText()); return; }
+    battleWeather.kind = kind;
+    const w = WEATHER_EFFECT[kind];
+    const line = kind === 'none' ? 'The weather cleared.' : `${w.name}! ${w.text}.`;
+    this.screen.message(line);
+    this.say(line);
+    this.screen.setWeather(this.weatherText());
+    this.host.weather?.(kind);
+  }
+
+  /** The weather badge: "☔ Rain · 4 turns" (nothing when clear). */
+  private weatherText(): string | null {
+    const k = battleWeather.kind;
+    if (k === 'none') return null;
+    const w = WEATHER_EFFECT[k], up = Math.max(1, this.battlers.filter(isUp).length);
+    const left = Number.isFinite(this.weatherLeft) ? Math.max(1, Math.ceil(this.weatherLeft / up)) : null;
+    return `${w.icon} ${w.name}${left ? ` · ${left} round${left === 1 ? '' : 's'} left` : ''}`;
+  }
+
   private actionWord(a: EnemyAction): string { return { attack: 'Strike', spell: 'Spell', heal: 'Heal', guard: 'Guard', buff: 'Spell' }[a.kind]; }
 
   /**
@@ -637,7 +684,7 @@ export class TurnBattle {
       const hostile = DEBUFFS.has(g.buff) && by.side !== t.side;
       if (hostile && t.status.ward) { this.screen.popup(t.key, 'Warded', 'info'); continue; }
       if (hostile && Math.random() * 100 < (t.resist ?? 0)) { this.screen.popup(t.key, 'Resisted', 'info'); this.say(`${t.name} shrugs off ${BUFF_INFO[g.buff].name}`); continue; }
-      const res = t.status.boost(g.buff, g.amount ?? BUFF_INFO[g.buff].amount, g.turns ?? BUFF_TURNS);
+      const res = t.status.boost(g.buff, g.amount ?? BUFF_INFO[g.buff].amount, g.whole ? Infinity : g.turns ?? BUFF_TURNS);
       const other: BuffKind = g.buff === 'haste' ? 'slow' : 'haste';
       const word = res === 'cancelled' ? `${BUFF_INFO[other].name} ended` : `${buffLabel(g.buff)}!`;
       this.screen.popup(t.key, word, 'info');
@@ -771,6 +818,10 @@ export class TurnBattle {
 
   private endTurn(b: Battler, rank: number, pause: number): void {
     b.surging = false;
+    // Weather from a spell wears off after its rounds.
+    if (Number.isFinite(this.weatherLeft) && --this.weatherLeft <= 0) {
+      this.setWeather(this.baseWeather, 0);
+    } else if (Number.isFinite(this.weatherLeft)) this.screen.setWeather(this.weatherText());
     // A boss's gauge creeps up each of its turns too.
     if (b.overdrive !== undefined && isUp(b)) this.fillOverdrive(b, 8);
     // Ailments tick down at the end of the afflicted fighter's own turn.
@@ -828,6 +879,7 @@ export class TurnBattle {
   }
 
   private close(outcome: BattleOutcome): void {
+    this.clearWeather();
     if (outcome === 'victory') { this.host.tally?.('battlesWon'); if (!this.hurt) this.host.tally?.('flawless'); }
     if (outcome === 'fled') this.host.tally?.('fled');
     this.writeParty();
@@ -851,7 +903,7 @@ export class TurnBattle {
       weak: b.hp > 0 && (b.hp <= b.maxHp * 0.25 || st.list.some((a) => a !== 'zombie')),
       status: [
         ...st.list.map((a) => ({ icon: statusIconUrl(a), name: `${ailmentName(a)}${Number.isFinite(st.turns.get(a)!) ? ` (${st.turns.get(a)} turn${st.turns.get(a) === 1 ? '' : 's'})` : ''}` })),
-        ...[...st.buffs].map(([k, v]) => ({ icon: statusIconUrl(`buff:${k}`), name: `${buffLabel(k)} (${v.turns} turn${v.turns === 1 ? '' : 's'})` })),
+        ...[...st.buffs].map(([k, v]) => ({ icon: statusIconUrl(`buff:${k}`), name: `${buffLabel(k)} (${Number.isFinite(v.turns) ? `${v.turns} turn${v.turns === 1 ? '' : 's'}` : 'all battle'})` })),
       ],
     });
     // The party's numbers are the game's too (a save, the HUD).
@@ -863,6 +915,7 @@ export class TurnBattle {
   /** Abandon the battle at once (quitting to the title, loading a save): nothing is handed out. */
   abort(): void {
     if (this.phase === 'off') return;
+    this.clearWeather();
     this.phase = 'off';
     this.wait = 0; this.then = null;
     this.screen.close();

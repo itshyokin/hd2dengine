@@ -54,6 +54,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   gauge.
 - 67: Push / Pull to GitHub from the online editor (tablet editing without GitHub Desktop): `githubSync.ts` (GitHub
   web API: blobs, tree, commit, ref; compare for changes on both sides) and `githubPanel.ts` (Project menu).
+- 68: support spells on either side (`supportTarget: 'any'`), whole-battle buffs (`BuffGrant.whole`), battle
+  weather (`WEATHER_EFFECT` / `battleWeather` in `battle/rules.ts`; TurnBattle's `setWeather`; Game's `battleSky`
+  shows it around the battle); Haste, Slow and Rain Call added to the project's spell list.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

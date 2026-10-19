@@ -26,7 +26,10 @@ export interface BattleSpell {
   /** Buffs (or debuffs: Slow) it gives each target, on top of anything else it does. */
   buffs?: import('../../world/types').BuffGrant[];
   /** Support spells: aimed at the caster's side (default) or the other side. */
-  supportTarget?: 'allies' | 'foes';
+  supportTarget?: 'allies' | 'foes' | 'any';
+  /** The battle weather it brings, and rounds (0: the whole battle). */
+  weather?: import('../../world/types').BattleWeather;
+  weatherTurns?: number;
   element: Element;
   color?: string;
   targets: 'one' | 'all';
@@ -241,7 +244,25 @@ export interface HitResult {
  */
 export const combatClimate = { temp: 70, strength: 0.25 };
 
+/** What battle weather does to each element's damage (rain: water ×1.5, fire ×0.5…). */
+export const WEATHER_EFFECT: Record<import('../../world/types').BattleWeather, { name: string; icon: string; does: Partial<Record<Element, number>>; text: string }> = {
+  none: { name: 'Clear', icon: '', does: {}, text: '' },
+  rain: { name: 'Rain', icon: '☔', does: { water: 1.5, fire: 0.5 }, text: 'Water moves are stronger, fire weaker' },
+  storm: { name: 'Thunderstorm', icon: '⛈', does: { shock: 1.5, water: 1.3, fire: 0.5 }, text: 'Shock and water moves are stronger, fire weaker' },
+  snow: { name: 'Snow', icon: '❄', does: { water: 1.2, fire: 0.8 }, text: 'Water (ice) moves are a little stronger, fire weaker' },
+  blizzard: { name: 'Blizzard', icon: '🌨', does: { water: 1.5, fire: 0.6 }, text: 'Water (ice) moves are stronger, fire weaker' },
+  sun: { name: 'Harsh sunlight', icon: '☀', does: { fire: 1.5, water: 0.5 }, text: 'Fire moves are stronger, water weaker' },
+  sandstorm: { name: 'Sandstorm', icon: '🌪', does: { earth: 1.5, nature: 0.8 }, text: 'Earth moves are stronger, nature weaker' },
+};
+/** The battle's weather now (set by the battle). */
+export const battleWeather: { kind: import('../../world/types').BattleWeather } = { kind: 'none' };
+
 function climateFactor(element: Element, target: Battler): number {
+  const w = WEATHER_EFFECT[battleWeather.kind]?.does[element] ?? 1;
+  return w * heatFactor(element, target);
+}
+
+function heatFactor(element: Element, target: Battler): number {
   const s = combatClimate.strength, t = combatClimate.temp;
   if (!s) return 1;
   const heat = Math.max(0, Math.min(1, (t - 85) / 20)), cold = Math.max(0, Math.min(1, (40 - t) / 30));
@@ -314,9 +335,10 @@ export function enemyChoice(e: Battler, party: Battler[], friends: Battler[], rn
     if (w <= 0) continue;
     if (a.hpBelow !== undefined && e.hp / Math.max(1, e.maxHp) * 100 >= a.hpBelow) continue;
     if ((a.kind === 'spell' || a.kind === 'heal' || a.kind === 'buff') && e.status.silenced) continue;
-    if (a.kind === 'buff' && !a.buffs?.length) continue;
-    // A buff it (or its side) already has isn't worth a turn.
-    if (a.kind === 'buff' && a.buffTarget !== 'foes' && (a.buffTarget === 'allies' ? mates : [e]).every((m) => a.buffs!.every((g) => m.status.buff(g.buff) > 0))) continue;
+    if (a.kind === 'buff' && !a.buffs?.length && !a.weather) continue;
+    // A buff it (or its side) already has, or the weather it already brought, isn't worth a turn.
+    if (a.kind === 'buff' && a.buffs?.length && a.buffTarget !== 'foes' && (a.buffTarget === 'allies' ? mates : [e]).every((m) => a.buffs!.every((g) => m.status.buff(g.buff) > 0)) && (!a.weather || battleWeather.kind === a.weather)) continue;
+    if (a.kind === 'buff' && !a.buffs?.length && a.weather && battleWeather.kind === a.weather) continue;
     if (a.kind === 'heal' && !hurt.length) continue;
     options.push({ action: a, weight: w });
   }

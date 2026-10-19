@@ -5651,6 +5651,51 @@
       "mp": 6,
       "maxRank": 3,
       "description": "Increase target's speed for the duration of the battle."
+    },
+    {
+      "id": "haste",
+      "name": "Haste",
+      "kind": "support",
+      "power": 0,
+      "mp": 10,
+      "color": "#5ae0ff",
+      "supportTarget": "any",
+      "description": "Someone (a friend, or a foe to undo its Slow) takes their turns half again as often, for a few turns.",
+      "buffs": [
+        {
+          "buff": "haste",
+          "amount": 50,
+          "turns": 4
+        }
+      ]
+    },
+    {
+      "id": "slow",
+      "name": "Slow",
+      "kind": "support",
+      "power": 0,
+      "mp": 8,
+      "color": "#c07a5a",
+      "supportTarget": "any",
+      "description": "Someone’s turns come round much more slowly (or undo a Haste), for a few turns. Endurance can shrug it off.",
+      "buffs": [
+        {
+          "buff": "slow",
+          "amount": 40,
+          "turns": 4
+        }
+      ]
+    },
+    {
+      "id": "rain_call",
+      "name": "Rain Call",
+      "kind": "support",
+      "power": 0,
+      "mp": 12,
+      "color": "#5a9cff",
+      "description": "Brings rain over the battle for five rounds: water spells hit harder, fire ones weaker.",
+      "weather": "rain",
+      "weatherTurns": 5
     }
   ],
   "markers": [

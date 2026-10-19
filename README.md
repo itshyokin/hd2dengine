@@ -942,14 +942,24 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   turns. Icons show over each fighter and beside party names. The hero brings their ailments from the map into a
   battle; battle ailments end with the battle. A hero's **Endurance** gives a chance to shrug an ailment off
   ("Resisted"); enemies have *Ailment resist %* in Database → Enemies.
-- **Buffs and debuffs in battle** last a few of the fighter's own turns (3 unless set) and show as icons with turns
-  left: raised Strength, Dexterity, Agility, Endurance, Defence, Magic, Magic Defence or critical hits,
+- **Buffs and debuffs in battle** last a few of the fighter's own turns (3 unless set), or the **whole battle** (tick
+  *or the whole battle* beside the turns, like a Pokémon speed or critical-hit boost), and show as icons with turns
+  left ("all battle" for whole-battle ones): raised Strength, Dexterity, Agility, Endurance, Defence, Magic, Magic Defence or critical hits,
   **Regeneration** (health back at the end of each turn), **Haste** (turns come round half again as often) and
   **Slow** (turns come round much more slowly; a debuff). Haste and Slow cancel each other out. A Slow cast on the
   other side can be shrugged off with Endurance or warded off by guarding. They come from **items** (a consumable's
   *Buffs it gives*: seconds on the map, turns in battle), **spells** (*Buffs it gives in battle*; the **Support**
-  kind does only that, on the caster's side or the other side) and **enemies** (a *Buff* action, below). The
-  built-in spells include **Haste** and **Slow**, learned from Quicken and Hinder in the Magic tree. On the map,
+  kind does only that, on the caster's side, the other side, or **either side**: the caster picks, so Haste can
+  speed up a friend or undo a foe's Slow) and **enemies** (a *Buff* action, below). The
+  built-in spells include **Haste** and **Slow** (either side), learned from Quicken and Hinder in the Magic tree,
+  and **Rain Call** (not in a tree yet: give it from the console or a skill).
+- **Battle weather**: a battle starts in the map's weather when it's falling outdoors (rain, thunderstorm, snow,
+  blizzard, sandstorm), shown as a badge at the top. **Rain** makes water moves half again as strong and fire ones
+  half as strong; a **Thunderstorm** strengthens shock and water; **Snow** and a **Blizzard** strengthen water
+  (ice) and weaken fire; **Harsh sunlight** strengthens fire and weakens water; a **Sandstorm** strengthens earth.
+  A spell (any kind) or an enemy's Buff action can bring its own weather with *Battle weather it brings*, for a
+  number of rounds (5 unless set; 0: the whole battle), and it falls around the battle; when it wears off the
+  map's weather comes back. A Support spell with only weather needs no target. On the map,
   Haste and Slow change walking speed. Buffs from the map stay on the map. Each hit can also **miss** ("Miss"):
   accuracy against dodging (see *Seven stats*); enemies have *Accuracy %*, *Evasion %* and *Critical hit %*.
 - **Impact materials** (Database → Enemies → *Impact*): each enemy is made of something (flesh, plant, metal,

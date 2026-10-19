@@ -573,6 +573,14 @@ export class BattleScreen {
     this.stage?.shake?.(0.35);
   }
 
+  /** The battle's weather (a badge under the turn order), or none. */
+  setWeather(text: string | null): void {
+    let el = this.root.querySelector<HTMLElement>('.battle-weather');
+    if (!text) { el?.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.className = 'battle-weather'; el.setAttribute('role', 'status'); this.root.append(el); }
+    el.textContent = text;
+  }
+
   /** A line at the top. Without `hold` it fades after a moment. */
   message(text: string, hold = false): void {
     this.msgEl.textContent = text;

@@ -35,6 +35,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       in the browser, one commit per Push on top of what's there, Pull brings in the PC's pushes, files changed in
       both places ask which to keep; the site records the commit it was built from (data/build.json).
 - [x] Update 67b: Backspace works as Esc everywhere outside text boxes (editor, game, Character Builder).
+- [x] Update 68: support spells on either side (Cast on → Either side: Haste a friend or a foe); buffs that last the
+      whole battle; battle weather (starts as the map's; spells and enemy Buff actions can bring Rain, Sunlight,
+      Sandstorm… for some rounds or the whole battle, strengthening and weakening elements); a Rain Call spell.
 
 ## Combat (ideas, Oct 18)
 - [x] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,

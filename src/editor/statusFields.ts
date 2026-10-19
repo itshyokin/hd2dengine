@@ -5,7 +5,8 @@
 import { statusIconUrl } from '../art/statusIcons';
 import { AILMENTS, AILMENT_INFO, BUFFS, BUFF_INFO } from '../game/status';
 import { BUFF_TURNS } from '../game/battle/status';
-import type { Ailment, BuffGrant, Inflict } from '../world/types';
+import type { Ailment, BattleWeather, BuffGrant, Inflict } from '../world/types';
+import { WEATHER_EFFECT } from '../game/battle/rules';
 import { field, h, numberInput, select } from './dom';
 
 const AIL_CHOICES = AILMENTS.map((a) => [a, AILMENT_INFO[a].name] as [string, string]);
@@ -62,10 +63,21 @@ export function buffsField(get: () => BuffGrant[] | undefined, set: (v: BuffGran
       h('span', { class: 'note' }, `${BUFF_INFO[b.buff].unit || ''} for`),
       secs ? numberInput(b.seconds ?? BUFF_INFO[b.buff].seconds, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_INFO[b.buff].seconds) delete b.seconds; else b.seconds = n; save(list); }, { step: 5, min: 1, 'aria-label': `Buff ${k + 1} seconds` }) : h('span'),
       secs ? h('span', { class: 'note' }, 's on the map,') : h('span'),
-      numberInput(b.turns ?? BUFF_TURNS, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_TURNS) delete b.turns; else b.turns = n; save(list); }, { step: 1, min: 1, 'aria-label': `Buff ${k + 1} turns` }),
-      h('span', { class: 'note' }, 'turns in battle'),
+      b.whole ? h('span') : numberInput(b.turns ?? BUFF_TURNS, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_TURNS) delete b.turns; else b.turns = n; save(list); }, { step: 1, min: 1, 'aria-label': `Buff ${k + 1} turns` }),
+      b.whole ? h('span') : h('span', { class: 'note' }, 'turns in battle,'),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!b.whole, 'aria-label': `Buff ${k + 1} lasts the whole battle`, onchange: (e: Event) => { if ((e.target as HTMLInputElement).checked) { b.whole = true; delete b.turns; } else delete b.whole; save(list); rerender(); } }), h('span', {}, b.whole ? 'the whole battle' : 'or the whole battle')),
       h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove buff ${k + 1}`, onclick: () => { list.splice(k, 1); save(list); rerender(); } }, '✕'))),
     h('button', { type: 'button', class: 'btn small', onclick: () => { list.push({ buff: 'crit' }); save(list); rerender(); } }, '+ Buff'));
+}
+
+/** The weather a spell or enemy action brings to a turn-based battle (Rain makes water moves stronger…), and for how long. */
+export function weatherField(get: () => { weather?: BattleWeather; weatherTurns?: number }, set: (kind: BattleWeather | undefined, turns: number | undefined) => void, rerender: () => void, label = 'Battle weather it brings'): HTMLElement {
+  const cur = get(), kinds = Object.keys(WEATHER_EFFECT) as BattleWeather[];
+  const turns = cur.weatherTurns ?? 5;
+  return h('div', { class: 'field-row' },
+    field(label, select(kinds.map((k) => [k, k === 'none' ? 'None' : `${WEATHER_EFFECT[k].icon} ${WEATHER_EFFECT[k].name} — ${WEATHER_EFFECT[k].text.toLowerCase()}`] as [string, string]), cur.weather ?? 'none', (v) => { set(v === 'none' ? undefined : v as BattleWeather, v === 'none' ? undefined : cur.weatherTurns); rerender(); }),
+      'Turn-based: it replaces the battle’s weather (battles start with the map’s own: rain, snow…). Clear weather ends it.'),
+    cur.weather && cur.weather !== 'none' ? field('For (rounds)', numberInput(turns, (v) => { const t = Math.max(0, Math.round(v)); set(cur.weather, t === 5 ? undefined : t); rerender(); }, { step: 1, min: 0, 'aria-label': 'Weather rounds' }), '0: the whole battle.') : h('span'));
 }
 
 export const statusField = (label: string, el: HTMLElement, hint?: string): HTMLElement => field(label, el, hint);

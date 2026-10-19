@@ -1758,3 +1758,8 @@ body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-q
 .mblock.targeted::before { top: -16px; border-bottom: 0; border-top: 12px solid var(--ember); }
 .mblock.targeted::after { bottom: -16px; border-top: 0; border-bottom: 12px solid var(--ember); --dir: -1; }
 @media (max-width: 900px) { .battle.blocks-on .battle-blocks { left: 12px; transform: none; max-width: calc(100% - 170px); justify-content: flex-start; } .mblock { min-width: 150px; } }
+/* The battle's weather: a badge at the top right, above the turn order. */
+.battle-weather { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(156px + env(safe-area-inset-right, 0px)); z-index: 3;
+  padding: 5px 12px; border-radius: 999px; background: rgba(12, 14, 24, 0.82); border: 1px solid rgba(140, 200, 255, 0.45); color: #dcefff;
+  font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+.battle.blocks-on .battle-weather { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }

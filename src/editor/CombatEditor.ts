@@ -2,7 +2,7 @@
  * Database → Combat (battles, weapon damage, the sword, bow and spells on the map, forges, levels)
  * and Database → Enemies (the list of enemy types with a form for the selected one).
  */
-import { ailmentChips, buffsField, inflictsField } from './statusFields';
+import { ailmentChips, buffsField, inflictsField, weatherField } from './statusFields';
 import type { Ailment } from '../world/types';
 import { defenceSection, elementSelect } from './elementFields';
 import { ELEMENT_NAMES } from '../game/elements';
@@ -375,7 +375,8 @@ function battleActions(d: EnemyDef, rerender: () => void): HTMLElement {
       a.kind === 'buff' ? h('div', { class: 'field-row' },
         field('On', select([['self', 'Itself'], ['allies', 'Every enemy in the battle (its side)'], ['foes', 'The party (debuffs: Slow)']], a.buffTarget ?? 'self', (v) => { if (v === 'self') delete a.buffTarget; else a.buffTarget = v as 'allies' | 'foes'; rerender(); }, { 'aria-label': `Action ${k + 1} buff target` })),
         a.buffTarget === 'foes' ? field('Who', select([['one', 'One of the party'], ['all', 'The whole party']], a.targets ?? 'one', (v) => { if (v === 'all') a.targets = 'all'; else delete a.targets; }, { 'aria-label': `Action ${k + 1} buff targets` })) : h('span')) : h('span'),
-      a.kind === 'buff' ? buffsField(() => a.buffs, (v) => { if (v) a.buffs = v; else delete a.buffs; }, rerender, { label: 'Buffs it gives', seconds: false }) : h('span'));
+      a.kind === 'buff' ? buffsField(() => a.buffs, (v) => { if (v) a.buffs = v; else delete a.buffs; }, rerender, { label: 'Buffs it gives', seconds: false }) : h('span'),
+      a.kind === 'buff' ? weatherField(() => a, (wk, t) => { if (wk) a.weather = wk; else delete a.weather; if (t !== undefined) a.weatherTurns = t; else delete a.weatherTurns; }, rerender, 'Battle weather it brings (instead of, or with, buffs)') : h('span'));
   });
   return h('section', { class: 'db-section' }, h('h3', {}, 'Turn-based battles'),
     h('div', { class: 'field-row' },

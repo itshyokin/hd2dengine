@@ -7,7 +7,7 @@ import { soundField } from './CommandEditor';
 import type { AdditionDef, AdditionStrike, ClassDef, FaceButton, SkillsData, SpellEntry } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { elementSelect } from './elementFields';
-import { buffsField, inflictsField } from './statusFields';
+import { buffsField, inflictsField, weatherField } from './statusFields';
 import { rankName, spellAtRank, spellMaxRank } from '../game/abilities';
 
 const n = (v: number, set: (x: number) => void, step = 1, min = 0, label = '') => numberInput(v, (x) => set(Math.max(min, x)), { step, min, 'aria-label': label, class: 'db-num' });
@@ -56,8 +56,8 @@ export function spellsTab(list: SpellEntry[], state: { sel: number }, rerender: 
       soundField('Call-out', d.sound, (v) => { d.sound = v; }, 'Turn-based: what the caster says as it goes off (“Fire!”). Import voice clips in Database → Audio.'),
       soundField('Chant', d.chant, (v) => { d.chant = v; }, 'Played as they begin a spell that charges (Charges above 0).'),
       h('div', { class: 'field-row' },
-        field('Kind', select([['bolt', 'Attack spell (a magic hit; in action mode, the bolt the spell button throws)'], ['heal', 'Healing (health back for the party)'], ['support', 'Support (turn-based): only its buffs or debuffs (Haste, Slow…)']], d.kind, (v) => { d.kind = v as SpellEntry['kind']; rerender(); })),
-        d.kind === 'support' ? field('Cast on', select([['allies', 'The caster’s side'], ['foes', 'The other side (debuffs)']], d.supportTarget ?? 'allies', (v) => { if (v === 'foes') d.supportTarget = 'foes'; else delete d.supportTarget; })) : h('span'),
+        field('Kind', select([['bolt', 'Attack spell (a magic hit; in action mode, the bolt the spell button throws)'], ['heal', 'Healing (health back for the party)'], ['support', 'Support (turn-based): buffs, debuffs or weather (Haste, Slow, Rain…)']], d.kind, (v) => { d.kind = v as SpellEntry['kind']; rerender(); })),
+        d.kind === 'support' ? field('Cast on', select([['allies', 'The caster’s side'], ['foes', 'The other side (debuffs)'], ['any', 'Either side (the caster picks: Haste a friend or a foe)']], d.supportTarget ?? 'allies', (v) => { if (v === 'foes' || v === 'any') d.supportTarget = v; else delete d.supportTarget; })) : h('span'),
         field('Targets', select([['one', 'One'], ['all', 'All of them (every foe, or the whole party)']], d.targets ?? 'one', (v) => { if (v === 'all') d.targets = 'all'; else delete d.targets; }), 'Turn-based battles.')),
       h('section', { class: 'db-section' }, h('h3', {}, 'Rank 1'),
         h('div', { class: 'field-row' },
@@ -69,7 +69,8 @@ export function spellsTab(list: SpellEntry[], state: { sel: number }, rerender: 
           field('Colour', h('input', { type: 'color', value: d.color ?? '#ffb04a', 'aria-label': 'Spell colour', onchange: (e: Event) => { d.color = (e.target as HTMLInputElement).value; } }))) : h('span'),
         d.kind === 'bolt' ? inflictsField(() => d.inflicts, (v) => { if (v) d.inflicts = v; else delete d.inflicts; }, rerender, 'Ailments it can give') : h('span'),
         d.kind === 'support' ? field('Colour', h('input', { type: 'color', value: d.color ?? '#5ae0ff', 'aria-label': 'Spell colour', onchange: (e: Event) => { d.color = (e.target as HTMLInputElement).value; } })) : h('span'),
-        buffsField(() => d.buffs, (v) => { if (v) d.buffs = v; else delete d.buffs; }, rerender, { label: 'Buffs (or debuffs) it gives in battle', seconds: false })),
+        buffsField(() => d.buffs, (v) => { if (v) d.buffs = v; else delete d.buffs; }, rerender, { label: 'Buffs (or debuffs) it gives in battle', seconds: false }),
+        weatherField(() => d, (k, t) => { if (k) d.weather = k; else delete d.weather; if (t !== undefined) d.weatherTurns = t; else delete d.weatherTurns; }, rerender)),
       h('section', { class: 'db-section' }, h('h3', {}, 'Ranks'),
         h('div', { class: 'field-row' },
           field('Highest rank', n(spellMaxRank(d), (v) => { d.maxRank = Math.max(1, Math.min(9, Math.round(v))); rerender(); }, 1, 1, 'Max rank')),

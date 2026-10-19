@@ -58,7 +58,7 @@ import {
   additionBonus, additionList, additionRank, additionToNext, changeClass, classList, findAddition, findClass, findSpell, heroTrees, learnAddition,
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
-import type { AbilityData, Command, EventData } from '../world/types';
+import type { AbilityData, BattleWeather, Command, EventData } from '../world/types';
 import { WEATHER_KINDS } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
@@ -4349,7 +4349,7 @@ export class Game {
         const at = spellAtRank(s, i + 1);
         return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
       });
-      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget });
+      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget, weather: s.weather, weatherTurns: s.weatherTurns });
     }
     return out;
   }
@@ -4675,6 +4675,12 @@ export class Game {
     type Ref = { def: EnemyDef; enemy: Enemy | null; battler: Battler };
     return {
       sound: (n) => this.audio.play(n),
+      // A battle starts in the map's weather (outdoors, when it's falling).
+      startWeather: () => {
+        const w = this.mapWeather(), map: Partial<Record<WeatherKind, BattleWeather>> = { rain: 'rain', storm: 'storm', snow: 'snow', blizzard: 'blizzard', sandstorm: 'sandstorm' };
+        return w.amount > 0.15 ? map[w.kind] ?? 'none' : 'none';
+      },
+      weather: (k) => { this.battleSky = k; },
       tally: (k, n, best) => this.state.tally(k, n, best),
       items: () => this.inventory.slots.flatMap((s, i) => {
         const d = s && this.items.get(s.id);
@@ -5487,6 +5493,8 @@ export class Game {
     const kind = show ? ov?.kind ?? dyn?.kind ?? start?.kind ?? 'none' : 'none';
     const amount = kind === 'none' ? 0 : ov ? ov.amount ?? 1 : dyn ? dyn.amount : start?.amount ?? 1;
     const wind = (show ? o?.wind : undefined) ?? d.wind?.strength ?? (outdoor ? 0.3 : 0);
+    // A battle's own weather (a spell's Rain, say) shows in place of the map's while the battle lasts.
+    if (this.battleSky) { const sky: WeatherKind = this.battleSky === 'sun' ? 'none' : this.battleSky; return { kind: sky, amount: sky === 'none' ? 0 : 1, wind: Math.max(wind, sky === 'storm' || sky === 'blizzard' || sky === 'sandstorm' ? 0.7 : 0), dir: d.wind?.dir ?? 15 }; }
     return { kind, amount, wind, dir: d.wind?.dir ?? 15 };
   }
 
@@ -5501,7 +5509,7 @@ export class Game {
     // Dynamic weather: when the spell changes, the old weather fades out as the new comes in.
     if (!this.weatherPending && (w.kind !== this.weather.kind || Math.abs(w.amount - this.weather.amount) > 0.05)) {
       this.weather.set(w.kind, w.amount, this.stage ? this.stage.look : this.camTarget);
-      if (w.kind !== this.lastWeatherKind && !this.onTitle && this.lastWeatherKind) this.log.add(weatherLine(w.kind), 'info');
+      if (w.kind !== this.lastWeatherKind && !this.onTitle && this.lastWeatherKind && !this.battle.active) this.log.add(weatherLine(w.kind), 'info');
     }
     this.lastWeatherKind = w.kind;
     this.updateClimate(dt);
@@ -5589,6 +5597,8 @@ export class Game {
   /** An event's change of temperature on this map (cleared on leaving it). */
   private tempHere: { op: 'set' | 'add'; value: number } | null = null;
   private lastWeatherKind: WeatherKind | '' = '';
+  /** Weather a spell set in this battle (shown around the battle until it ends), or null. */
+  private battleSky: BattleWeather | null = null;
   /** How wet the ground is (rain soaks it; it dries over a couple of game hours), and the frost and heat shown. */
   private wet = 0;
   private frost = 0;
