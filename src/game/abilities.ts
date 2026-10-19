@@ -119,6 +119,8 @@ export function heroTrees(db: Database, a: AbilityData): Set<string> | null {
 /** Change class: the new one joins those held (its trees open), nothing learned is lost. */
 export function changeClass(a: AbilityData, cls: string): void {
   if (a.cls && !(a.classes ?? []).includes(a.cls)) (a.classes ??= []).push(a.cls);
+  // Each class's stat boost is given once, for good: remember every class they've been.
+  for (const c of [a.cls, cls]) if (c && !(a.joined ?? []).includes(c)) (a.joined ??= []).push(c);
   a.cls = cls;
   if (!(a.classes ?? []).includes(cls)) (a.classes ??= []).push(cls);
 }

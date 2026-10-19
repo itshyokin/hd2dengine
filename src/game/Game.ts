@@ -55,7 +55,7 @@ import { type BattleAddition, type BattleSpell, type Battler, type Opening, enem
 import { type BattleAilment, BattleStatus, turnsFromSeconds } from './battle/status';
 import { HEAL_MP } from './party';
 import {
-  additionBonus, additionList, additionRank, additionToNext, changeClass, classList, findAddition, findClass, findSpell, heroTrees, learnAddition,
+  additionBonus, additionList, additionRank, additionToNext, changeClass, findAddition, findClass, findSpell, heroTrees, learnAddition,
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
 import type { AbilityData, BattleWeather, Command, EventData } from '../world/types';
@@ -85,7 +85,8 @@ import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './invento
 import { forgeRules, forgedDef, settableShard, upgradable, enchantable, upgradeCost } from './forge';
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, STYLE_NAMES, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
-import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, powerMultiplier, speedMultiplier } from './attributes';
+import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, speedMultiplier } from './attributes';
+import { classStatGear, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
@@ -576,7 +577,7 @@ export class Game {
         const m = h ? this.members()[h - 1] : null;
         const own = { ...(m ? m.data.stats : this.progress.stats) };
         for (const k of ATTRS) own[k] += extra[k];
-        return m ? heroTotals(own, this.wornGear(m.data.equip), (k) => this.memberSkills(m.data).get(k)) : heroTotals(own, this.wornGear(), (k) => (this.skills?.get(k) ?? 0) + this.combat.heroStatus.buff(k));
+        return m ? heroTotals(own, this.statGear(m.data.equip, m.data.abilities), (k) => this.memberSkills(m.data).get(k)) : heroTotals(own, this.statGear(), (k) => (this.skills?.get(k) ?? 0) + this.combat.heroStatus.buff(k));
       },
       spend: (h, add) => (h ? spendMember(this.members()[h - 1].data, add) : this.progress.spend(add)),
     });
@@ -2341,6 +2342,8 @@ export class Game {
     const canUse = (h: number, id: string, slot?: EquipSlotId) => {
       const d = this.items.get(id);
       if (slot === 'ammo' || d?.kind === 'ammo') return h === 0;
+      // Their class can't use this kind of weapon or armor.
+      if (gearSkill(this.db, this.abilitiesOf(h), d) === 'none') return false;
       return !d?.users?.length || d.users.includes(heroIds()[h]);
     };
     const WORN = EQUIP_SLOTS.filter((x) => x !== 'magic');
@@ -2383,7 +2386,7 @@ export class Game {
         if (mem) {
           const gear = { ...mem.data.equip };
           if (change && change.slot !== 'ammo') { if (change.id) gear[change.slot as EquipSlot] = change.id; else delete gear[change.slot as EquipSlot]; }
-          const n = this.allyNumbers({ ...mem.data, equip: gear }, mem.def), t = heroTotals(mem.data.stats, this.wornGear(gear), (k) => this.memberSkills(mem.data).get(k));
+          const n = this.allyNumbers({ ...mem.data, equip: gear }, mem.def), t = heroTotals(mem.data.stats, this.statGear(gear, mem.data.abilities), (k) => this.memberSkills(mem.data).get(k));
           return { ...t, melee: n.melee, bow: n.bow, spell: n.spell };
         }
         const gear = { ...this.inventory.equip };
@@ -3360,7 +3363,7 @@ export class Game {
 
   /** The hero's stats with what they wear and their skills (crit chance, defences). */
   heroTotals(gear: Partial<Record<EquipSlot, string>> = this.inventory.equip): HeroTotals {
-    return heroTotals(this.progress.stats, this.wornGear(gear), (k) => (this.skills?.get(k) ?? 0) + (this.combat?.heroStatus.buff(k) ?? 0));
+    return heroTotals(this.progress.stats, this.statGear(gear), (k) => (this.skills?.get(k) ?? 0) + (this.combat?.heroStatus.buff(k) ?? 0));
   }
 
   /** A hero's growth ranks now (0: the hero you play): the Database's, changed by potions and events, lifted by worn gear. */
@@ -3381,6 +3384,18 @@ export class Game {
 
   private wornGear(gear: Partial<Record<EquipSlot, string>> = this.inventory.equip): ({ slot: EquipSlot } & ItemDef | undefined)[] {
     return EQUIP_SLOTS.map((slot) => { const id = gear[slot], d = id ? this.items.get(id) : undefined; return d ? { ...d, slot } : undefined; });
+  }
+
+  /** What counts towards a hero's stats: what they wear, plus their class's boosts (less untrained armor's cost). */
+  private statGear(gear: Partial<Record<EquipSlot, string>> = this.inventory.equip, a: AbilityData | null | undefined = this.progress.abilities): StatGear[] {
+    const armor = gear.armor ? this.items.get(gear.armor) : undefined;
+    return [...this.wornGear(gear).filter((g): g is { slot: EquipSlot } & ItemDef => !!g), { ...classStatGear(this.db, a, armor), slot: 'class' }];
+  }
+
+  /** A weapon's damage share for this hero: untrained with it (their class, or Arms Training for medium / heavy) hits for ¾. */
+  private weaponSkill(sk: Skills, a: AbilityData | null | undefined, w: ItemDef | undefined): number {
+    const cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
+    return proficientWith(sk, cls) && gearSkill(this.db, a, w) !== 'untrained' ? 1 : UNTRAINED_DAMAGE;
   }
 
   /** Give or cure an ailment on the hero (events, ailment tiles). */
@@ -3407,7 +3422,7 @@ export class Game {
     const base = playerConfig(this.db.stats).max, max = this.stats.cfg.max, sk = this.skills;
     const before = { ...max };
     // Endurance adds a little health (worn gear and skills count, not short buffs).
-    const end = heroTotals(this.progress.stats, this.inventory ? this.wornGear() : [], (k) => sk.get(k)).attrs.end;
+    const end = heroTotals(this.progress.stats, this.inventory ? this.statGear() : [], (k) => sk.get(k)).attrs.end;
     max.hp = Math.max(1, base.hp + sk.get('maxHp') + enduranceHp(end)); max.mp = base.mp + sk.get('maxMp'); max.sp = base.sp + sk.get('maxSp');
     // Raising a maximum adds the same to the current amount; lowering one caps it.
     for (const g of ['hp', 'mp', 'sp'] as const) this.stats[g] = Math.min(max[g], this.stats[g] + Math.max(0, max[g] - before[g]));
@@ -4020,7 +4035,6 @@ export class Game {
     const a = this.abilitiesOf(who) ?? {};
     const spells = spellList(this.db).filter((sp) => (a.spells?.[sp.id] ?? 0) > 0);
     const adds = additionList(this.db).filter((d) => a.additions && d.id in a.additions);
-    const classes = classList(this.db).filter((c) => c.id === a.cls || (a.classes ?? []).includes(c.id));
     const cur = adds.find((d) => d.id === a.addition);
     const out: PartyAction[] = [
       { id: 'status', label: 'Status', detail: 'Who they are, what they wear, ailments' },
@@ -4029,7 +4043,6 @@ export class Game {
     ];
     if (this.combatCfg.turnBased.additions === 'set') out.push({ id: 'addition', label: 'Addition', detail: adds.length ? `Attack performs: ${cur?.name ?? 'a plain attack'}` : 'No Additions learned yet', disabled: !adds.length });
     out.push({ id: 'magic', label: 'Magic', detail: spells.length ? `${spells.length} spell${spells.length === 1 ? '' : 's'}: healing can be cast from here` : 'No spells learned yet', disabled: !spells.length });
-    if (classes.length > 1) out.push({ id: 'class', label: 'Class', detail: `Now: ${findClass(this.db, a.cls)?.name ?? 'none'}` });
     return out;
   }
 
@@ -4059,44 +4072,7 @@ export class Game {
           pick: sp.kind === 'heal' ? () => this.castHealMenu(who, sp.id) : undefined };
       });
       this.menu.push(`Magic: ${name}`, items, { onBack: back });
-    } else if (id === 'class') {
-      const classes = classList(this.db).filter((c) => c.id === a.cls || (a.classes ?? []).includes(c.id));
-      this.menu.push(`Class: ${name}`, classes.map((c) => ({ label: c.name, detail: `${c.id === a.cls ? 'Now · ' : ''}${c.description ?? ''}`,
-        pick: () => { if (c.id !== a.cls) { changeClass(a, c.id); this.audio.play('skill'); } this.menu.back(); } })), { onBack: back, note: 'Nothing learned is lost when changing class.' });
     } else back();
-  }
-
-  private openHeroAbilities(who: number): void {
-    const a = this.abilitiesOf(who);
-    if (!a) return;
-    const name = who ? this.members()[who - 1].def.name : mainHero(this.db).name;
-    const items: MenuItem[] = [];
-    // Class: change to any class they've held or unlocked (nothing learned is lost).
-    const classes = classList(this.db).filter((c) => c.id === a.cls || (a.classes ?? []).includes(c.id));
-    if (classes.length) {
-      const cur = findClass(this.db, a.cls);
-      items.push({ label: 'Class', detail: cur ? `${cur.description ?? ''}${cur.description ? ' · ' : ''}Skill trees: ${cur.trees.map((t) => skillsData(this.db.skills).trees.find((x) => x.id === t)?.name ?? t).join(', ')}` : 'None yet',
-        choice: { value: a.cls ?? '', options: [...(a.cls ? [] : [['', 'None'] as [string, string]]), ...classes.map((c) => [c.id, c.name] as [string, string])], set: (v) => { if (v && v !== a.cls) { changeClass(a, v); this.audio.play('skill'); this.menu.back(); this.openHeroAbilities(who); } } } });
-    }
-    const spells = spellList(this.db).filter((sp) => (a.spells?.[sp.id] ?? 0) > 0);
-    const adds = additionList(this.db).filter((d) => a.additions && d.id in a.additions);
-    if (this.combatCfg.turnBased.additions === 'set' && adds.length) {
-      items.push({ label: 'Attack uses', detail: 'The Addition performed with Attack in battle.',
-        choice: { value: a.addition ?? '', options: [['', 'A plain attack'], ...adds.map((d) => [d.id, d.name] as [string, string])], set: (v) => { if (v) a.addition = v; else delete a.addition; } } });
-    }
-    for (const sp of spells) {
-      const r = Math.min(a.spells![sp.id], spellMaxRank(sp)), at = spellAtRank(sp, r);
-      // Healing spells can be cast from here, on the party.
-      items.push({ label: `${rankName(sp.name, r)}`, color: sp.color, detail: `${sp.kind === 'heal' ? 'Heal (choose to cast)' : 'Spell'} · ${at.mp} MP${at.charge ? ` · charges ${at.charge} turn${at.charge === 1 ? '' : 's'}` : ''}${sp.targets === 'all' ? ' · all targets' : ''}${sp.description ? ` · ${sp.description}` : ''}`,
-        pick: sp.kind === 'heal' ? () => this.castHealMenu(who, sp.id) : undefined });
-    }
-    for (const d of adds) {
-      const uses = a.additions![d.id] ?? 0, rank = additionRank(d, uses), next = additionToNext(d, uses);
-      items.push({ label: `${d.name} · Rank ${rank}`, color: '#ffd38a',
-        detail: `Addition · ${d.strikes.map((x) => x.button === 'any' ? '★' : x.button ?? 'A').join(' ')}${next === null ? ' · Mastered' : ` · ${next} more to rank ${rank + 1}`}${d.description ? ` · ${d.description}` : ''}` });
-    }
-    if (!spells.length && !adds.length) items.push({ label: 'Nothing learned yet', detail: 'Spells and Additions are learned from the skill tree, from events and from trainers.', disabled: true });
-    this.menu.push(`${pauseLabel(this.db.menus, 'abilities')}: ${name}`, items, { note: 'Left / right change a setting.' });
   }
 
   /** Out of battle: cast a healing spell (its highest rank known) on one of the party, or all of them. */
@@ -4389,9 +4365,9 @@ export class Game {
       const w = gear.weapon ? this.items.get(gear.weapon) : undefined, cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
       const classPct = cls === 'unarmed' ? 1 : pct(sk, `${cls}Damage` as 'lightDamage');
       // Untrained with medium or heavy weapons (Arms Training, Heavy Arms): weaker blows.
-      const melee = (cls === 'unarmed' ? cfg.unarmedDamage : w!.weapon!.damage) * cfg.classes[cls].damage * powerMultiplier(t.attrs.str) * pct(sk, 'meleeDamage') * classPct * (proficientWith(sk, cls) ? 1 : UNTRAINED_DAMAGE);
+      const melee = (cls === 'unarmed' ? cfg.unarmedDamage : w!.weapon!.damage) * cfg.classes[cls].damage * powerMultiplier(t.attrs.str) * pct(sk, 'meleeDamage') * classPct * this.weaponSkill(sk, this.progress.abilities, w);
       const bowDef = gear.ranged ? this.items.get(gear.ranged) : undefined, ammo = this.inventory.arrow() ? this.items.get(this.inventory.arrow()!) : undefined;
-      const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.dex) * pct(sk, 'bowDamage') : 0;
+      const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.dex) * pct(sk, 'bowDamage') * (gearSkill(this.db, this.progress.abilities, bowDef) === 'untrained' ? UNTRAINED_DAMAGE : 1) : 0;
       const useBow = !w && bow > melee;
       const a = this.progress.abilities;
       const spells = this.battleSpells(a, powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), this.spellThrift);
@@ -4413,7 +4389,7 @@ export class Game {
     }
     const m = this.members()[who - 1];
     if (!m) return null;
-    const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.wornGear(m.data.equip), (k) => this.memberSkills(m.data).get(k));
+    const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.statGear(m.data.equip, m.data.abilities), (k) => this.memberSkills(m.data).get(k));
     const style = fightingStyle(m.def, m.data, n), msk = this.memberSkills(m.data), ab = (m.data.abilities ??= {});
     const spells = this.battleSpells(ab, powerMultiplier(t.attrs.mag) * (1 + msk.get('spellDamage') / 100), 1 - Math.min(75, msk.get('spellCost')) / 100);
     // Healers who know no healing spell keep their own Heal.
@@ -5060,12 +5036,12 @@ export class Game {
 
   private allyNumbers(m: MemberData, def: HeroDef): AllyNumbers {
     const sk = this.memberSkills(m), pct = (k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
-    const t = heroTotals(m.stats, this.wornGear(m.equip), (k) => sk.get(k));
+    const t = heroTotals(m.stats, this.statGear(m.equip, m.abilities), (k) => sk.get(k));
     const g = (slot: EquipSlot) => (m.equip[slot] ? this.items.get(m.equip[slot]!) : undefined);
     const w = g('weapon'), cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
     const ct = this.combatCfg.classes[cls];
     const classPct = cls === 'light' ? pct('lightDamage') : cls === 'medium' ? pct('mediumDamage') : cls === 'heavy' ? pct('heavyDamage') : 1;
-    const melee = (cls === 'unarmed' ? this.combatCfg.unarmedDamage : w!.weapon!.damage) * ct.damage * powerMultiplier(t.attrs.str) * pct('meleeDamage') * classPct * (proficientWith(sk, cls) ? 1 : UNTRAINED_DAMAGE);
+    const melee = (cls === 'unarmed' ? this.combatCfg.unarmedDamage : w!.weapon!.damage) * ct.damage * powerMultiplier(t.attrs.str) * pct('meleeDamage') * classPct * this.weaponSkill(sk, m.abilities, w);
     // A learned spell readied for the field takes the place of a spell shard.
     const bowDef = g('ranged'), shard = this.readiedSpell(m.abilities ?? {}) ?? g('magic');
     const base = playerConfig(this.db.stats).max;

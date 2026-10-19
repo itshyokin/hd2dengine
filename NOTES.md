@@ -42,7 +42,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
       repainting; everything else about the tile stays).
 
 ## Combat and classes (planned Oct 19, before Travel)
-- [ ] Update 70: classes give a one-time stat boost when joined (classes can't be changed); per class, each weapon
+- [x] Update 70: classes give a one-time stat boost when joined (classes can't be changed); per class, each weapon
       type (swords, daggers, axes, maces, spears, bows, staves, wands…) and armor weight (light, medium, heavy,
       shields) is Trained / Untrained (weaker: ¾ damage, armor costs Agility and Evasion) / Can't use; items get a
       weapon type; skill trees can still teach a proficiency.

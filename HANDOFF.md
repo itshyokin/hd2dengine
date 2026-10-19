@@ -59,6 +59,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   shows it around the battle); Haste, Slow and Rain Call added to the project's spell list.
 - 69: built-in tiles can take a picture of your own (`TileDef.skin`; an entry in assets.json with the built-in key;
   `TileCatalog.textured()` / `isCustom()` mean "drawn from a picture").
+- 70: classes (`src/game/classes.ts`): one-time stat boost (`AbilityData.joined` remembers every class held),
+  Trained / Untrained / Can't use per weapon type, armor weight and shields (`gearSkill`); Game's `statGear` adds the
+  class to worn gear for stats; players can no longer change class from the menu.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

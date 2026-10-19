@@ -705,3 +705,6 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .db-section { scroll-margin-top: 48px; }
 .sk-old { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 @media (max-width: 620px) { .db-switch-group { grid-template-columns: 1fr; } }
+/* Database → Classes: the Weapons and armor table, and the stat boost row. */
+.db-table.class-gear { grid-template-columns: minmax(130px, 200px) minmax(160px, 260px); justify-content: start; }
+.field-row.class-stats { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }

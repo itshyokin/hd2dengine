@@ -4,7 +4,9 @@ import { soundField } from './CommandEditor';
  * Additions (strings of timed strikes with button prompts), and classes (the skill trees each one opens).
  * Each tab is a list on the left and a form for the selected entry.
  */
-import type { AdditionDef, AdditionStrike, ClassDef, FaceButton, SkillsData, SpellEntry } from '../world/types';
+import type { AdditionDef, AdditionStrike, ClassDef, FaceButton, GearSkill, SkillsData, SpellEntry } from '../world/types';
+import { GEAR_KINDS } from '../game/classes';
+import { ATTRS, ATTR_INFO } from '../game/attributes';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { elementSelect } from './elementFields';
 import { buffsField, inflictsField, weatherField } from './statusFields';
@@ -128,8 +130,20 @@ export function classesTab(list: ClassDef[], skills: SkillsData, state: { sel: n
   return listLayout<ClassDef>(list, state, 'Class', (id) => ({ id, name: 'New class', trees: skills.trees.slice(0, 1).map((t) => t.id) }), (d) => [
     nameId(list, d, rerender, 'Class'),
     field('Description', textInput(d.description ?? '', (v) => { d.description = v.trim() || undefined; }, { 'aria-label': 'Class description' })),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Stat boost'),
+      h('div', { class: 'field-row class-stats' }, ...ATTRS.map((k) => field(ATTR_INFO[k].name, numberInput(d.bonus?.[k] ?? 0, (v) => {
+        const n = Math.max(-50, Math.min(50, Math.round(v)));
+        if (n) (d.bonus ??= {})[k] = n; else if (d.bonus) { delete d.bonus[k]; if (!Object.keys(d.bonus).length) delete d.bonus; }
+      }, { step: 1, min: -50, max: 50, 'aria-label': `${d.name} ${ATTR_INFO[k].name} boost` })))),
+      h('p', { class: 'note' }, 'Given once, for good, when a hero joins the class (their starting class counts). A Fighter might get Strength and Endurance, a Mage Magic and Magic Defence.')),
+    h('section', { class: 'db-section' }, h('h3', {}, 'Weapons and armor'),
+      h('div', { class: 'db-table class-gear' }, h('span', { class: 'db-head' }, 'Kind'), h('span', { class: 'db-head' }, 'This class'),
+        ...GEAR_KINDS.flatMap(([k, name]) => [h('span', { class: 'db-name' }, name), select([['trained', 'Trained (full effect)'], ['untrained', 'Untrained (weaker)'], ['none', 'Can’t use']], d.gear?.[k] ?? 'trained', (v) => {
+          if (v === 'trained') { if (d.gear) { delete d.gear[k]; if (!Object.keys(d.gear).length) delete d.gear; } } else (d.gear ??= {})[k] = v as GearSkill;
+        }, { 'aria-label': `${d.name}: ${name}` })])),
+      h('p', { class: 'note' }, 'Untrained weapons hit for three quarters. Untrained armor costs Agility and Dexterity (more the heavier it is). “Can’t use” greys it out in Equipment for heroes of this class. A weapon’s type and an armor’s weight are set in Database → Items (or guessed from the name). Arms Training in the skill trees still decides medium and heavy weapon training too.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Skill trees'),
       ...skills.trees.map((t) => checkbox(t.name, d.trees.includes(t.id), (v) => { d.trees = v ? [...d.trees, t.id] : d.trees.filter((x) => x !== t.id); })),
-      h('p', { class: 'note' }, 'A hero learns from the trees of their class, and of every class they’ve had before: changing class adds trees and never takes away what was learned. Heroes without a class (or a game with no classes) see every tree.')),
+      h('p', { class: 'note' }, 'A hero learns from the trees of their class, and of every class they’ve had before (only the event command Change class changes it; players can’t). Heroes without a class (or a game with no classes) see every tree.')),
   ], rerender, 'No classes yet. Without classes, every hero learns from every skill tree. Add classes to give each its own trees; set a hero’s starting class in Database → Heroes, and change or unlock classes with the event command “Change class”.');
 }

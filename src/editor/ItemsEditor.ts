@@ -8,7 +8,8 @@ import type { Ailment } from '../world/types';
 import { elementSelect, matchupText } from './elementFields';
 import { ITEM_ICONS, builtinIcon, builtinIconName } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS } from '../game/inventory';
-import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass } from '../world/types';
+import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight } from '../world/types';
+import { WEAPON_TYPES, WEAPON_TYPE_NAME, armorWeightOf, weaponTypeOf } from '../game/classes';
 import { FIELD_GLOW, POWER_NAMES, itemColor } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
 import { RANKS, RANK_GAIN, type Rank } from '../game/statRanks';
@@ -308,16 +309,22 @@ function weaponForm(d: ItemDef): HTMLElement {
   const w = (d.weapon ??= { class: d.slot === 'ranged' ? 'bow' : 'light', damage: 8 });
   const dmg = field('Damage', numberInput(w.damage, (v) => (w.damage = Math.max(0, Math.round(v))), { step: 1, min: 0 }),
     w.class === 'bow' ? 'Plus the arrow’s extra damage, scaled by how far the bow was drawn.' : 'Each swing; the third swing of a combo hits harder.');
-  if (w.class === 'bow') return h('div', { class: 'item-ring' }, dmg, h('p', { class: 'note' }, 'Key 2: hold to draw, let go to shoot. Draw time, arrow speed and lock-on range are in Database → Combat.'));
+  // Its type: what classes are trained with (Database → Classes → Weapons and armor).
+  const guess = weaponTypeOf({ ...d, weapon: { ...w, type: undefined } });
+  const type = field('Type', select([['', `Automatic (${guess ? WEAPON_TYPE_NAME[guess] : 'from the name'})`], ...WEAPON_TYPES.map(([t]) => [t, WEAPON_TYPE_NAME[t]] as [string, string])],
+    w.type ?? '', (v) => { if (v) w.type = v as WeaponType; else delete w.type; }), 'For classes: which weapons each is trained with. Automatic guesses from the name.');
+  if (w.class === 'bow') return h('div', { class: 'item-ring' }, h('div', { class: 'field-row' }, dmg, type), h('p', { class: 'note' }, 'Key 2: hold to draw, let go to shoot. Draw time, arrow speed and lock-on range are in Database → Combat.'));
   return h('div', { class: 'item-ring' },
-    field('Class', select(CLASS_NAMES, w.class, (v) => (w.class = v as WeaponClass))),
+    h('div', { class: 'field-row' }, field('Class', select(CLASS_NAMES, w.class, (v) => (w.class = v as WeaponClass))), type),
     dmg,
     h('p', { class: 'note' }, 'Key 1 swings. Each class’s swing speed, reach and damage multiplier are in Database → Combat.'));
 }
 
 /** Armor and accessories: defence against hits and against spells. */
 function defenseForm(d: ItemDef): HTMLElement {
-  return h('div', { class: 'item-ring' }, h('div', { class: 'field-row' },
+  const weight = d.slot === 'armor' ? field('Weight', select([['', `Automatic (${armorWeightOf({ ...d, armorWeight: undefined }) ?? 'light'})`], ['light', 'Light (cloth, leather)'], ['medium', 'Medium (chain, scale)'], ['heavy', 'Heavy (plate)']],
+    d.armorWeight ?? '', (v) => { if (v) d.armorWeight = v as ArmorWeight; else delete d.armorWeight; }), 'For classes: which armor each is trained with. Automatic guesses from the name.') : null;
+  return h('div', { class: 'item-ring' }, weight ?? h('span'), h('div', { class: 'field-row' },
     field('Defence', numberInput(d.defense ?? 0, (v) => (d.defense = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }),
       'Against hits and arrows. Damage taken is reduced by defence ÷ (defence + 50): 10 takes away 17%, 50 takes away half.'),
     field('Magic defence', numberInput(d.magicDefense ?? 0, (v) => (d.magicDefense = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }),

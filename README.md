@@ -1025,11 +1025,19 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   trainers use the event command **Teach spell / Addition** (to the hero, a party hero or everyone); heroes can start
   with some (Database → Heroes → *Class, spells and Additions at the start*).
 - **Classes** (Database → Classes): each class opens skill trees. A hero learns from the trees of their class and of
-  every class they've had: changing class adds trees and never takes away what was learned. The event command
-  **Change class** changes a hero's class or unlocks it; unlocked classes can be chosen in **Menu → Abilities**.
-  Without classes, every hero sees every tree.
-- **Menu → Abilities** lists each hero's spells and Additions (with rank and progress), changes class, sets the
-  Addition Attack uses.
+  every class they've had. Players can't change class; only the event command **Change class** does (a story
+  promotion, say). Without classes, every hero sees every tree.
+  - **Stat boost**: stats a class gives once, for good, when a hero joins it (their starting class counts): a
+    Fighter's Strength and Endurance, a Mage's Magic and Magic Defence. Negative numbers take away.
+  - **Weapons and armor**: for each weapon type (swords, daggers, axes, maces and hammers, spears, staves, wands, fist
+    weapons, bows, crossbows), each armor weight (light, medium, heavy) and shields: **Trained** (full effect),
+    **Untrained** (weapons hit for three quarters; armor costs Agility and Dexterity: light −2 AGI, medium −4 AGI
+    −2 DEX, heavy −7 AGI −3 DEX) or **Can't use** (greyed out in Equipment for that hero). A weapon's *Type* and an
+    armor's *Weight* are set in Database → Items, or guessed from the name (Leather Armor is light, Chainmail
+    medium, Plate heavy; a Short Sword is a sword). Pickaxes and mining hammers are tools anyone can use. Arms
+    Training in the skill trees still decides medium and heavy weapon training as before.
+- **Menu → Party → a hero → Magic / Addition** lists their spells and Additions (with rank and progress) and sets
+  the Addition Attack uses.
 
 ### EXP orbs and loot on the ground
 

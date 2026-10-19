@@ -901,9 +901,20 @@ export interface SpellDef {
 export type WeaponClass = 'light' | 'medium' | 'heavy';
 export const WEAPON_CLASSES: WeaponClass[] = ['light', 'medium', 'heavy'];
 
+/** What kind of weapon it is (classes can be trained with each kind, or kept from it). */
+export type WeaponType = 'sword' | 'dagger' | 'axe' | 'mace' | 'spear' | 'staff' | 'wand' | 'fist' | 'bow' | 'crossbow';
+/** Armor weight: light (cloth, leather), medium (chain, scale), heavy (plate). */
+export type ArmorWeight = 'light' | 'medium' | 'heavy';
+/** What a class can be trained with: a weapon type, an armor weight, or shields. */
+export type GearKind = WeaponType | `armor:${ArmorWeight}` | 'shield';
+/** Trained (full effect), untrained (weaker), or can't use it at all. */
+export type GearSkill = 'trained' | 'untrained' | 'none';
+
 export interface WeaponDef {
   /** Melee class, or 'bow' for the ranged slot. */
   class: WeaponClass | 'bow';
+  /** Sword, dagger, axe… (unset: guessed from the name). */
+  type?: WeaponType;
   damage: number;
 }
 
@@ -1017,6 +1028,8 @@ export interface ItemDef {
   trail?: WeaponTrail;
   /** Armor and accessories: damage taken is reduced by defence / (defence + 50). */
   defense?: number;
+  /** Armor (the armor slot): light, medium or heavy (unset: guessed from the name, else light). */
+  armorWeight?: ArmorWeight;
   /** The same against spells. */
   magicDefense?: number;
   /** Equipment: stats it adds while worn (negative takes away: a heavy axe might cost Dexterity). */
@@ -1449,6 +1462,10 @@ export interface ClassDef {
   id: string;
   name: string;
   description?: string;
+  /** Stats added once, for good, when a hero joins the class (a Fighter's Strength and Endurance). */
+  bonus?: Partial<Record<'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf', number>>;
+  /** Each weapon type, armor weight and shields: trained, untrained (weaker) or can't use. Unset: trained. */
+  gear?: Partial<Record<GearKind, GearSkill>>;
   /** Skill tree ids (Database → Skills). */
   trees: string[];
   color?: string;
@@ -1466,6 +1483,8 @@ export interface AbilityData {
   /** Their class, and every class they can change to (held before or unlocked). */
   cls?: string;
   classes?: string[];
+  /** Every class they've been (each gave its one-time stat boost). */
+  joined?: string[];
 }
 
 export interface SkillsData { trees: SkillTreeDef[]; nodes: SkillNode[] }
