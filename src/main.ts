@@ -1,6 +1,9 @@
 import './fonts.css';
 import './styles.css';
 import { Game } from './game/Game';
+import { installErrorBar } from './shared/errorBar';
+
+installErrorBar('Game');
 
 function showError(message: string): void {
   const el = document.createElement('div');

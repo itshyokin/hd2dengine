@@ -10,9 +10,7 @@ import { setCombatPreview } from './combatPreview';
 import { openWorldLayout } from './WorldEditor';
 import type { MapData } from '../world/types';
 import { backspaceAsEscape, confirmModal, field, h, numberInput, openModal, select, textInput, toast } from './dom';
-
-// Backspace works as Esc outside text boxes (tablet keyboards without an Esc key).
-backspaceAsEscape();
+import { installErrorBar } from '../shared/errorBar';
 import { tileName } from './editorArt';
 import { Inspector } from './Inspector';
 import { save } from './io';
@@ -71,6 +69,10 @@ async function scanMapKinds(): Promise<void> {
   }
   store.emit('meta');
 }
+
+// Errors show on screen (tablets have no developer tools); Backspace works as Esc outside text boxes.
+installErrorBar('Map editor');
+backspaceAsEscape();
 
 /** Dev server if it's running; the project folder when opened as a file; otherwise read-only preview. */
 async function chooseProject(): Promise<Project> {
