@@ -14,12 +14,12 @@ import { installErrorBar } from '../shared/errorBar';
 import { tileName } from './editorArt';
 import { Inspector } from './Inspector';
 import { save } from './io';
-import { browserProject, canKeepProject } from './browserProject';
+import { browserProject, canKeepProject, changedFiles } from './browserProject';
 import { projectMenu } from './projectMenu';
 import { loadProjectAssets } from './assets';
 import { loadCharacterSheets } from './CharactersEditor';
 import { loadItemIconFiles } from './ItemsEditor';
-import { audioFiles, loadAudioFiles, preview } from './audioEditor';
+import { audioFiles, loadAudioFiles, preview, readSound } from './audioEditor';
 import { setAudioHooks } from './CommandEditor';
 import { migrateItems } from '../world/items';
 import { BudgetMeter } from '../ui/BudgetMeter';
@@ -254,7 +254,9 @@ async function playtest(stamp: string, battle?: { enemies: string[]; map?: strin
     for (const d of store.assets.props) for (const p of [d.image, d.normal, d.glow]) if (p) used.add(p);
     for (const t of store.assets.tiles) for (const p of [t.image, t.normal]) if (p) used.add(p);
     for (const d of store.db.items ?? []) if (d.icon && !d.icon.startsWith('builtin:') && d.icon !== 'sprite') used.add(d.icon);
-    for (const f of store.db.audio?.files ?? []) used.add(f);
+    // Imported sounds: read now the ones the game can't fetch itself (a project folder, or kept on this device).
+    const kept = store.project.kind === 'browser' ? new Set(await changedFiles()) : null;
+    for (const f of store.db.audio?.files ?? []) { used.add(f); await readSound(store, f, async () => !!kept?.has(f)); }
     for (const c of Object.values(store.db.characters)) if (c.sheet) used.add(c.sheet);
     for (const e of store.db.enemies ?? []) if (e.look.image) used.add(e.look.image);
     // The title's picture or video.

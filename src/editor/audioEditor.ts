@@ -13,6 +13,8 @@ import type { EditorStore } from './store';
 let manager: AudioManager | null = null;
 const urls = new Map<string, string>();
 let styleSet = false;
+/** Sounds being read for their first preview. */
+const previewing = new Set<string>();
 
 /** The editor's player (it plays imported files straight from memory). */
 export function editorAudio(store: EditorStore): AudioManager {
@@ -42,20 +44,30 @@ export const audioFiles = (store: EditorStore): string[] => [...library, ...(sto
 /** How a file is named in lists: its place in the audio folders ("music/Forest.wav"), or an imported file's name. */
 export const audioLabel = (f: string): string => (f.startsWith('audio/') ? f.slice(6) : f.split('/').pop()!);
 
-/** Read the database's audio files into memory (for previews and playtests), and look in the audio folders. */
+/**
+ * Look in the audio folders. Sounds themselves aren't read until they're played or a playtest needs them (they can be
+ * tens of megabytes: reading them all made the online editor slow to open on a tablet).
+ */
 export async function loadAudioFiles(store: EditorStore): Promise<void> {
   await scanAudioFolders(store);
-  await Promise.all(audioFiles(store).map(async (f) => {
-    if (store.files.has(f)) return;
-    try { store.files.set(f, await store.project.readFile(f)); } catch { console.warn(`Audio file ${f} is missing`); }
-  }));
+}
+
+/** Read a sound into memory if the browser can't simply fetch it (a project folder, or kept on this device). */
+export async function readSound(store: EditorStore, f: string, keptHere: () => Promise<boolean>): Promise<void> {
+  if (store.files.has(f) || f.startsWith('builtin:') || !/\.(ogg|mp3|wav|m4a|flac)$/i.test(f)) return;
+  if (store.project.kind === 'dev' || store.project.kind === 'static') return;
+  if (store.project.kind === 'browser' && !(await keptHere())) return;
+  try { store.files.set(f, await store.project.readFile(f)); } catch { console.warn(`Audio file ${f} is missing`); }
 }
 
 /** Play a sound, or a few seconds of a loop. */
 export function preview(store: EditorStore, src: string, loop = false): void {
-  // A project folder opened as a file can't be fetched from: read the sound into memory first.
-  if (store.project.kind === 'folder' && src.startsWith('audio/') && !store.files.has(src)) {
-    void store.project.readFile(src).then((b) => { store.files.set(src, b); preview(store, src, loop); }).catch(() => toast(`Couldn’t read ${src}`, 'error'));
+  // A project folder opened as a file can't be fetched from, nor can a sound kept on this device (the online editor):
+  // read it into memory first, the first time it's played.
+  const local = store.project.kind === 'folder' || store.project.kind === 'browser';
+  if (local && !store.files.has(src) && /\.(ogg|mp3|wav|m4a|flac)$/i.test(src) && !previewing.has(src)) {
+    previewing.add(src);
+    void store.project.readFile(src).then((b) => { store.files.set(src, b); preview(store, src, loop); }).catch(() => toast(`Couldn’t read ${src}`, 'error')).finally(() => previewing.delete(src));
     return;
   }
   const a = editorAudio(store);
