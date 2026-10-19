@@ -4158,25 +4158,6 @@
       "icon": "builtin:fist",
       "price": 25,
       "description": "Soft and warm, perfect for a cloak or blanket."
-    },
-    {
-      "id": "speed_boost_item",
-      "name": "Speed Boost Item",
-      "kind": "consumable",
-      "icon": "builtin:potion",
-      "price": 10,
-      "restore": {
-        "hp": 20
-      },
-      "buffs": [
-        {
-          "buff": "dex"
-        }
-      ],
-      "statRank": {
-        "stat": "dex",
-        "rank": "A"
-      }
     }
   ],
   "enemies": [
@@ -4227,14 +4208,7 @@
           "ailment": "poison",
           "chance": 20
         }
-      ],
-      "tint": {
-        "color": "#1eff00",
-        "amount": 0.65,
-        "hue": -50,
-        "sat": 1.25
-      },
-      "battleOffset": -0.15
+      ]
     },
     {
       "id": "ember_slime",
@@ -4279,10 +4253,9 @@
     },
     {
       "id": "bandit",
-      "name": "Kobold Bandit",
+      "name": "Bandit",
       "look": {
-        "image": "assets/enemies/bandit_mvcyf0k7.png",
-        "flat": {}
+        "character": "bandit"
       },
       "hp": 42,
       "damage": 11,
@@ -4314,61 +4287,38 @@
     },
     {
       "id": "bandit_archer",
-      "name": "Terror Vine",
+      "name": "Bandit Archer",
       "look": {
-        "image": "assets/enemies/bandit_archer_mvcyi4n5.png",
-        "flat": {
-          "height": 1.25
-        }
+        "character": "bandit_archer"
       },
       "hp": 10,
       "damage": 5,
       "speed": 2.4,
-      "behaviour": "melee",
-      "attackRange": 1,
+      "behaviour": "ranged",
+      "attackRange": 7,
       "cooldown": 2.2,
       "windup": 0.7,
       "sight": 10,
       "fov": 100,
       "hearing": 6,
-      "xp": 18,
+      "xp": 26,
       "gold": [
-        5,
-        7
+        3,
+        9
       ],
       "drops": [
         {
-          "item": "firewood",
-          "chance": 0.3
+          "item": "steel_arrow",
+          "chance": 0.7,
+          "count": 8
         }
-      ],
-      "tint": {
-        "sat": 1.85,
-        "hue": 25
-      },
-      "battleOffset": -0.15,
-      "hpVariance": 10,
-      "absorb": [
-        "water",
-        "nature"
-      ],
-      "inflicts": [
-        {
-          "ailment": "poison",
-          "chance": 20
-        }
-      ],
-      "resists": [
-        "poison"
-      ],
-      "attackElement": "nature",
-      "description": "Thorny spines given a twisted amalgamation of life by a cruel wizard. Attacks with venomous thorns!"
+      ]
     },
     {
       "id": "enemy",
       "name": "Dire Beast",
       "look": {
-        "image": "assets/enemies/enemy_mvcyomqu.png",
+        "image": "assets/enemies/enemy_mvbqs576.png",
         "flat": {
           "move": "hop",
           "faces": "left",
@@ -4407,30 +4357,6 @@
         }
       ],
       "attackElement": "neutral"
-    },
-    {
-      "id": "enemy_2",
-      "name": "Wild Beast",
-      "look": {
-        "image": "assets/enemies/enemy_2_mvcynwbr.png",
-        "flat": {}
-      },
-      "hp": 20,
-      "damage": 6,
-      "speed": 1.6,
-      "behaviour": "melee",
-      "attackRange": 0.9,
-      "cooldown": 1.5,
-      "windup": 0.5,
-      "sight": 6,
-      "fov": 140,
-      "hearing": 5,
-      "xp": 10,
-      "gold": [
-        0,
-        4
-      ],
-      "drops": []
     }
   ],
   "quests": [
@@ -4751,6 +4677,12 @@
         "id": "tree",
         "name": "Additions",
         "color": "#c8a0ff"
+      },
+      {
+        "id": "party",
+        "name": "Party",
+        "color": "#5ac8c0",
+        "shared": true
       }
     ],
     "nodes": [
@@ -4777,15 +4709,15 @@
         "y": 1,
         "effects": [
           {
-            "stat": "agi",
-            "value": 2
+            "stat": "swingSpeed",
+            "value": 8
           }
         ],
         "parents": [
           "fighter"
         ],
         "ranks": 3,
-        "description": "Quicker in battle: Agility up, so turns come round sooner."
+        "description": "Swing every weapon faster."
       },
       {
         "id": "steady_guard",
@@ -4795,15 +4727,15 @@
         "y": 2,
         "effects": [
           {
-            "stat": "guardHeal",
-            "value": 5
+            "stat": "blockStamina",
+            "value": 25
           }
         ],
         "parents": [
           "quick_hands"
         ],
         "ranks": 2,
-        "description": "Guard gives back more health."
+        "description": "Blocking costs less stamina."
       },
       {
         "id": "heavy_blows",
@@ -4842,7 +4774,7 @@
         "parents": [
           "fighter"
         ],
-        "description": "Trained with medium weapons (longswords, rapiers): untrained, they hit for three quarters. Opens the masteries."
+        "description": "Trained with medium weapons (longswords, rapiers): untrained, they swing slowly. Opens the masteries."
       },
       {
         "id": "heavy_arms",
@@ -4860,7 +4792,7 @@
           "arms_training"
         ],
         "level": 3,
-        "description": "Trained with heavy weapons (greatswords, great axes, hammers): untrained, they hit for three quarters."
+        "description": "Trained with heavy weapons (greatswords, great axes, hammers): untrained, they swing slowly."
       },
       {
         "id": "light_mastery",
@@ -4874,15 +4806,15 @@
             "value": 15
           },
           {
-            "stat": "crit",
-            "value": 3
+            "stat": "lightSpeed",
+            "value": 8
           }
         ],
         "parents": [
           "arms_training"
         ],
         "ranks": 2,
-        "description": "Daggers and short swords: deadlier, with more critical hits."
+        "description": "Daggers and short swords: faster and deadlier."
       },
       {
         "id": "medium_mastery",
@@ -4896,8 +4828,8 @@
             "value": 15
           },
           {
-            "stat": "crit",
-            "value": 2
+            "stat": "mediumSpeed",
+            "value": 5
           }
         ],
         "parents": [
@@ -4988,15 +4920,15 @@
         "y": 1,
         "effects": [
           {
-            "stat": "dex",
-            "value": 2
+            "stat": "drawSpeed",
+            "value": 15
           }
         ],
         "parents": [
           "archer"
         ],
         "ranks": 2,
-        "description": "A steadier hand: Dexterity up (aim, critical hits, bow damage)."
+        "description": "Draw the bow faster."
       },
       {
         "id": "eagle_eye",
@@ -5014,7 +4946,7 @@
           "archer"
         ],
         "ranks": 2,
-        "description": "Lock on to enemies further away with a bow: spot them first and snipe one to start the battle with the first turns."
+        "description": "Lock on to enemies further away with a bow: spot them first, prepare, snipe."
       },
       {
         "id": "power_shot",
@@ -5046,7 +4978,7 @@
             "value": 25
           }
         ],
-        "description": "Harder to see while sneaking: slip past foes, or catch them unaware for the first turns. Opens stealth."
+        "description": "Harder to see while sneaking. Opens stealth."
       },
       {
         "id": "light_step",
@@ -5074,15 +5006,15 @@
         "y": 1,
         "effects": [
           {
-            "stat": "crit",
-            "value": 4
+            "stat": "sneakDamage",
+            "value": 1
           }
         ],
         "parents": [
           "shadow"
         ],
         "ranks": 2,
-        "description": "Find the weak spots: more critical hits."
+        "description": "Sneak attacks (on enemies that haven’t noticed you) do even more damage."
       },
       {
         "id": "silent_shot",
@@ -5100,7 +5032,7 @@
           "light_step",
           "archer"
         ],
-        "description": "An arrow from 5 tiles or more at a foe that hasn’t noticed you wounds it before the battle starts (and can finish it)."
+        "description": "Killing an unaware enemy with an arrow from 5 or more tiles away doesn’t make the others come looking."
       },
       {
         "id": "assassinate",
@@ -5118,7 +5050,7 @@
           "backstab"
         ],
         "level": 5,
-        "description": "A sword strike on an ordinary foe that hasn’t noticed you ends it on the spot: no battle (not bosses)."
+        "description": "A sneak attack kills an ordinary enemy outright (not bosses)."
       },
       {
         "id": "fire",
@@ -5316,6 +5248,179 @@
           "quick_strike"
         ],
         "teachesAddition": "double_slash"
+      },
+      {
+        "id": "fellowship",
+        "tree": "party",
+        "name": "Fellowship",
+        "x": 3,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "maxHp",
+            "value": 10
+          },
+          {
+            "stat": "maxSp",
+            "value": 10
+          }
+        ],
+        "description": "The party sticks together: more health and stamina for everyone. Opens the Party tree."
+      },
+      {
+        "id": "hardy_company",
+        "tree": "party",
+        "name": "Hardy Company",
+        "x": 0,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "maxHp",
+            "value": 15
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "More health for everyone in the party."
+      },
+      {
+        "id": "second_wind",
+        "tree": "party",
+        "name": "Second Wind",
+        "x": 1.5,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "maxSp",
+            "value": 20
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "More stamina for everyone in the party."
+      },
+      {
+        "id": "battle_drill",
+        "tree": "party",
+        "name": "Battle Drill",
+        "x": 4.5,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "meleeDamage",
+            "value": 5
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "Everyone’s melee hits do more damage."
+      },
+      {
+        "id": "arcane_chorus",
+        "tree": "party",
+        "name": "Arcane Chorus",
+        "x": 6,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "spellDamage",
+            "value": 5
+          },
+          {
+            "stat": "maxMp",
+            "value": 5
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "description": "Everyone’s spells hit harder, with a little more magic."
+      },
+      {
+        "id": "thick_skin",
+        "tree": "party",
+        "name": "Thick Skin",
+        "x": 0,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "end",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "hardy_company"
+        ],
+        "ranks": 3,
+        "description": "Everyone’s Endurance goes up: ailments take hold less often."
+      },
+      {
+        "id": "quick_step",
+        "tree": "party",
+        "name": "Quick Step",
+        "x": 1.5,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "agi",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "second_wind"
+        ],
+        "ranks": 3,
+        "level": 3,
+        "description": "Everyone’s Agility goes up: quicker turns, more dodging."
+      },
+      {
+        "id": "keen_eyes",
+        "tree": "party",
+        "name": "Keen Eyes",
+        "x": 3,
+        "y": 1,
+        "effects": [
+          {
+            "stat": "dex",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "fellowship"
+        ],
+        "ranks": 3,
+        "level": 3,
+        "description": "Everyone’s Dexterity goes up: better aim and more critical hits."
+      },
+      {
+        "id": "shield_wall",
+        "tree": "party",
+        "name": "Shield Wall",
+        "x": 4.5,
+        "y": 2,
+        "effects": [
+          {
+            "stat": "def",
+            "value": 2
+          },
+          {
+            "stat": "mdf",
+            "value": 2
+          }
+        ],
+        "parents": [
+          "battle_drill"
+        ],
+        "ranks": 3,
+        "level": 5,
+        "description": "Everyone’s Defence and Magic Defence go up."
       }
     ]
   },
@@ -5636,15 +5741,6 @@
       "color": "#9dffb0",
       "maxRank": 3,
       "description": "Closes wounds on one of the party."
-    },
-    {
-      "id": "speedboost",
-      "name": "Speed Boost",
-      "kind": "heal",
-      "power": 11,
-      "mp": 6,
-      "maxRank": 3,
-      "description": "Increase target's speed for the duration of the battle."
     }
   ],
   "markers": [
@@ -5684,5 +5780,11 @@
       "symbol": "square",
       "color": "#000000"
     }
-  ]
+  ],
+  "stats": {
+    "cost": {
+      "run": 9,
+      "jump": 7
+    }
+  }
 }
