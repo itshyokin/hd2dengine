@@ -166,6 +166,9 @@ export class Interpreter {
       case 'fieldWeapons':
         state.weaponsOff = !c.on;
         break;
+      case 'enemyLevels':
+        state.enemyLevels = c.mode === 'party' ? { spread: Math.max(0, Math.round(c.spread ?? 2)) } : null;
+        break;
       case 'achievement': this.ctx.achievement?.(c.id); break;
       case 'console': this.ctx.console?.(c.line); break;
       case 'ability':

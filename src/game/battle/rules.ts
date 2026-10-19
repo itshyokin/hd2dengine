@@ -27,6 +27,9 @@ export interface BattleSpell {
   buffs?: import('../../world/types').BuffGrant[];
   /** Support spells: aimed at the caster's side (default) or the other side. */
   supportTarget?: 'allies' | 'foes' | 'any';
+  /** Chance (%) to land (default 100) against the target's spell evasion; `sure`: never misses. */
+  accuracy?: number;
+  sure?: boolean;
   /** The battle weather it brings, and rounds (0: the whole battle). */
   weather?: import('../../world/types').BattleWeather;
   weatherTurns?: number;
@@ -79,6 +82,10 @@ export interface Battler {
   evasion?: number;
   /** Chance (%) to shrug off an ailment (heroes: from Endurance). */
   resist?: number;
+  /** Chance (%) to dodge a spell (heroes: from Magic Defence). */
+  spellEvasion?: number;
+  /** Their weapon never misses. */
+  sure?: boolean;
   /** Enemies: what a weapon hit on them sounds like and what flies off (Database → Enemies → Impact). */
   impact?: { sound: import('../../audio/synth').SfxName; fx: { kind: import('../../world/types').ImpactFx; color: string }[] };
   /** Bosses with a gauge (stat blocks on): 0 … 100; full, their next move hits half again as hard. */
@@ -136,8 +143,8 @@ export function refreshAgility(b: Battler): void {
   b.armour = p.armour + st.buff('def');
   b.magicArmour = p.magicArmour + st.buff('mdf');
   b.crit = Math.max(0, Math.min(100, p.crit + st.buff('crit') + dex * 0.25));
-  b.accuracy = p.accuracy + dex * 0.5;
-  b.evasion = Math.max(0, Math.min(60, p.evasion + agi * 0.5));
+  b.accuracy = p.accuracy + dex * 0.5 + st.buff('acc') - st.buff('accDown');
+  b.evasion = Math.max(0, Math.min(60, p.evasion + agi * 0.5 + st.buff('eva') - st.buff('evaDown')));
   b.resist = Math.max(0, Math.min(80, p.resist + st.buff('end') * 1.5));
 }
 
@@ -276,9 +283,11 @@ function heatFactor(element: Element, target: Battler): number {
 }
 
 /** One hit: element, a little spread, a critical, defence (or magic defence), guarding, then the damage scale. */
-export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'> & Partial<Pick<Battler, 'accuracy'>>, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
-  // Weapon hits can miss: the attacker's accuracy against the target's evasion (spells always land).
-  if (!magic && rng() * 100 >= hitChance(by.accuracy ?? BASE_ACCURACY, target.evasion ?? 0)) return { kind: 'miss', amount: 0, crit: false, label: null };
+export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'> & Partial<Pick<Battler, 'accuracy' | 'sure'>> & { spellAccuracy?: number; spellSure?: boolean }, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
+  // Hits can miss: a weapon's accuracy against the target's evasion; a spell's against their spell evasion (Magic
+  // Defence). "Never misses" skips it.
+  if (!magic && !by.sure && rng() * 100 >= hitChance(by.accuracy ?? BASE_ACCURACY, target.evasion ?? 0)) return { kind: 'miss', amount: 0, crit: false, label: null };
+  if (magic && !by.spellSure && rng() * 100 >= hitChance(by.spellAccuracy ?? 100, target.spellEvasion ?? 0)) return { kind: 'miss', amount: 0, crit: false, label: null };
   const el = elementResult(element, target.defence);
   if (el.kind === 'immune') return { kind: 'immune', amount: 0, crit: false, label: null };
   const sp = Math.max(0, Math.min(0.9, by.spread ?? 0.1));

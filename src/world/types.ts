@@ -302,6 +302,11 @@ export type Command =
   | { cmd: 'skillPoints'; value: number; /** Party skill tree points instead of the hero's. */ party?: boolean }
   /** Overworld weapons (the field sword and bow) on or off: off indoors or in restricted areas (greyed out on the HUD). */
   | { cmd: 'fieldWeapons'; on: boolean }
+  /**
+   * Enemy levels on the map: as set (the spawns' level ranges) or "dynamic" (they come out near the party's average
+   * level, `spread` either side; bosses and event battles keep their own).
+   */
+  | { cmd: 'enemyLevels'; mode: 'fixed' | 'party'; spread?: number }
   /** Unlock an achievement (Database → Achievements). */
   | { cmd: 'achievement'; id: string }
   /** Run a developer-console command (testing shortcuts: give items, teleport…). */
@@ -387,6 +392,8 @@ export interface EventPage {
   respawn?: boolean;
   /** An enemy (id from Database → Enemies) instead of an NPC: it fights, and the page's commands run when it's defeated. */
   enemy?: string;
+  /** That enemy's level, rolled when it appears (unset: its own). */
+  enemyLevels?: LevelRange;
   /**
    * Something to break (a crate, a cracked boulder, a crystal switch): it can be locked on to and hit, and when its
    * health runs out the page's commands run (set a switch to lower a bridge, open a gate…).
@@ -413,7 +420,7 @@ export type Element = 'neutral' | 'water' | 'fire' | 'nature' | 'earth' | 'shock
 
 /** Ailments a hit can give (each with a chance), and buffs items can give. */
 export type Ailment = 'burn' | 'poison' | 'chill' | 'paralyze' | 'blind' | 'silence' | 'stagger' | 'sleep' | 'confusion' | 'zombie';
-export type BuffKind = 'crit' | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf' | 'regen' | 'haste' | 'slow';
+export type BuffKind = 'crit' | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf' | 'regen' | 'haste' | 'slow' | 'acc' | 'eva' | 'accDown' | 'evaDown';
 /** A chance (%) for a hit to give an ailment, for `seconds` (0 or missing: its usual time). */
 export interface Inflict { ailment: Ailment; chance: number; seconds?: number }
 /** A buff an item gives: how much (default per kind) for how long. */
@@ -505,8 +512,13 @@ export interface BuildingData {
   name?: string;
 }
 
+/** Enemy levels: from the first to the second (each foe rolls one). */
+export type LevelRange = [number, number];
+
 /** Random encounters on a map: which enemies, how often, how many at once, and where. */
 export interface EncounterTable {
+  /** Their levels (unset: each enemy's own, Database → Enemies). */
+  levels?: LevelRange;
   /** Enemy ids with weights (higher: more often). */
   enemies: { enemy: string; weight?: number }[];
   /** About this many tiles walked between battles (default 30). */
@@ -543,6 +555,8 @@ export interface ZoneTroop {
   days?: number[];
   /** Only while this switch is ON (story progress). */
   switch?: string;
+  /** Its enemies' levels (unset: the zone's). */
+  levels?: LevelRange;
 }
 
 /** A painted zone on a map: its troops and about how many tiles are walked between battles. */
@@ -552,6 +566,8 @@ export interface EncounterZone {
   troops: ZoneTroop[];
   /** The battle map for battles in this zone (unset: the map's). */
   battleMap?: string;
+  /** Enemies' levels here (unset: each enemy's own); a troop can set its own. */
+  levels?: LevelRange;
 }
 
 export interface MapData {
@@ -915,6 +931,10 @@ export interface WeaponDef {
   class: WeaponClass | 'bow';
   /** Sword, dagger, axe… (unset: guessed from the name). */
   type?: WeaponType;
+  /** Turn-based: how well it aims, in percent of the wielder's accuracy (default 100: a dagger 105, a great axe 90). */
+  accuracy?: number;
+  /** Turn-based: its hits never miss. */
+  sure?: boolean;
   damage: number;
 }
 
@@ -1028,6 +1048,11 @@ export interface ItemDef {
   trail?: WeaponTrail;
   /** Armor and accessories: damage taken is reduced by defence / (defence + 50). */
   defense?: number;
+  /**
+   * EXP for those who sit a battle out: an accessory (EXP Share) gives its wearer `share` percent of what the
+   * fighters earned; a key item with `all` (EXP All) gives everyone not fighting that much while it's switched on.
+   */
+  exp?: { share: number; all?: boolean };
   /** Armor (the armor slot): light, medium or heavy (unset: guessed from the name, else light). */
   armorWeight?: ArmorWeight;
   /** The same against spells. */
@@ -1179,6 +1204,8 @@ export interface EnemyDef {
   hearing: number;
   xp: number;
   gold?: [number, number];
+  /** The level its numbers (health, damage, defence, EXP, gold) are set for (default 1). Spawns can roll others. */
+  level?: number;
   drops?: { item: string; chance: number; count?: number }[];
   /** The built-in icon it holds while attacking ("sword", "bow", "axe"…; '' for nothing). People default to a sword (archers a bow). */
   weapon?: string;
@@ -1191,6 +1218,8 @@ export interface EnemyDef {
   scale?: number;
   /** Turn-based battles: how quickly its turns come round (like the heroes' Agility; default from its speed). */
   agility?: number;
+  /** Turn-based: chance (%) to dodge the party's spells (default 0; heroes dodge with Magic Defence). */
+  spellEvasion?: number;
   /** Turn-based battles: chance (%) its attacks land (default 95), to dodge the party's weapon hits (default 0), and to shrug off ailments (default 0). */
   accuracy?: number;
   evasion?: number;
@@ -1307,6 +1336,15 @@ export interface TurnBasedData {
   statBlocks?: boolean;
 }
 
+/**
+ * EXP bonuses in battle, in percent of the foe's EXP: the finishing blow, finishing with a weakness, each Addition
+ * strike landed (a perfect one twice), an Addition completed, and no one knocked out (of what each earned).
+ */
+export interface ExpBonus { finish: number; weak: number; strike: number; complete: number; noKo: number }
+
+/** Percent each enemy level above its own adds (and each level below takes away). */
+export interface EnemyGrowth { hp: number; attack: number; defense: number; xp: number; gold: number }
+
 export interface CombatData {
   /** The Journal's Bestiary: defeats needed before an enemy's numbers, elements and drops show. */
   bestiary?: Partial<{ stats: number; elements: number; drops: number }>;
@@ -1321,6 +1359,10 @@ export interface CombatData {
   /** kindle: seconds a fire attack keeps an out-of-fuel fire (a torch, a campfire) lit. */
   fire?: { mp?: number; damage?: number; speed?: number; range?: number; kindle?: number };
   campSafe?: number;
+  /** EXP bonuses (percent of the foe's EXP). */
+  exp?: Partial<ExpBonus>;
+  /** Enemies above (or below) their own level: how much each level adds to their numbers, in percent. */
+  enemyGrowth?: Partial<EnemyGrowth>;
   /** Experience to reach level 2, and how much more each level after needs (1.3 = 30% more). */
   xpBase?: number;
   xpGrowth?: number;
@@ -1401,6 +1443,10 @@ export interface SpellEntry {
   buffs?: BuffGrant[];
   /** Support spells: cast on the caster's side (default), the other side (Slow on the enemies), or either. */
   supportTarget?: 'allies' | 'foes' | 'any';
+  /** Turn-based: chance (%) to land against a target with no spell evasion (default 100); Magic Defence dodges it. */
+  accuracy?: number;
+  /** Turn-based: never misses. */
+  sure?: boolean;
   /** Turn-based: the battle's weather it brings (rain makes water stronger and fire weaker…), for turns or the whole battle. */
   weather?: BattleWeather;
   /** Rounds the weather lasts (default 5); 0: the whole battle. */

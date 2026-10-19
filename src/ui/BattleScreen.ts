@@ -34,6 +34,8 @@ export interface FighterView {
   key: string;
   side: 'party' | 'enemy';
   name: string;
+  /** Enemies: their level, when they have one (shown beside the name). */
+  level?: number;
   /** Full-body picture, and a small one for the turn order (party: their face). */
   picture: HTMLCanvasElement;
   icon: string;
@@ -58,6 +60,8 @@ export interface VictoryHero {
   /** Knocked out: no EXP. */
   out?: boolean;
   level: number; xp: number; toNext: number; gained: number;
+  /** Where the EXP came from ("Base 40 · Finishing blows +10 · Additions +6"), or why there's none. */
+  note?: string;
   /** Each stretch of the bar to fill: a level, from and to (0 … 1), whether it ends in a level up, the EXP shown then. */
   segments: { level: number; from: number; to: number; up: boolean; xp: number; toNext: number }[];
   /** What their new levels brought ("Max HP 100 → 112", "+3 stat points"). */
@@ -90,7 +94,7 @@ export interface StageHooks {
 }
 
 /** Fighter animations. approach / strike / back: an Addition (close in, strike per button, then run back). */
-export type Anim = 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss';
+export type Anim = 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge';
 
 export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Badly hurt or ailing (the wounded pose). */ weak?: boolean; /** Ailments on them: icon and a name for the tooltip. */ status?: { icon: string; name: string }[] }
 
@@ -364,6 +368,7 @@ export class BattleScreen {
       tag.className = 'bf-tag';
       tag.innerHTML = `<span class="bf-name"></span><span class="bf-hp"><span></span></span>`;
       (tag.querySelector('.bf-name') as HTMLElement).textContent = v.name;
+      if (v.level) { const lv = document.createElement('span'); lv.className = 'bf-lv'; lv.textContent = `Lv ${v.level}`; tag.querySelector('.bf-name')!.append(' ', lv); }
       bar = tag.querySelector('.bf-hp span') as HTMLElement;
       head.append(tag);
     }
@@ -509,6 +514,7 @@ export class BattleScreen {
     pic.src = v.icon;
     if (v.flip) pic.classList.add('flip');
     (el.querySelector('.mb-name') as HTMLElement).textContent = v.name;
+    if (v.level) { const lv = document.createElement('span'); lv.className = 'bf-lv'; lv.textContent = `Lv ${v.level}`; el.querySelector('.mb-name')!.append(' ', lv); }
     const elEl = el.querySelector('.mb-el') as HTMLElement;
     if (els.length) for (const e of els) { const im = document.createElement('img'); im.src = elementIconUrl(e); im.alt = ''; const t = document.createElement('span'); t.textContent = ELEMENT_NAMES[e]; t.style.color = ELEMENT_COLORS[e]; elEl.append(im, t); }
     else elEl.textContent = 'Normal';
@@ -573,6 +579,18 @@ export class BattleScreen {
     this.stage?.shake?.(0.35);
   }
 
+  /** "+10 EXP" at the bottom left (Legend of Dragoon's SP): each line rises and fades. */
+  expPop(text: string): void {
+    let box = this.root.querySelector<HTMLElement>('.battle-exp');
+    if (!box) { box = document.createElement('div'); box.className = 'battle-exp'; box.setAttribute('aria-live', 'polite'); this.root.append(box); }
+    const line = document.createElement('div');
+    line.className = 'battle-exp-line';
+    line.textContent = text;
+    box.append(line);
+    while (box.children.length > 5) box.firstElementChild!.remove();
+    setTimeout(() => line.remove(), 2200);
+  }
+
   /** The battle's weather (a badge under the turn order), or none. */
   setWeather(text: string | null): void {
     let el = this.root.querySelector<HTMLElement>('.battle-weather');
@@ -612,7 +630,7 @@ export class BattleScreen {
     this.stage?.animate(key, anim, color, target);
     if (anim === 'back' || anim === 'pose' || anim === 'unpose' || anim === 'toss') return;
     const how = anim === 'approach' || anim === 'strike' ? 'lunge' : anim;
-    f.el.classList.remove('lunge', 'hit', 'cast', 'heal', 'faint');
+    f.el.classList.remove('lunge', 'hit', 'cast', 'heal', 'faint', 'dodge');
     if (color) f.el.style.setProperty('--fx', color);
     void f.el.offsetWidth;
     f.el.classList.add(how);
@@ -871,7 +889,7 @@ export class BattleScreen {
       row.className = `bv-hero${h.out ? ' out' : ''}`;
       if (h.color) row.style.setProperty('--hero', h.color);
       row.innerHTML = `<img class="bv-face" alt=""><div class="bv-main"><div class="bv-line"><span class="bv-name"></span><span class="bv-lv"></span><span class="bv-badge">Level up!</span></div>
-        <div class="bv-bar"><span></span></div><div class="bv-num"></div><div class="bv-changes"></div></div>`;
+        <div class="bv-bar"><span></span></div><div class="bv-num"></div><div class="bv-note"></div><div class="bv-changes"></div></div>`;
       (row.querySelector('.bv-face') as HTMLImageElement).src = h.icon;
       (row.querySelector('.bv-name') as HTMLElement).textContent = h.name;
       const v: VicHeroView = { h, fill: row.querySelector('.bv-bar span') as HTMLElement, num: row.querySelector('.bv-num') as HTMLElement, lv: row.querySelector('.bv-lv') as HTMLElement,
@@ -879,6 +897,7 @@ export class BattleScreen {
       v.lv.textContent = `Lv ${h.level}`;
       v.fill.style.width = `${h.toNext ? Math.min(100, (h.xp / h.toNext) * 100) : 100}%`;
       v.num.textContent = h.out ? 'Knocked out: no EXP' : h.toNext ? `${h.xp} / ${h.toNext} EXP` : 'Top level';
+      (row.querySelector('.bv-note') as HTMLElement).textContent = h.out ? '' : h.note ?? '';
       body.append(row);
       return v;
     });

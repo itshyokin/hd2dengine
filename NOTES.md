@@ -46,7 +46,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
       type (swords, daggers, axes, maces, spears, bows, staves, wands…) and armor weight (light, medium, heavy,
       shields) is Trained / Untrained (weaker: ¾ damage, armor costs Agility and Evasion) / Can't use; items get a
       weapon type; skill trees can still teach a proficiency.
-- [ ] Update 71: enemy levels: a level range per troop / spawn on the map (stats grow per level); an event command
+- [x] Update 71: enemy levels: a level range per troop / spawn on the map (stats grow per level); an event command
       for "dynamic" levels (spawns come out near the party's average level, a couple either side). EXP rework: only
       active fighters earn EXP (others with an EXP Share accessory or the EXP All key item, switched on and off in
       Key items, each giving a % set on the item); EXP given per foe as it falls, bonuses for the finishing blow,

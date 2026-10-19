@@ -62,6 +62,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 70: classes (`src/game/classes.ts`): one-time stat boost (`AbilityData.joined` remembers every class held),
   Trained / Untrained / Can't use per weapon type, armor weight and shields (`gearSkill`); Game's `statGear` adds the
   class to worn gear for stats; players can no longer change class from the menu.
+- 71: enemy levels (`src/game/enemyLevels.ts`: `atLevel`, ranges on zones / troops / encounter lists / enemy events,
+  dynamic levels in `GameState.enemyLevels`); EXP per foe as it falls (TurnBattle `foeDefeated` / `strikeExp` host
+  hooks, Game's `earned`), EXP Share / EXP All (`ItemDef.exp`); misses for Additions and spells (`strike()` takes
+  `sure` / `spellAccuracy`; `Battler.spellEvasion` from MDF), Accuracy / Evasion buffs.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

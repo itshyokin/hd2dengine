@@ -21,7 +21,7 @@ type Cmd = Command['cmd'];
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -29,7 +29,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -68,6 +68,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'skillPoints': return { cmd, value: 1 };
     case 'statRank': return { cmd, hero: '', stat: 'def', rank: 'A' };
     case 'fieldWeapons': return { cmd, on: false };
+    case 'enemyLevels': return { cmd, mode: 'party', spread: 2 };
     case 'achievement': return { cmd, id: dbNow?.().achievements?.[0]?.id ?? '' };
     case 'console': return { cmd, line: 'heal' };
     case 'quest': return { cmd, quest: questDefs()[0]?.id ?? '', op: 'start' };
@@ -183,6 +184,7 @@ function summary(c: Command): string {
     case 'party': return `${heroList().find(([id]) => id === c.hero)?.[1] ?? (c.hero || '(no hero)')} ${c.op === 'add' ? 'joins' : 'leaves'}${c.quiet ? ' (quietly)' : ''}`;
     case 'skillPoints': return `+${c.value} ${c.party ? 'party' : 'skill'} point${c.value === 1 ? '' : 's'}`;
     case 'fieldWeapons': return c.on ? 'Overworld weapons: enabled' : 'Overworld weapons: disabled';
+    case 'enemyLevels': return c.mode === 'party' ? `Enemy levels: near the party’s (±${c.spread ?? 2})` : 'Enemy levels: as set on the map';
     case 'achievement': return `Unlock: ${dbNow?.().achievements?.find((a) => a.id === c.id)?.name ?? (c.id || '(none chosen)')}`;
     case 'console': return `> ${c.line}`;
     case 'battle': {
@@ -652,6 +654,10 @@ export class CommandEditor {
       case 'fieldWeapons':
         return [field('Overworld weapons', select([['off', 'Disable (greyed out with a red ✕)'], ['on', 'Enable again']], d.on ? 'on' : 'off', (v) => (d.on = v === 'on')),
           'The sword and bow the hero uses on the field (cutting vines, shooting switches). Disable them indoors, in towns or other restricted areas; they stay off (across maps and saves) until an event enables them again.')];
+      case 'enemyLevels':
+        return [field('Enemies on the map', select([['party', 'Dynamic: near the party’s average level'], ['fixed', 'As set (each spawn’s level range)']], d.mode, (v) => (d.mode = v as 'party' | 'fixed')),
+          'Dynamic: random battles and enemies on the map come out near the party’s average level, a few either side (they “level up with the players”). Bosses and battles started by events keep their own. It lasts (across maps and saves) until another event sets it back.'),
+          field('Either side (levels, dynamic only)', numberInput(d.spread ?? 2, (v) => (d.spread = Math.max(0, Math.min(10, Math.round(v)))), { step: 1, min: 0, max: 10 }), '2: from two below the average to two above.')];
       case 'skillPoints':
         return [field('Skill points', numberInput(d.value, (v) => (d.value = Math.round(v)), { step: 1 }), 'A quest reward. Negative takes points away.'),
           checkbox('Party points (for the Party skill tree everyone shares)', !!d.party, (v) => { if (v) d.party = true; else delete d.party; })];

@@ -708,3 +708,6 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 /* Database → Classes: the Weapons and armor table, and the stat boost row. */
 .db-table.class-gear { grid-template-columns: minmax(130px, 200px) minmax(160px, 260px); justify-content: start; }
 .field-row.class-stats { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+/* A level range: "Lv [3] to [5]". */
+.level-range { display: flex; align-items: center; gap: 6px; }
+.level-range .level-num { width: 64px; }

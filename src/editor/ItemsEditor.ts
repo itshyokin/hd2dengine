@@ -125,7 +125,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       field('Kind', select(KIND_NAMES, d.kind, (v) => {
         d.kind = v as ItemKind;
         if (d.kind === 'equipment') { d.slot ??= 'accessory'; delete d.restore; delete d.restorePercent; delete d.stack; }
-        else { delete d.slot; delete d.protects; if (d.kind !== 'ammo') delete d.inflicts; if (!(d.kind === 'key' && d.tool === 'light')) delete d.light; delete d.ring; delete d.weapon; delete d.defense; delete d.magicDefense; delete d.bonus; delete d.crit; delete d.glow; delete d.trail; delete d.sprite; delete d.rarity; delete d.spell; if (d.icon === 'sprite') d.icon = 'builtin:bag'; }
+        else { if (!(d.kind === 'key' && d.exp?.all)) delete d.exp; delete d.slot; delete d.protects; if (d.kind !== 'ammo') delete d.inflicts; if (!(d.kind === 'key' && d.tool === 'light')) delete d.light; delete d.ring; delete d.weapon; delete d.defense; delete d.magicDefense; delete d.bonus; delete d.crit; delete d.glow; delete d.trail; delete d.sprite; delete d.rarity; delete d.spell; if (d.icon === 'sprite') d.icon = 'builtin:bag'; }
         if (d.kind === 'ammo') { d.ammo ??= { damage: 2 }; delete d.restore; delete d.restorePercent; } else delete d.ammo;
         if (d.kind === 'consumable') d.restore ??= { hp: 20 };
         if (d.kind === 'key' || d.kind === 'material') { delete d.restore; delete d.restorePercent; }
@@ -190,6 +190,8 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       bonusForm(d),
       statRankField(d, rerender, 'While worn, the stat grows at least this fast when the hero levels up.'),
       ...(d.slot === 'weapon' || d.slot === 'ranged' || (d.slot === 'magic' && !d.spell?.power) ? [inflictsField(() => d.inflicts, (v) => { if (v) d.inflicts = v; else delete d.inflicts; }, rerender)] : []),
+      ...(d.slot === 'accessory' ? [field('EXP Share: % for its wearer when they sit a battle out', numberInput(d.exp?.share ?? 0, (v) => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n) d.exp = { share: n }; else delete d.exp; }, { step: 5, min: 0, max: 100 }),
+        'Only fighters earn EXP. Worn by someone on the bench, this gives them that percent of the foes’ EXP (0: not an EXP Share).')] : []),
       field('Wards off', ailmentChips(() => d.protects, (v) => { if (v) d.protects = v as Ailment[]; else delete d.protects; }, rerender, 'Wards off'), 'While worn, the hero can’t get these.'),
       ...(d.slot !== 'magic' ? [usersField(store, d, rerender)] : [])));
   }
@@ -207,11 +209,13 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
   if (d.kind === 'key') {
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Field use'),
       field('Use', select([['', 'None (a plain key item)'], ...FIELD_POWERS.map((p) => [p, POWER_NAMES[p]] as [string, string])], d.tool ?? '', (v) => {
-        if (v) d.tool = v as FieldPower; else delete d.tool;
+        if (v) { d.tool = v as FieldPower; delete d.exp; } else delete d.tool;
         if (d.tool === 'light') d.light ??= defaultLight('lantern'); else delete d.light;
         rerender();
       }), 'Light: a lantern, torch or floating orb lights the way in the dark. Water Walk: walk on water of any depth (it switches off back on land). The player switches it on and off in the bag, or assigns it to the B button. No magic needed.'),
-      d.tool === 'light' ? lightForm(d, rerender) : h('span')));
+      d.tool === 'light' ? lightForm(d, rerender) : h('span'),
+      d.tool ? h('span') : field('EXP All: % for everyone sitting a battle out', numberInput(d.exp?.all ? d.exp.share : 0, (v) => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n) d.exp = { share: n, all: true }; else delete d.exp; }, { step: 5, min: 0, max: 100 }),
+        'While held and switched on (the player switches it on and off in the bag’s Key items), everyone on the bench gets this percent of the foes’ EXP. Fighters always get the most. 0: not an EXP All.')));
   }
   // Fishing: a rod (any item kind; with one in the bag the hero can fish), or a fish (its usual size, for Records).
   out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Fishing'),
@@ -313,10 +317,13 @@ function weaponForm(d: ItemDef): HTMLElement {
   const guess = weaponTypeOf({ ...d, weapon: { ...w, type: undefined } });
   const type = field('Type', select([['', `Automatic (${guess ? WEAPON_TYPE_NAME[guess] : 'from the name'})`], ...WEAPON_TYPES.map(([t]) => [t, WEAPON_TYPE_NAME[t]] as [string, string])],
     w.type ?? '', (v) => { if (v) w.type = v as WeaponType; else delete w.type; }), 'For classes: which weapons each is trained with. Automatic guesses from the name.');
-  if (w.class === 'bow') return h('div', { class: 'item-ring' }, h('div', { class: 'field-row' }, dmg, type), h('p', { class: 'note' }, 'Key 2: hold to draw, let go to shoot. Draw time, arrow speed and lock-on range are in Database → Combat.'));
+  const aim = h('div', { class: 'field-row' },
+    field('Accuracy %', numberInput(w.accuracy ?? 100, (v) => { const n = Math.max(10, Math.min(200, Math.round(v))); if (n === 100) delete w.accuracy; else w.accuracy = n; }, { step: 5, min: 10, max: 200 }), 'Turn-based: of the wielder’s aim (from Dexterity). 100 as normal; a dagger might be 105, a great axe 90.'),
+    checkbox('Never misses', !!w.sure, (v) => { if (v) w.sure = true; else delete w.sure; }));
+  if (w.class === 'bow') return h('div', { class: 'item-ring' }, h('div', { class: 'field-row' }, dmg, type), aim, h('p', { class: 'note' }, 'Key 2: hold to draw, let go to shoot. Draw time, arrow speed and lock-on range are in Database → Combat.'));
   return h('div', { class: 'item-ring' },
     h('div', { class: 'field-row' }, field('Class', select(CLASS_NAMES, w.class, (v) => (w.class = v as WeaponClass))), type),
-    dmg,
+    dmg, aim,
     h('p', { class: 'note' }, 'Key 1 swings. Each class’s swing speed, reach and damage multiplier are in Database → Combat.'));
 }
 

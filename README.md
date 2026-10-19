@@ -935,8 +935,29 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   battle ailments), **Guard** (Legend of Dragoon style: half damage, a little health back (*Guard heals %*, default
   10) and no new ailments until your next turn) and **Run** (more likely when the party is faster; never from a boss).
   Elements, weaknesses, immunities, absorbing, critical hits and Defence / Magic Defence work as on the map.
-- **Winning** gives EXP to everyone standing, gold and drops straight into the bag (a full bag leaves them on the
-  ground) and runs the beaten enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
+- **EXP** goes only to those who fight, as each foe falls ("Jordan +15 EXP" rises at the bottom left): everyone
+  fighting then gets its EXP. Bonuses (Database → Combat → *EXP bonuses*, in % of the foe's EXP): the **finishing
+  blow** (+25%), finishing it with a **weakness** (+10%), each **Addition strike** landed (+4%, twice that for a
+  perfect one, shown as it lands, like Legend of Dragoon's SP), an Addition **completed** (+10%), and **no KOs** in
+  the battle (+10% of what each earned). The victory screen shows where each hero's EXP came from. Those on the
+  bench get nothing, unless they wear an **EXP Share** (an accessory: Database → Items → *EXP Share %*) or the party
+  holds an **EXP All** key item switched on (Key items → Turn on / off; *EXP All %*): then they get that percent of
+  the foes' EXP. A hero swapped in partway earns from then on; one knocked out keeps what they'd earned.
+- **Winning** gives gold and drops straight into the bag (a full bag leaves them on the ground) and runs the beaten
+  enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
+- **Missing**: weapon hits and Additions can miss (the wielder's accuracy, from Dexterity, times the weapon's
+  *Accuracy %* in Database → Items, against the target's evasion). A missed Addition: the hero runs up, no buttons
+  show, a big **MISS**, and back they go. Attack spells can miss too: the spell's *Accuracy %* (100 unless set)
+  against the target's spell evasion (heroes: from Magic Defence; enemies: *Spell evasion %*). *Never misses* on a
+  weapon or spell skips it. Buffs and debuffs for **Accuracy** and **Evasion** (and *Accuracy down* / *Evasion down*,
+  a Sand Attack) change the odds. A dodge is a quick sidestep ("Dodged" for the party).
+- **Enemy levels**: each enemy's numbers are for its *Level* (Database → Enemies; 1 unless set). Spawns can roll a
+  level from a range: a painted zone's *Enemy levels* (Spawns layer; each troop in it can set its own), the older
+  random encounters list, and an enemy event (*Its level*). Each level above its own adds *Health*, *Damage*,
+  *Defence*, *EXP* and *Gold* by Database → Combat → *Enemy levels* (12%, 7%, 6%, 12%, 8% a level); below takes them
+  away. Levels show beside enemy names in battle ("Lv 5"). The event command **Enemy levels** switches the map to
+  **dynamic** levels: spawns come out near the party's average level, a couple either side (*Either side*), until
+  another switches it back to *As set*. Bosses and battles started by events keep their own.
   **Losing** sends the party back to the respawn point, as dying on the map does. Running away leaves the enemies
   on the map; they lose track of the hero for a moment.
 - **Tuning**: *Party damage ×* and *Enemy damage ×* scale each side's hits; *Safe after a battle* stops a new

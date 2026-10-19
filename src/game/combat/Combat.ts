@@ -9,7 +9,7 @@ import type { SpriteLibrary } from '../../render/sprites';
 import { linearColor } from '../../render/textures';
 import type { CombatOverlay } from '../../ui/CombatOverlay';
 import type { TileMap } from '../../world/TileMap';
-import type { Ailment, Database, Element, EnemyDef, EquipSlot, EventPage, Inflict, ItemDef } from '../../world/types';
+import type { Ailment, Database, Element, EnemyDef, EquipSlot, EventPage, Inflict, ItemDef, LevelRange } from '../../world/types';
 import type { CarriedWeapon, CharacterSprite } from '../CharacterSprite';
 import { DIR_VECTOR } from '../CharacterSprite';
 import { Breakable, type BreakableEvent, type HitKind } from './Breakable';
@@ -56,6 +56,8 @@ export interface CombatHost {
   skills: Skills;
   /** The hero's stats with equipment and skills, crit chance and defences. */
   hero(): HeroTotals;
+  /** The enemy as it comes out here: its level rolled (the page's range, or near the party's with dynamic levels). */
+  levelled?(def: EnemyDef, range?: LevelRange): EnemyDef;
   /** The hero's elements, immunities and absorbs. */
   heroElements(): ElementalDefence;
   /** A melee swing hit nothing: it can chop something cuttable in front of the hero. */
@@ -252,8 +254,9 @@ export class Combat {
         this.byEvent.delete(ev);
       }
       if (!id || this.byEvent.has(ev) || this.beaten.has(ev)) continue;
-      const def = this.host.db.enemies?.find((d) => d.id === id);
-      if (!def) continue;
+      const base = this.host.db.enemies?.find((d) => d.id === id);
+      if (!base) continue;
+      const def = this.host.levelled?.(base, ev.page?.enemyLevels) ?? base;
       const e = new Enemy(def, ev, this.host.level, this.host.sprites, this.host.db, ev.x + ev.w / 2, ev.z + ev.h - 0.5, this.host.map);
       this.enemies.push(e);
       this.byEvent.set(ev, e);

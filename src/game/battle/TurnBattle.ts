@@ -15,9 +15,10 @@ import { statusIconUrl } from '../../art/statusIcons';
 import type { QteResult } from '../../ui/BattleScreen';
 import {
   type BattleAddition, type Battler, type BattleSpell, type Opening, RANK, type SpellRank, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
-  WEATHER_EFFECT, battleWeather, refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
+  BASE_ACCURACY, WEATHER_EFFECT, battleWeather, refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
 } from './rules';
 import { AILMENT_WORD, BLIND_MISS_CHANCE, BUFF_TURNS, type BattleAilment, ailmentName, rollInflicts } from './status';
+import { hitChance } from '../attributes';
 
 /** One fighter as the game hands it over. */
 export interface BattleEntry { battler: Battler; view: FighterView; /** Party: 0 the hero, 1… members. */ who?: number; /** Enemies: the map's enemy (handed back when it's beaten). */ ref?: unknown }
@@ -70,6 +71,13 @@ export interface BattleHost {
   finished(outcome: BattleOutcome, beaten: unknown[]): void;
   /** Party member `who` performed an Addition in full: count it towards its next rank (the new rank if it went up). */
   mastered?(who: number, addition: string): number | null;
+  /**
+   * A foe fell (`by`: the party member whose hit did it, or null; `weak`: a hit it's weak to). `fighting`: the party
+   * members standing in the battle. EXP each earned from it (shown as it falls).
+   */
+  foeDefeated?(foe: string, by: number | null, weak: boolean, fighting: number[]): { who: number; xp: number }[];
+  /** Party member `who` landed an Addition strike on `foe` (or `complete`d one): bonus EXP for it. */
+  strikeExp?(who: number, foe: string, result: 'perfect' | 'good' | 'complete'): number;
   log(text: string): void;
 }
 
@@ -97,6 +105,7 @@ export class TurnBattle {
 
   start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean } = {}): void {
     this.hurt = false;
+    this.partyFell = false;
     this.rules = rules;
     for (const e of entries) e.battler.charging = null;
     this.all = entries;
@@ -442,7 +451,7 @@ export class TurnBattle {
       for (const t of targets) {
         if (!isUp(t)) continue;
         if (s.kind === 'heal') this.heal(b, t, healAmount(power, t));
-        else if (s.kind === 'bolt') this.hit(b, t, power, s.element, true, s.inflicts, color);
+        else if (s.kind === 'bolt') { this.aim = { spellAccuracy: s.accuracy, spellSure: s.sure }; this.hit(b, t, power, s.element, true, s.inflicts, color); this.aim = {}; }
         else this.screen.animate(t.key, 'heal', color);
         if (isUp(t) && s.buffs?.length) this.giveBuffs(b, t, s.buffs);
       }
@@ -462,6 +471,20 @@ export class TurnBattle {
     this.screen.shot('addition', b.key, t.key);
     this.screen.animate(b.key, 'approach', undefined, t.key);
     this.later(0.45, () => {
+      // The opening strike can miss (accuracy against their evasion, or blindness): no buttons, a MISS, and back.
+      const blind = b.status.blind && Math.random() < BLIND_MISS_CHANCE;
+      if (blind || (!b.sure && !b.attackMagic && Math.random() * 100 >= hitChance(b.accuracy ?? BASE_ACCURACY, t.evasion ?? 0))) {
+        this.screen.popup(t.key, 'MISS', 'big');
+        this.screen.animate(t.key, 'dodge');
+        this.host.sound('dodge');
+        this.say(`${t.name} dodges ${b.name}’s ${a.name}`);
+        this.host.tally?.('additions');
+        this.later(this.hold(1.5), () => {
+          this.screen.animate(b.key, 'back');
+          this.later(0.5, () => { this.screen.shot(null); this.endTurn(b, RANK.attack, 0.3); });
+        });
+        return;
+      }
       let landed = 0, power = 0;
       this.screen.startQte(t.key, a.strikes.map((x) => ({ button: x.button, time: x.time, window: x.window })), this.cfg.additionTiming === 'auto',
         (i: number, r: QteResult) => {
@@ -474,6 +497,8 @@ export class TurnBattle {
           }
           landed++;
           if (r === 'perfect') this.screen.popup(t.key, 'Perfect!', 'info');
+          // EXP for each strike (more for a perfect one), like Legend of Dragoon's SP.
+          this.expPop(b, this.host.strikeExp?.(this.entry(b).who ?? 0, t.key, r) ?? 0);
           this.screen.animate(b.key, 'strike');
           this.screen.animate(t.key, 'hit');
           this.host.sound('swing');
@@ -483,8 +508,10 @@ export class TurnBattle {
           const complete = landed === a.strikes.length;
           this.host.tally?.('additions'); this.host.tally?.(`addition:${a.id}`);
           // The damage, all at once, as the string ends.
-          if (power > 0 && isUp(t)) this.hit(b, t, power, b.attackElement, b.attackMagic, complete ? b.inflicts : undefined);
+          // (It already got past their guard: no second roll to miss.)
+          if (power > 0 && isUp(t)) { this.aim = { sure: true, spellSure: true }; this.hit(b, t, power, b.attackElement, b.attackMagic, complete ? b.inflicts : undefined); this.aim = {}; }
           if (complete) {
+            this.expPop(b, this.host.strikeExp?.(this.entry(b).who ?? 0, t.key, 'complete') ?? 0);
             if (a.sound) this.host.voice?.(a.sound); else this.host.attackVoice?.(this.entry(b).who ?? 0);
             this.screen.popup(b.key, a.strikes.length > 1 ? `${a.name}!` : 'Complete!', 'info');
             const up = this.host.mastered?.(this.entry(b).who ?? 0, a.id) ?? null;
@@ -697,18 +724,20 @@ export class TurnBattle {
   /** One fighter hits another: blindness, elements, criticals, guarding and the side's damage scale, then ailments. */
   private hit(by: Battler, t: Battler, power: number, element: Element, magic: boolean, inflicts?: Inflict[], color?: string, counter = false): void {
     // Blind: half of their weapon attacks miss (spells still land).
-    if (!magic && by.status.blind && Math.random() < BLIND_MISS_CHANCE) {
+    if (!magic && !this.aim.sure && by.status.blind && Math.random() < BLIND_MISS_CHANCE) {
       this.screen.popup(t.key, 'Miss', 'info');
       this.host.sound('dodge');
       this.say(`${by.name} misses`);
       return;
     }
     const scale = (by.side === 'party' ? this.cfg.partyDamage : this.cfg.enemyDamage) * (by.surging ? 1.5 : 1);
-    const r = strike(power, element, magic, by, t, scale);
+    const r = strike(power, element, magic, { ...by, ...this.aim }, t, scale);
     if (r.kind === 'miss') {
-      this.screen.popup(t.key, 'Miss', 'info');
+      // A dodge: the one hit sidesteps.
+      this.screen.popup(t.key, t.side === 'party' ? 'Dodged' : 'Miss', 'info');
+      this.screen.animate(t.key, 'dodge');
       this.host.sound('dodge');
-      this.say(`${t.name} dodges ${by.name}’s attack`);
+      this.say(`${t.name} dodges ${by.name}’s ${magic ? 'spell' : 'attack'}`);
       return;
     }
     const tint = color ?? (element !== 'neutral' ? ELEMENT_COLORS[element] : undefined);
@@ -729,7 +758,9 @@ export class TurnBattle {
     // A weapon hit on a foe: its material's sound and what flies off it (blood, sparks, chips…).
     const mat = !magic && t.impact ? t.impact : null;
     if (mat) this.screen.impact(t.key, mat.fx, r.crit);
+    this.striker = by.side === 'party' ? { by, weak: r.label === 'Weak!' } : null;
     this.damage(t, r.amount, r.crit, tint, mat?.sound);
+    this.striker = null;
     if (by.side === 'party') { this.host.tally?.('damageDealt', r.amount); this.host.tally?.('bestHit', r.amount, true); if (r.crit) this.host.tally?.('crits'); }
     else if (t.side === 'party') this.host.tally?.('damageTaken', r.amount);
     this.say(`${by.name} hits ${t.name} for ${r.amount}${r.crit ? ' (critical)' : ''}${r.label === 'Weak!' ? ' (super effective)' : r.label === 'Resist' ? ' (resisted)' : ''}`);
@@ -804,6 +835,23 @@ export class TurnBattle {
   }
 
   /** Knocked out: ailments go with it. */
+  /** The spell being cast's aim (its accuracy, or never misses). */
+  private aim: { spellAccuracy?: number; spellSure?: boolean; sure?: boolean } = {};
+  /** Whose hit is landing right now (a foe falling to it earns them the finishing blow). */
+  private striker: { by: Battler; weak: boolean } | null = null;
+  /** Someone in the party was knocked out this battle (no "no KOs" EXP bonus). */
+  partyFell = false;
+
+  /** "+12 EXP" at the bottom left, for one of the party. */
+  private expPop(b: Battler, n: number): void { if (n > 0) this.screen.expPop(`${b.name} +${n} EXP`); }
+
+  /** A foe fell: everyone fighting earns its EXP now (the finishing blow and a weakness a little more). */
+  private foeEarned(t: Battler): void {
+    const k = this.striker, fighting = this.party.filter(isUp).map((p) => this.entry(p).who ?? 0);
+    const gains = this.host.foeDefeated?.(t.key, k ? this.entry(k.by).who ?? 0 : null, !!k?.weak, fighting) ?? [];
+    for (const g of gains) { const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who); if (p) this.expPop(p, g.xp); }
+  }
+
   private fall(t: Battler): void {
     t.guarding = false;
     if (t.charging) { t.charging = null; this.screen.setCharging(t.key, null); }
@@ -812,8 +860,8 @@ export class TurnBattle {
     t.status.buffs.clear();
     refreshAgility(t);
     setTimeout(() => this.screen.animate(t.key, 'faint'), 260);
-    if (t.side === 'enemy') { this.host.sound('defeat'); this.say(`${t.name} defeated`); }
-    else this.say(`${t.name} is knocked out`);
+    if (t.side === 'enemy') { this.host.sound('defeat'); this.say(`${t.name} defeated`); this.foeEarned(t); }
+    else { this.partyFell = true; this.say(`${t.name} is knocked out`); }
   }
 
   private endTurn(b: Battler, rank: number, pause: number): void {

@@ -11,9 +11,9 @@
 import type { Ailment, BuffKind } from '../world/types';
 
 export const AILMENTS: Ailment[] = ['burn', 'poison', 'chill', 'paralyze', 'blind', 'silence', 'stagger', 'sleep', 'confusion', 'zombie'];
-export const BUFFS: BuffKind[] = ['crit', 'str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf', 'regen', 'haste', 'slow'];
+export const BUFFS: BuffKind[] = ['crit', 'str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf', 'regen', 'haste', 'slow', 'acc', 'eva', 'accDown', 'evaDown'];
 /** Buffs that make things worse (they just wear off). */
-export const DEBUFFS: ReadonlySet<BuffKind> = new Set(['slow']);
+export const DEBUFFS: ReadonlySet<BuffKind> = new Set(['slow', 'accDown', 'evaDown']);
 
 /** The kind of effect: an ailment, Frozen (from Chill), or a buff. */
 export type EffectId = Ailment | 'frozen' | `buff:${BuffKind}`;
@@ -44,6 +44,10 @@ export const BUFF_INFO: Record<BuffKind, { name: string; unit: string; amount: n
   regen: { name: 'Regeneration', unit: ' HP/s', amount: 2, seconds: 30, color: '#7cf0a0' },
   haste: { name: 'Haste', unit: '% faster', amount: 50, seconds: 30, color: '#5ae0ff' },
   slow: { name: 'Slow', unit: '% slower', amount: 40, seconds: 20, color: '#c07a5a' },
+  acc: { name: 'Accuracy', unit: '% to hit', amount: 15, seconds: 60, color: '#ffe8a0' },
+  eva: { name: 'Evasion', unit: '% to dodge', amount: 15, seconds: 60, color: '#a0ffe8' },
+  accDown: { name: 'Accuracy down', unit: '% to hit', amount: 20, seconds: 20, color: '#a08a6a' },
+  evaDown: { name: 'Evasion down', unit: '% to dodge', amount: 20, seconds: 20, color: '#6a8aa0' },
 };
 
 /** Chill stacks needed to freeze. */

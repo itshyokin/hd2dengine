@@ -29,7 +29,7 @@ export interface StageFighterSpec {
 }
 
 type Step =
-  | { kind: 'move'; to: THREE.Vector3; dur: number; t: number; from?: THREE.Vector3; run?: boolean }
+  | { kind: 'move'; to: THREE.Vector3; dur: number; t: number; from?: THREE.Vector3; run?: boolean; keepFacing?: boolean }
   | { kind: 'play'; anim: string; dur: number; t: number; started?: boolean; keepFacing?: boolean }
   | { kind: 'wait'; dur: number; t: number }
   /** Turn to face a point (null: the other side again). */
@@ -284,9 +284,18 @@ export class BattleStage implements StageHooks {
 
   /* ------------------------------------------------------------------ what the battle screen asks for */
 
-  animate(key: string, how: 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss', color?: string, target?: string): void {
+  animate(key: string, how: 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge', color?: string, target?: string): void {
     const f = this.fighters.get(key);
     if (!f) return;
+    if (how === 'dodge') {
+      // A sidestep out of the way, then back.
+      if (f.down) return;
+      const aside = f.home.clone();
+      aside.z += 0.55;
+      aside.y = this.stand(aside.x, aside.z);
+      f.steps = [{ kind: 'move', to: aside, dur: 0.12, t: 0, keepFacing: true }, { kind: 'wait', dur: 0.25, t: 0 }, { kind: 'move', to: f.home.clone(), dur: 0.2, t: 0, keepFacing: true }];
+      return;
+    }
     const t = target ? this.fighters.get(target) : undefined;
     if (how === 'pose') {
       // Casting: turn to the camera, raise the arms and hold it.
@@ -413,7 +422,7 @@ export class BattleStage implements StageHooks {
         moving = k < 1;
         const dx = s.to.x - s.from.x, dz = s.to.z - s.from.z;
         // Run facing the way they go; back home, turn to face the foe again.
-        if (k < 1 && Math.hypot(dx, dz) > 0.05) this.face(f, dx, dz);
+        if (k < 1 && !s.keepFacing && Math.hypot(dx, dz) > 0.05) this.face(f, dx, dz);
         if (k >= 1) { f.steps.shift(); if (s.to.distanceToSquared(f.home) < 0.01) this.faceFoes(f); }
       } else if (s.kind === 'face') {
         if (s.to) this.face(f, s.to.x - f.at.x, s.to.z - f.at.z); else this.faceFoes(f);

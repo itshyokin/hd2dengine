@@ -90,7 +90,8 @@ import { classStatGear, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
-import type { CharacterDef, EnemyDef } from '../world/types';
+import type { CharacterDef, EnemyDef, LevelRange } from '../world/types';
+import { atLevel, partyLevel, rollLevel } from './enemyLevels';
 import { statusIconUrl } from '../art/statusIcons';
 import { elementIconUrl } from '../art/elementIcons';
 import { creation, heroBase, mainHero } from '../world/heroes';
@@ -701,7 +702,7 @@ export class Game {
         return d?.restore?.hp && this.combat.heroStatus.zombie && !d.cures?.includes('zombie') ? 'Use (hurts: you’re a zombie!)' : null;
       },
       equip: (i) => this.equipItem(i),
-      toolOn: (i) => { const id = this.inventory.slots[i]?.id; return !!id && this.rings.ring?.id === id && this.rings.active; },
+      toolOn: (i) => { const id = this.inventory.slots[i]?.id; if (id && this.items.get(id)?.exp?.all) return !this.state.expAllOff.has(id); return !!id && this.rings.ring?.id === id && this.rings.active; },
       toggleTool: (i) => { const id = this.inventory.slots[i]?.id; return id ? this.toggleTool(id) : null; },
       assignB: (i) => {
         const id = this.inventory.slots[i]?.id, d = id ? this.items.get(id) : undefined;
@@ -1165,6 +1166,7 @@ export class Game {
       get inventory() { return game.inventory; },
       get skills() { return game.skills; },
       hero: () => this.heroTotals(),
+      levelled: (def, range) => this.levelled(def, range),
       swingMissed: () => { if (!this.mineAhead()) this.cutAhead(0, true); },
       proficient: (cls) => this.proficient(cls),
       // Worn gear with a shard set in it halves that element.
@@ -2520,6 +2522,12 @@ export class Game {
   /** Switch a key item's field use (a lantern, water-walking boots) on or off; another one in use goes off first. */
   private toggleTool(id: string): string | null {
     const d = this.items.get(id);
+    // EXP All: on or off (those sitting battles out share the EXP while it's on).
+    if (d?.exp?.all) {
+      const on = this.state.expAllOff.has(id);
+      if (on) this.state.expAllOff.delete(id); else this.state.expAllOff.add(id);
+      return `${d.name}: ${on ? 'on' : 'off'}`;
+    }
     if (!d?.tool || this.inventory.count(id) < 1) return null;
     if (this.rings.ring?.id !== id) this.rings.wear(d, this.settings.lightShadows);
     this.useRing();
@@ -4276,7 +4284,7 @@ export class Game {
         if (!def) continue;
         const lo = Math.max(0, Math.round(mem.min ?? 1)), hi = Math.max(lo, Math.round(mem.max ?? mem.min ?? 1));
         const n = lo + Math.floor(Math.random() * (hi - lo + 1));
-        for (let k = 0; k < n && list.length < MAX_FOES; k++) list.push({ def, hp: def.hp, enemy: null });
+        for (let k = 0; k < n && list.length < MAX_FOES; k++) { const at = this.levelled(def, pick?.levels ?? zone.levels); list.push({ def: at, hp: at.hp, enemy: null }); }
       }
       if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music, stage: zone.battleMap || undefined });
       return;
@@ -4286,8 +4294,27 @@ export class Game {
     const lo = Math.max(1, Math.min(MAX_FOES, Math.round(t!.min ?? 1))), hi = Math.max(lo, Math.min(MAX_FOES, Math.round(t!.max ?? 3)));
     const n = lo + Math.floor(Math.random() * (hi - lo + 1));
     const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
-    for (let k = 0; k < n; k++) { const pick = weighted(table)!, def = defs.get(pick.enemy)!; list.push({ def, hp: def.hp, enemy: null }); }
+    for (let k = 0; k < n; k++) { const pick = weighted(table)!, def = this.levelled(defs.get(pick.enemy)!, t!.levels); list.push({ def, hp: def.hp, enemy: null }); }
     this.startBattle(list, opening);
+  }
+
+  /** A hero's aim: Dexterity's accuracy times their weapon's (Database → Items → Accuracy), or never missing. */
+  private aimOf(w: ItemDef | undefined, dex: number): { accuracy: number; sure?: boolean } {
+    const acc = accuracyOf(dex) * Math.max(10, w?.weapon?.accuracy ?? 100) / 100;
+    return w?.weapon?.sure ? { accuracy: acc, sure: true } : { accuracy: acc };
+  }
+
+  /** The enemy as it comes out on the map: a level from the spawn's range, or near the party's (dynamic levels; not bosses). */
+  private levelled(def: EnemyDef, range?: LevelRange): EnemyDef {
+    const dyn = this.state.enemyLevels;
+    const lv = dyn && !def.boss ? partyLevel(this.partyAverageLevel(), dyn.spread) : rollLevel(def, range);
+    return atLevel(def, lv, this.combatCfg.enemyGrowth);
+  }
+
+  /** The active party's average level. */
+  private partyAverageLevel(): number {
+    const ls = [this.progress.level, ...this.members().map((m) => m.data.level)];
+    return ls.reduce((a, b) => a + b, 0) / ls.length;
   }
 
   private readonly battlePictures = new Map<string, { picture: HTMLCanvasElement; icon: string; flip: boolean }>();
@@ -4325,7 +4352,7 @@ export class Game {
         const at = spellAtRank(s, i + 1);
         return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
       });
-      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget, weather: s.weather, weatherTurns: s.weatherTurns });
+      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget, weather: s.weather, weatherTurns: s.weatherTurns, accuracy: s.accuracy, sure: s.sure });
     }
     return out;
   }
@@ -4378,7 +4405,7 @@ export class Game {
           key: 'p0', side: 'party', name: hero.name, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp,
           attack: useBow ? bow : melee, attackElement: (useBow ? bowDef?.element : w?.element) ?? 'neutral', attackMagic: false,
           armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: t.crit,
-          accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: sk.get('guardHeal'),
+          ...this.aimOf(useBow ? bowDef : w, t.attrs.dex), evasion: evasionOf(t.attrs.agi), spellEvasion: evasionOf(t.attrs.mdf), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: sk.get('guardHeal'),
           defence: { ...hero, halve: this.wornGear().flatMap((g) => g?.wards ?? []) }, spells, ct: 0, guarding: false,
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
           additions: this.battleAdditions(a), addition: a.addition,
@@ -4403,7 +4430,7 @@ export class Game {
         key, side: 'party', name: m.def.name, hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp,
         attack: useBow ? n.bow : n.melee, attackElement: useBow ? n.bowElement : n.meleeElement, attackMagic: false,
         armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: n.crit,
-        accuracy: accuracyOf(t.attrs.dex), evasion: evasionOf(t.attrs.agi), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: msk.get('guardHeal'),
+        ...this.aimOf(this.items.get((useBow ? m.data.equip.ranged : m.data.equip.weapon) ?? ''), t.attrs.dex), evasion: evasionOf(t.attrs.agi), spellEvasion: evasionOf(t.attrs.mdf), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: msk.get('guardHeal'),
         defence: { elements: m.def.elements, immune: m.def.immune, absorb: m.def.absorb, halve: this.wornGear(m.data.equip).flatMap((g) => g?.wards ?? []) },
         spells, ct: 0, guarding: false,
         status: new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]),
@@ -4456,6 +4483,8 @@ export class Game {
     const entries: BattleEntry[] = [];
     // The hero and the first two of the lineup fight; the rest wait on the bench.
     this.battleWhos = new Set();
+    this.earned.clear();
+    this.battleFoes.clear();
     for (const who of this.activeWhos()) {
       this.battleWhos.add(who);
       const b = this.partyBattler(who);
@@ -4470,6 +4499,7 @@ export class Game {
       const d = x.def, pic = this.enemyPicture(d), k = seen.get(d.id) ?? 0;
       seen.set(d.id, k + 1);
       const name = (counts.get(d.id) ?? 0) > 1 ? `${d.name} ${String.fromCharCode(65 + k)}` : d.name;
+      this.battleFoes.set(`e${i}`, d);
       // Health rolled either side of the database's (Health ± %), so no two slimes are quite the same.
       const v = Math.max(0, Math.min(0.9, (d.hpVariance ?? 0) / 100)), maxHp = Math.max(1, Math.round(d.hp * (1 - v + Math.random() * 2 * v)));
       const hp = x.hp >= d.hp ? maxHp : Math.min(maxHp, x.hp);
@@ -4477,12 +4507,12 @@ export class Game {
         key: `e${i}`, side: 'enemy', name, hp: Math.max(1, hp), maxHp, mp: 0, maxMp: 0, spread: (d.damageVariance ?? 10) / 100,
         attack: d.damage, attackElement: enemyElement(d), attackMagic: d.attackType === 'magic',
         armour: d.defense ?? 0, magicArmour: d.magicDefense ?? d.defense ?? 0, agility: enemyAgility(d), baseAgility: enemyAgility(d), crit: d.crit ?? 5,
-        accuracy: d.accuracy, evasion: d.evasion, resist: d.ailmentResist, impact: impactOf(d), overdrive: d.boss && d.overdrive ? 0 : undefined,
+        accuracy: d.accuracy, evasion: d.evasion, spellEvasion: d.spellEvasion, resist: d.ailmentResist, impact: impactOf(d), overdrive: d.boss && d.overdrive ? 0 : undefined,
         defence: d, spells: [], ct: 0, guarding: false, boss: d.boss,
         status: new BattleStatus(d.resists ?? [], !!d.boss, !!d.undead), inflicts: d.inflicts,
         actions: d.actions, attackWeight: d.attackWeight, counterspell: d.counterspell,
       };
-      entries.push({ battler, view: { key: battler.key, side: 'enemy', name, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale, elements: d.elements, overdrive: !!(d.boss && d.overdrive) }, ref: { def: d, enemy: x.enemy, battler } });
+      entries.push({ battler, view: { key: battler.key, side: 'enemy', name, level: d.level, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale, elements: d.elements, overdrive: !!(d.boss && d.overdrive) }, ref: { def: d, enemy: x.enemy, battler } });
       if (stageData) specs.push(this.enemyFigure(battler.key, d));
     });
     if (stageData) this.openStage(stageData, specs);
@@ -4494,6 +4524,15 @@ export class Game {
 
   /** Party members (0 the hero) fighting in the battle now. */
   private battleWhos = new Set<number>();
+  /** This battle's foes by fighter key (their EXP as they fall). */
+  private readonly battleFoes = new Map<string, EnemyDef>();
+  /** EXP each party member earned this battle (by who): foes falling while they fought, and bonuses. */
+  private readonly earned = new Map<number, { base: number; finish: number; weak: number; addition: number }>();
+  private earn(who: number): { base: number; finish: number; weak: number; addition: number } {
+    let e = this.earned.get(who);
+    if (!e) this.earned.set(who, (e = { base: 0, finish: 0, weak: 0, addition: 0 }));
+    return e;
+  }
 
   /** After a battle: whoever finished it fighting moves to the front of the lineup (in their places). */
   private keepLineup(whos: number[]): void {
@@ -4700,6 +4739,7 @@ export class Game {
         if (!b) return null;
         this.battleWhos.delete(outWho);
         this.battleWhos.add(inWho);
+        this.earn(inWho);
         if (this.stage) this.stage.stage.replaceFighter(outKey, { ...this.heroFigure(b.view.key, b.fig.look, b.fig.equip, b.fig.bow, b.fig.lift), color: b.view.color });
         return { battler: b.battler, view: b.view, who: inWho };
       },
@@ -4723,6 +4763,23 @@ export class Game {
         if (a && !m.data.down) { a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
       },
       victory: (beaten) => this.battleRewards(beaten as Ref[]),
+      // EXP as each foe falls: everyone fighting gets its EXP; the finishing blow (and a weakness) a little more.
+      foeDefeated: (key, by, weak, fighting) => {
+        const d = this.battleFoes.get(key), xp = Math.max(0, d?.xp ?? 0), b = this.combatCfg.exp;
+        if (!xp) return [];
+        return fighting.map((who) => {
+          const e = this.earn(who), finish = who === by ? Math.round((xp * b.finish) / 100) : 0, w = who === by && weak ? Math.round((xp * b.weak) / 100) : 0;
+          e.base += xp; e.finish += finish; e.weak += w;
+          return { who, xp: xp + finish + w };
+        });
+      },
+      // Each Addition strike landed earns a little EXP (a perfect one twice that); completing it, more.
+      strikeExp: (who, key, result) => {
+        const xp = Math.max(0, this.battleFoes.get(key)?.xp ?? 0), b = this.combatCfg.exp;
+        const n = result === 'complete' ? Math.round((xp * b.complete) / 100) : Math.max(xp > 0 ? 1 : 0, Math.round((xp * b.strike * (result === 'perfect' ? 2 : 1)) / 100));
+        if (n > 0) this.earn(who).addition += n;
+        return n;
+      },
       fanfare: () => {
         // The battle music stops; the fanfare plays; then the victory tune.
         // Then music: the game's victory music (Database → Audio), or the map's own.
@@ -4826,25 +4883,48 @@ export class Game {
     const gain = (out: string[], label: string, n: number) => { if (n > 0) out.push(`+${n} ${label}${n === 1 ? '' : 's'}`); };
     // What the levels added to each stat (by its rank): "STR +4".
     const statChanges = (out: string[], a: Attrs, b: Attrs) => { const bits = ATTRS.filter((k) => b[k] > a[k]).map((k) => `${ATTR_INFO[k].short} +${b[k] - a[k]}`); if (bits.length) out.push(bits.join(' · ')); };
+    // What each hero earned: fighters what they won as foes fell (and bonuses); those sitting it out, an EXP Share's
+    // or EXP All's percent of the foes' EXP.
+    const b = this.combatCfg.exp, noKo = !this.battle.partyFell;
+    const benchPct = (who: number): number => {
+      const worn = who ? this.members()[who - 1]?.data.equip ?? {} : this.inventory.equip;
+      let pct = 0;
+      for (const id of Object.values(worn)) { const d = id ? this.items.get(id) : undefined; if (d?.exp && !d.exp.all) pct = Math.max(pct, d.exp.share); }
+      for (const st of this.inventory.slots) { const d = st ? this.items.get(st.id) : undefined; if (d?.exp?.all && !this.state.expAllOff.has(d.id)) pct = Math.max(pct, d.exp.share); }
+      return pct;
+    };
+    const share = (who: number): { gained: number; note: string } => {
+      const e = this.earned.get(who);
+      if (e) {
+        const ko = noKo && e.base > 0 ? Math.round((e.base * b.noKo) / 100) : 0;
+        const bits = [`Base ${e.base}`, e.finish ? `Finishing blows +${e.finish}` : '', e.weak ? `Weaknesses +${e.weak}` : '', e.addition ? `Additions +${e.addition}` : '', ko ? `No KOs +${ko}` : ''].filter(Boolean);
+        const gained = e.base + e.finish + e.weak + e.addition + ko;
+        return { gained, note: gained && bits.length > 1 ? bits.join(' · ') : '' };
+      }
+      const pct = benchPct(who), gained = Math.round((xp * pct) / 100);
+      return { gained, note: gained ? `Sat out: ${pct}% (EXP Share)` : 'Sat out: no EXP' };
+    };
     {
       const pr = this.progress, before = { level: pr.level, xp: pr.xp, toNext: pr.toNext, hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, stats: { ...pr.stats }, sk: pr.points };
-      const segs = xp > 0 ? segments(pr.level, pr.xp, xp) : [];
-      if (xp > 0) this.gainXp(xp, true, true);
+      const { gained, note } = share(0);
+      const segs = gained > 0 ? segments(pr.level, pr.xp, gained) : [];
+      if (gained > 0) this.gainXp(gained, true, true);
       const changes: string[] = [];
       if (pr.level > before.level) {
         change(changes, 'Max HP', before.hp, this.stats.cfg.max.hp); change(changes, 'Max MP', before.mp, this.stats.cfg.max.mp);
         statChanges(changes, before.stats, pr.stats); gain(changes, 'skill point', pr.points - before.sk);
       }
       this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
-      heroes.push({ key: 'p0', name: mainHero(this.db).name, icon: this.portraitUrl, color: this.heroColor(0), level: before.level, xp: before.xp, toNext: before.toNext, gained: xp, segments: segs, changes, after: { level: pr.level, xp: pr.xp, toNext: pr.toNext } });
+      heroes.push({ key: 'p0', name: mainHero(this.db).name, icon: this.portraitUrl, color: this.heroColor(0), level: before.level, xp: before.xp, toNext: before.toNext, gained, note, segments: segs, changes, after: { level: pr.level, xp: pr.xp, toNext: pr.toNext } });
     }
     const sk = this.combatCfg.pointsPerLevel;
     this.members().forEach((m, k) => {
       const d = m.data, n0 = this.allyNumbers(d, m.def), before = { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), stats: { ...d.stats }, sk: d.skillPoints ?? 0 };
-      const out = !!d.down, segs = !out && xp > 0 ? segments(d.level, d.xp, xp) : [];
+      const { gained, note } = share(k + 1), out = !!d.down && !gained;
+      const segs = gained > 0 ? segments(d.level, d.xp, gained) : [];
       const changes: string[] = [];
-      if (!out && xp > 0) {
-        const ups = memberGainXp(d, xp, this.combatCfg, this.memberGrowth(m), sk);
+      if (gained > 0) {
+        const ups = memberGainXp(d, gained, this.combatCfg, this.memberGrowth(m), sk);
         if (ups) {
           this.log.add(`${m.def.name} reached level ${d.level}!`, 'level');
           const n1 = this.allyNumbers(d, m.def);
@@ -4852,7 +4932,7 @@ export class Game {
           statChanges(changes, before.stats, d.stats); gain(changes, 'skill point', (d.skillPoints ?? 0) - before.sk);
         }
       }
-      heroes.push({ key: `p${k + 1}`, name: m.def.name, icon: this.memberPortrait(m.def), color: this.heroColor(k + 1), out, level: before.level, xp: before.xp, toNext: before.toNext, gained: out ? 0 : xp, segments: segs, changes, after: { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level) } });
+      heroes.push({ key: `p${k + 1}`, name: m.def.name, icon: this.memberPortrait(m.def), color: this.heroColor(k + 1), out, level: before.level, xp: before.xp, toNext: before.toNext, gained, note, segments: segs, changes, after: { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level) } });
     });
     return { xp, heroes, loot };
   }

@@ -1,4 +1,5 @@
 import { HEIGHT_STYLES, type HeightStyle } from '../world/heights';
+import { levelRangeField } from './levelFields';
 import { openDatabase } from './DatabaseEditor';
 /** Left panel: layer tabs, tools, brush options and the swatch / sprite palette. */
 import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSkin, setTileSteps } from './assets';
@@ -605,7 +606,8 @@ export class Palette {
       h('div', { class: 'field' }, h('label', {}, 'Battle map'), select([['', s.map.battleMap ? `The map’s (${s.map.battleMap})` : 'The map’s (flat battle screen)'], ...s.battleMapNames().map((n) => [n, n] as [string, string])], zone?.battleMap ?? '',
         (v) => edit(() => { if (v) ensure().battleMap = v; else if (m.zones?.[l]) delete m.zones[l].battleMap; }), { 'aria-label': `Zone ${l} battle map` }),
         h('div', { class: 'hint' }, 'Where battles in this zone are fought (a forest clearing, a beach…).')),
-      h('div', { class: 'field' }, h('label', {}, 'Tiles between battles'), numberInput(zone?.steps ?? 30, (v) => edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) { if (m.zones?.[l]) delete m.zones[l].steps; } else ensure().steps = n; }), { min: 4, step: 1 }), h('div', { class: 'hint' }, 'About this far on average (it varies).')));
+      h('div', { class: 'field' }, h('label', {}, 'Tiles between battles'), numberInput(zone?.steps ?? 30, (v) => edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) { if (m.zones?.[l]) delete m.zones[l].steps; } else ensure().steps = n; }), { min: 4, step: 1 }), h('div', { class: 'hint' }, 'About this far on average (it varies).')),
+      levelRangeField('Enemy levels', () => zone?.levels, (v) => edit(() => { if (v) ensure().levels = v; else if (m.zones?.[l]) delete m.zones[l].levels; }), 'Each foe here rolls a level in this range (0: each enemy’s own). Early areas low, dangerous ones higher. A troop below can set its own.'));
     out.push(h('div', { class: 'section-label' }, `Zone ${l} troops`));
     if (!troops.length) {
       out.push(h('p', { class: 'note' }, 'No troops yet. A troop is a group of enemies that fight together (“2–3 slimes”). Make some in Database → Troops, then add them to this zone here.'),
@@ -624,6 +626,7 @@ export class Palette {
           h('div', { class: 'field' }, h('label', {}, 'When'), select([['', 'Any time'], ['day', 'By day'], ['night', 'At night']], zt.time ?? '', (v) => edit(() => { if (v) zt.time = v as 'day' | 'night'; else delete zt.time; }), { 'aria-label': `Troop ${k + 1} time` }))),
         h('div', { class: 'zone-days', role: 'group', 'aria-label': 'Real-world days' }, ...WEEKDAY_SHORT.map((name, d) => h('button', { type: 'button', class: 'day-chip', 'aria-pressed': String(days.has(d)), title: 'Only on these real-world days (none: every day)',
           onclick: () => edit(() => { if (days.has(d)) days.delete(d); else days.add(d); const list = [...days].sort(); if (list.length) zt.days = list; else delete zt.days; }) }, name))),
+        levelRangeField('Levels (this troop)', () => zt.levels, (v) => edit(() => { if (v) zt.levels = v; else delete zt.levels; }), 'Unset (0): the zone’s levels.'),
         h('div', { class: 'field' }, h('label', {}, 'Only while switch is ON'), h('input', { type: 'text', value: zt.switch ?? '', placeholder: 'Any (optional)', onchange: (e: Event) => edit(() => { const v = (e.target as HTMLInputElement).value.trim(); if (v) zt.switch = v; else delete zt.switch; }) }))));
     });
     if (!zone?.troops.length) out.push(h('p', { class: 'note' }, `No troops in zone ${l} yet: add one, or several with how often each comes.`));

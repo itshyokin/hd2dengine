@@ -5,7 +5,7 @@ export const MAX_FOES = 3;
  * No three.js, so it can be tested on its own.
  */
 import { ATTRS, ATTR_MAX, ATTR_POINTS_PER_LEVEL, type Attrs, attrsFrom, baseAttrs, finalDamage, throughFraction } from '../attributes';
-import type { AbilityData, CombatData, Database, TurnOrder, WeaponClass } from '../../world/types';
+import type { AbilityData, CombatData, Database, EnemyGrowth, ExpBonus, TurnOrder, WeaponClass } from '../../world/types';
 import { abilityJSON } from '../abilities';
 
 export interface ClassTuning { speed: number; reach: number; damage: number }
@@ -55,6 +55,10 @@ export interface CombatConfig {
   sharedPointsPerLevel: number;
   /** The Journal's Bestiary: how many of a kind must be defeated before its numbers, its elements and its drops show. */
   bestiary: { stats: number; elements: number; drops: number };
+  /** Enemies above their own level: percent each level adds. */
+  enemyGrowth: EnemyGrowth;
+  /** EXP bonuses, percent of the foe's EXP. */
+  exp: ExpBonus;
 }
 
 export const DEFAULT_COMBAT: CombatConfig = {
@@ -78,6 +82,8 @@ export const DEFAULT_COMBAT: CombatConfig = {
   statPointsPerLevel: ATTR_POINTS_PER_LEVEL,
   sharedPointsPerLevel: 1,
   bestiary: { stats: 1, elements: 3, drops: 5 },
+  enemyGrowth: { hp: 12, attack: 7, defense: 6, xp: 12, gold: 8 },
+  exp: { finish: 25, weak: 10, strike: 4, complete: 10, noKo: 10 },
 };
 
 /** Base time of one melee swing (at speed 1), in seconds. */
@@ -109,6 +115,8 @@ export function combatConfig(data?: CombatData): CombatConfig {
     statPointsPerLevel: Math.max(0, Math.round(s.statPointsPerLevel ?? d.statPointsPerLevel)),
     sharedPointsPerLevel: Math.max(0, Math.round(s.sharedPointsPerLevel ?? d.sharedPointsPerLevel)),
     bestiary: { ...d.bestiary, ...s.bestiary },
+    enemyGrowth: { ...d.enemyGrowth, ...s.enemyGrowth },
+    exp: { ...d.exp, ...s.exp },
   };
 }
 

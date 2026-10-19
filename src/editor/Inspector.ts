@@ -1,4 +1,5 @@
 import { switchInput } from './switchPicker';
+import { levelRangeField } from './levelFields';
 import { TRANSITIONS, TRANSITION_NAMES } from '../ui/BattleTransition';
 import { formatFishing, parseFishing } from '../world/fishing';
 import type { Season } from '../world/seasons';
@@ -157,6 +158,7 @@ export class Inspector {
         field('Tiles between battles', numberInput(t.steps ?? 30, (v) => this.edit(() => { const n = Math.max(4, Math.round(v)); if (n === 30) delete t.steps; else t.steps = n; }), { min: 4, step: 1 }), 'About this far on average (it varies).'),
         field('Enemies: at least', numberInput(t.min ?? 1, (v) => this.edit(() => { const n = Math.max(1, Math.min(3, Math.round(v))); if (n === 1) delete t.min; else t.min = n; }), { min: 1, max: 3, step: 1 })),
         field('at most', numberInput(t.max ?? 3, (v) => this.edit(() => { const n = Math.max(1, Math.min(3, Math.round(v))); if (n === 3) delete t.max; else t.max = n; }), { min: 1, max: 3, step: 1 }))),
+      levelRangeField('Enemy levels', () => t.levels, (v) => this.edit(() => { if (v) t.levels = v; else delete t.levels; })),
       field('Only on terrain', textInput(t.terrain ?? '', (v) => this.edit(() => { const c = [...new Set(v.replace(/\s+/g, ''))].join(''); if (c) t.terrain = c; else delete t.terrain; }), { 'aria-label': 'Encounter terrain', placeholder: 'Anywhere' }),
         'Terrain characters, e.g. . for grass (the Terrain palette shows each tile’s character). Empty: anywhere on this map.'),
     ];
@@ -959,6 +961,7 @@ export class Inspector {
       const opts = enemies.length ? [...enemies] : [['', '(no enemies yet: add some in Database → Enemies)'] as [string, string]];
       if (page.enemy && !opts.some(([id]) => id === page.enemy)) opts.unshift([page.enemy, `${page.enemy} (missing)`]);
       lookControls.push(field('Enemy', select(opts, page.enemy, (v) => this.edit(() => (page.enemy = v)))),
+        levelRangeField('Its level', () => page.enemyLevels, (v) => this.edit(() => { if (v) page.enemyLevels = v; else delete page.enemyLevels; }), 'Rolled each time it appears (0: its own level). The event command Enemy levels can make map enemies follow the party’s level instead.'),
         h('p', { class: 'hint' }, 'It fights instead of talking. The commands below run when it’s defeated (open a gate, set a switch). Beaten enemies come back when the player returns to the map; for one that stays beaten, set a switch here and give the event a later page for it.'));
     } else if (page.character) {
       lookControls.push(h('div', { class: 'field-row' },
