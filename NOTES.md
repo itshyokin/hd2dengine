@@ -54,7 +54,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
       Legend of Dragoon's SP), no KOs, weakness; a breakdown on the victory screen.
       Misses: an Addition that misses (the hero runs up, no prompt, MISS, a pause, snaps back); accuracy on weapons
       and spells (spells against MDF); Accuracy / Evasion buffs; a Never miss option.
-- [ ] Update 72: spell additions: a fixed button sequence per spell (more at higher ranks) while the camera pulls in on
+- [x] Update 72: spell additions: a fixed button sequence per spell (more at higher ranks) while the camera pulls in on
       the caster; mistakes weaken it, a fast and accurate cast earns bonus EXP; per spell, a good cast makes support
       spells stronger or last longer.
 - [ ] Update 73: Single battle mode (Database → Combat; Pokémon-style): one hero out at a time, swap any time (the

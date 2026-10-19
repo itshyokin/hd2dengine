@@ -12,6 +12,8 @@ import { elementIconUrl } from '../art/elementIcons';
 /** One timed strike of an Addition: the button, the seconds the ring takes to close, and the timing window. */
 export interface QteStrike { button: FaceButton | 'any'; time: number; window: number }
 export type QteResult = 'perfect' | 'good' | 'miss';
+/** How a spell addition went: buttons right of all of them, and the share of the time left (0 … 1). */
+export interface SeqResult { correct: number; total: number; left: number }
 
 interface Qte {
   target: string;
@@ -170,6 +172,8 @@ export class BattleScreen {
   private mode: Mode = { kind: 'idle' };
   private msgTimer = 0;
   private qte: Qte | null = null;
+  /** A spell addition under way: the buttons, how far along, and the time left. */
+  private seq: { buttons: FaceButton[]; i: number; t: number; time: number; auto: boolean; el: HTMLElement; keys: HTMLElement[]; bar: HTMLElement; onPress: (i: number, ok: boolean) => void; done: (r: SeqResult) => void; over: boolean } | null = null;
   private readonly qteEl = document.createElement('div');
   private readonly padsEl = document.createElement('div');
   private padWas: boolean[] = [];
@@ -179,6 +183,7 @@ export class BattleScreen {
   onClosed: (() => void) | null = null;
   private readonly onQteKey = (e: KeyboardEvent): void => {
     const b = QTE_KEYS[e.code];
+    if (this.seq && b && !e.repeat) { e.preventDefault(); e.stopPropagation(); this.seqPress(b); return; }
     if (!this.qte || !b || e.repeat) return;
     e.preventDefault(); e.stopPropagation();
     this.qtePress(b);
@@ -248,7 +253,7 @@ export class BattleScreen {
       btn.className = `qte-pad pad-${b}`;
       btn.textContent = b;
       btn.setAttribute('aria-label', `Button ${b}`);
-      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.qtePress(b); });
+      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (this.seq) this.seqPress(b); else this.qtePress(b); });
       this.padsEl.append(btn);
     }
     this.root.append(this.qteEl, this.padsEl);
@@ -814,6 +819,7 @@ export class BattleScreen {
     if (this.vic) { this.updateVictory(dt); return; }
     if (this.camTimer > 0 && (this.camTimer -= dt) <= 0) this.camEl.classList.remove('lit');
     if (this.qte) { this.updateQte(dt); return; }
+    if (this.seq) { this.updateSeq(dt); return; }
     const i = this.input, m = this.mode;
     // The controller's Y (and R) picks the battle log; while picked, up / down scroll it and Back lets go.
     if (i.consume('switchWeapon')) this.focusLog(!this.logFocus);
@@ -1121,6 +1127,76 @@ export class BattleScreen {
     }
     // Too late.
     if (q.t > s.time + s.window / 2) this.judge('miss');
+  }
+
+  /**
+   * A spell addition: the caster's button sequence shows in a row with a timer under it; each right button lights
+   * the next, a wrong one ends it, and so does the time running out. `auto`: it plays itself.
+   */
+  startSequence(buttons: FaceButton[], seconds: number, auto: boolean, onPress: (i: number, ok: boolean) => void, done: (r: SeqResult) => void): void {
+    if (!buttons.length) { done({ correct: 0, total: 0, left: 1 }); return; }
+    this.idle();
+    const el = document.createElement('div');
+    el.className = 'spell-seq';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-label', `Press ${buttons.join(' ')}`);
+    const row = document.createElement('div');
+    row.className = 'spell-seq-row';
+    const keys = buttons.map((b) => { const k = document.createElement('span'); k.className = `qte-btn seq-key pad-${b}`; k.textContent = b; row.append(k); return k; });
+    const track = document.createElement('div');
+    track.className = 'spell-seq-time';
+    const bar = document.createElement('span');
+    track.append(bar);
+    el.append(row, track);
+    keys[0].classList.add('next');
+    this.root.append(el);
+    this.padsEl.hidden = auto;
+    this.seq = { buttons, i: 0, t: 0, time: Math.max(0.5, seconds), auto, el, keys, bar, onPress, done, over: false };
+    window.addEventListener('keydown', this.onQteKey, true);
+    this.padWas = [];
+  }
+
+  private seqPress(b: FaceButton): void {
+    const q = this.seq;
+    if (!q || q.over || (q.auto && b)) return;
+    const ok = q.buttons[q.i] === b, k = q.keys[q.i];
+    k.classList.remove('next');
+    k.classList.add(ok ? 'done' : 'wrong');
+    q.onPress(q.i, ok);
+    if (!ok) { this.endSeq(q.i); return; }
+    q.i++;
+    if (q.i >= q.buttons.length) { this.endSeq(q.i); return; }
+    q.keys[q.i].classList.add('next');
+  }
+
+  private updateSeq(dt: number): void {
+    const q = this.seq!;
+    if (q.over) return;
+    q.t += dt;
+    q.bar.style.width = `${Math.max(0, 100 * (1 - q.t / q.time))}%`;
+    if (q.auto) {
+      // Played for them: one button every so often, all right, at an even pace.
+      while (!q.over && q.t >= ((q.i + 1) * q.time * 0.5) / q.buttons.length) { const b = q.buttons[q.i]; q.auto = false; this.seqPress(b); if (this.seq === q) q.auto = true; }
+      return;
+    }
+    const pad = navigator.getGamepads?.().find((g) => g && g.connected);
+    if (pad) for (let k = 0; k < 4; k++) {
+      const down = !!pad.buttons[k]?.pressed;
+      if (down && !this.padWas[k]) this.seqPress(PAD_FACE[k]);
+      this.padWas[k] = down;
+      if (!this.seq || this.seq.over) return;
+    }
+    if (q.t >= q.time) { q.keys[q.i]?.classList.add('wrong'); this.endSeq(q.i); }
+  }
+
+  private endSeq(correct: number): void {
+    const q = this.seq!;
+    q.over = true;
+    const r: SeqResult = { correct, total: q.buttons.length, left: Math.max(0, 1 - q.t / q.time) };
+    q.el.classList.add(correct >= q.buttons.length ? 'complete' : 'broken');
+    window.removeEventListener('keydown', this.onQteKey, true);
+    this.padsEl.hidden = true;
+    setTimeout(() => { q.el.remove(); if (this.seq === q) this.seq = null; q.done(r); }, 450);
   }
 
   private endQte(): void {

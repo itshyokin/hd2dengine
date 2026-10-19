@@ -1447,6 +1447,16 @@ export interface SpellEntry {
   accuracy?: number;
   /** Turn-based: never misses. */
   sure?: boolean;
+  /**
+   * A spell addition (turn-based): the buttons the caster presses in order as it goes off (each rank above the first
+   * adds one more, going round the sequence again); a mistake or running out of time weakens it, a fast clean cast
+   * strengthens it. Empty: it just goes off.
+   */
+  sequence?: FaceButton[];
+  /** Seconds to press them all (default: 0.8 a button, plus 1.2). */
+  seqTime?: number;
+  /** Support spells: a clean cast makes its buffs stronger (default) or last longer (better for whole-battle buffs and weather). */
+  seqBonus?: 'stronger' | 'longer';
   /** Turn-based: the battle's weather it brings (rain makes water stronger and fire weaker…), for turns or the whole battle. */
   weather?: BattleWeather;
   /** Rounds the weather lasts (default 5); 0: the whole battle. */

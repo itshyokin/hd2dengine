@@ -66,6 +66,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   dynamic levels in `GameState.enemyLevels`); EXP per foe as it falls (TurnBattle `foeDefeated` / `strikeExp` host
   hooks, Game's `earned`), EXP Share / EXP All (`ItemDef.exp`); misses for Additions and spells (`strike()` takes
   `sure` / `spellAccuracy`; `Battler.spellEvasion` from MDF), Accuracy / Evasion buffs.
+- 72: spell additions (`SpellEntry.sequence`; `spellSequence()` in rules.ts; BattleScreen `startSequence`; TurnBattle
+  `castSequence` passes `{ mult, clean }` to `unleash`).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

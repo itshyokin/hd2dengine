@@ -12,6 +12,13 @@ export type Side = 'party' | 'enemy';
 /** One rank of a spell, as this fighter casts it: its name ("Fire II"), power (with their Magic), cost and charge turns. */
 export interface SpellRank { rank: number; name: string; power: number; mp: number; charge: number }
 
+/** A spell addition's buttons at a rank: the spell's, and one more each rank above the first (round the sequence again). */
+export function spellSequence(s: Pick<BattleSpell, 'sequence'>, rank: number): import('../../world/types').FaceButton[] {
+  const base = s.sequence ?? [];
+  if (!base.length) return [];
+  return Array.from({ length: base.length + Math.max(0, rank - 1) }, (_, i) => base[i % base.length]);
+}
+
 /** A spell a fighter can cast in battle, at any rank they know. */
 export interface BattleSpell {
   /** What it does, in a sentence (Database → Spells). */
@@ -30,6 +37,10 @@ export interface BattleSpell {
   /** Chance (%) to land (default 100) against the target's spell evasion; `sure`: never misses. */
   accuracy?: number;
   sure?: boolean;
+  /** A spell addition: the buttons for rank 1 (each rank adds one), the time for them, and what a clean cast does for support spells. */
+  sequence?: import('../../world/types').FaceButton[];
+  seqTime?: number;
+  seqBonus?: 'stronger' | 'longer';
   /** The battle weather it brings, and rounds (0: the whole battle). */
   weather?: import('../../world/types').BattleWeather;
   weatherTurns?: number;

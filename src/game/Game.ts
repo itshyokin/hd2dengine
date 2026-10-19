@@ -4352,7 +4352,7 @@ export class Game {
         const at = spellAtRank(s, i + 1);
         return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
       });
-      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget, weather: s.weather, weatherTurns: s.weatherTurns, accuracy: s.accuracy, sure: s.sure });
+      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget, weather: s.weather, weatherTurns: s.weatherTurns, accuracy: s.accuracy, sure: s.sure, sequence: s.sequence, seqTime: s.seqTime, seqBonus: s.seqBonus });
     }
     return out;
   }

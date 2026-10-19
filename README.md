@@ -945,6 +945,15 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   the foes' EXP. A hero swapped in partway earns from then on; one knocked out keeps what they'd earned.
 - **Winning** gives gold and drops straight into the bag (a full bag leaves them on the ground) and runs the beaten
   enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
+- **Spell additions** (Database → Spells → *Spell addition*): give a spell a button sequence (A, B, X, Y) and, as it
+  goes off, the camera holds on the caster while the buttons show in a row with a timer; the player presses them in
+  order (keys A B X Y, a controller's face buttons, or the on-screen pads). Each rank above the first adds one more
+  button (round the sequence again), so the same pattern can be practised. A wrong button or running out of time ends
+  it and the spell goes off weaker (half, plus half for the share pressed right); a clean cast is full strength, up to
+  15% stronger the faster it was. Each right button earns a little EXP ("+1 EXP" at the bottom left), a clean cast
+  more, and a fast one more again. For Support spells, *A clean cast* makes their buffs stronger, or last longer (a
+  turn more, or two more rounds of weather) for whole-battle buffs. *Time to press them* sets the clock (0.8 s a
+  button plus 1.2 unless set). With Addition timing on Automatic they play themselves. Enemies' spells just go off.
 - **Missing**: weapon hits and Additions can miss (the wielder's accuracy, from Dexterity, times the weapon's
   *Accuracy %* in Database → Items, against the target's evasion). A missed Addition: the hero runs up, no buttons
   show, a big **MISS**, and back they go. Attack spells can miss too: the spell's *Accuracy %* (100 unless set)

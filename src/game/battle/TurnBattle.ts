@@ -13,9 +13,10 @@ import type { TurnBasedConfig } from '../combat/config';
 import { ELEMENT_COLORS } from '../elements';
 import { statusIconUrl } from '../../art/statusIcons';
 import type { QteResult } from '../../ui/BattleScreen';
+import type { FaceButton } from '../../world/types';
 import {
   type BattleAddition, type Battler, type BattleSpell, type Opening, RANK, type SpellRank, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
-  BASE_ACCURACY, WEATHER_EFFECT, battleWeather, refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
+  BASE_ACCURACY, WEATHER_EFFECT, battleWeather, spellSequence, refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
 } from './rules';
 import { AILMENT_WORD, BLIND_MISS_CHANCE, BUFF_TURNS, type BattleAilment, ailmentName, rollInflicts } from './status';
 import { hitChance } from '../attributes';
@@ -437,25 +438,63 @@ export class TurnBattle {
   private release(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[]): void {
     const color = s.color ?? ELEMENT_COLORS[s.element];
     this.screen.message(r.name);
+    // A spell addition: the party caster presses its buttons in order first.
+    const seq = b.side === 'party' ? spellSequence(s, r.rank) : [];
+    if (seq.length) { this.castSequence(b, s, r, targets, color, seq); return; }
     // In front of the caster for the call-out, back to the battle, and only then does the spell go off.
     this.castPose(b, color, s.sound, true, () => this.unleash(b, s, r, targets, color));
   }
 
-  private unleash(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[], color: string): void {
+  /**
+   * A spell addition: the camera on the caster, their buttons in order against the clock (each right one earns a
+   * little EXP), then the spell goes off: weaker for a mistake or running out of time, stronger for a fast clean cast.
+   */
+  private castSequence(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[], color: string, seq: FaceButton[]): void {
+    this.screen.shot('cast', b.key);
+    this.screen.animate(b.key, 'pose', color);
+    if (s.sound) this.host.voice?.(s.sound);
+    const who = this.entry(b).who ?? 0, foe = (targets.find((t) => t.side === 'enemy') ?? this.foes.find(isUp))?.key ?? '';
+    this.later(this.hold(0.5), () => this.screen.startSequence(seq, s.seqTime ?? 0.8 * seq.length + 1.2, this.cfg.additionTiming === 'auto',
+      (_i, ok) => {
+        if (!ok) { this.host.sound('block'); return; }
+        this.host.sound('menuMove');
+        this.expPop(b, this.host.strikeExp?.(who, foe, 'good') ?? 0);
+      },
+      (res) => {
+        const clean = res.total > 0 && res.correct >= res.total;
+        const mult = clean ? 1 + 0.15 * res.left : 0.5 + (0.5 * res.correct) / Math.max(1, res.total);
+        if (clean) {
+          this.screen.popup(b.key, res.left >= 0.5 ? 'Perfect cast!' : 'Cast!', 'info');
+          this.expPop(b, this.host.strikeExp?.(who, foe, 'complete') ?? 0);
+          if (res.left >= 0.5) this.expPop(b, this.host.strikeExp?.(who, foe, 'perfect') ?? 0);
+        } else this.screen.popup(b.key, 'Weak cast', 'info');
+        this.say(`${b.name}’s ${r.name}: ${clean ? 'a clean cast' : `${res.correct} of ${res.total} right`}`);
+        this.later(0.25, () => {
+          this.screen.animate(b.key, 'unpose');
+          this.screen.shot(null, undefined, undefined, true);
+          this.unleash(b, s, r, targets, color, { mult, clean });
+        });
+      }));
+  }
+
+  private unleash(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[], color: string, cast?: { mult: number; clean: boolean }): void {
     if (b.side === 'party') { this.host.tally?.('spells'); this.host.tally?.(`spell:${s.id}`); }
     this.screen.animate(b.key, 'cast', color);
     this.host.sound(s.kind === 'bolt' ? 'fire' : 'ringOn');
+    // A spell addition's result: stronger or weaker; support spells set to "last longer" gain a turn (or two rounds of weather) when clean.
+    const mult = cast?.mult ?? 1, longer = !!cast?.clean && s.seqBonus === 'longer';
+    const buffs = !cast || !s.buffs ? s.buffs : s.buffs.map((g) => (longer ? (g.whole ? g : { ...g, turns: (g.turns ?? BUFF_TURNS) + 1 }) : s.seqBonus === 'longer' ? g : { ...g, amount: Math.max(1, Math.round((g.amount ?? BUFF_INFO[g.buff].amount) * mult)) }));
     this.later(0.4, () => {
       // A Magic buff (or debuff) on the caster makes the spell stronger (or weaker).
-      const power = r.power * spellBoost(b);
+      const power = r.power * spellBoost(b) * mult;
       for (const t of targets) {
         if (!isUp(t)) continue;
         if (s.kind === 'heal') this.heal(b, t, healAmount(power, t));
         else if (s.kind === 'bolt') { this.aim = { spellAccuracy: s.accuracy, spellSure: s.sure }; this.hit(b, t, power, s.element, true, s.inflicts, color); this.aim = {}; }
         else this.screen.animate(t.key, 'heal', color);
-        if (isUp(t) && s.buffs?.length) this.giveBuffs(b, t, s.buffs);
+        if (isUp(t) && buffs?.length) this.giveBuffs(b, t, buffs);
       }
-      if (s.weather) this.setWeather(s.weather, s.weatherTurns ?? 5);
+      if (s.weather) { const w = s.weatherTurns ?? 5; this.setWeather(s.weather, w > 0 && longer ? w + 2 : w); }
       this.endTurn(b, RANK.magic, 0.8);
     });
   }

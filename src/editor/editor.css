@@ -711,3 +711,7 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 /* A level range: "Lv [3] to [5]". */
 .level-range { display: flex; align-items: center; gap: 6px; }
 .level-range .level-num { width: 64px; }
+/* Spells → Spell addition: the button row. */
+.seq-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.seq-slot { display: inline-flex; gap: 2px; align-items: center; }
+.seq-slot select { width: 56px; }
