@@ -542,6 +542,11 @@ export interface TroopDef {
   /** Its own battle music (else the map's), and whether the party may run (default yes). */
   music?: string;
   noRun?: boolean;
+  /**
+   * Single battle mode: all of them at once (a normal group fight; the default), one of them picked at random (a
+   * wild encounter), or one at a time, the next stepping in as each falls (a trainer). Up to eight in Single mode.
+   */
+  pick?: 'full' | 'random' | 'oneByOne';
 }
 
 /** One troop in a zone: how often it comes, and when it can. */
@@ -1334,6 +1339,13 @@ export interface TurnBasedData {
   partyFollows?: boolean;
   /** Monster stat blocks across the top of the battle screen (default off). */
   statBlocks?: boolean;
+  /**
+   * Group (default: up to three a side, the turn order bar) or Single (Pokémon-style: one hero out at a time, swapped
+   * any time, both sides pick and the faster goes first, no turn bar).
+   */
+  mode?: 'group' | 'single';
+  /** Single mode: heroes who can be swapped in (the lineup's first, 1 – 8; default 3). */
+  singleParty?: number;
 }
 
 /**

@@ -77,6 +77,8 @@ export interface BattleHost {
    * members standing in the battle. EXP each earned from it (shown as it falls).
    */
   foeDefeated?(foe: string, by: number | null, weak: boolean, fighting: number[]): { who: number; xp: number }[];
+  /** Single mode, one foe at a time: the next foe (`e`) steps in where `outKey` fell. */
+  foeIn?(outKey: string, e: BattleEntry): void;
   /** Party member `who` landed an Addition strike on `foe` (or `complete`d one): bonus EXP for it. */
   strikeExp?(who: number, foe: string, result: 'perfect' | 'good' | 'complete'): number;
   log(text: string): void;
@@ -93,6 +95,14 @@ export class TurnBattle {
   private opening: Opening = 'normal';
   /** Rounds: who's still to act this round, and the round number. */
   private queue: Battler[] = [];
+  /** Single battle mode (Pokémon-style): one hero out, the hero picks first, then the faster goes first. */
+  private single = false;
+  /** Single mode: the hero choosing this round's action, and what they chose (`first`: a swap, an item, guarding or running goes first). */
+  private planning: Battler | null = null;
+  private planned: { b: Battler; run: () => void; first: boolean } | null = null;
+  /** Single mode, one at a time: foes still to step in, and those already beaten and gone. */
+  private waiting: BattleEntry[] = [];
+  private gone: BattleEntry[] = [];
   private round = 0;
   private actor: Battler | null = null;
   private lastCommand = 0;
@@ -104,13 +114,18 @@ export class TurnBattle {
   /** This battle's own rules (a scripted battle): whether the party may run. */
   rules: { canRun?: boolean } = {};
 
-  start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean } = {}): void {
+  start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean; waiting?: BattleEntry[] } = {}): void {
     this.hurt = false;
     this.partyFell = false;
     this.rules = rules;
     for (const e of entries) e.battler.charging = null;
     this.all = entries;
-    this.cfg = cfg;
+    this.single = cfg.mode === 'single';
+    this.planning = null; this.planned = null;
+    this.waiting = [...(rules.waiting ?? [])]; this.gone = [];
+    for (const e of this.waiting) { e.battler.charging = null; e.battler.guarding = false; refreshAgility(e.battler); }
+    // Single mode takes turns in rounds (fastest first), with no turn order bar.
+    this.cfg = this.single ? { ...cfg, order: 'rounds' } : cfg;
     this.opening = opening;
     this.round = 0;
     this.queue = [];
@@ -168,7 +183,17 @@ export class TurnBattle {
     let who: Battler | null;
     if (this.cfg.order === 'rounds') {
       this.queue = this.queue.filter(isUp);
-      if (!this.queue.length) { this.round++; this.queue = roundOrder(this.battlers, this.round === 1 ? this.opening : 'normal'); if (!this.queue.length) this.queue = roundOrder(this.battlers); }
+      if (!this.queue.length) {
+        // Single mode: the hero picks first; then everyone goes, fastest first (a swap, an item, guarding or running before anything).
+        if (this.single && !this.planned) { const h = this.party.find(isUp); if (h && !h.charging) { this.planRound(h); return; } }
+        this.round++; this.queue = roundOrder(this.battlers, this.round === 1 ? this.opening : 'normal'); if (!this.queue.length) this.queue = roundOrder(this.battlers);
+        const p = this.planned;
+        if (p) {
+          if (!this.queue.includes(p.b) && isUp(p.b)) this.queue.push(p.b);
+          if (p.first) this.queue = [p.b, ...this.queue.filter((x) => x !== p.b)];
+          this.say(this.queue[0] === p.b ? `${p.b.name} moves first` : `${this.queue[0].name} moves first`);
+        }
+      }
       who = this.queue.shift() ?? null;
     } else {
       who = nextUp(this.battlers);
@@ -176,6 +201,9 @@ export class TurnBattle {
     }
     if (!who) return;
     this.actor = who;
+    // Single mode: what the hero chose for this round (lost if an ailment takes the turn).
+    const plan = this.planned?.b === who ? this.planned : null;
+    if (plan) this.planned = null;
     // Guarding (and its ward against ailments) lasts until their own next turn.
     who.guarding = false;
     const start = who.status.startTurn(who.maxHp);
@@ -206,14 +234,72 @@ export class TurnBattle {
       if (who!.charging) { this.chargeTurn(who!); return; }
       if (start.confused) { this.confusedTurn(who!); return; }
       // Each hero's turn starts on Attack (going back from Magic or Items keeps the place within the turn).
-      if (who!.side === 'party') { this.lastCommand = 0; this.commandMenu(who!); }
+      if (who!.side === 'party') { if (plan) { plan.run(); return; } this.lastCommand = 0; this.commandMenu(who!); }
       else this.later(0.45, () => this.enemyTurn(who!));
     };
     if (pause) this.later(pause, go); else go();
   }
 
+  /** Single mode: the hero on the field chooses this round's action (it happens in its place in the round). */
+  private planRound(h: Battler): void {
+    this.planning = h;
+    this.actor = h;
+    this.lastCommand = 0;
+    this.commandMenu(h);
+  }
+
+  /** Single mode, while the hero is choosing: keep the action for its place in the round. True: kept (do nothing now). */
+  private defer(b: Battler, run: () => void, first = false): boolean {
+    if (!this.single || this.planning !== b) return false;
+    this.planning = null;
+    this.planned = { b, run, first };
+    this.screen.idle();
+    this.screen.message('');
+    this.phase = 'next';
+    return true;
+  }
+
+  /** A foe chosen before the round may have fallen (or been replaced): the one standing now. */
+  private retarget(b: Battler, t: Battler): Battler {
+    if (isUp(t) || t.side === b.side) return t;
+    return this.otherSide(b).find(isUp) ?? t;
+  }
+
+  /** Single mode, one at a time: the next foe steps in where the last one fell. */
+  private nextFoe(): boolean {
+    const old = this.all.find((e) => e.battler.side === 'enemy' && !isUp(e.battler));
+    if (!old || !this.waiting.length) return false;
+    const e = this.waiting.shift()!;
+    this.gone.push(old);
+    this.all[this.all.indexOf(old)] = e;
+    this.screen.replaceFighter(old.battler.key, e.view);
+    this.host.foeIn?.(old.battler.key, e);
+    this.refresh(e.battler);
+    this.queue = [];
+    this.phase = 'busy';
+    this.screen.message(`${e.battler.name} steps in!`, true);
+    this.say(`${e.battler.name} steps in`);
+    this.host.sound('menuOk');
+    this.later(1.2, () => { this.screen.message(''); this.phase = 'next'; });
+    return true;
+  }
+
+  /** Single mode: the hero is down, but others can fight: choose who comes in (no turn used). */
+  private forceSwap(): boolean {
+    const res = (this.host.reserves?.() ?? []).filter((r) => !r.down), b = this.party[0];
+    if (!res.length || !b) return false;
+    this.phase = 'command';
+    this.planning = null; this.planned = null;
+    this.screen.message(`${b.name} is down! Who’s next?`, true);
+    this.screen.choose('Send in', res.map((r) => ({ label: r.name, iconUrl: r.icon, right: `${Math.ceil(r.hp)}/${r.maxHp} HP`, detail: `HP ${Math.ceil(r.hp)}/${r.maxHp} · MP ${Math.floor(r.mp)}/${r.maxMp}` })),
+      (i) => this.doSwap(b, res[i].who, true));
+    return true;
+  }
+
   /** The turn order bar: CTB's forecast (with what the chosen command would change), or this round and the next. */
   private showOrder(rank?: number): void {
+    // Single mode has none: the faster simply goes first.
+    if (this.single) { this.screen.setOrder([], null); return; }
     const active = this.actor && this.phase !== 'intro' ? this.actor : null;
     let list: Battler[];
     if (this.cfg.order === 'rounds') {
@@ -234,7 +320,7 @@ export class TurnBattle {
       { label: 'Guard', icon: 'guard', rank: RANK.guard, detail: this.cfg.guardHeal > 0 ? `Half damage, +${this.cfg.guardHeal}% HP, no ailments` : 'Half damage, no ailments', run: () => this.doGuard(b) },
       { label: 'Magic', icon: 'magic', rank: RANK.magic, disabled: !b.spells.length || silenced, detail: silenced ? 'Silenced' : b.spells.length ? 'Cast a spell' : 'No spells learned', run: () => this.magicMenu(b) },
       { label: 'Items', icon: 'items', rank: RANK.item, disabled: !items.length, detail: items.length ? 'Use an item' : 'Nothing to use', run: () => this.itemMenu(b) },
-      ...(this.host.reserves?.().length ? [{ label: 'Swap', icon: 'swap', disabled: !this.host.reserves!().some((r) => !r.down), detail: 'Bring in someone from the party (no turn used: they take this one)', run: () => this.swapMenu(b) }] : []),
+      ...(this.host.reserves?.().length ? [{ label: 'Swap', icon: 'swap', disabled: !this.host.reserves!().some((r) => !r.down), detail: this.single ? 'Bring in someone else (goes first; they take this round’s hits)' : 'Bring in someone from the party (no turn used: they take this one)', run: () => this.swapMenu(b) }] : []),
       { label: 'Escape', icon: 'escape', rank: RANK.flee, disabled: !canFlee, detail: canFlee ? 'Try to run away' : 'Can’t run from this fight', run: () => this.doFlee(b) },
     ];
     this.screen.message(`${b.name}’s turn`, true);
@@ -250,7 +336,8 @@ export class TurnBattle {
   }
 
   /** Pass the baton: `b` leaves the battle, the newcomer stands where they stood and takes this turn. */
-  private doSwap(b: Battler, who: number): void {
+  private doSwap(b: Battler, who: number, forced = false): void {
+    if (!forced && this.defer(b, () => this.doSwap(b, who), true)) return;
     const out = this.entry(b), e = this.host.swapIn?.(b.key, out.who ?? 0, who);
     if (!e) { this.commandMenu(b); return; }
     this.host.writeVitals(out.who ?? 0, b.hp, b.mp);
@@ -266,6 +353,8 @@ export class TurnBattle {
     this.actor = n;
     this.showOrder();
     this.phase = 'busy';
+    // Single mode: the swap was the turn (a knocked-out hero's replacement just steps in).
+    if (this.single) { if (forced) this.later(0.9, () => { this.screen.message(''); this.phase = 'next'; }); else this.endTurn(n, RANK.item, 0.8); return; }
     this.later(0.8, () => { this.lastCommand = 0; this.commandMenu(n); });
   }
 
@@ -357,6 +446,7 @@ export class TurnBattle {
   /* ------------------------------------------------------------------ actions */
 
   private doAttack(b: Battler, t: Battler): void {
+    if (this.defer(b, () => this.doAttack(b, this.retarget(b, t)))) return;
     this.screen.animate(b.key, 'lunge', undefined, t.key);
     this.host.sound('swing');
     this.later(0.28, () => {
@@ -368,6 +458,7 @@ export class TurnBattle {
 
   /** Cast a spell: the magic is spent now; it goes off at once, or charges for its turns first. */
   private doSpell(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[]): void {
+    if (this.defer(b, () => this.doSpell(b, s, r, targets.map((t) => this.retarget(b, t))))) return;
     b.mp = Math.max(0, b.mp - r.mp);
     this.refresh(b);
     const color = s.color ?? ELEMENT_COLORS[s.element];
@@ -505,6 +596,7 @@ export class TurnBattle {
    * next rank.
    */
   private doAddition(b: Battler, a: BattleAddition, t: Battler): void {
+    if (this.defer(b, () => this.doAddition(b, a, this.retarget(b, t)))) return;
     this.screen.message(a.name);
     // The camera closes in from a little to the side as the hero rushes in, and follows them.
     this.screen.shot('addition', b.key, t.key);
@@ -567,6 +659,7 @@ export class TurnBattle {
 
   /** An item: the user turns to whoever it's for and tosses it, then it takes effect. */
   private doItem(b: Battler, it: BattleItem, t: Battler): void {
+    if (this.defer(b, () => this.doItem(b, it, t), true)) return;
     this.screen.animate(b.key, 'toss', undefined, t.key);
     this.later(0.45, () => this.applyItem(b, it, t));
   }
@@ -614,6 +707,7 @@ export class TurnBattle {
 
   /** Guard: half damage, some health back and no new ailments until their next turn (Legend of Dragoon). */
   private doGuard(b: Battler): void {
+    if (this.defer(b, () => this.doGuard(b), true)) return;
     b.guarding = true;
     b.status.ward = true;
     const n = Math.round(b.maxHp * (this.cfg.guardHeal + (b.guardBonus ?? 0)) / 100);
@@ -630,6 +724,7 @@ export class TurnBattle {
   }
 
   private doFlee(b: Battler): void {
+    if (this.defer(b, () => this.doFlee(b), true)) return;
     const chance = fleeChance(this.party, this.foes, this.cfg.flee);
     if (Math.random() < chance) {
       this.host.sound('dodge');
@@ -935,8 +1030,8 @@ export class TurnBattle {
 
   private checkOver(): boolean {
     if (this.phase === 'over') return true;
-    if (!this.foes.some(isUp)) { this.win(); return true; }
-    if (!this.party.some(isUp)) { this.lose(); return true; }
+    if (!this.foes.some(isUp)) { if (this.single && this.nextFoe()) return true; this.win(); return true; }
+    if (!this.party.some(isUp)) { if (this.single && this.forceSwap()) return true; this.lose(); return true; }
     return false;
   }
 
@@ -945,7 +1040,7 @@ export class TurnBattle {
     this.screen.idle();
     this.screen.setOrder([], null);
     this.screen.message('Victory!', true);
-    const beaten = this.all.filter((e) => e.battler.side === 'enemy').map((e) => e.ref);
+    const beaten = [...this.gone, ...this.all.filter((e) => e.battler.side === 'enemy')].map((e) => e.ref);
     this.writeParty();
     this.later(0.9, () => {
       const report = this.host.victory(beaten);
@@ -959,6 +1054,7 @@ export class TurnBattle {
 
   private lose(): void {
     this.phase = 'over';
+    this.planning = null; this.planned = null;
     this.screen.idle();
     this.screen.message('The party has fallen…', true);
     this.writeParty();
@@ -970,7 +1066,7 @@ export class TurnBattle {
     if (outcome === 'victory') { this.host.tally?.('battlesWon'); if (!this.hurt) this.host.tally?.('flawless'); }
     if (outcome === 'fled') this.host.tally?.('fled');
     this.writeParty();
-    const beaten = outcome === 'victory' ? this.all.filter((e) => e.battler.side === 'enemy').map((e) => e.ref) : [];
+    const beaten = outcome === 'victory' ? [...this.gone, ...this.all.filter((e) => e.battler.side === 'enemy')].map((e) => e.ref) : [];
     this.phase = 'off';
     this.wait = 0; this.then = null;
     this.screen.close();

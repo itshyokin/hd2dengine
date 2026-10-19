@@ -57,7 +57,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 72: spell additions: a fixed button sequence per spell (more at higher ranks) while the camera pulls in on
       the caster; mistakes weaken it, a fast and accurate cast earns bonus EXP; per spell, a good cast makes support
       spells stronger or last longer.
-- [ ] Update 73: Single battle mode (Database → Combat; Pokémon-style): one hero out at a time, swap any time (the
+- [x] Update 73: Single battle mode (Database → Combat; Pokémon-style): one hero out at a time, swap any time (the
       swap goes first) or after a KO, items on the reserve, both sides pick and the faster acts first (no turn bar);
       up to 8 active members in this mode. Troops: Full troop (a normal group fight), One at random (wild
       encounters), One at a time (trainers: the next steps in), up to 8 foes in this mode. A map sprite you bump into

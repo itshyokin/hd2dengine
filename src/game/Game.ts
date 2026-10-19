@@ -90,7 +90,7 @@ import { classStatGear, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
-import type { CharacterDef, EnemyDef, LevelRange } from '../world/types';
+import type { CharacterDef, EnemyDef, LevelRange, TroopDef } from '../world/types';
 import { atLevel, partyLevel, rollLevel } from './enemyLevels';
 import { statusIconUrl } from '../art/statusIcons';
 import { elementIconUrl } from '../art/elementIcons';
@@ -4239,8 +4239,10 @@ export class Game {
     const near = this.combat.enemies
       .filter((o) => o !== e && !o.dead && Math.hypot(o.x - e.x, o.z - e.z) <= tb.joinRadius && (o.alert || Math.hypot(o.x - e.x, o.z - e.z) < 3))
       .sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z));
-    const group = [e, ...near].slice(0, Math.min(MAX_FOES, tb.maxEnemies));
-    this.startBattle(group.map((en) => ({ def: en.def, hp: en.hp, enemy: en })), opening);
+    // Single mode: the one bumped into comes out first, its friends one at a time after it.
+    const single = tb.mode === 'single';
+    const group = [e, ...near].slice(0, single ? 8 : Math.min(MAX_FOES, tb.maxEnemies));
+    this.startBattle(group.map((en) => ({ def: en.def, hp: en.hp, enemy: en })), opening, single ? { pick: 'oneByOne' } : {});
     return true;
   }
 
@@ -4284,9 +4286,11 @@ export class Game {
         if (!def) continue;
         const lo = Math.max(0, Math.round(mem.min ?? 1)), hi = Math.max(lo, Math.round(mem.max ?? mem.min ?? 1));
         const n = lo + Math.floor(Math.random() * (hi - lo + 1));
-        for (let k = 0; k < n && list.length < MAX_FOES; k++) { const at = this.levelled(def, pick?.levels ?? zone.levels); list.push({ def: at, hp: at.hp, enemy: null }); }
+        // Single mode takes up to eight from a troop (one at a time, or one picked at random).
+        const cap = this.combatCfg.turnBased.mode === 'single' && troop.pick && troop.pick !== 'full' ? 8 : MAX_FOES;
+        for (let k = 0; k < n && list.length < cap; k++) { const at = this.levelled(def, pick?.levels ?? zone.levels); list.push({ def: at, hp: at.hp, enemy: null }); }
       }
-      if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music, stage: zone.battleMap || undefined });
+      if (list.length) this.startBattle(list, opening, { canRun: !troop.noRun, music: troop.music, stage: zone.battleMap || undefined, pick: troop.pick });
       return;
     }
     const table = t!.enemies.filter((x) => defs.has(x.enemy));
@@ -4450,8 +4454,10 @@ export class Game {
    * `rules.stage`: the battle map to fight on (unset: this map's Battle map; '' or none: the flat battle screen).
    * A battle map not loaded yet loads first (battles wait for it).
    */
-  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening, rules: TurnBattle['rules'] & { lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean; stage?: string; noIntro?: boolean } = {}): void {
+  private startBattle(list: { def: EnemyDef; hp: number; enemy: Enemy | null }[], opening: Opening, rules: TurnBattle['rules'] & { lose?: 'respawn' | 'continue'; resultVar?: string; music?: string; scripted?: boolean; stage?: string; noIntro?: boolean; pick?: TroopDef['pick'] } = {}): void {
     if (!list.length || this.battle.active || (this.battlePending && !rules.noIntro)) return;
+    // Single mode: one foe picked at random (a wild encounter), chosen once, before the way in.
+    if (this.combatCfg.turnBased.mode === 'single' && rules.pick === 'random' && list.length > 1) { list = [list[Math.floor(Math.random() * list.length)]]; rules = { ...rules, pick: 'full' }; }
     // The way in: a sudden sting, everything stops, the picture breaks up into black; the battle starts there.
     if (!rules.noIntro) {
       this.battlePending = true;
@@ -4481,11 +4487,13 @@ export class Game {
     this.endFishing();
     this.moveTarget = null;
     const entries: BattleEntry[] = [];
-    // The hero and the first two of the lineup fight; the rest wait on the bench.
+    // The hero and the first two of the lineup fight; the rest wait on the bench. Single mode: the first standing.
     this.battleWhos = new Set();
     this.earned.clear();
     this.battleFoes.clear();
-    for (const who of this.activeWhos()) {
+    const single = this.combatCfg.turnBased.mode === 'single';
+    const fieldWhos = single ? [this.singlePool().find((w) => (w ? !this.members()[w - 1]?.data.down : this.stats.hp > 0)) ?? 0] : this.activeWhos();
+    for (const who of fieldWhos) {
       this.battleWhos.add(who);
       const b = this.partyBattler(who);
       if (!b) continue;
@@ -4513,14 +4521,27 @@ export class Game {
         actions: d.actions, attackWeight: d.attackWeight, counterspell: d.counterspell,
       };
       entries.push({ battler, view: { key: battler.key, side: 'enemy', name, level: d.level, picture: pic.picture, icon: pic.icon, flip: pic.flip, scale: d.scale, elements: d.elements, overdrive: !!(d.boss && d.overdrive) }, ref: { def: d, enemy: x.enemy, battler } });
-      if (stageData) specs.push(this.enemyFigure(battler.key, d));
+      if (stageData && (!single || rules.pick !== 'oneByOne' || i === 0)) specs.push(this.enemyFigure(battler.key, d));
     });
+    // Single mode, one at a time: the first comes out, the rest wait their turn.
+    const waiting: BattleEntry[] = [];
+    if (single && rules.pick === 'oneByOne') {
+      const foes = entries.filter((e) => e.battler.side === 'enemy');
+      for (const e of foes.slice(1)) { waiting.push(e); entries.splice(entries.indexOf(e), 1); }
+    } else if (single) {
+      // A full troop fights together, as in a group battle (three at most).
+      const foes = entries.filter((e) => e.battler.side === 'enemy');
+      for (const e of foes.slice(MAX_FOES)) entries.splice(entries.indexOf(e), 1);
+    }
     if (stageData) this.openStage(stageData, specs);
     this.audio.play('crit');
     // The Bestiary: each kind met, and where.
     for (const id of new Set(list.map((x) => x.def.id))) { this.state.tally(`seen:${id}`); if (this.mapName) this.state.tally(`seenAt:${id}:${this.mapName}`); }
-    this.battle.start(entries, this.combatCfg.turnBased, opening, { canRun: rules.canRun });
+    this.battle.start(entries, this.combatCfg.turnBased, opening, { canRun: rules.canRun, waiting });
   }
+
+  /** Single battle mode: who can be swapped in (the lineup's first, Database → Combat → Heroes who fight). */
+  private singlePool(): number[] { return this.lineupWhos().slice(0, this.combatCfg.turnBased.singleParty); }
 
   /** Party members (0 the hero) fighting in the battle now. */
   private battleWhos = new Set<number>();
@@ -4720,11 +4741,11 @@ export class Game {
         return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [], buffs: used ? d?.buffs : undefined };
       },
       voice: (src) => this.audio.play(src),
-      reserves: () => this.lineupWhos().flatMap((who) => {
+      reserves: () => (this.combatCfg.turnBased.mode === 'single' ? this.singlePool() : this.lineupWhos()).flatMap((who) => {
         if (this.battleWhos.has(who)) return [];
         if (!who) {
-          // The hero on the bench (unless the hero always fights).
-          if (this.combatCfg.turnBased.heroLocked) return [];
+          // The hero on the bench (unless the hero always fights: group battles).
+          if (this.combatCfg.turnBased.heroLocked && this.combatCfg.turnBased.mode !== 'single') return [];
           const h = mainHero(this.db);
           this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
           return [{ who, name: h.name, icon: h.face ? this.resolveFile(h.face) : this.portraitUrl, hp: Math.max(0, this.stats.hp), maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, down: this.stats.hp <= 0 }];
@@ -4763,6 +4784,7 @@ export class Game {
         if (a && !m.data.down) { a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
       },
       victory: (beaten) => this.battleRewards(beaten as Ref[]),
+      foeIn: (outKey, e) => { const d = this.battleFoes.get(e.battler.key); if (this.stage && d) this.stage.stage.replaceFighter(outKey, this.enemyFigure(e.battler.key, d)); },
       // EXP as each foe falls: everyone fighting gets its EXP; the finishing blow (and a weakness) a little more.
       foeDefeated: (key, by, weak, fighting) => {
         const d = this.battleFoes.get(key), xp = Math.max(0, d?.xp ?? 0), b = this.combatCfg.exp;

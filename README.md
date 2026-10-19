@@ -945,6 +945,16 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   the foes' EXP. A hero swapped in partway earns from then on; one knocked out keeps what they'd earned.
 - **Winning** gives gold and drops straight into the bag (a full bag leaves them on the ground) and runs the beaten
   enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
+- **Single battle mode** (Database → Combat → *Battle mode: Single*; Pokémon-style): one hero is out at a time,
+  against one foe (or a full troop). Each round the hero picks first, then both sides act, the faster first (Agility,
+  Haste and Slow decide; the log says who moves first); there's no turn order bar. **Swap** brings in another hero:
+  it goes first, and the newcomer takes that round's hits. Items, Guard and Escape also go first. When the hero is
+  knocked out, the player picks who steps in at once; the party falls when everyone who can fight is down (passing
+  out and respawning, as usual). *Heroes who fight (Single)* sets how many of the lineup can be swapped in (1 – 8).
+  Each troop's *In Single battle mode* (Database → Troops): **Full troop** (all at once, as a group fight, three at
+  most), **One at random** (one of its foes, picked at random: a wild encounter) or **One at a time** (the next steps
+  in as each falls: a trainer), with up to 8 foes in a troop. An enemy bumped into on the map comes out first and its
+  friends follow one at a time. EXP, Additions, spells and spell additions work the same.
 - **Spell additions** (Database → Spells → *Spell addition*): give a spell a button sequence (A, B, X, Y) and, as it
   goes off, the camera holds on the caster while the buttons show in a row with a timer; the player presses them in
   order (keys A B X Y, a controller's face buttons, or the on-screen pads). Each rank above the first adds one more
