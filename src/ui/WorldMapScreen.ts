@@ -40,6 +40,9 @@ export interface WorldMapHost {
 
 const ZOOMS = [1, 2, 3, 4, 6, 8, 12, 16, 24];
 
+/** A place to pick on the map (a griffin roost): where, its name, and a line under it (the price). */
+export interface PickSpot { x: number; z: number; label: string; detail: string; disabled?: boolean }
+
 export class WorldMapScreen {
   private readonly root = document.createElement('div');
   private readonly canvas = document.createElement('canvas');
@@ -59,6 +62,8 @@ export class WorldMapScreen {
   /** Gliding to a marker (A / Y): where to, and which one (-1: the hero). */
   private goal: { x: number; z: number } | null = null;
   private pick = -1;
+  /** Picking a place (a griffin flight): the spots, and what happens with the choice (null: cancelled). */
+  private picking: { spots: PickSpot[]; done: (i: number | null) => void; title: string } | null = null;
   /** The D-pad held: the direction and the time to the next repeated step. */
   private rep = { dir: '' as '' | 'left' | 'right' | 'up' | 'down', t: 0 };
 
@@ -85,7 +90,16 @@ export class WorldMapScreen {
       const s = this.scale(); this.cx = this.drag.cx - (e.clientX - this.drag.x) / s; this.cz = this.drag.cz - (e.clientY - this.drag.y) / s; this.draw();
     });
     view.addEventListener('pointerleave', () => { this.hover = null; this.draw(); });
-    view.addEventListener('pointerup', () => { this.drag = null; });
+    view.addEventListener('pointerup', (e) => {
+      const d = this.drag;
+      this.drag = null;
+      // Picking: a tap on a spot selects it; a tap on the selected one chooses it.
+      if (!this.picking || !d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return;
+      const r = view.getBoundingClientRect(), s = this.scale(), wx = (e.clientX - r.left - r.width / 2) / s + this.cx, wz = (e.clientY - r.top - r.height / 2) / s + this.cz;
+      const k = this.picking.spots.findIndex((p) => Math.hypot((p.x - wx) * s, (p.z - wz) * s) < 16);
+      if (k < 0) return;
+      if (k === this.pick) this.choose(); else { this.pick = k; this.goal = this.picking.spots[k]; uiSound('menuMove'); this.draw(); }
+    });
     view.addEventListener('wheel', (e) => { e.preventDefault(); this.zoomBy(e.deltaY < 0 ? 1 : -1); }, { passive: false });
     parent.appendChild(this.root);
   }
@@ -93,6 +107,8 @@ export class WorldMapScreen {
   get isOpen(): boolean { return this.open; }
 
   show(onClose: () => void, tabs?: TabGroup): void {
+    // (Shown again while picking, as the maps finish drawing: keep the choice, just redraw.)
+    if (this.picking) { this.fogCache.clear(); requestAnimationFrame(() => this.draw()); return; }
     this.open = true; this.onClose = onClose; this.tabs = tabs;
     this.root.hidden = false;
     this.fogCache.clear();
@@ -103,7 +119,31 @@ export class WorldMapScreen {
 
   hide(): void { this.open = false; this.root.hidden = true; }
 
-  private close(): void { this.hide(); uiSound('menuBack'); this.onClose(); }
+  /** Pick one of these places on the map (a griffin flight's destination); `done` gets its index, or null. */
+  pickSpot(title: string, spots: PickSpot[], done: (i: number | null) => void): void {
+    this.picking = null;
+    this.show(() => {});
+    this.picking = { spots, done, title };
+    if (spots.length) { this.pick = 0; this.goal = spots[0]; }
+  }
+
+  /** Picking: the selected spot is chosen. */
+  private choose(): void {
+    const p = this.picking, k = this.pick;
+    if (!p || k < 0) return;
+    if (p.spots[k]?.disabled) { uiSound('menuBack'); return; }
+    this.picking = null;
+    this.hide();
+    uiSound('menuOk');
+    p.done(k);
+  }
+
+  private close(): void {
+    this.hide(); uiSound('menuBack');
+    const p = this.picking;
+    if (p) { this.picking = null; p.done(null); return; }
+    this.onClose();
+  }
 
   private scale(): number { return ZOOMS[this.zoom] * (window.devicePixelRatio > 1 ? 1 : 1); }
 
@@ -122,6 +162,7 @@ export class WorldMapScreen {
 
   /** The hero, then every marker by how far it is from the hero: what A / Y step through. */
   private stops(): { x: number; z: number }[] {
+    if (this.picking) return this.picking.spots;
     const h = this.host.hero(), ms = this.host.markers().map((m) => ({ x: m.x + m.w / 2, z: m.z + m.h / 2 }));
     if (h) ms.sort((a, b) => Math.hypot(a.x - h.x, a.z - h.z) - Math.hypot(b.x - h.x, b.z - h.z));
     return h ? [{ x: h.x, z: h.z }, ...ms] : ms;
@@ -144,7 +185,12 @@ export class WorldMapScreen {
     if (i.consume('subPrev')) this.zoomBy(-1);
     if (i.consume('subNext')) this.zoomBy(1);
     // A / Enter / Space: the next marker (the hero first); Y / R: the previous one.
-    if (i.confirm()) this.step(1);
+    // Picking: A chooses the selected spot; the arrows (and Y / R) step through them.
+    if (this.picking) {
+      if (i.confirm()) { this.choose(); return; }
+      if (i.consume('right') || i.consume('down')) this.step(1);
+      if (i.consume('left') || i.consume('up') || i.consume('switchWeapon')) this.step(-1);
+    } else if (i.confirm()) this.step(1);
     if (i.consume('switchWeapon')) this.step(-1);
     let moved = false;
     // The stick glides, faster the further it's pushed (and faster zoomed out).
@@ -240,6 +286,8 @@ export class WorldMapScreen {
       }
       drawMarker(g, m.symbol, sx(m.x + m.w / 2), sz(m.z + m.h / 2), mr, m.color);
     }
+    // Picking: the spots (the selected one bigger, in gold).
+    if (this.picking) this.picking.spots.forEach((p, k) => drawMarker(g, 'flag', sx(p.x), sz(p.z), k === this.pick ? mr * 1.5 : mr, p.disabled ? '#8a8a8a' : k === this.pick ? '#ffd27a' : '#e8e0c8'));
     // Names: towns and landmarks (in places shown), and the hero's pin.
     const pieces = this.host.pieces();
     const inShown = (l: WorldLabel) => pieces.some((p) => shown.has(p.name) && l.x >= p.at.x && l.x < p.at.x + p.at.w && l.z >= p.at.z && l.z < p.at.z + p.at.h
@@ -251,7 +299,9 @@ export class WorldMapScreen {
     const at = this.hover ?? { x: W / 2, y: H / 2 }, wx = (at.x - W / 2) / s + this.cx, wz = (at.y - H / 2) / s + this.cz;
     const near = (x: number, z: number) => Math.hypot(sx(x) - at.x, sz(z) - at.y) < Math.max(14, mr + 4);
     let tip = '';
-    if (hero && near(hero.x, hero.z)) tip = `${this.host.heroName()} · ${pieces.find((p) => p.name === hero.map)?.title ?? ''}`;
+    const spot = this.picking ? (this.hover ? this.picking.spots.find((p) => near(p.x, p.z)) : undefined) ?? this.picking.spots[this.pick] : undefined;
+    if (spot) tip = `${spot.label} · ${spot.detail}`;
+    else if (hero && near(hero.x, hero.z)) tip = `${this.host.heroName()} · ${pieces.find((p) => p.name === hero.map)?.title ?? ''}`;
     else {
       const point = markers.find((m) => near(m.x + m.w / 2, m.z + m.h / 2));
       const area = point ? null : markers.find((m) => (m.w > 1 || m.h > 1) && wx >= m.x && wx < m.x + m.w && wz >= m.z && wz < m.z + m.h);
@@ -265,6 +315,7 @@ export class WorldMapScreen {
     this.cross.hidden = !!this.hover;
     const here = pieces.find((p) => p.name === hero?.map);
     const pad = this.input.lastDevice === 'pad';
+    if (this.picking) { this.info.textContent = `${this.picking.title} · ${pad ? 'D-pad' : 'Arrows'}: next roost · ${pad ? 'A' : 'Space / Enter'}: fly there · a click selects, a second click flies · ${pad ? 'B' : 'Esc'}: cancel`; return; }
     this.info.textContent = `${here ? here.title : ''}${here ? ' · ' : ''}${pad ? 'Stick: glide · D-pad: one tile' : 'Arrows: one tile · drag: scroll'} · ${this.input.label('subPrev')} / ${this.input.label('subNext')}: zoom · ${pad ? 'A / Y' : 'Space / R'}: next / previous marker · ${pad ? 'B' : 'Esc'}: close`;
   }
 }

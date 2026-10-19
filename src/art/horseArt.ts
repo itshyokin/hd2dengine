@@ -94,3 +94,75 @@ export function horseSheet(coat: string, mane: string): HTMLCanvasElement {
   p.outline(OUTLINE);
   return p.canvas();
 }
+
+export const GRIFFIN_FRAME_W = 56, GRIFFIN_FRAME_H = 44;
+
+/**
+ * Placeholder griffin: a lion's body, an eagle's white head and great brown wings, flapping (frames: wings up, level,
+ * down), facing down, left, right and up like a character sheet.
+ */
+export function griffinSheet(): HTMLCanvasElement {
+  const FW = GRIFFIN_FRAME_W, FH = GRIFFIN_FRAME_H, p = new Pix(FW * 3, FH * 4);
+  const fur = ['#e8c47a', '#c89a52', '#9a7238', '#6e4e24'], wing = ['#b07a4a', '#86552e', '#5e3a1c'], head = ['#ffffff', '#e4e0d8', '#b8b2a8'];
+  const beak = '#f0b030', eye = '#1a1420', claw = '#3a2a1a';
+  for (let row = 0; row < 4; row++)
+    for (let f = 0; f < 3; f++) {
+      const ox = f * FW, oy = row * FH;
+      // Wing tips: up, level, down.
+      const lift = f === 0 ? -12 : f === 1 ? 0 : 9;
+      const put = (x: number, y: number, c: string, flip = false) => {
+        const xx = Math.round(flip ? FW - 1 - x : x), yy = Math.round(y);
+        if (xx >= 0 && xx < FW && yy >= 0 && yy < FH) p.set(ox + xx, oy + yy, c);
+      };
+      const ell = (cx: number, cy: number, rx: number, ry: number, col: (t: number) => string, flip = false) => {
+        for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) {
+          const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
+          if (dx * dx + dy * dy <= 1) put(x, y, col(dy), flip);
+        }
+      };
+      const tone = (r: string[]) => (t: number) => r[Math.max(0, Math.min(r.length - 1, Math.floor((t + 1) * r.length / 2)))];
+      const tri = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number, col: string, flip = false) => {
+        const minX = Math.floor(Math.min(ax, bx, cx)), maxX = Math.ceil(Math.max(ax, bx, cx)), minY = Math.floor(Math.min(ay, by, cy)), maxY = Math.ceil(Math.max(ay, by, cy));
+        const s = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) => (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3);
+        for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+          const d1 = s(x, y, ax, ay, bx, by), d2 = s(x, y, bx, by, cx, cy), d3 = s(x, y, cx, cy, ax, ay);
+          if (!((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))) put(x, y, col, flip);
+        }
+      };
+      if (row === 1 || row === 2) {
+        // Side on, facing right (mirrored for left): the far wing, the body, the near wing.
+        const flip = row === 1;
+        tri(20, 20, 30, 20, 26 - 4, 8 + lift, wing[2], flip);
+        // Tail with a tuft.
+        for (let k = 0; k < 8; k++) put(10 - k, 22 + Math.round(k * 0.4), fur[2], flip);
+        ell(3, 25, 2, 2, () => fur[3], flip);
+        ell(23, 24, 12, 6, tone(fur), flip);
+        // Legs tucked under in flight.
+        for (const lx of [15, 18, 30, 33]) { put(lx, 30, fur[2], flip); put(lx, 31, claw, flip); }
+        // The eagle's head and beak.
+        ell(38, 17, 5, 5, tone(head), flip);
+        tri(42, 15, 48, 18, 42, 20, beak, flip);
+        put(40, 16, eye, flip);
+        tri(18, 20, 32, 20, 24, 6 + lift, wing[0], flip);
+        tri(19, 21, 31, 21, 24, 10 + lift, wing[1], flip);
+      } else {
+        // Facing down (the head) or up (the tail): wings out to both sides.
+        const front = row === 0;
+        tri(28, 18, 4, 14 + lift, 12, 24, wing[1]); tri(28, 18, 52, 14 + lift, 44, 24, wing[1]);
+        tri(28, 17, 2, 12 + lift, 10, 19, wing[0]); tri(28, 17, 54, 12 + lift, 46, 19, wing[0]);
+        ell(28, 25, 8, 9, tone(fur));
+        for (const lx of [23, 33]) { put(lx, 34, fur[2], false); put(lx, 35, claw); }
+        if (front) {
+          ell(28, 14, 5.5, 5.5, tone(head));
+          tri(26, 16, 30, 16, 28, 21, beak);
+          put(25, 13, eye); put(31, 13, eye);
+        } else {
+          ell(28, 14, 5, 4.5, () => head[2]);
+          for (let y = 32; y < 41; y++) put(28, y, fur[2]);
+          ell(28, 41, 2, 2, () => fur[3]);
+        }
+      }
+    }
+  p.outline(OUTLINE);
+  return p.canvas();
+}

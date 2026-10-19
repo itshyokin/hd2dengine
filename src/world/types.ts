@@ -287,6 +287,11 @@ export type Command =
   | { cmd: 'shop'; goods: { item: string; price?: number }[]; canSell?: boolean; name?: string }
   /** A stable: rent one of these horses (Database → Horses; empty: all of them), or send yours home. */
   | { cmd: 'stable'; horses?: string[]; name?: string }
+  /**
+   * A griffin master: talking unlocks this roost (here, where the hero stands) and opens the world map to fly to any
+   * other unlocked roost, priced by distance.
+   */
+  | { cmd: 'roost'; id: string; name: string; speaker?: string; /** Unlock it without offering a flight. */ unlockOnly?: boolean; /** (Internal: open the world map to pick a flight now.) */ pick?: boolean }
   /** The rented horse: rent one (free, from an event), send it home, get on or off. */
   | { cmd: 'horse'; op: 'rent' | 'home' | 'mount' | 'dismount'; id?: string; free?: boolean }
   /** Move the player to a map (this one or another) at x, z. Ends the event. */
@@ -892,8 +897,10 @@ export interface Database {
   skills?: SkillsData;
   /** Troops: groups of enemies for random encounters (encounter zones on maps). */
   troops?: TroopDef[];
-  /** Horses rented at stables (Database → Horses; unset: the built-in three). */
+  /** Horses rented at stables (Database → Travel; unset: the built-in three). */
   horses?: HorseDef[];
+  /** Griffin flights: price (gold, plus gold a tile of distance) and speed (tiles a second). */
+  travel?: { flightBase?: number; flightPerTile?: number; flightSpeed?: number };
   /** Learned spells, Additions and classes (built-in ones when left out). */
   spells?: SpellEntry[];
   additions?: AdditionDef[];

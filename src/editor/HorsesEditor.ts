@@ -1,5 +1,5 @@
 /** Database → Horses: the horses stables rent out (speed, stamina, jump, price, and the placeholder colours). */
-import type { HorseDef } from '../world/types';
+import type { Database, HorseDef } from '../world/types';
 import { field, h, numberInput, textInput } from './dom';
 import { listLayout, nameId } from './AbilitiesEditor';
 import { horseSheet } from '../art/horseArt';
@@ -20,8 +20,21 @@ function preview(d: HorseDef): HTMLCanvasElement {
   return c;
 }
 
-export function horsesTab(list: HorseDef[], state: { sel: number }, rerender: () => void): HTMLElement[] {
-  return listLayout<HorseDef>(list, state, 'Horse', (id) => ({ id, name: 'New horse', tier: 1, price: 200, speed: 8.5, stamina: 100, jump: 3, color: '#8a5a34', mane: '#2a1a12' }), (d) => [
+type Travel = NonNullable<Database['travel']>;
+
+/** Griffin flights: what they cost and how fast the griffin flies. */
+function flightSection(t: Travel): HTMLElement {
+  const set = (k: keyof Travel, v: number, def: number) => { if (v === def) delete t[k]; else t[k] = v; };
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Griffin flights'),
+    h('div', { class: 'field-row' },
+      field('Price: base (gold)', n(t.flightBase ?? 20, (v) => set('flightBase', Math.round(v), 20), 5, 0, 99999, 'Flight base price')),
+      field('Price: gold a tile', n(t.flightPerTile ?? 0.5, (v) => set('flightPerTile', Math.round(v * 100) / 100, 0.5), 0.05, 0, 100, 'Flight price a tile'), 'Distance in the World layout (60 tiles to a map not laid out).'),
+      field('Speed (tiles a second)', n(t.flightSpeed ?? 12, (v) => set('flightSpeed', Math.round(v * 10) / 10, 12), 0.5, 2, 60, 'Flight speed'), 'One speed: long flights take longer (no skipping).')),
+    h('p', { class: 'note' }, 'Griffin masters (the Griffin roost event command) open their roost when talked to, then show the world map: pick any other roost unlocked so far. The griffin takes off, flies the route over the World layout’s maps (forest where nothing is laid out), lands, drops the hero off and flies away.'));
+}
+
+export function horsesTab(list: HorseDef[], state: { sel: number }, rerender: () => void, travel: Travel): HTMLElement[] {
+  const out = listLayout<HorseDef>(list, state, 'Horse', (id) => ({ id, name: 'New horse', tier: 1, price: 200, speed: 8.5, stamina: 100, jump: 3, color: '#8a5a34', mane: '#2a1a12' }), (d) => [
     nameId(list, d, rerender, 'Horse'),
     field('Description', textInput(d.description ?? '', (v) => { d.description = v.trim() || undefined; }, { 'aria-label': 'Horse description' })),
     h('section', { class: 'db-section' }, h('h3', {}, 'Riding'),
@@ -39,4 +52,5 @@ export function horsesTab(list: HorseDef[], state: { sel: number }, rerender: ()
       preview(d)),
     h('p', { class: 'note' }, 'Stables rent these (the Stable event command). One horse at a time: it stands beside the hero, the Talk button beside it gets on, B gets off, and it waits where it was left (on that map, saved). Riding: faster, its own stamina in the stamina ring, a long jump while moving; no climbing, crawling or swimming, and it waits outside indoor maps. A Saddle key item sends it home so another can be rented elsewhere.'),
   ], rerender, 'No horses: the built-in three are used.');
+  return [...out, flightSection(travel)];
 }

@@ -75,14 +75,13 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `turnBased.singlePick`, default wild).
 - 75: horses (`src/game/horses.ts`, `src/art/horseArt.ts`; `GameState.horse`; Game's `riding`, `mount`,
   `dismount`, `updateHorse`, `horseArrive`; Stable / Horse event commands; PlayerMotion `noSwim` and `leap`).
+- 76: griffin flights (Griffin roost command; `GameState.roosts`; WorldMapScreen `pickSpot`; Game's `startFlight`,
+  `flightGround`, `updateFlight`, `startFlyAway`; `griffinSheet` in horseArt.ts; Database → Travel).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. **Travel**: horses (stables, tiers with stamina and jump of 3 / 4 / 5 tiles, A to mount, B to dismount, Saddle
-   key item sends the horse home, placeholder art) and griffin flights (roosts unlocked by talking to the griffin
-   master, fly over the World layout's maps at one speed, no skip).
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

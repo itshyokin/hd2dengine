@@ -127,9 +127,10 @@ import { ShopScreen, shopGoods } from '../ui/ShopScreen';
 import { waitForPlaytest } from '../shared/playtest';
 import { CharacterSprite, DIR_VECTOR } from './CharacterSprite';
 import { eventCovers } from '../world/eventArea';
-import { GameState } from './GameState';
+import { GameState, type RoostState } from './GameState';
 import { GALLOP_COST, HORSE_SCALE, JUMP_COST, RECOVER_AT, REST_GAIN, SEAT, findHorse, horseList, stars } from './horses';
-import { horseSheet } from '../art/horseArt';
+import { griffinSheet, horseSheet } from '../art/horseArt';
+import type { PickSpot } from '../ui/WorldMapScreen';
 import { type Action, BINDINGS_VERSION, DEFAULT_BINDINGS, Input } from './Input';
 import { PlayerMotion } from './PlayerMotion';
 import { PlayerStats, configFromDb } from './stats';
@@ -780,6 +781,7 @@ export class Game {
         name: (id) => this.items.get(id)?.name ?? id,
       },
       stable: (c) => this.stableCommands(c),
+      roost: (c) => this.roostCommands(c),
       horse: (c) => this.horseCommand(c),
       openShop: (c) => this.shop.show(c.name || 'Shop', shopGoods(c.goods, (id) => this.items.get(id)?.price ?? 0), c.canSell !== false, () => {}),
       sound: (src) => this.audio.play(src),
@@ -803,7 +805,7 @@ export class Game {
         if (!list.length) return;
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined, pick });
       },
-      busy: () => this.battle.active || this.battlePending || !!this.sleeping,
+      busy: () => this.battle.active || this.battlePending || !!this.sleeping || this.flightPick || !!this.flight,
       sleep: (c) => this.startSleep(c),
       statRank: (c) => { const n = this.setStatRank(c.hero, c.stat, c.rank); return n.length ? `${n.join(', ')}: ${ATTR_INFO[c.stat].name} now grows at Rank ${c.rank}.` : null; },
       temperature: (op, value) => { this.tempHere = op === 'reset' ? null : { op, value: value ?? 0 }; },
@@ -1683,6 +1685,7 @@ export class Game {
     }
     else if (this.battlePending) this.player.animate(dt, false);
     else if (this.updateDying(dt) || this.updateTransfer()) this.player.animate(dt, false);
+    else if (this.flight) this.updateFlight(dt);
     else if (this.interpreter.running) {
       this.interpreter.update(dt);
       this.player.animate(dt, false);
@@ -1701,6 +1704,8 @@ export class Game {
       this.updateFires(dt);
     }
     this.updateHorse(paused ? 0 : dt);
+    if (this.flightPick) this.worldMap.update(dt);
+    if (this.flyAway) this.updateFlyAway(paused ? 0 : dt);
     // Quests: carried items count towards collect objectives; the tracker follows along.
     if (!paused && !this.onTitle) this.quests.itemsChanged();
     this.tracker.update(this.quests);
@@ -2076,7 +2081,7 @@ export class Game {
       this.scene.add(this.horseSprite.mesh);
     }
     const s = this.horseSprite, m = this.motion;
-    s.mesh.visible = !this.onTitle && !this.battle.active && !!m && (h.mounted ? this.player.mesh.visible : h.map === this.mapName);
+    s.mesh.visible = !this.onTitle && !this.battle.active && !this.flight && !!m && (h.mounted ? this.player.mesh.visible : h.map === this.mapName);
     if (!h.mounted) h.sp = Math.min(d.stamina, h.sp + REST_GAIN * dt);
     if (!s.mesh.visible) return;
     if (h.mounted) {
@@ -2090,6 +2095,202 @@ export class Game {
       s.faceVector(...DIR_VECTOR[h.dir]);
       s.animate(dt, false);
     }
+  }
+
+  /* ---------------------------------------------------------------- griffin flights */
+
+  /** Picking a flight on the world map, the flight itself, and the griffin flying off after landing. */
+  private flightPick = false;
+  private flight: { group: THREE.Group; griffin: CharacterSprite; to: { x: number; z: number }; t: number; dur: number; dest: RoostState; phase: 'in' | 'fly' | 'out' } | null = null;
+  private flyAway: { sprite: CharacterSprite; t: number; dx: number; dz: number } | null = null;
+
+  /** A griffin master: this roost opens (the hero lands here), then the world map to fly to another. */
+  private roostCommands(c: Extract<Command, { cmd: 'roost' }>): Command[] {
+    if (c.pick) { this.openFlightPick(c.id); return []; }
+    const speaker = c.speaker || 'Griffin master', isNew = !this.state.roosts.has(c.id);
+    this.state.roosts.set(c.id, { name: c.name || c.id, map: this.mapName, x: this.motion.x, z: this.motion.z });
+    const out: Command[] = [];
+    if (isNew) { out.push({ cmd: 'text', speaker, text: `The ${c.name || c.id} roost is open to you now: fly back here from any other roost.` }); this.log.add(`Roost unlocked: ${c.name || c.id}`, 'info'); }
+    if (c.unlockOnly) return out;
+    if (this.state.roosts.size < 2) { out.push({ cmd: 'text', speaker, text: 'No other roost knows you yet. Talk to the griffin masters in other towns, and you can fly between them.' }); return out; }
+    out.push({ cmd: 'text', speaker, text: 'Where to? Pick a roost on the map.' }, { cmd: 'roost', id: c.id, name: c.name, pick: true });
+    return out;
+  }
+
+  /** Where a roost is in the World layout (null: its map isn't laid out). */
+  private roostWorld(r: RoostState): { x: number; z: number } | null {
+    const at = this.db.world?.maps[r.map];
+    return at ? { x: at.x + r.x, z: at.z + r.z } : null;
+  }
+
+  /** A flight's price: the base, plus so much a tile of distance (60 tiles when a map isn't laid out). */
+  private flightPrice(a: RoostState, b: RoostState): number {
+    const t = this.db.travel, pa = this.roostWorld(a), pb = this.roostWorld(b);
+    const dist = pa && pb ? Math.hypot(pb.x - pa.x, pb.z - pa.z) : 60;
+    return Math.max(0, Math.round((t?.flightBase ?? 20) + (t?.flightPerTile ?? 0.5) * dist));
+  }
+
+  private openFlightPick(fromId: string): void {
+    const from = this.state.roosts.get(fromId);
+    if (!from) return;
+    const others = [...this.state.roosts].filter(([id]) => id !== fromId);
+    this.drawWorldArt();
+    const here = this.roostWorld(from) ?? { x: 0, z: 0 };
+    const spots: PickSpot[] = others.map(([, r], k) => {
+      const at = this.roostWorld(r) ?? { x: here.x + 8 + k * 4, z: here.z - 6 }, price = this.flightPrice(from, r), poor = this.inventory.gold < price;
+      return { x: at.x, z: at.z, label: r.name, detail: `${price} G${poor ? ' (not enough gold)' : ''}`, disabled: poor };
+    });
+    this.flightPick = true;
+    this.worldMap.pickSpot(`Fly from ${from.name} (you have ${this.inventory.gold} G)`, spots, (k) => {
+      this.flightPick = false;
+      if (k === null) return;
+      const dest = others[k][1], price = this.flightPrice(from, dest);
+      if (this.inventory.gold < price) return;
+      this.inventory.gold -= price;
+      this.audio.play('coin');
+      this.log.add(`Flight to ${dest.name}: ${price} G`, 'info');
+      this.interpreter.stop();
+      this.startFlight(from, dest);
+    });
+  }
+
+  /** Take off: the screen fades, then the griffin flies the route over the World layout's maps. */
+  private startFlight(from: RoostState, dest: RoostState): void {
+    if (this.state.horse?.mounted) this.dismount();
+    const a = this.roostWorld(from) ?? { x: 0, z: 0 }, b0 = this.roostWorld(dest), b = b0 && (b0.x !== a.x || b0.z !== a.z) ? b0 : { x: a.x + 60, z: a.z };
+    const speed = Math.max(2, this.db.travel?.flightSpeed ?? 12), dist = Math.hypot(b.x - a.x, b.z - a.z);
+    // Local coordinates: the take-off point at the origin.
+    const group = new THREE.Group();
+    group.name = 'flight';
+    group.add(this.flightGround(a, b));
+    const griffin = new CharacterSprite(this.sprites, this.sprites.sheet(griffinSheet()), 'right');
+    griffin.mesh.scale.setScalar(1.8);
+    group.add(griffin.mesh);
+    group.visible = false;
+    this.scene.add(group);
+    this.flight = { group, griffin, to: { x: b.x - a.x, z: b.z - a.z }, t: 0, dur: dist / speed + 2.6, dest, phase: 'in' };
+    this.moveTarget = null;
+    this.audio.play('transfer');
+    this.fade = { from: this.post.fade, to: 1, t: 0, duration: 0.6 };
+  }
+
+  /**
+   * The ground under a flight: forest (lighter "theme" scenery) with the World layout's maps drawn from above where
+   * they are, and pine trees standing in the forest.
+   */
+  private flightGround(a: { x: number; z: number }, b: { x: number; z: number }): THREE.Group {
+    const out = new THREE.Group(), M = 40;
+    const minX = Math.min(a.x, b.x) - M, maxX = Math.max(a.x, b.x) + M, minZ = Math.min(a.z, b.z) - M, maxZ = Math.max(a.z, b.z) + M;
+    const bw = maxX - minX, bh = maxZ - minZ, ppt = Math.max(1, Math.min(4, Math.floor(4096 / Math.max(bw, bh))));
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(bw * ppt); c.height = Math.ceil(bh * ppt);
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#2c5228'; g.fillRect(0, 0, c.width, c.height);
+    // Forest: clumps of greens.
+    const greens = ['#24461f', '#335f2c', '#3f7034', '#2a5226'];
+    for (let i = 0; i < (bw * bh) / 3; i++) {
+      g.fillStyle = greens[i % greens.length];
+      g.beginPath(); g.arc(Math.random() * c.width, Math.random() * c.height, ppt * (0.6 + Math.random() * 1.2), 0, Math.PI * 2); g.fill();
+    }
+    // The laid-out maps, as drawn for the world map.
+    const pieces: { x: number; z: number; w: number; h: number }[] = [];
+    for (const [name, at] of Object.entries(this.db.world?.maps ?? {})) {
+      const art = this.worldArt.get(name);
+      if (at.x + at.w < minX || at.x > maxX || at.z + at.h < minZ || at.z > maxZ) continue;
+      pieces.push(at);
+      if (art) { g.imageSmoothingEnabled = false; g.drawImage(art, (at.x - minX) * ppt, (at.z - minZ) * ppt, at.w * ppt, at.h * ppt); }
+      else { g.fillStyle = '#6a7a52'; g.fillRect((at.x - minX) * ppt, (at.z - minZ) * ppt, at.w * ppt, at.h * ppt); }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    tex.magFilter = THREE.NearestFilter;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(bw, bh), new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }));
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.set((minX + maxX) / 2 - a.x, 0, (minZ + maxZ) / 2 - a.z);
+    plane.receiveShadow = true;
+    plane.userData.own = true;
+    out.add(plane);
+    // Pines in the forest (not on the maps), a few hundred near the route.
+    const pine = this.sprites.get('pine');
+    for (let i = 0; i < 360; i++) {
+      const k = Math.random(), x = a.x + (b.x - a.x) * k + (Math.random() - 0.5) * 50, z = a.z + (b.z - a.z) * k + (Math.random() - 0.5) * 50;
+      if (pieces.some((p) => x >= p.x && x < p.x + p.w && z >= p.z && z < p.z + p.h)) continue;
+      const m = new THREE.Mesh(pine.geometry, pine.material);
+      m.position.set(x - a.x, 0, z - a.z);
+      m.scale.setScalar(1.2 + Math.random() * 0.6);
+      out.add(m);
+    }
+    return out;
+  }
+
+  private updateFlight(dt: number): void {
+    const f = this.flight!;
+    if (f.phase === 'in') {
+      if (this.fade.t < 1) return;
+      // Dark: switch to the flight, then fade back in.
+      f.phase = 'fly';
+      if (this.level) this.level.visible = false;
+      f.group.visible = true;
+      this.fade = { from: 1, to: 0, t: 0, duration: 0.8 };
+    }
+    f.t += dt;
+    const ease = (x: number) => x * x * (3 - 2 * x);
+    const H = 6, up = Math.min(1, f.t / 1.3), down = Math.min(1, Math.max(0, (f.dur - f.t) / 1.3));
+    const k = ease(Math.max(0, Math.min(1, (f.t - 0.6) / Math.max(0.1, f.dur - 1.2))));
+    const len = Math.hypot(f.to.x, f.to.z) || 1, px = -f.to.z / len, pz = f.to.x / len, sway = Math.sin(f.t * 0.6) * 1.2 * Math.min(up, down);
+    const x = f.to.x * k + px * sway, z = f.to.z * k + pz * sway, y = H * ease(Math.min(up, down)) + 0.1;
+    f.griffin.position.set(x, y, z);
+    f.griffin.faceVector(f.to.x, f.to.z);
+    f.griffin.animate(dt * 1.4, true);
+    this.player.position.set(x, y + 1.0, z + 0.04);
+    this.player.animate(dt, false);
+    if (f.phase === 'fly' && f.t >= f.dur - 0.5) {
+      // Landing: the screen fades and the hero is set down at the roost.
+      f.phase = 'out';
+      const dest = f.dest;
+      this.requestTransfer(dest.map, { x: dest.x, z: dest.z, dir: 'down' }, 'black', {
+        before: () => { this.endFlight(); },
+        after: () => this.startFlyAway(),
+      });
+    }
+  }
+
+  private endFlight(): void {
+    const f = this.flight;
+    if (!f) return;
+    f.group.removeFromParent();
+    // The ground was made for this flight: let it go (the trees share the map's pine).
+    f.group.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !m.userData.own) return;
+      const mat = m.material as THREE.MeshStandardMaterial;
+      mat.map?.dispose(); mat.dispose(); m.geometry.dispose();
+    });
+    if (this.level) this.level.visible = true;
+    this.flight = null;
+  }
+
+  /** Just landed: the griffin flaps up and away from beside the hero. */
+  private startFlyAway(): void {
+    const s = new CharacterSprite(this.sprites, this.sprites.sheet(griffinSheet()), 'right');
+    s.mesh.scale.setScalar(1.8);
+    const p = this.player.position;
+    s.position.set(p.x - 0.8, p.y, p.z - 0.3);
+    this.scene.add(s.mesh);
+    this.flyAway = { sprite: s, t: 0, dx: 1, dz: -0.6 };
+    this.audio.play('jump');
+  }
+
+  private updateFlyAway(dt: number): void {
+    const f = this.flyAway!;
+    f.t += dt;
+    const s = f.sprite;
+    s.position.x += f.dx * dt * (2 + f.t * 6);
+    s.position.z += f.dz * dt * (2 + f.t * 6);
+    s.position.y += dt * (1.5 + f.t * 4);
+    s.faceVector(f.dx, f.dz);
+    s.animate(dt * 1.6, true);
+    if (f.t > 3.2) { s.mesh.removeFromParent(); this.flyAway = null; }
   }
 
   /** Out of health: fade out, then back to the respawn point with full stats. */
@@ -5700,6 +5901,17 @@ export class Game {
   private readonly titleFocus = new THREE.Vector3();
   private updateCamera(dt: number): void {
     if (this.stage) { this.updateStageCamera(dt); return; }
+    // A griffin flight: further back and higher, following the griffin.
+    if (this.flight) {
+      const t = this.camTarget;
+      t.lerp(this.player.position, 1 - Math.exp(-dt * 4));
+      this.camera.position.copy(t).addScaledVector(CAMERA_OFFSET, 1.5);
+      this.camera.lookAt(t.x, t.y - 1, t.z);
+      this.post.focus = 0.5;
+      this.sun.target.position.copy(t);
+      this.sun.position.copy(t).addScaledVector(this.time.sunDir, 30);
+      return;
+    }
     const t = this.camTarget;
     if (this.onTitle) {
       // Drift slowly across the map behind the title.

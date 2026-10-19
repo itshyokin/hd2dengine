@@ -46,6 +46,8 @@ export interface EventContext {
   openShop(c: Extract<Command, { cmd: 'shop' }>): void;
   /** A stable: the commands to run (what the stable keeper says, the horses to pick from). */
   stable?(c: Extract<Command, { cmd: 'stable' }>): Command[];
+  /** A griffin master: unlock the roost and offer a flight. The commands to run (what the master says), if any. */
+  roost?(c: Extract<Command, { cmd: 'roost' }>): Command[];
   /** The rented horse: rent, send home, get on or off. What to say (or nothing). */
   horse?(c: Extract<Command, { cmd: 'horse' }>): string | null;
   /** Sound: an effect, the music and the background sound (undefined = back to the map's own). */
@@ -224,6 +226,12 @@ export class Interpreter {
         break;
       case 'stable': {
         const list = this.ctx.stable?.(c) ?? [];
+        if (list.length) this.stack.push({ list, i: 0 });
+        break;
+      }
+      case 'roost': {
+        message.close();
+        const list = this.ctx.roost?.(c) ?? [];
         if (list.length) this.stack.push({ list, i: 0 });
         break;
       }

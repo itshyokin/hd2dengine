@@ -12,6 +12,9 @@ export interface MapWeather { kind: WeatherKind; amount?: number; wind?: number;
 /** The rented horse: which, where it was left, facing, its stamina, and whether the hero is riding it. */
 export interface HorseState { id: string; map: string; x: number; z: number; dir: Dir; sp: number; mounted?: boolean }
 
+/** An unlocked griffin roost: its name, its map and where the hero stands to fly from (and lands). */
+export interface RoostState { name: string; map: string; x: number; z: number }
+
 export class GameState {
   readonly switches = new Map<string, boolean>();
   readonly variables = new Map<string, number>();
@@ -29,6 +32,8 @@ export class GameState {
   enemyLevels: { spread: number } | null = null;
   /** The rented horse (one at a time): where it was left (its map and spot), whether the hero is riding, its stamina. */
   horse: HorseState | null = null;
+  /** Griffin roosts unlocked (by talking to their master): their name, map, and where the hero lands. */
+  readonly roosts = new Map<string, RoostState>();
   /** EXP All key items switched off (by item id); on while held, otherwise. */
   readonly expAllOff = new Set<string>();
   /** Console cheats were used in this game: achievements stay locked for it. */
@@ -138,8 +143,10 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean }): void {
+  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean }): void {
     this.weaponsOff = !!d.weaponsOff;
+    this.roosts.clear();
+    for (const [k, r] of Object.entries(d.roosts ?? {})) if (r && typeof r.map === 'string') this.roosts.set(k, { name: String(r.name ?? k), map: r.map, x: Number(r.x) || 0, z: Number(r.z) || 0 });
     const h = d.horse;
     this.horse = h && typeof h.id === 'string' && typeof h.map === 'string' ? { id: h.id, map: h.map, x: Number(h.x) || 0, z: Number(h.z) || 0, dir: h.dir ?? 'down', sp: Number(h.sp) || 0, ...(h.mounted ? { mounted: true } : {}) } : null;
     this.expAllOff.clear();
@@ -165,12 +172,13 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean } {
+  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
     if (this.enemyLevels) out.enemyLevels = { ...this.enemyLevels };
     if (this.expAllOff.size) out.expAllOff = [...this.expAllOff];
     if (this.horse) out.horse = { ...this.horse };
+    if (this.roosts.size) out.roosts = Object.fromEntries([...this.roosts].map(([k, v]) => [k, { ...v }]));
     if (this.cheated) out.cheated = true;
     if (this.cut.size) out.cut = Object.fromEntries([...this.cut].map(([m, s]) => [m, [...s]]));
     if (this.clock) out.clock = this.clock;

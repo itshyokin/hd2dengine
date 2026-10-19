@@ -24,7 +24,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
   ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
-  ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['horse', 'Horse: rent / send home / get on / off'],
+  ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['roost', 'Griffin roost (fly)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
   ['battle', 'Start battle'], ['learn', 'Teach spell / Addition'], ['heroClass', 'Change class'],
@@ -32,7 +32,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 
 const CATEGORY: Record<Cmd, string> = {
   text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
-  giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', horse: 'item',
+  giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', roost: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
 };
@@ -62,6 +62,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'gold': return { cmd, op: 'add', value: 10 };
     case 'shop': return { cmd, goods: [], canSell: true };
     case 'stable': return { cmd };
+    case 'roost': return { cmd, id: 'roost', name: 'Roost' };
     case 'horse': return { cmd, op: 'rent', free: true };
     case 'sound': return { cmd, sound: 'item' };
     case 'music': return { cmd, music: 'builtin:field', fade: 1.5 };
@@ -208,6 +209,7 @@ function summary(c: Command): string {
       if (c.op === 'objective') return `${q}: ${objectiveName(c.quest, c.objective)}${c.add !== undefined ? ` ${c.add < 0 ? '−' : '+'}${Math.abs(c.add)}` : ' done'}`;
       return `${{ start: 'Start', complete: 'Complete', fail: 'Fail', reset: 'Forget', objective: '' }[c.op]} ${q}`;
     }
+    case 'roost': return `Griffin roost: ${c.name || c.id}${c.unlockOnly ? ' (unlock only)' : ''}`;
     case 'stable': return `${c.name || 'Stable'}: ${c.horses?.length ? c.horses.map((id) => (dbNow ? findHorse(dbNow(), id)?.name : undefined) ?? id).join(', ') : 'every horse'}`;
     case 'horse': return c.op === 'rent' ? `Rent ${(dbNow ? findHorse(dbNow(), c.id)?.name : undefined) ?? 'a horse'}${c.free ? ' (free)' : ''}` : c.op === 'home' ? 'Send the horse home' : c.op === 'mount' ? 'Get on the horse' : 'Get off the horse';
     case 'shop': return `${c.name || 'Shop'}: ${c.goods.length ? c.goods.map((g) => itemName(g.item)).join(', ') : 'nothing for sale'}${c.canSell === false ? ' (no selling)' : ''}`;
@@ -712,6 +714,13 @@ export class CommandEditor {
           checkbox('Quietly (no message)', !!d.silent, (v) => (d.silent = v || undefined)),
           h('p', { class: 'hint' }, 'A class opens its skill trees. Changing class keeps every skill, spell and Addition already learned.')];
       }
+      case 'roost':
+        return [h('div', { class: 'field-row' },
+          field('Roost name', textInput(d.name, (v) => (d.name = v.trim() || d.name), { placeholder: 'e.g. Rivertown' }), 'Shown on the world map when picking where to fly.'),
+          field('Roost id', textInput(d.id, (v) => (d.id = v.trim().replace(/[^A-Za-z0-9_-]+/g, '_') || d.id), { placeholder: 'rivertown' }), 'One per town: the same id everywhere means the same roost.')),
+          field('Griffin master’s name', textInput(d.speaker ?? '', (v) => (d.speaker = v.trim() || undefined), { placeholder: 'Griffin master' })),
+          checkbox('Only unlock it (no flight offered now)', !!d.unlockOnly, (v) => { if (v) d.unlockOnly = true; else delete d.unlockOnly; }),
+          h('p', { class: 'hint' }, 'Put it on the griffin master’s event. Talking to them unlocks this roost (the hero lands here, where they stand while talking) and opens the world map: pick any other unlocked roost to fly there, priced by distance (Database → Travel). The griffin flies over the World layout’s maps, at one speed, then lands, drops the hero off and flies away. Roosts on maps outside the World layout still work (a short flight over forest).')];
       case 'stable': {
         const all = horseList(this.store.db), on = new Set(d.horses ?? []);
         return [field('Keeper’s name', textInput(d.name ?? '', (v) => (d.name = v.trim() || undefined), { placeholder: 'Stable keeper' })),

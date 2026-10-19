@@ -806,6 +806,22 @@ galloping speed, stamina, jump length and its colours (placeholder art for now).
 - The event command **Horse** gives one (free or not), sends it home, or puts the hero on or off it, for story
   moments. Console: `horse grey_steed` (free), `horse home`, `horse on`, `horse off`.
 
+### Griffin flights
+
+WoW-style flight paths between towns. Put the event command **Griffin roost** (Items group) on a griffin master in
+each town, with the roost's name and an id (one per town). Talking to a master **unlocks** that roost (the hero will
+land where they stood while talking) and opens the **world map** with every other unlocked roost on it: A (Space)
+steps through them showing each price, A again (or a click on the chosen one) flies there; B cancels. Masters with
+*Only unlock it* just open the roost.
+
+- **Price**: a base plus so much a tile of distance in the World layout (Database → Travel: 20 G + 0.5 G a tile unless
+  changed). Roosts too dear are greyed out.
+- **The flight**: the screen fades, then the griffin (with the hero on its back) takes off and flies the route at one
+  speed (Database → Travel, 12 tiles a second; long flights take longer, no skipping), over the World layout's maps
+  drawn from above, with forest and pines where nothing is laid out. It lands, the hero is set down at the roost, and
+  the griffin flies away. A horse being ridden waits where it was left.
+- Placeholder griffin art for now. Roosts on maps outside the World layout still work (a short flight over forest).
+
 ### On the map: the sword, the bow and starting battles
 
 Battles are turn-based (next section); the real-time battle system was removed in update 65. On the map:
