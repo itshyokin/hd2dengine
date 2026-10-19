@@ -6,6 +6,7 @@ import { changedFiles, changesZip, discardChanges, importZip } from './browserPr
 import { confirmModal, h, openModal, toast } from './dom';
 import type { EditorStore } from './store';
 import { save } from './io';
+import { githubSection } from './githubPanel';
 
 function download(blob: Blob, name: string): void {
   const a = h('a', { href: URL.createObjectURL(blob), download: name });
@@ -50,8 +51,9 @@ export async function projectMenu(store: EditorStore): Promise<void> {
     location.reload();
   }, true);
   const body = h('div', { class: 'project-menu' },
-    h('p', { class: 'modal-text' }, 'This editor keeps your changes in this browser, on this device, so they’re still here next time. To put them in the project on your PC, save them as a zip and unzip it into the project folder (replacing files), then commit and push with GitHub Desktop.'),
-    h('div', { class: 'section-label' }, files.length ? `Changed on this device (${files.length})` : 'Nothing changed on this device yet'),
+    h('p', { class: 'modal-text' }, 'This editor keeps your changes in this browser, on this device, so they’re still here next time. Push them to GitHub from here (below), or save them as a zip to unzip into the project folder on your PC.'),
+    githubSection(store, () => { close(); void projectMenu(store); }),
+    h('div', { class: 'section-label' }, files.length ? `Kept on this device (${files.length})` : 'Nothing changed on this device yet'),
     files.length ? list : h('span'),
     unsaved ? h('p', { class: 'hint' }, 'The open map has unsaved changes: saving the zip saves them first.') : h('span'),
     h('div', { class: 'project-actions' },

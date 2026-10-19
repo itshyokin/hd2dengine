@@ -52,6 +52,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 66: impact materials (hit sounds and effects per enemy), big CRITICAL / WEAK / IMMUNE with shake and thump, a
   battle log on the left (Y scrolls it), monster stat blocks across the top (Database switch) with a boss overdrive
   gauge.
+- 67: Push / Pull to GitHub from the online editor (tablet editing without GitHub Desktop): `githubSync.ts` (GitHub
+  web API: blobs, tree, commit, ref; compare for changes on both sides) and `githubPanel.ts` (Project menu).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

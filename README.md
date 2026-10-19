@@ -30,6 +30,22 @@ The online editor works in any recent browser, Android tablets and phones includ
 on GitHub and keeps your changes **in that browser, on that device** (they're still there next time). The
 **Project** button in the toolbar:
 
+- **Push to GitHub / Pull from GitHub** (no PC or GitHub Desktop needed):
+  - **Connect to GitHub…** (once per device): paste a GitHub token. Make it on github.com → Settings → Developer
+    settings → **Fine-grained tokens** → Generate new token: *Only select repositories* → this repository, and
+    Repository permissions → **Contents: Read and write**. The token is kept only in that browser; the window has the
+    steps and a link. Lost the tablet? Delete the token on GitHub and it stops working at once. Owner, repository and
+    branch fill themselves in on the online editor.
+  - **⤓ Pull from GitHub**: brings in what was pushed from elsewhere (the PC) since this device last pulled or
+    pushed, and reloads. Do it before you start.
+  - **⤒ Push to GitHub…**: lists the files that differ from GitHub's and sends them as one commit, with a message
+    you can change. Work pushed from the PC in the meantime stays. The online editor and game rebuild a minute or two
+    later; on the PC, GitHub Desktop gets it with Fetch / Pull.
+  - **Changed in both places**: if a file was changed on this device and on GitHub since the last Pull or Push,
+    nothing is overwritten until you choose: on Push, *Pull first* or *Push mine over them*; on Pull, *Keep mine* or
+    *Take GitHub's*.
+  - Only people with write access to the repository can push: anyone else using the online editor only changes their
+    own copy, on their own device. Deleting a map or file isn't sent (delete it on the PC).
 - **Save changes as .zip**: only the files you changed, laid out like the project folder (`public/data/…`,
   `public/assets/…`). On the PC, unzip it into the project folder (replacing files), then commit and push with
   GitHub Desktop.
@@ -37,8 +53,7 @@ on GitHub and keeps your changes **in that browser, on that device** (they're st
   device); its maps, database and imported files replace the ones on this device.
 - **Forget my changes…**: back to the project as it is on GitHub.
 
-Playtest works from the online editor too. Pick up fresh changes from GitHub by saving your own as a zip first,
-then forgetting them (or opening a newer project zip).
+Playtest works from the online editor too.
 
 ### Testing on an Android phone
 

@@ -30,6 +30,11 @@ Kept in the project so they travel with the code. Tick them off as they're built
       and the tabs regrouped. Also: Assassinate and Silent Shot reworked for the map, Steady Guard heals on Guard,
       untrained medium / heavy weapons hit for three quarters, battle Records now count (damage, crits, best hit).
 
+## Tablet editing (Oct 19)
+- [x] Update 67: Push to GitHub and Pull from GitHub in the online editor (Project menu): a fine-grained token kept
+      in the browser, one commit per Push on top of what's there, Pull brings in the PC's pushes, files changed in
+      both places ask which to keep; the site records the commit it was built from (data/build.json).
+
 ## Combat (ideas, Oct 18)
 - [x] Impact materials: each enemy has a Material type in the Database (flesh, plant, metal, stone, wood, bone,
       liquid, gel, crystal, spirit / ethereal, cloth…) setting the sound when a sword or arrow hits it (squish, vine

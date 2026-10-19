@@ -40,11 +40,11 @@ async function dirOf(path: string, create: boolean): Promise<{ dir: DirHandle; n
 }
 
 /** A changed file kept in the browser (null: it hasn't been changed here). `path` is relative to public/. */
-async function readLocal(path: string): Promise<File | null> {
+export async function readLocal(path: string): Promise<File | null> {
   try { const { dir, name } = await dirOf(path, false); return await (await dir.getFileHandle(name)).getFile(); } catch { return null; }
 }
 
-async function writeLocal(path: string, data: Blob | string | Uint8Array): Promise<void> {
+export async function writeLocal(path: string, data: Blob | string | Uint8Array): Promise<void> {
   const { dir, name } = await dirOf(path, true);
   const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
   await w.write(data instanceof Uint8Array ? new Blob([data]) : data);
