@@ -60,7 +60,7 @@ export function connectGitHub(after: () => void): void {
 function conflictModal(c: Conflict, what: 'push' | 'pull', choose: (k: 'mine' | 'theirs' | 'pull') => void): void {
   const list = h('ul', { class: 'project-files' }, ...c.files.slice(0, 30).map((f) => h('li', {}, h('code', {}, `public/${f}`))));
   const text = what === 'push'
-    ? 'These were changed on GitHub too (from the PC, say) since this device last pulled. Pull first to see what changed, or push this device’s versions over them.'
+    ? 'GitHub has newer versions of these than the ones this device’s edits started from (changed from the PC, or this device kept an old copy). Pull first and choose for each, or push this device’s versions over them (GitHub’s newer changes to these files would be lost).'
     : 'These were changed both here and on GitHub. Keep this device’s versions (they’ll go up with the next Push) or take GitHub’s (this device’s changes to them are dropped).';
   openModal('Changed in both places', h('div', {}, h('p', { class: 'modal-text' }, text), list), what === 'push'
     ? [{ label: 'Cancel' }, { label: 'Pull first', primary: true, onClick: () => choose('pull') }, { label: 'Push mine over them', danger: true, onClick: () => choose('mine') }]

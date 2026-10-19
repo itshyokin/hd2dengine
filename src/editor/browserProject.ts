@@ -53,6 +53,41 @@ export async function writeLocal(path: string, data: Blob | string | Uint8Array)
   void navigator.storage?.persist?.().catch(() => false);
 }
 
+/** Git's own id for a file's contents (the same as GitHub's for that file). */
+export async function blobSha(data: Uint8Array): Promise<string> {
+  const head = new TextEncoder().encode(`blob ${data.length}\0`);
+  const all = new Uint8Array(head.length + data.length);
+  all.set(head); all.set(data, head.length);
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-1', all));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Which version of each file this device's edit started from (its git id on GitHub, or 'new' for a file GitHub didn't
+ * have). Push uses it to tell an edit apart from an old copy: a file whose GitHub version has moved on since is never
+ * sent without asking. Files kept from before this was recorded have none, and count as "changed in both places".
+ */
+const BASED_FILE = '.sync/based.json';
+export async function readBased(): Promise<Record<string, string>> {
+  const f = await readLocal(BASED_FILE);
+  try { return f ? (JSON.parse(await f.text()) as Record<string, string>) : {}; } catch { return {}; }
+}
+export async function writeBased(b: Record<string, string>): Promise<void> { await writeLocal(BASED_FILE, JSON.stringify(b)); }
+
+/** Before the first edit of a file on this device: note the version it starts from (the one the site serves). */
+async function noteEdit(path: string): Promise<void> {
+  if (!/^(data|assets)\//.test(path)) return;
+  const based = await readBased();
+  if (path in based) return;
+  // Already kept here from before versions were noted: leave it unknown (a push asks about it).
+  if (await readLocal(path)) return;
+  try {
+    const res = await fetch(path, { cache: 'no-store' });
+    based[path] = res.ok ? await blobSha(new Uint8Array(await res.arrayBuffer())) : 'new';
+  } catch { return; }
+  await writeBased(based);
+}
+
 /** Every file changed in the browser, as paths relative to public/. */
 export async function changedFiles(): Promise<string[]> {
   const out: string[] = [];
@@ -139,8 +174,8 @@ export function browserProject(): Project {
       try { return normalizeAssets(await json<AssetRegistry>(f)); } catch { return normalizeAssets(null); }
     },
     readFile: async (path) => (await readLocal(path)) ?? fetchBlob(path),
-    writeFile: (path, blob) => writeLocal(path, blob),
-    write: (file, text) => writeLocal(`data/${file}`, text),
+    writeFile: async (path, blob) => { await noteEdit(path); await writeLocal(path, blob); },
+    write: async (file, text) => { await noteEdit(`data/${file}`); await writeLocal(`data/${file}`, text); },
     listMaps: async () => {
       const local = (await changedFiles()).filter((p) => /^data\/maps\/[^/]+\.json$/.test(p)).map((p) => p.slice('data/maps/'.length, -5));
       return [...new Set([...(await hostedMaps()), ...local])].sort();

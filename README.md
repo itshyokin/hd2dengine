@@ -41,9 +41,10 @@ on GitHub and keeps your changes **in that browser, on that device** (they're st
   - **⤒ Push to GitHub…**: lists the files that differ from GitHub's and sends them as one commit, with a message
     you can change. Work pushed from the PC in the meantime stays. The online editor and game rebuild a minute or two
     later; on the PC, GitHub Desktop gets it with Fetch / Pull.
-  - **Changed in both places**: if a file was changed on this device and on GitHub since the last Pull or Push,
-    nothing is overwritten until you choose: on Push, *Pull first* or *Push mine over them*; on Pull, *Keep mine* or
-    *Take GitHub's*.
+  - **Changed in both places**: each file edited on this device remembers which GitHub version the edit started
+    from. If GitHub's has moved on since (changed from the PC, or this device kept an old copy from an earlier
+    session), nothing is overwritten until you choose: on Push, *Pull first* or *Push mine over them*; on Pull, *Keep
+    mine* or *Take GitHub's*. Files kept from before this was added always ask once.
   - Only people with write access to the repository can push: anyone else using the online editor only changes their
     own copy, on their own device. Deleting a map or file isn't sent (delete it on the PC).
 - **Save changes as .zip**: only the files you changed, laid out like the project folder (`public/data/…`,

@@ -9,7 +9,7 @@
  *
  * The browser's files are laid out like public/ (data/…, assets/…); in the repository they're under public/.
  */
-import { changedFiles, readLocal, writeLocal } from './browserProject';
+import { blobSha, changedFiles, readBased, readLocal, writeBased, writeLocal } from './browserProject';
 
 export interface GitHubLink { owner: string; repo: string; branch: string; token: string }
 
@@ -77,15 +77,6 @@ async function treeOf(l: GitHubLink, commit: string): Promise<Map<string, string
   return new Map(t.tree.filter((e) => e.type === 'blob').map((e) => [e.path, e.sha]));
 }
 
-/** Git's own id for a file's contents (so unchanged files aren't sent). */
-async function blobSha(data: Uint8Array): Promise<string> {
-  const head = new TextEncoder().encode(`blob ${data.length}\0`);
-  const all = new Uint8Array(head.length + data.length);
-  all.set(head); all.set(data, head.length);
-  const d = new Uint8Array(await crypto.subtle.digest('SHA-1', all));
-  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 function base64(data: Uint8Array): string {
   let s = '';
   for (let i = 0; i < data.length; i += 0x8000) s += String.fromCharCode(...data.subarray(i, i + 0x8000));
@@ -122,6 +113,18 @@ async function changedOnGitHub(l: GitHubLink, from: string, to: string): Promise
   } catch { return null; }
 }
 
+/**
+ * This device's changed files that GitHub has moved on from since the edit started: an old copy, or a file changed in
+ * both places. `based` is the version each edit started from (none: kept from before that was noted).
+ */
+function outdated(mine: Pending[], tree: Map<string, string>, based: Record<string, string>): string[] {
+  return mine.filter((m) => {
+    const was = based[m.path], now = tree.get(repoPath(m.path));
+    if (was === undefined) return true;
+    return was === 'new' ? now !== undefined : was !== now;
+  }).map((m) => m.path);
+}
+
 /* ------------------------------------------------------------------ what's waiting */
 
 export interface Pending { path: string; data: Uint8Array; sha: string }
@@ -155,11 +158,10 @@ export async function push(l: GitHubLink, message: string, resolve?: 'mine', pro
     const head = await headSha(l), tree = await treeOf(l, head);
     const mine = await pendingChanges(l, tree);
     if (!mine.length) { await setBase(head); return { kind: 'nothing' }; }
-    // Changed on GitHub too since this device last pulled or pushed: the same file both places.
-    const base = await baseOf();
+    // GitHub's copy moved on since this device's edit started (changed from the PC, or this is an old copy): ask.
+    const based = await readBased();
     if (resolve !== 'mine') {
-      const theirs = base ? await changedOnGitHub(l, base, head) : new Set<string>();
-      const both = mine.filter((m) => theirs === null || theirs.has(repoPath(m.path))).map((m) => m.path);
+      const both = outdated(mine, tree, based);
       if (both.length) return { kind: 'conflict', files: both };
     }
     let n = 0;
@@ -181,6 +183,9 @@ export async function push(l: GitHubLink, message: string, resolve?: 'mine', pro
       throw e;
     }
     await setBase(commit.sha);
+    // These are now GitHub's versions too: later edits start from them.
+    for (const m of mine) based[m.path] = m.sha;
+    await writeBased(based);
     return { kind: 'pushed', commit: commit.sha, files: mine.length, url: commit.html_url };
   }
   throw new GitHubError('GitHub kept changing while pushing (someone else is pushing too). Try again in a moment.');
@@ -202,14 +207,18 @@ export async function pull(l: GitHubLink, resolve?: 'mine' | 'theirs', progress?
   let theirs = base ? await changedOnGitHub(l, base, head) : null;
   // Without a starting point: everything in the project that differs from GitHub's counts as theirs.
   if (!theirs) theirs = new Set([...tree.keys()].filter((p) => localPath(p)));
-  const mine = new Set((await pendingChanges(l, tree)).map((m) => m.path));
+  const pending = await pendingChanges(l, tree), mine = new Set(pending.map((m) => m.path)), based = await readBased();
   const wanted = [...theirs].map((p) => ({ repo: p, local: localPath(p) })).filter((x): x is { repo: string; local: string } => !!x.local && tree.has(x.repo));
+  // This device's old copies (GitHub moved on since they were taken) count as changed in both places too.
+  for (const p of outdated(pending, tree, based)) if (tree.has(repoPath(p)) && !wanted.some((x) => x.local === p)) wanted.push({ repo: repoPath(p), local: p });
   const both = wanted.filter((x) => mine.has(x.local)).map((x) => x.local);
   // Without a starting point every file would look changed: only files this device kept count as both.
   if (both.length && !resolve) return { kind: 'conflict', files: both };
   let n = 0;
   for (const x of wanted) {
-    if (mine.has(x.local) && resolve === 'mine') continue;
+    // Keeping this device's: it now counts as an edit of GitHub's latest (the next Push sends it without asking).
+    if (mine.has(x.local) && resolve === 'mine') { based[x.local] = tree.get(x.repo)!; continue; }
+    based[x.local] = tree.get(x.repo)!;
     // Only files this device already keeps need writing when there was no starting point (the rest come from the site).
     if (!base && !(await readLocal(x.local))) continue;
     progress?.(`Getting ${++n}: ${x.local.split('/').pop()}`);
@@ -217,5 +226,6 @@ export async function pull(l: GitHubLink, resolve?: 'mine' | 'theirs', progress?
     await writeLocal(x.local, b.encoding === 'base64' ? unbase64(b.content) : new TextEncoder().encode(b.content));
   }
   await setBase(head);
+  await writeBased(based);
   return { kind: 'pulled', files: n };
 }
