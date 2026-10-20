@@ -140,6 +140,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 89 (part 1): Status page Stats with the seven stats on the left and the battle numbers on the right;
       fighting styles gone from Status and Equipment. Soft-blocky rounded corners and a dithered grass lip over the
       cliff tops are built in but off (SOFT_LOOK in terrainGeometry.ts) until a look is picked from the previews.
+- [x] Update 89 (part 2): Version C picked: soft-blocky outer corners rounded (half a tile), inner corners curving
+      round into the lower cell, bevels and lip lit like the top (no line); the grass lip on every height style
+      (and the round shoreline banks); Status stats zero-padded (08) so the rank pills line up.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

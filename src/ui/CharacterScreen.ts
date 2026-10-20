@@ -92,7 +92,7 @@ export class CharacterScreen {
       body = `<div class="cs-sec">Health and magic</div>
         ${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}${bar('SP', g.sp, 'sp')}
         <div class="cs-cols">
-          <div><div class="cs-sec">Stats</div><div class="cs-list">${ATTRS.map((a) => cell(ATTR_INFO[a].name, v.attrs[a], rk ? rankPill(rk[a]) : '')).join('')}</div></div>
+          <div><div class="cs-sec">Stats</div><div class="cs-list">${ATTRS.map((a) => cell(ATTR_INFO[a].name, String(Math.round(v.attrs[a])).padStart(2, '0'), rk ? rankPill(rk[a]) : '')).join('')}</div></div>
           <div><div class="cs-sec">In battle</div><div class="cs-list">${cell('Melee damage', Math.round(v.melee))}${cell('Bow damage', Math.round(v.bow))}${cell('Spell damage', Math.round(v.spell))}
             ${cell('Critical hits', `${Math.round(v.crit)}%`)}${cell('Defence', Math.round(v.armour))}${cell('Magic defence', Math.round(v.magicArmour))}</div></div>
         </div>

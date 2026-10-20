@@ -124,6 +124,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 89 (part 1): CharacterScreen without styles (`.cs-cols`); terrainGeometry `SOFT_LOOK` { round, lip } (both 0 for
   now; `globalThis.__softLook` overrides for previews), `bevelRounds`, `bevelArc`, `LipFn`, QuadList `extra`;
   render/lipFade.ts `patchLip`; WorldBuilder lip meshes.
+- 89 (part 2): `SOFT_LOOK` { round 0.5, lip 0.5 }; `concaveRound` / `bevelInner` (inner corners: the lower cell draws
+  the curve, the plateau cells trim their strips and walls); QuadList `add(..., light)` (soft cells lit flat); lip
+  for every style via `lipFn`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

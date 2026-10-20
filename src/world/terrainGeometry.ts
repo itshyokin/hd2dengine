@@ -24,7 +24,7 @@ export class QuadList {
    * Add a quad (corners in order around its edge). Its winding is fixed so the face points along
    * `facing`, and its normal is the true face normal (tilted on ramps).
    */
-  add(p: [V3, V3, V3, V3], uvs: [number, number][], facing: V3, extra?: [number, number, number, number]): void {
+  add(p: [V3, V3, V3, V3], uvs: [number, number][], facing: V3, extra?: [number, number, number, number], light?: V3): void {
     let [a, b, c, d] = p;
     let uv = uvs, ex = extra;
     let nrm = faceNormal(a, b, d);
@@ -33,6 +33,8 @@ export class QuadList {
     if (dot(nrm, facing) < 0) { [a, b, c, d] = [a, d, c, b]; uv = [uvs[0], uvs[3], uvs[2], uvs[1]]; if (ex) ex = [ex[0], ex[3], ex[2], ex[1]]; nrm = [-nrm[0], -nrm[1], -nrm[2]]; }
     const l = len(nrm);
     nrm = [nrm[0] / l, nrm[1] / l, nrm[2] / l];
+    // Lit as another face would be (a bevel lit like the flat top, so the grass reads as one surface).
+    if (light) nrm = light;
     for (const [i, v] of [a, b, c, d].entries()) {
       this.pos.push(v[0], v[1], v[2]);
       this.nor.push(nrm[0], nrm[1], nrm[2]);
@@ -101,7 +103,7 @@ export function cellSurfaces(map: TileMap, x: number, z: number): Surface[] {
   // Soft blocky: edges that drop to lower ground are bevelled (the top slopes down a little before the wall).
   if (map.heightStyle(x, z) === 'b' && !r) {
     const b = bevels(map, x, z);
-    if (b.some((v) => v > 0)) return bevelSurfaces(x, z, c[0], b, bevelEnds(map, x, z, b), bevelRounds(map, x, z, b).r);
+    if (b.some((v) => v > 0)) return bevelSurfaces(x, z, c[0], b, bevelEnds(map, x, z, b), bevelRounds(map, x, z, b).r, bevelInner(map, x, z, b));
   }
   // A corner slope: four triangles from its centre, so the raised corner (or the one left low) curves evenly.
   if (r?.ramp.style === 'corner' && r.raised) {
@@ -163,7 +165,7 @@ export function bevelEnds(map: TileMap, x: number, z: number, bev: number[]): bo
  * Soft blocky's look: how round its outer corners are (tiles; 0: square, like the blocks) and how far the top's
  * ground folds over onto the cliff below it, breaking up in a pixel dither (tiles; 0: a clean edge).
  */
-export const SOFT_LOOK = { round: 0, lip: 0 };
+export const SOFT_LOOK = { round: 0.5, lip: 0.5 };
 const softLook = (): typeof SOFT_LOOK => ({ ...SOFT_LOOK, ...((globalThis as { __softLook?: Partial<typeof SOFT_LOOK> }).__softLook ?? {}) });
 
 /** The two edges (N, S, W, E) meeting at each corner (NW, NE, SE, SW): the first leads into the corner, the second out. */
@@ -200,6 +202,34 @@ function bevelArc(x: number, z: number, k: number, R: number, b: number[]): { o:
   return out;
 }
 
+/**
+ * Soft blocky's inner corners: corner k of a (lower, flat) cell where the two cells beside it and the one diagonal
+ * across are soft blocky at one height above it. The plateau curves round into this cell's corner: the radius (big
+ * enough that the bevel clears the corner point), that height and the bevel.
+ */
+export function concaveRound(map: TileMap, x: number, z: number, k: number): { r: number; h: number; b: number } | null {
+  const R = softLook().round;
+  if (R <= 0 || !map.inMap(x, z) || map.rampAt(x, z) || map.isHill(x, z)) return null;
+  const c = map.cornersAt(x, z);
+  if (c.some((v) => Math.abs(v - c[0]) > 1e-3)) return null;
+  const nb = CORNER_NB[k].map(([dx, dz]) => [x + dx, z + dz] as [number, number]);
+  if (!nb.every(([cx, cz]) => map.inMap(cx, cz) && map.heightStyle(cx, cz) === 'b' && !map.rampAt(cx, cz))) return null;
+  const hs = nb.map(([cx, cz]) => map.cornersAt(cx, cz)), h = hs[0][0];
+  if (hs.some((cc) => cc.some((v) => Math.abs(v - h) > 1e-3)) || h <= c[0] + 0.01) return null;
+  const b = Math.min(BEVEL, h - c[0]);
+  return { r: Math.min(0.95, Math.max(R, b / (Math.SQRT2 - 1) + 0.02)), h, b };
+}
+
+/** For each edge (N, S, W, E) of a soft-blocky cell, at each end: the radius of an inner corner the bevel runs round into (0: none). */
+export function bevelInner(map: TileMap, x: number, z: number, bev: number[]): number[][] {
+  return EDGES.map((e, ei) => [0, 1].map((k) => {
+    if (!bev[ei]) return 0;
+    const lx = x + e.nb[0], lz = z + e.nb[1], q = CORNER_XZ[e.a[k]], qx = x + q[0], qz = z + q[1];
+    const kk = CORNER_XZ.findIndex(([cx, cz]) => lx + cx === qx && lz + cz === qz);
+    return kk < 0 ? 0 : concaveRound(map, lx, lz, kk)?.r ?? 0;
+  }));
+}
+
 /** The drop along a bevelled edge, as (position along the edge, drop) points: tapering to 0 at a closed end. */
 function bevelProfile(lo: number, hi: number, d: number, ends: boolean[]): [number, number][] {
   const t = Math.min(d, (hi - lo) / 2), pts: [number, number][] = [[lo, ends[0] ? 0 : d]];
@@ -210,7 +240,10 @@ function bevelProfile(lo: number, hi: number, d: number, ends: boolean[]): [numb
 }
 
 /** A bevelled top: the flat middle, a sloped strip on each dropping edge, and the corners between them. */
-function bevelSurfaces(x: number, z: number, y: number, b: number[], ends: boolean[][], r: number[] = [0, 0, 0, 0]): Surface[] {
+function bevelSurfaces(x: number, z: number, y: number, b: number[], ends0: boolean[][], r: number[] = [0, 0, 0, 0], inner0?: number[][]): Surface[] {
+  const inner = inner0 ?? [[0, 0], [0, 0], [0, 0], [0, 0]];
+  // An end running round an inner corner doesn't taper: the curve carries it on.
+  const ends = ends0.map((e, i) => [e[0] && !inner[i][0], e[1] && !inner[i][1]]);
   const [bn, bs, bw, be] = b;
   const x0 = x, x1 = x + 1, z0 = z, z1 = z + 1, ix0 = x0 + bw, ix1 = x1 - be, iz0 = z0 + bn, iz1 = z1 - bs;
   const out: Surface[] = [];
@@ -236,10 +269,10 @@ function bevelSurfaces(x: number, z: number, y: number, b: number[], ends: boole
       out.push([[ax, y - d1, az], [bx, y - d2, bz], [cx, y, cz], [dx, y, dz]]);
     }
   };
-  if (bn) strip(0, r[0] ? x0 + r[0] : ix0, r[1] ? x1 - r[1] : ix1, (s) => [s, z0], (s) => [s, iz0]);
-  if (bs) strip(1, r[3] ? x0 + r[3] : ix0, r[2] ? x1 - r[2] : ix1, (s) => [s, z1], (s) => [s, iz1]);
-  if (bw) strip(2, r[0] ? z0 + r[0] : iz0, r[3] ? z1 - r[3] : iz1, (s) => [x0, s], (s) => [ix0, s]);
-  if (be) strip(3, r[1] ? z0 + r[1] : iz0, r[2] ? z1 - r[2] : iz1, (s) => [x1, s], (s) => [ix1, s]);
+  if (bn) strip(0, r[0] ? x0 + r[0] : ix0 + inner[0][0], r[1] ? x1 - r[1] : ix1 - inner[0][1], (s) => [s, z0], (s) => [s, iz0]);
+  if (bs) strip(1, r[3] ? x0 + r[3] : ix0 + inner[1][0], r[2] ? x1 - r[2] : ix1 - inner[1][1], (s) => [s, z1], (s) => [s, iz1]);
+  if (bw) strip(2, r[0] ? z0 + r[0] : iz0 + inner[2][0], r[3] ? z1 - r[3] : iz1 - inner[2][1], (s) => [x0, s], (s) => [ix0, s]);
+  if (be) strip(3, r[1] ? z0 + r[1] : iz0 + inner[3][0], r[2] ? z1 - r[2] : iz1 - inner[3][1], (s) => [x1, s], (s) => [ix1, s]);
   // Corners: where two bevels meet, a slanted patch; where only one, its strip carries on to the corner.
   const corner = (cx: number, cz: number, ex: number, ez: number, dX: number, dZ: number) => {
     // Nothing to fill when the corner has no width (one edge isn't bevelled): it would only be a sliver on end.
@@ -405,9 +438,9 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
   // Overlays stack by priority, a millimetre apart.
   const lifts = new Map([...overlayKeys.keys()].sort((a, b) => cat.blendFor(a).priority - cat.blendFor(b).priority).map((k, i) => [k, 0.004 + i * 0.002] as [string, number]));
   const listFor = (m: Map<string, QuadList>, key: string) => { let q = m.get(key); if (!q) m.set(key, (q = new QuadList())); return q; };
-  const addOverlay = (m: Map<string, QuadList>, key: string, span: number, s: Surface) => {
+  const addOverlay = (m: Map<string, QuadList>, key: string, span: number, s: Surface, light?: V3) => {
     const lift = lifts.get(key) ?? 0.004;
-    listFor(m, key).add(s.map((p) => [p[0], p[1] + lift, p[2]] as V3) as Surface, s.map((p) => [p[0] / span, -p[2] / span] as [number, number]), UP);
+    listFor(m, key).add(s.map((p) => [p[0], p[1] + lift, p[2]] as V3) as Surface, s.map((p) => [p[0] / span, -p[2] / span] as [number, number]), UP, undefined, light);
   };
   const level = (x: number, z: number) => (map.isHill(x, z) ? 777 : map.step(x, z) * 2) + (map.waterAt(x, z) ? 1 : 0) * 1000;
   /** Can imported tile `key` (on neighbour tx, tz) spread into cell x, z? */
@@ -428,17 +461,18 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
         const nk = map.terrain(tx, tz);
         if (overlayKeys.has(nk) && !spreading.has(nk) && spreads(nk, x, z, tx, tz)) spreading.add(nk);
       }
+      // Soft blocky's bevels are lit like the flat top (no line where they meet; the shape still shows in its outline).
+      const soft = map.heightStyle(x, z) === 'b' && !map.rampAt(x, z), flatLit = soft ? UP : undefined;
       for (const s of cellSurfaces(map, x, z)) {
-        ground.add(s, s.map((p) => [p[0] / W, 1 - p[2] / H] as [number, number]), UP);
-        if (span !== undefined) addOverlay(overlays, key, span, s);
-        for (const nk of spreading) addOverlay(overlays, nk, overlayKeys.get(nk)!, s);
+        ground.add(s, s.map((p) => [p[0] / W, 1 - p[2] / H] as [number, number]), UP, undefined, flatLit);
+        if (span !== undefined) addOverlay(overlays, key, span, s, flatLit);
+        for (const nk of spreading) addOverlay(overlays, nk, overlayKeys.get(nk)!, s, flatLit);
       }
       // A wall belongs to the higher cell, and looks the way that cell's tile says.
       const wallsFor = (look: string) => { let q = walls.get(look); if (!q) walls.set(look, (q = new QuadList())); return q; };
       const round = cornerRounding(map, x, z);
-      // Soft blocky: the top's ground folds a little way over the cliff, breaking up as it goes down (a dither).
-      const soft = map.heightStyle(x, z) === 'b' && !map.rampAt(x, z);
-      const lipFn: LipFn | undefined = soft && LIP > 0 ? (a, b, out, footA, footB) => {
+      // The top's ground folds a little way over the cliff, breaking up as it goes down (a dither), lit like the top.
+      const lipFn: LipFn | undefined = LIP > 0 && !map.rampAt(x, z) ? (a, b, out, footA, footB) => {
         const da = Math.min(LIP, a[1] - footA), db = Math.min(LIP, b[1] - footB);
         if (da < 0.02 && db < 0.02) return;
         const l = Math.hypot(out[0], out[2]) || 1, nx = out[0] / l, nz = out[2] / l;
@@ -447,8 +481,8 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
         const fold = (p: V3, h: number): [number, number] => [p[0] - nx * h, p[2] - nz * h];
         const f = [fold(a, 0), fold(b, 0), fold(b, db), fold(a, da)], fade: [number, number, number, number] = [0, 0, db / LIP, da / LIP];
         const face: V3 = [nx, 0, nz];
-        lip.add([at(a, 0, 0.003), at(b, 0, 0.003), at(b, db, 0.003), at(a, da, 0.003)], f.map(([px, pz]) => [px / W, 1 - pz / H] as [number, number]), face, fade);
-        if (span !== undefined) listFor(lipOverlays, key).add([at(a, 0, 0.005), at(b, 0, 0.005), at(b, db, 0.005), at(a, da, 0.005)], f.map(([px, pz]) => [px / span, -pz / span] as [number, number]), face, fade);
+        lip.add([at(a, 0, 0.003), at(b, 0, 0.003), at(b, db, 0.003), at(a, da, 0.003)], f.map(([px, pz]) => [px / W, 1 - pz / H] as [number, number]), face, fade, UP);
+        if (span !== undefined) listFor(lipOverlays, key).add([at(a, 0, 0.005), at(b, 0, 0.005), at(b, db, 0.005), at(a, da, 0.005)], f.map(([px, pz]) => [px / span, -pz / span] as [number, number]), face, fade, UP);
       } : undefined;
       addWalls(map, x, z, wallsFor(wallLook(x, z)), round.convex, lipFn);
 
@@ -500,7 +534,59 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
           const mx = (ax + bx) / 2 - (x + 0.5), mz = (az + bz) / 2 - (z + 0.5);
           const facing: V3 = round.convex[k] ? [mx, 0, mz] : [-mx, 0, -mz];
           wq.add([[ax, hi, az], [bx, hi, bz], [bx, lo, bz], [ax, lo, az]], [[u, hi], [u + len, hi], [u + len, lo], [u, lo]], facing);
+          if (round.convex[k]) lipFn?.([ax, hi, az], [bx, hi, bz], facing, top, top);
           u += len;
+        }
+      }
+
+      // Soft blocky's inner corners: the plateau around this (lower) cell's corner curves round into it.
+      for (let k = 0; k < 4; k++) {
+        const cr = concaveRound(map, x, z, k);
+        if (!cr) continue;
+        const { r, h, b } = cr, low = map.heightAt(x, z);
+        const qx = x + CORNER_XZ[k][0], qz = z + CORNER_XZ[k][1], sx = CORNER_XZ[k][0] ? -1 : 1, sz = CORNER_XZ[k][1] ? -1 : 1;
+        // Local (u, v) runs into this cell from the corner; the plateau is at u < 0 or v < 0.
+        const P = (u: number, v: number): [number, number] => [qx + sx * u, qz + sz * v];
+        const [ddx, ddz] = CORNER_NB[k][2], dk = map.terrain(x + ddx, z + ddz), dspan = overlayKeys.get(dk);
+        // The ground image is borrowed from the cell diagonally across (the plateau's own), shifted by a whole tile.
+        const guv = (p: V3) => [(p[0] + ddx) / W, 1 - (p[2] + ddz) / H] as [number, number];
+        const face = (p: V3[]): void => {
+          const q = p as Surface;
+          ground.add(q, q.map(guv), UP, undefined, UP);
+          if (dspan !== undefined) addOverlay(slivers, dk, dspan, q, UP);
+        };
+        // Rays out from the curve's centre, round the quarter facing the corner (and the union's own corners).
+        const cAng = (u: number, v: number) => Math.atan2(v - r, u - r);
+        const angs = [Math.PI, Math.PI * 1.5, Math.PI * 1.25, cAng(-b, 0) + Math.PI * 2, cAng(0, -b) + Math.PI * 2];
+        for (let n = 1; n < 16; n++) angs.push(Math.PI + (n / 16) * Math.PI * 0.5);
+        const sorted = [...new Set(angs.map((a) => Math.round(((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) * 1e6) / 1e6))].filter((a) => a >= Math.PI - 1e-6 && a <= Math.PI * 1.5 + 1e-6).sort((a, b2) => a - b2);
+        const rays = sorted.map((a) => {
+          const ca = Math.cos(a), sa = Math.sin(a), inf = 1e9;
+          const tBox = Math.min(ca < -1e-9 ? (r + b) / -ca : inf, sa < -1e-9 ? (r + b) / -sa : inf);
+          const tD = Math.max(ca < -1e-9 ? r / -ca : inf, sa < -1e-9 ? r / -sa : inf);
+          const tEnd = Math.min(tBox, tD);
+          const at = (t: number, y: number): V3 => { const [px, pz] = P(r + ca * t, r + sa * t); return [px, y, pz]; };
+          return { o: at(r, h - b), i: at(r + b, h), e: at(tEnd, h), long: tEnd > r + b + 1e-4, ca, sa };
+        });
+        const wq = wallsFor(wallLook(x + ddx, z + ddz));
+        let u = 0;
+        for (let n = 0; n + 1 < rays.length; n++) {
+          const A = rays[n], B = rays[n + 1];
+          face([A.o, B.o, B.i, A.i]);
+          if (A.long || B.long) face([A.i, B.i, B.e, A.e]);
+          // The curved cliff from the bevel down to this cell's ground, facing into it.
+          const len = Math.hypot(B.o[0] - A.o[0], B.o[2] - A.o[2]), lo = low - SINK;
+          const facing: V3 = [-sx * (A.ca + B.ca), 0, -sz * (A.sa + B.sa)];
+          wq.add([A.o, B.o, [B.o[0], lo, B.o[2]], [A.o[0], lo, A.o[2]]], [[u, A.o[1]], [u + len, B.o[1]], [u + len, lo], [u, lo]], facing);
+          u += len;
+          if (LIP > 0) {
+            const da = Math.min(LIP, A.o[1] - low), db = Math.min(LIP, B.o[1] - low), l = Math.hypot(facing[0], facing[2]) || 1, nx = facing[0] / l, nz = facing[2] / l;
+            const at = (p: V3, dy: number, off: number): V3 => [p[0] + nx * off, p[1] - dy, p[2] + nz * off];
+            const fold = (p: V3, hh: number): V3 => [p[0] - nx * hh, 0, p[2] - nz * hh];
+            const f = [fold(A.o, 0), fold(B.o, 0), fold(B.o, db), fold(A.o, da)], fade: [number, number, number, number] = [0, 0, db / LIP, da / LIP];
+            lip.add([at(A.o, 0, 0.003), at(B.o, 0, 0.003), at(B.o, db, 0.003), at(A.o, da, 0.003)], f.map(guv), [nx, 0, nz], fade, UP);
+            if (dspan !== undefined) listFor(lipOverlays, dk).add([at(A.o, 0, 0.005), at(B.o, 0, 0.005), at(B.o, db, 0.005), at(A.o, da, 0.005)], f.map((p) => [p[0] / dspan, -p[2] / dspan] as [number, number]), [nx, 0, nz], fade, UP);
+          }
         }
       }
     }
@@ -542,6 +628,7 @@ function addWalls(map: TileMap, x: number, z: number, walls: QuadList, rounded: 
   const bev = style === 'b' ? bevels(map, x, z) : [0, 0, 0, 0];
   const bevEnd = style === 'b' ? bevelEnds(map, x, z, bev) : null;
   const trim = style === 'b' ? bevelRounds(map, x, z, bev).r : [0, 0, 0, 0];
+  const inner = style === 'b' ? bevelInner(map, x, z, bev) : null;
   for (const [ei, e] of EDGES.entries()) {
     const nx = x + e.nb[0], nz = z + e.nb[1];
     const inside = map.inMap(nx, nz);
@@ -598,8 +685,9 @@ function addWalls(map: TileMap, x: number, z: number, walls: QuadList, rounded: 
       if (rounded[e.a[1]]) [sx2, sz2, sa2, sb2] = [mx, mz, ma, mb];
       if (rounded[e.a[0]] && rounded[e.a[1]]) continue;
       // Soft blocky, a bevel tapering to nothing at an end: the wall's top follows it (up to the full height there).
-      if (bevEnd && (bevEnd[ei][0] || bevEnd[ei][1] || trim[e.a[0]] || trim[e.a[1]]) && !rounded[e.a[0]] && !rounded[e.a[1]]) {
-        const pts = bevelProfile(trim[e.a[0]], 1 - trim[e.a[1]], bev[ei], bevEnd[ei]), c1 = c[e.a[0]], c2 = c[e.a[1]];
+      const in0 = inner?.[ei][0] ?? 0, in1 = inner?.[ei][1] ?? 0;
+      if (bevEnd && (bevEnd[ei][0] || bevEnd[ei][1] || trim[e.a[0]] || trim[e.a[1]] || in0 || in1) && !rounded[e.a[0]] && !rounded[e.a[1]]) {
+        const pts = bevelProfile(trim[e.a[0]] || in0, 1 - (trim[e.a[1]] || in1), bev[ei], [bevEnd[ei][0] && !in0, bevEnd[ei][1] && !in1]), c1 = c[e.a[0]], c2 = c[e.a[1]];
         for (let i = 0; i + 1 < pts.length; i++) {
           const [t1, d1] = pts[i], [t2, d2] = pts[i + 1];
           const qx1 = x1 + (x2 - x1) * t1, qz1 = z1 + (z2 - z1) * t1, qx2 = x1 + (x2 - x1) * t2, qz2 = z1 + (z2 - z1) * t2;

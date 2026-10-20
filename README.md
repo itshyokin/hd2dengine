@@ -287,7 +287,10 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
   the heights: **Blocky** (square blocks, as before), **Soft blocky** (bevelled edges), **Smooth hills** (heights blend
   into rolling slopes the hero walks up and down; next to lower ground a hill comes down to meet it, next to higher
   ground that keeps its wall) and **Cliffs** (jagged rock faces, bare rock unless the map or tile chose a wall look).
-  Each cell shows its style's symbol (◫ ∿ ▲) in the Heights layer.
+  Each cell shows its style's symbol (◫ ∿ ▲) in the Heights layer. Soft blocky looks like the handheld games' cliffs
+  and ledges: outer corners rounded, inner corners curving round too, the bevel lit like the flat top. On every
+  style, the top's ground folds a little way over the cliff below and breaks up in chunky pixels (the **grass lip**),
+  so grass and rock blend like grass and road do.
 - **Waterfalls**: wherever water drops more than two steps to water below, a sheet of falling water runs down between
   them, with spray where it lands and its own sound (louder for taller falls).
 - **Bridges and platforms** (Props → built-in): wooden bridges (with rails and posts), rope bridges, stone bridges (low

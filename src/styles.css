@@ -2041,3 +2041,4 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 @media (max-width: 720px) { .cs-summary .cs-body { grid-template-columns: minmax(0, 1fr); } }
 .cs-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
 .cs-list { display: grid; padding: 4px 10px; }
+.cs-list .cs-cell b { min-width: 2.4ch; text-align: right; }
