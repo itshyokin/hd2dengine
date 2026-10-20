@@ -445,7 +445,8 @@ export class BattleScreen {
     const els = v.elements?.length ? v.elements.slice(0, 2) : [];
     el.innerHTML = `<div class="pb-top"><span class="pb-name"></span><span class="pb-lv"></span></div>
       <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div>${v.side === 'party' ? '<span class="pb-num"></span>' : ''}</div>
-      <div class="pb-foot"><div class="pb-balls"></div>${v.side === 'party' ? '<div class="pb-xp"><span></span></div>' : '<div class="pb-bracket"></div>'}</div>
+      ${v.side === 'party' ? '<div class="pb-line pb-xpline"><span class="pb-k">EXP</span><div class="pb-xp"><span></span></div><span class="pb-num pb-spacer"></span></div>' : ''}
+      <div class="pb-foot"><div class="pb-balls"></div>${v.side === 'party' ? '' : '<div class="pb-bracket"></div>'}</div>
       ${v.side === 'party' ? '<div class="pb-orb"><b>MP<span></span></b></div>' : ''}`;
     (el.querySelector('.pb-name') as HTMLElement).textContent = v.name;
     const lv = el.querySelector('.pb-lv') as HTMLElement;
