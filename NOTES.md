@@ -113,7 +113,8 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Window touches and results order (update 83): window opacity, colour, text colour and frame colour (Settings and
       Database); element pills at the end of the HP bar's row; Pocket results: Victory + fanfare, EXP (with bonus)
       in one window, loot, level ups with stats; transformations play in the dark before the map fades in.
-      83b: the MP orb floats off the hero block's edge again; HP and EXP bars line up; party spheres under them.
+      83b/c: the hero block: name, HP bar with its numbers under it, EXP bar and spheres in a column (the element pill
+      ending with the bars), the MP orb beside them inside the block.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

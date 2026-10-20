@@ -443,11 +443,17 @@ export class BattleScreen {
     el.className = `pb ${v.side === 'enemy' ? 'foe' : 'hero'}`;
     if (v.color) el.style.setProperty('--hero', v.color);
     const els = v.elements?.length ? v.elements.slice(0, 2) : [];
-    el.innerHTML = `<div class="pb-top"><span class="pb-name"></span><span class="pb-lv"></span></div>
-      <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div>${v.side === 'party' ? '<span class="pb-num"></span>' : ''}</div>
-      ${v.side === 'party' ? '<div class="pb-line pb-xpline"><span class="pb-k">EXP</span><div class="pb-xp"><span></span></div><span class="pb-num pb-spacer"></span></div>' : ''}
-      <div class="pb-foot"><div class="pb-balls"></div>${v.side === 'party' ? '' : '<div class="pb-bracket"></div>'}</div>
-      ${v.side === 'party' ? '<div class="pb-orb"><b>MP<span></span></b></div>' : ''}`;
+    // Heroes: everything in a column (the HP numbers under the bar), the MP orb beside it.
+    el.innerHTML = v.side === 'party'
+      ? `<div class="pb-main"><div class="pb-top"><span class="pb-name"></span><span class="pb-lv"></span></div>
+        <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div></div>
+        <div class="pb-num"></div>
+        <div class="pb-line pb-xpline"><span class="pb-k">EXP</span><div class="pb-xp"><span></span></div></div>
+        <div class="pb-foot"><div class="pb-balls"></div></div></div>
+        <div class="pb-orb"><b>MP<span></span></b></div>`
+      : `<div class="pb-top"><span class="pb-name"></span><span class="pb-lv"></span></div>
+        <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div></div>
+        <div class="pb-foot"><div class="pb-balls"></div><div class="pb-bracket"></div></div>`;
     (el.querySelector('.pb-name') as HTMLElement).textContent = v.name;
     const lv = el.querySelector('.pb-lv') as HTMLElement;
     lv.textContent = v.level ? `Lv ${v.level}` : '';
