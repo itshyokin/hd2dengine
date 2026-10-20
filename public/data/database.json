@@ -6205,5 +6205,10 @@
       "statBlocks": true,
       "layout": "pocket"
     }
+  },
+  "overworldCamera": {
+    "pitch": 42.4,
+    "distance": 15.6,
+    "lean": 0
   }
 }
