@@ -4967,9 +4967,6 @@
       "stepWood": "assets/audio/0_step_wood1.ogg",
       "stepSnow": "assets/audio/0_step_snow1.ogg",
       "stepMetal": "assets/audio/0_step_metal1.ogg",
-      "menuMove": "assets/audio/22_navigate.ogg",
-      "menuBack": "assets/audio/24_goback.ogg",
-      "menuOk": "assets/audio/21_select.ogg",
       "textTick": "assets/audio/28_maletalk.ogg",
       "shoot": "assets/audio/arrow_fire.wav",
       "defeat": "assets/audio/enemy_poof.wav",
@@ -4979,8 +4976,7 @@
       "arrowHit": "assets/audio/bow_hit.wav",
       "block": "assets/audio/shield_hit.wav",
       "fire": "assets/audio/fireball_throw.wav",
-      "fireHit": "assets/audio/fireball_hit.wav",
-      "victory": "assets/audio/battle_victory_start.wav"
+      "fireHit": "assets/audio/fireball_hit.wav"
     },
     "titleMusic": "assets/audio/titlemusic.wav"
   },
@@ -6207,8 +6203,7 @@
     }
   },
   "overworldCamera": {
-    "pitch": 42.4,
-    "distance": 15.6,
-    "lean": 0
+    "pitch": 65,
+    "lean": 66
   }
 }
