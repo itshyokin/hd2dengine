@@ -18,6 +18,9 @@ export interface SeqResult { correct: number; total: number; left: number }
 /** One of the four spheres on a Pocket Handheld block: still to fight (or fighting), knocked out, or no one. */
 export type Sphere = 'up' | 'ko' | 'empty';
 /** A Pocket Handheld block (Pokémon-style): name and level, health bar (and a hero's numbers, MP orb and EXP). */
+/** Pocket Handheld's text box types its lines out at this many letters a second. */
+export const TYPE_SPEED = 55;
+
 /** A line for Pocket Handheld's text box. */
 interface Narration { text: string; wait: boolean; sound?: string; bars?: () => void; stats?: string[] }
 
@@ -502,7 +505,7 @@ export class BattleScreen {
       return;
     }
     this.narrCur = { ...n, t: 0 };
-    this.pocketText.querySelector('.pt-line')!.textContent = n.text;
+    this.pocketText.querySelector('.pt-line')!.textContent = '';
     this.pocketText.classList.toggle('waits', n.wait);
     n.bars?.();
     if (n.sound) this.onSound?.(n.sound);
@@ -513,11 +516,22 @@ export class BattleScreen {
 
   private narrUpdate(dt: number): boolean {
     const c = this.narrCur;
+    if (c) {
+      // Typed out a letter at a time.
+      const was = Math.floor(c.t * TYPE_SPEED);
+      c.t += dt;
+      const n = Math.min(c.text.length, Math.floor(c.t * TYPE_SPEED));
+      if (n !== was || n === c.text.length) { const el = this.pocketText.querySelector('.pt-line')!; if (el.textContent !== c.text.slice(0, n)) el.textContent = c.text.slice(0, n); }
+      this.pocketText.classList.toggle('typed', n >= c.text.length);
+    }
     if (!c?.wait) { if (this.narr.length || this.narrDone) this.nextLine(); return false; }
-    c.t += dt;
-    // OK moves on (a moment after the line comes up, so one press doesn't skip two).
     if (this.mode.kind === 'list' || this.mode.kind === 'target') return false;
-    if ((this.input.consume('ok') || this.input.consume('cancel')) && c.t > 0.18) { uiSound('menuMove'); this.narrCur = null; this.nextLine(); }
+    // OK: the rest of the line at once, then (a moment after it's all there) on to the next.
+    const full = c.t * TYPE_SPEED >= c.text.length;
+    if (this.input.consume('ok') || this.input.consume('cancel')) {
+      if (!full) c.t = c.text.length / TYPE_SPEED;
+      else if (c.t - c.text.length / TYPE_SPEED > 0.15) { uiSound('menuMove'); this.narrCur = null; this.nextLine(); }
+    }
     return true;
   }
 

@@ -946,6 +946,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Call-out* (when the whole string lands); Database → Heroes → *Attack sounds* (one at random when they land a weapon
   or bow attack). Import voice clips in Database → Audio.
 - **Victory music**: the fanfare, then Database → Audio → *Music after the fanfare* (unset: the map's music).
+- **RetroMon window theme** (Settings → Window theme, or Database → Title & menus): handheld-era windows, white panels
+  with dark pixel text and a thick black border with a thin line inside; made for the Pocket Handheld battle layout
+  (its stat blocks, text box and commands take it too).
 - **Settings → Picture → Quality → Potato**: the lightest the map can be drawn, for slower tablets: a lower
   resolution, and no shadows, glow, depth of field, ambient occlusion, detailed lighting, swaying plants, drifting
   cloud shadows, mist, sun rays or neighbouring maps. Battles on battle maps keep their normal resolution. *Moving
@@ -964,10 +967,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   words under the hero's block, the battle log is the text box along the bottom, and the camera starts low behind the
   hero (seen from the back, at the lower left) looking at the foe (upper right). The other cameras still work.
   Each side's block is half the screen wide (everything in it grows and shrinks with the screen, keeping its shape);
-  the command box stays one size, the chosen command boxed and marked ▶. Like the handheld games, the **text box**
-  tells the battle one line at a time, each waiting for OK (▼): "Jordan attacked with Double Slash!", "It does 34
-  damage!", "It's super effective!", "Green Slime used Strike!", "It does 4 Nature damage!", "Green Slime was
-  defeated!", "Jordan gained 60 EXP!", "Jordan reached Level 3!". The battle waits while you read. The box moves to the
+  the command box stays one size, the chosen command boxed and marked ▶. With one foe out there's no choosing a
+  target. Like the handheld games, the **text box** types the battle out a line at a time: a move is announced
+  ("Jordan attacks with Double Slash!", "Green Slime attacks!") and, after a short pause, happens (no button); what
+  follows waits for OK (▼): "A critical hit!", "It's super effective!", "It's not very effective…", "Green Slime
+  was defeated!", "Jordan gained 60 EXP!", "Jordan reached Level 3!". Damage numbers show on the fighters only. The box moves to the
   middle while there are no commands beside it; Y opens the full battle log. There's no results screen: the EXP bar
   fills as each foe falls, and at the end the box tells the rest ("Katrina gained 30 EXP from sharing experience!",
   "Katrina reached Level 2!", then "Katrina grew stronger!" with a box of what the level brought, then the loot). The

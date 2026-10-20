@@ -107,6 +107,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Pocket text box and Potato quality (update 81): shorter stat blocks (HP numbers beside the bar); a one-line
       text box that waits for OK (attacks, damage with its element, effectiveness, defeats, EXP, level ups with a
       stats box, loot), centred when the commands are hidden; Potato quality and a cloud-shadows switch.
+- [x] Pocket flow (update 82): one foe out → no target choice; moves announced (typed, short pause, no button);
+      no damage lines, effectiveness / criticals wait for OK; the text box types its lines; RetroMon window theme
+      (also skins the Pocket blocks, text box and commands in every theme).
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

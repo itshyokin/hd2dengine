@@ -6,7 +6,7 @@
  */
 import './themeFonts.css';
 
-export type UiThemeId = 'ember' | 'parchment' | 'wood' | 'dwarven' | 'elvish' | 'titan';
+export type UiThemeId = 'ember' | 'parchment' | 'wood' | 'dwarven' | 'elvish' | 'titan' | 'retro';
 
 export const UI_THEMES: { id: UiThemeId; name: string; note: string }[] = [
   { id: 'ember', name: 'Ember', note: 'Dark glass and warm gold (the original look).' },
@@ -15,6 +15,7 @@ export const UI_THEMES: { id: UiThemeId; name: string; note: string }[] = [
   { id: 'dwarven', name: 'Dwarven', note: 'Grey stone slabs, carved rune borders, griffin end caps.' },
   { id: 'elvish', name: 'Elvish', note: 'White and gold marble, emerald and sapphire gems, leafy filigree.' },
   { id: 'titan', name: 'Titan', note: 'Black patchwork metal, rivets, glowing red veins.' },
+  { id: 'retro', name: 'RetroMon', note: 'Handheld-era windows: white panels, dark pixel text, a double black border.' },
 ];
 
 interface ThemeLook {
@@ -59,6 +60,20 @@ function band(g: CanvasRenderingContext2D, s: number, width: number, style: stri
 /* ------------------------------------------------------------------ the themes */
 
 const LOOKS: Record<Exclude<UiThemeId, 'ember'>, ThemeLook> = {
+  // Handheld-era windows: plain white, dark text, a thick black line with a thin one inside it, a ▶ on the choice.
+  retro: {
+    light: true, ink: '#181818', muted: '#585858', accent: '#d83828', accentInk: '#ffffff', sel: '#dcdcd4', selInk: '#181818',
+    title: 'var(--f-display)', fillColor: '#f8f8f0', border: 10, small: 8,
+    fill: (g, w, h) => { g.fillStyle = '#f8f8f0'; g.fillRect(0, 0, w, h); },
+    frame: (g, s) => {
+      g.fillStyle = '#f8f8f0'; g.fillRect(0, 0, s, s);
+      // The thick outer line (corners cut a step, for a rounded pixel look), a white gap, the thin inner line.
+      band(g, s, 7, '#202830');
+      g.clearRect(0, 0, 3, 3); g.clearRect(s - 3, 0, 3, 3); g.clearRect(0, s - 3, 3, 3); g.clearRect(s - 3, s - 3, 3, 3);
+      g.fillStyle = '#202830'; for (const [x, y] of [[3, 3], [s - 6, 3], [3, s - 6], [s - 6, s - 6]]) g.fillRect(x, y, 3, 3);
+      g.fillStyle = '#5868a0'; g.fillRect(12, 12, s - 24, 3); g.fillRect(12, s - 15, s - 24, 3); g.fillRect(12, 12, 3, s - 24); g.fillRect(s - 15, 12, 3, s - 24);
+    },
+  },
   parchment: {
     light: true, ink: '#3a2716', muted: '#7a5c3c', accent: '#9b2a1c', accentInk: '#fff3dc', sel: 'linear-gradient(#b13a26, #7d1d12)', selInk: '#fff1d8',
     title: '"Almendra", Georgia, serif', fillColor: '#e8d6ad', border: 14, small: 9,
@@ -201,7 +216,7 @@ const LOOKS: Record<Exclude<UiThemeId, 'ember'>, ThemeLook> = {
 /** Big windows (menus, the pause frame, text boxes, results). */
 const FRAMES = ['.pause-shell', '.menu-box', '.inv-box', '.sk-box', '.ctl-box', '.cr-box', '.log-box', '.quest-box', '.mk-box', '.st-box', '.eq-box', '.rec-box', '.sv-box', '.pt-box', '.battle-victory', '.msg-box', '.mk-confirm'];
 /** Small HUD and battle panels. */
-const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp'];
+const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp', '.pb', '.pocket-text', '.pt-stats', '.layout-pocket .battle-cmd.bar'];
 /** Windows inside the pause frame (it already has one). */
 const INNER = ['body.pause-open .inv > .inv-box', 'body.pause-open .menu > .menu-box', 'body.pause-open .inv > *'];
 
@@ -244,6 +259,14 @@ ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selec
 ${T} .bcmd-tile[aria-selected="true"] { filter: drop-shadow(0 0 8px ${L.accent}); }
 ${T} :is(.pt-card.sel, .ip-card.sel, .mk-row.sel, .mk-slot.sel, .mk-choice[aria-selected="true"]) { outline: 2px solid ${L.accent}; outline-offset: -2px; }
 ${T} .hud-minimap { border-color: ${L.accent} !important; }
+/* Pocket Handheld: the command words aren't windows of their own; the chosen one gets a ▶ and a soft box. */
+${T} .layout-pocket .bcmd-tile { border: 0 !important; border-image: none !important; background: none !important; filter: none !important; }
+${T} .layout-pocket .bcmd-tile[aria-selected="true"] { background: ${L.light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'} !important; }
+${T} .layout-pocket .bcmd-tile[aria-selected="true"]::before, ${T} .pocket-text .pt-next { color: ${L.ink} !important; }
+${T} .pb.targeted { box-shadow: 0 0 0 3px ${L.accent} !important; }
+${T} .pb-orb b { background: ${L.fillColor} !important; }
+${L.light ? `${T} .pb-ball.empty { border-color: rgba(0,0,0,0.35) !important; } ${T} .pb-bracket { background: linear-gradient(90deg, ${L.ink}, transparent) !important; }` : ''}
+${T} :is(.pb, .pocket-text, .pt-stats, .layout-pocket .battle-cmd.bar) { color: ${L.ink} !important; }
 /* The EXP bar along the bottom: the theme's frame, its track inked to match. */
 ${T} .hud-xp { border-radius: 0 !important; }
 ${T} .hud-xp-track { background: ${L.light ? 'rgba(60,40,20,0.22)' : 'rgba(0,0,0,0.45)'} !important; box-shadow: inset 0 0 0 1px ${L.light ? 'rgba(60,40,20,0.35)' : 'rgba(0,0,0,0.6)'} !important; }

@@ -96,6 +96,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   (+ `announced`), `tellHit`, `combo` (an Addition's total) and `foeMove`; TurnBattle.update waits while narrating;
   `pocketResults` lines with `stats`. Settings `quality: 'potato'` (pixelCap 0.7 off battle maps, applySettings
   re-run when a stage opens / closes) and `cloudShadows`.
+- 82: `announce` narrates without waiting and `later`s by the typing time (`TYPE_SPEED` in BattleScreen) + 0.55 s;
+  `tellHit(crit, weak, resist)`; `pickTarget` skips the choice in Pocket with one on the usual side; themes.ts
+  `retro` look and the Pocket selectors in SMALL.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

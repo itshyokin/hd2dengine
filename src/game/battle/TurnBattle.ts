@@ -10,7 +10,8 @@ import type { BattleScreen, ChoiceItem, FighterView, VictoryReport } from '../..
 import type { Ailment, BattleWeather, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
 import { BUFF_INFO, DEBUFFS, buffLabel } from '../status';
 import type { TurnBasedConfig } from '../combat/config';
-import { ELEMENT_COLORS, ELEMENT_NAMES } from '../elements';
+import { ELEMENT_COLORS } from '../elements';
+import { TYPE_SPEED } from '../../ui/BattleScreen';
 import { statusIconUrl } from '../../art/statusIcons';
 import type { QteResult, Sphere } from '../../ui/BattleScreen';
 import type { FaceButton } from '../../world/types';
@@ -168,8 +169,9 @@ export class TurnBattle {
   /** Pocket Handheld: say what's happening and wait for OK before it happens. Other layouts: straight on. */
   private announce(line: string, go: () => void): void {
     if (!this.screen.pocket) { go(); return; }
-    this.tell(line);
-    this.later(0.01, go);
+    // The line types out, a short pause, then it happens (no button needed).
+    this.screen.narrate(line, false);
+    this.later(line.length / TYPE_SPEED + 0.55, go);
   }
 
   /** Pocket Handheld: the move has been announced (the second call carries it out). */
@@ -178,11 +180,9 @@ export class TurnBattle {
   /** An Addition's strikes, added up for one line at the end ("It does 34 damage!"). */
   private combo: { total: number; element: Element; crit: boolean; weak: boolean; resist: boolean; t: Battler } | null = null;
 
-  /** Pocket Handheld's lines for a hit: its damage (and element), a critical, how effective. */
-  private tellHit(n: number, element: Element, crit: boolean, weak: boolean, resist: boolean, t: Battler): void {
+  /** Pocket Handheld's lines after a hit: a critical, and how effective it was (the numbers show on the fighters). */
+  private tellHit(crit: boolean, weak: boolean, resist: boolean): void {
     if (!this.screen.pocket) return;
-    const many = this.all.filter((e) => e.battler.side === t.side && isUp(e.battler)).length > 1;
-    this.tell(`It does ${n} ${element !== 'neutral' ? `${ELEMENT_NAMES[element]} ` : ''}damage${many ? ` to ${t.name}` : ''}!`);
     if (crit) this.tell('A critical hit!');
     if (weak) this.tell('It’s super effective!');
     else if (resist) this.tell('It’s not very effective…');
@@ -191,7 +191,7 @@ export class TurnBattle {
   private flushCombo(): void {
     const c = this.combo;
     this.combo = null;
-    if (c && c.total > 0) this.tellHit(c.total, c.element, c.crit, c.weak, c.resist, c.t);
+    if (c && c.total > 0) this.tellHit(c.crit, c.weak, c.resist);
   }
 
   private get battlers(): Battler[] { return this.all.map((e) => e.battler); }
@@ -493,6 +493,9 @@ export class TurnBattle {
 
   private pickTarget(list: Battler[], pick: (t: Battler) => void, back: () => void, start?: Battler): void {
     if (!list.length) { back(); return; }
+    // Pocket Handheld: with just one on the usual side (one foe out), no choosing: it's them.
+    const usual = list.filter((x) => x.side === list[0].side && isUp(x));
+    if (this.screen.pocket && !start && usual.length === 1) { this.phase = 'busy'; this.screen.idle(); pick(usual[0]); return; }
     // Start on the usual side's weakest (the first group in the list), or the actor themselves (items, healing).
     const side = list[0].side;
     const first = start ?? [...list].filter((x) => x.side === side).sort((x, y) => x.hp - y.hp)[0];
@@ -657,7 +660,7 @@ export class TurnBattle {
    */
   private doAddition(b: Battler, a: BattleAddition, t: Battler): void {
     if (this.defer(b, () => this.doAddition(b, a, this.retarget(b, t)))) return;
-    if (this.screen.pocket && !this.announced) { this.announced = true; this.announce(`${b.name} attacked with ${a.name}!`, () => this.doAddition(b, a, t)); return; }
+    if (this.screen.pocket && !this.announced) { this.announced = true; this.announce(`${b.name} attacks with ${a.name}!`, () => this.doAddition(b, a, t)); return; }
     this.announced = false;
     if (this.screen.pocket) this.combo = { total: 0, element: b.attackElement, crit: false, weak: false, resist: false, t };
     if (!this.screen.pocket) this.screen.message(a.name);
@@ -969,7 +972,7 @@ export class TurnBattle {
     this.striker = by.side === 'party' ? { by, weak: r.label === 'Weak!' } : null;
     // Pocket Handheld: the damage is told before anything it leads to (a foe falling); an Addition's add up.
     if (this.combo) { const c = this.combo; c.total += r.amount; c.crit ||= r.crit; c.weak ||= r.label === 'Weak!'; c.resist ||= r.label === 'Resist'; c.element = element; c.t = t; }
-    else this.tellHit(r.amount, element, r.crit, r.label === 'Weak!', r.label === 'Resist', t);
+    else this.tellHit(r.crit, r.label === 'Weak!', r.label === 'Resist');
     this.damage(t, r.amount, r.crit, tint, mat?.sound);
     this.striker = null;
     if (by.side === 'party') { this.host.tally?.('damageDealt', r.amount); this.host.tally?.('bestHit', r.amount, true); if (r.crit) this.host.tally?.('crits'); }
