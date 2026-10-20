@@ -4191,6 +4191,279 @@
       "icon": "builtin:saddle",
       "description": "Your rented horse's saddle. Use it to send the horse home to its stable.",
       "saddle": true
+    },
+    {
+      "id": "ess_water_fragment",
+      "name": "Water Fragment",
+      "kind": "material",
+      "icon": "builtin:ess_fragment_water",
+      "price": 8,
+      "stack": 99,
+      "essence": {
+        "element": "water",
+        "tier": "fragment"
+      },
+      "description": "A chip of water power, dropped by water monsters. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_water_shard",
+      "name": "Water Shard",
+      "kind": "material",
+      "icon": "builtin:ess_shard_water",
+      "price": 240,
+      "stack": 99,
+      "essence": {
+        "element": "water",
+        "tier": "shard"
+      },
+      "description": "A whole shard of water power. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_water_heart",
+      "name": "Water Heart Stone",
+      "kind": "material",
+      "icon": "builtin:ess_heart_water",
+      "price": 3000,
+      "stack": 9,
+      "essence": {
+        "element": "water",
+        "tier": "heart"
+      },
+      "description": "The heart of water power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_fire_fragment",
+      "name": "Fire Fragment",
+      "kind": "material",
+      "icon": "builtin:ess_fragment_fire",
+      "price": 8,
+      "stack": 99,
+      "essence": {
+        "element": "fire",
+        "tier": "fragment"
+      },
+      "description": "A chip of fire power, dropped by fire monsters. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_fire_shard",
+      "name": "Fire Shard",
+      "kind": "material",
+      "icon": "builtin:ess_shard_fire",
+      "price": 240,
+      "stack": 99,
+      "essence": {
+        "element": "fire",
+        "tier": "shard"
+      },
+      "description": "A whole shard of fire power. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_fire_heart",
+      "name": "Fire Heart Stone",
+      "kind": "material",
+      "icon": "builtin:ess_heart_fire",
+      "price": 3000,
+      "stack": 9,
+      "essence": {
+        "element": "fire",
+        "tier": "heart"
+      },
+      "description": "The heart of fire power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_nature_fragment",
+      "name": "Nature Fragment",
+      "kind": "material",
+      "icon": "builtin:ess_fragment_nature",
+      "price": 8,
+      "stack": 99,
+      "essence": {
+        "element": "nature",
+        "tier": "fragment"
+      },
+      "description": "A chip of nature power, dropped by nature monsters. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_nature_shard",
+      "name": "Nature Shard",
+      "kind": "material",
+      "icon": "builtin:ess_shard_nature",
+      "price": 240,
+      "stack": 99,
+      "essence": {
+        "element": "nature",
+        "tier": "shard"
+      },
+      "description": "A whole shard of nature power. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_nature_heart",
+      "name": "Nature Heart Stone",
+      "kind": "material",
+      "icon": "builtin:ess_heart_nature",
+      "price": 3000,
+      "stack": 9,
+      "essence": {
+        "element": "nature",
+        "tier": "heart"
+      },
+      "description": "The heart of nature power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_earth_fragment",
+      "name": "Earth Fragment",
+      "kind": "material",
+      "icon": "builtin:ess_fragment_earth",
+      "price": 8,
+      "stack": 99,
+      "essence": {
+        "element": "earth",
+        "tier": "fragment"
+      },
+      "description": "A chip of earth power, dropped by earth monsters. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_earth_shard",
+      "name": "Earth Shard",
+      "kind": "material",
+      "icon": "builtin:ess_shard_earth",
+      "price": 240,
+      "stack": 99,
+      "essence": {
+        "element": "earth",
+        "tier": "shard"
+      },
+      "description": "A whole shard of earth power. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_earth_heart",
+      "name": "Earth Heart Stone",
+      "kind": "material",
+      "icon": "builtin:ess_heart_earth",
+      "price": 3000,
+      "stack": 9,
+      "essence": {
+        "element": "earth",
+        "tier": "heart"
+      },
+      "description": "The heart of earth power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_shock_fragment",
+      "name": "Shock Fragment",
+      "kind": "material",
+      "icon": "builtin:ess_fragment_shock",
+      "price": 8,
+      "stack": 99,
+      "essence": {
+        "element": "shock",
+        "tier": "fragment"
+      },
+      "description": "A chip of shock power, dropped by shock monsters. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_shock_shard",
+      "name": "Shock Shard",
+      "kind": "material",
+      "icon": "builtin:ess_shard_shock",
+      "price": 240,
+      "stack": 99,
+      "essence": {
+        "element": "shock",
+        "tier": "shard"
+      },
+      "description": "A whole shard of shock power. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_shock_heart",
+      "name": "Shock Heart Stone",
+      "kind": "material",
+      "icon": "builtin:ess_heart_shock",
+      "price": 3000,
+      "stack": 9,
+      "essence": {
+        "element": "shock",
+        "tier": "heart"
+      },
+      "description": "The heart of shock power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_light_fragment",
+      "name": "Light Fragment",
+      "kind": "material",
+      "icon": "builtin:ess_fragment_light",
+      "price": 8,
+      "stack": 99,
+      "essence": {
+        "element": "light",
+        "tier": "fragment"
+      },
+      "description": "A chip of light power, dropped by light monsters. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_light_shard",
+      "name": "Light Shard",
+      "kind": "material",
+      "icon": "builtin:ess_shard_light",
+      "price": 240,
+      "stack": 99,
+      "essence": {
+        "element": "light",
+        "tier": "shard"
+      },
+      "description": "A whole shard of light power. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_light_heart",
+      "name": "Light Heart Stone",
+      "kind": "material",
+      "icon": "builtin:ess_heart_light",
+      "price": 3000,
+      "stack": 9,
+      "essence": {
+        "element": "light",
+        "tier": "heart"
+      },
+      "description": "The heart of light power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_dark_fragment",
+      "name": "Dark Fragment",
+      "kind": "material",
+      "icon": "builtin:ess_fragment_dark",
+      "price": 8,
+      "stack": 99,
+      "essence": {
+        "element": "dark",
+        "tier": "fragment"
+      },
+      "description": "A chip of dark power, dropped by dark monsters. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_dark_shard",
+      "name": "Dark Shard",
+      "kind": "material",
+      "icon": "builtin:ess_shard_dark",
+      "price": 240,
+      "stack": 99,
+      "essence": {
+        "element": "dark",
+        "tier": "shard"
+      },
+      "description": "A whole shard of dark power. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "ess_dark_heart",
+      "name": "Dark Heart Stone",
+      "kind": "material",
+      "icon": "builtin:ess_heart_dark",
+      "price": 3000,
+      "stack": 9,
+      "essence": {
+        "element": "dark",
+        "tier": "heart"
+      },
+      "description": "The heart of dark power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
     }
   ],
   "enemies": [
