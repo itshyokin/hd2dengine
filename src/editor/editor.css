@@ -717,3 +717,7 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .seq-slot select { width: 56px; }
 /* Database → Horses: the placeholder horse, big and crisp. */
 .horse-preview { image-rendering: pixelated; background: rgba(120, 170, 100, 0.25); border-radius: 8px; margin-top: 6px; }
+/* Compact Database layouts: a narrow column, number grids, checkbox lists. */
+.db-narrow { max-width: 780px; }
+.db-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
+.db-grid .field input[type="number"] { width: 7ch; }

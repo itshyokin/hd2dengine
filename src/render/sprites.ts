@@ -6,6 +6,7 @@
  * the core HD-2D trick. A normal map (imported, or generated from the art) adds volume on top.
  * Shadows use the sprite's alpha, so trees cast tree-shaped shadows.
  */
+import { patchLean } from './lean';
 import * as THREE from 'three';
 import { shapeGeometry } from './propShapes';
 import { patchSway } from './wind';
@@ -101,7 +102,7 @@ export function createSpriteAsset(canvas: HTMLCanvasElement, o: SpriteOpts = {})
   const nmCanvas = o.normal ?? normalMapFrom(canvas, { sprite: true, strength: o.normalStrength ?? 2.5, maxD: o.maxD ?? 4 });
   const nm = makeTexture(nmCanvas, { linear: true, mip: smooth });
   if (smooth) nm.magFilter = THREE.LinearFilter;
-  const material = patchAreaTint(new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }), false);
+  const material = patchLean(patchAreaTint(new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }), false));
   registerNormalMap(material, nm);
   if (o.glow) {
     const gm = makeTexture(maskToGlow(o.glow), { mip: smooth });
@@ -118,8 +119,8 @@ export function createSpriteAsset(canvas: HTMLCanvasElement, o: SpriteOpts = {})
     material,
     geometry: spriteGeometry(w, h),
     castShadow: o.castShadow !== false,
-    depthMaterial: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map, alphaTest: 0.5, side: THREE.DoubleSide }),
-    distanceMaterial: new THREE.MeshDistanceMaterial({ map, alphaTest: 0.5, side: THREE.DoubleSide }),
+    depthMaterial: patchLean(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map, alphaTest: 0.5, side: THREE.DoubleSide })),
+    distanceMaterial: patchLean(new THREE.MeshDistanceMaterial({ map, alphaTest: 0.5, side: THREE.DoubleSide })),
   };
 }
 
@@ -374,15 +375,15 @@ export class SpriteLibrary {
       this.animBases.set(key, base);
     }
     const f = layout.frame, size = f / ANIM_PIXELS_PER_TILE;
-    const material = patchAreaTint(new THREE.MeshStandardMaterial({ map: base.map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }), false);
+    const material = patchLean(patchAreaTint(new THREE.MeshStandardMaterial({ map: base.map, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }), false));
     registerNormalMap(material, base.normal);
     const geometry = spriteGeometry(size, size);
     // LPC feet stand 2 pixels above the bottom of the frame.
     geometry.translate(0, -(f / 32) / ANIM_PIXELS_PER_TILE, 0);
     return {
       map: base.map, material, geometry, castShadow: true,
-      depthMaterial: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: base.map, alphaTest: 0.5, side: THREE.DoubleSide }),
-      distanceMaterial: new THREE.MeshDistanceMaterial({ map: base.map, alphaTest: 0.5, side: THREE.DoubleSide }),
+      depthMaterial: patchLean(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: base.map, alphaTest: 0.5, side: THREE.DoubleSide })),
+      distanceMaterial: patchLean(new THREE.MeshDistanceMaterial({ map: base.map, alphaTest: 0.5, side: THREE.DoubleSide })),
       anim: { layout, width: canvas.width, height: canvas.height },
     };
   }

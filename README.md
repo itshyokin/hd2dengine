@@ -954,6 +954,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   tint; a light theme can go dark), **Text colour** (the main text only: coloured names, items and places keep their
   colours) and **Frame colour** (the frame's coloured lines and gems, the selection and the texture's coloured bits:
   Titan's red veins turned blue). They work on every theme, Ember too.
+- **Map camera** (Database → World → Camera): by default a steep, handheld-style camera (56° down) with standing
+  sprites (trees, people, signs, props) leaning back to face it, so they keep their height and fill out their tile.
+  Angle, distance, field of view and *Sprite lean* (0 upright … 100% facing the camera) can be changed; *Classic* puts
+  back the original lower camera with upright sprites. Battle maps keep their own cameras (sprites upright there).
 - **Settings → Picture → Quality → Potato**: the lightest the map can be drawn, for slower tablets: a lower
   resolution, and no shadows, glow, depth of field, ambient occlusion, detailed lighting, swaying plants, drifting
   cloud shadows, mist, sun rays or neighbouring maps. Battles on battle maps keep their normal resolution. *Moving

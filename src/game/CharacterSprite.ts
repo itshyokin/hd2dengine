@@ -6,6 +6,7 @@
  * Movement sets a looping "motion"; actions (a swing, a cast, getting hurt) play once over it; a "pose" holds one
  * frame (drawing a bow, lying defeated).
  */
+import { patchLean } from '../render/lean';
 import * as THREE from 'three';
 import { ANIM_PIXELS_PER_TILE, SpriteLibrary, withSpriteShadows } from '../render/sprites';
 import type { SpriteAsset } from '../render/sprites';
@@ -213,11 +214,11 @@ export class CharacterSprite {
         const g = new THREE.PlaneGeometry(1, 1);
         const n = g.attributes.normal as THREE.BufferAttribute, base = this.mesh.geometry.attributes.normal as THREE.BufferAttribute;
         for (let k = 0; k < n.count; k++) n.setXYZ(k, base.getX(0), base.getY(0), base.getZ(0));
-        const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: w.map, alphaTest: 0.5, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }), false);
+        const mat = patchLean(patchAreaTint(new THREE.MeshStandardMaterial({ map: w.map, alphaTest: 0.5, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }), false));
         const m = new THREE.Mesh(g, mat);
         m.castShadow = true;
         m.receiveShadow = true;
-        m.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: w.map, alphaTest: 0.5, side: THREE.DoubleSide });
+        m.customDepthMaterial = patchLean(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: w.map, alphaTest: 0.5, side: THREE.DoubleSide }));
         // Just behind or in front of the body; the later sprite (the weapon) nearer to it than the shield.
         const k = (list.length - i) * 0.012;
         m.position.z = side === 'back' ? -k : k;
@@ -227,8 +228,8 @@ export class CharacterSprite {
       };
       const o: Overlay = { def: w.def, back: make('back'), front: make('front'), size: { back: 0, front: 0 }, glow: w.glow, trail: w.trail,
         glows: [], echoes: { back: [], front: [] }, history: { back: [], front: [] }, last: { back: '', front: '' } };
-      const fxMat = (color: string, opacity: number) => new THREE.MeshBasicMaterial({ map: w.mask!, color: new THREE.Color(color), transparent: true, opacity,
-        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+      const fxMat = (color: string, opacity: number) => patchLean(new THREE.MeshBasicMaterial({ map: w.mask!, color: new THREE.Color(color), transparent: true, opacity,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
       if (w.mask && w.glow) for (const layer of [o.back, o.front]) {
         const g = new THREE.Mesh(layer.geometry, fxMat(w.glow.color, 0.7));
         g.position.z = 0.004;

@@ -104,6 +104,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   (Pocket: fanfare + tell first) and `pocketResults` order; Game's outro runs `nextEvolution(after)` before the fade in.
 - 84: BattleScreen `pickFromLists` (mode `lists`, `.pocket-pick`), TurnBattle `itemLists` / `itemOnBench`; Input's
   keydown blurs a focused non-typing element instead of ignoring the key; themes skip `.hud-top.hud-compact`.
+- 85: `Database.overworldCamera` (`src/game/cameraDefaults.ts`), Game's `overworldCam` / `cameraOffset`;
+  `src/render/lean.ts` (`patchLean` on sprite, character, depth and distance materials; `setLean` each frame, 0 on
+  battle maps). Torch flames don't lean yet.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

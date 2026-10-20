@@ -92,7 +92,7 @@ import { classStatGear, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
-import type { CharacterDef, EncounterPick, EnemyDef, HorseDef, LevelRange, TroopDef } from '../world/types';
+import type { CharacterDef, EncounterPick, EnemyDef, HorseDef, LevelRange, OverworldCamera, TroopDef } from '../world/types';
 import { atLevel, partyLevel, rollLevel } from './enemyLevels';
 import { statusIconUrl } from '../art/statusIcons';
 import { elementIconUrl } from '../art/elementIcons';
@@ -103,6 +103,8 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { EvolveScreen } from '../ui/EvolveScreen';
+import { setLean } from '../render/lean';
+import { DEFAULT_OVERWORLD_CAMERA } from './cameraDefaults';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
 import { ELEMENT_COLORS, ELEMENT_LIST, ELEMENT_NAMES, elementResult } from './elements';
@@ -5249,7 +5251,8 @@ export class Game {
   /** The camera's field of view: the field's (wider on portrait screens), or the battle map's. */
   private applyFov(): void {
     const narrow = this.camera.aspect < 1;
-    this.camera.fov = this.stage ? this.stage.stage.fov * (narrow ? 1.4 : 1) : narrow ? 44 : 30; // portrait phones need a wider view
+    const fov = this.overworldCam.fov;
+    this.camera.fov = this.stage ? this.stage.stage.fov * (narrow ? 1.4 : 1) : narrow ? fov * 1.45 : fov; // portrait phones need a wider view
     this.camera.updateProjectionMatrix();
   }
 
@@ -6100,7 +6103,21 @@ export class Game {
     return { x: (v.x + 1) / 2 * r.width + r.left, y: (1 - v.y) / 2 * r.height + r.top, on: v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 };
   };
   private readonly titleFocus = new THREE.Vector3();
+  /** Database → Camera, with the defaults filled in. */
+  private get overworldCam(): Required<OverworldCamera> {
+    const c = this.db.overworldCamera ?? {}, d = DEFAULT_OVERWORLD_CAMERA;
+    return { pitch: clamp(c.pitch ?? d.pitch, 20, 80), distance: clamp(c.distance ?? d.distance, 6, 40), fov: clamp(c.fov ?? d.fov, 15, 70), lean: clamp(c.lean ?? d.lean, 0, 100) };
+  }
+  private readonly camOffset = new THREE.Vector3();
+  /** Where the map camera sits from what it looks at (its angle and distance). */
+  private cameraOffset(): THREE.Vector3 {
+    const c = this.overworldCam, p = THREE.MathUtils.degToRad(c.pitch);
+    return this.camOffset.set(0, Math.sin(p) * c.distance, Math.cos(p) * c.distance);
+  }
+
   private updateCamera(dt: number): void {
+    // Sprites lean back to face the map camera (upright on battle maps, where the camera goes all round).
+    setLean(this.stage ? 0 : THREE.MathUtils.degToRad(this.overworldCam.pitch) * this.overworldCam.lean / 100);
     if (this.stage) { this.updateStageCamera(dt); return; }
     // A griffin flight: further back and higher, following the griffin.
     if (this.flight) {
@@ -6126,7 +6143,7 @@ export class Game {
     const o = this.openSides;
     t.x = clamp(t.x, o.has('w') ? -1e4 : 7, o.has('e') ? 1e4 : this.map.w - 7);
     t.z = clamp(t.z, o.has('n') ? -1e4 : 5, o.has('s') ? 1e4 : this.map.h - 2);
-    this.camera.position.copy(t).add(CAMERA_OFFSET);
+    this.camera.position.copy(t).add(this.cameraOffset());
     this.camera.lookAt(t.x, t.y + 0.6, t.z);
     // Sleeping: the camera lifts and tilts up to the sky (smoothly in, and back down after).
     const k = this.sleepLook;

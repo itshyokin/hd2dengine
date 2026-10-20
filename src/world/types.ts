@@ -860,7 +860,15 @@ export interface HeroDef {
 /** Fighter: closes in with their weapon. Archer: keeps back and shoots. Caster: their spell shard. Healer: heals the hurt, else casts. */
 export type AllyStyle = 'fighter' | 'archer' | 'caster' | 'healer';
 
+/**
+ * The camera over the maps (not battles): how steeply it looks down (degrees from level), how far back it sits (tiles),
+ * its field of view, and how far standing sprites lean back to face it (0 – 100% of the camera's angle).
+ */
+export interface OverworldCamera { pitch?: number; distance?: number; fov?: number; lean?: number }
+
 export interface Database {
+  /** The camera over the maps (Database → Camera). Unset: the handheld-style camera. */
+  overworldCamera?: OverworldCamera;
   title: string;
   /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
   world?: import('./worldLayout').WorldData;

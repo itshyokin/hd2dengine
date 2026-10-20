@@ -14,6 +14,8 @@ import { SEASONS, SEASON_NAMES, type Season, type SeasonSettings } from '../worl
 import { DEFAULT_PLAYER, type PlayerConfig, playerConfig } from '../game/stats';
 import { ABILITIES, type Gauge, type MenuConfig, type PlayerConfigData } from '../world/types';
 import { PAUSE_OPTIONS, TITLE_OPTIONS } from '../game/menus';
+import { CLASSIC_OVERWORLD_CAMERA, DEFAULT_OVERWORLD_CAMERA } from '../game/cameraDefaults';
+import type { OverworldCamera } from '../world/types';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
 import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
 import type { EditorStore } from './store';
@@ -58,7 +60,7 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
@@ -67,7 +69,7 @@ const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
-  ['World', [['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Travel: horses and griffins', 'horse']]],
+  ['World', [['camera', 'Camera', 'eye'], ['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Travel: horses and griffins', 'horse']]],
   ['Game', [['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
@@ -87,6 +89,7 @@ const ICON_PATHS: Record<string, string> = {
   scroll: '<path d="M7 3h11v15a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-1h11"/><path d="M7 3a2 2 0 0 0-2 2v12M10 8h5M10 12h5"/>',
   trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   pin: '<path d="M12 21s-7-6.3-7-12a7 7 0 0 1 14 0c0 5.7-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-1.3-1-1.7-1-2.7 0-1 .8-1.5 1.8-1.5H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/>',
   note: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
@@ -112,6 +115,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const time = { rate: store.db.time?.rate ?? 20, darkness: store.db.time?.darkness ?? 0.85, seasons: { ...store.db.time?.seasons } as SeasonSettings };
   let gameTitle = store.db.title;
   const menus: MenuConfig = JSON.parse(JSON.stringify(store.db.menus ?? {})) as MenuConfig;
+  const cam: OverworldCamera = JSON.parse(JSON.stringify(store.db.overworldCamera ?? {})) as OverworldCamera;
   const saving = { anywhere: store.db.saving?.anywhere !== false, autosave: store.db.saving?.autosave !== false };
   const abilities = Object.fromEntries(ABILITIES.map((a) => [a, store.db.abilities?.[a] ?? true])) as Record<string, boolean>;
   const body = h('div', { class: 'db-editor' });
@@ -311,6 +315,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'menus') { content.replaceChildren(...menusTab()); return; }
     if (tab === 'saving') { content.replaceChildren(...savingTab()); return; }
     if (tab === 'time') { content.replaceChildren(...timeTab()); return; }
+    if (tab === 'camera') { content.replaceChildren(...cameraTab()); return; }
     content.replaceChildren(
       h('section', { class: 'db-section' },
         h('h3', {}, 'Health, magic and stamina'),
@@ -386,6 +391,24 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       oninput: () => { const v = parseFloat(input.value); set(v); out.textContent = fmt(v); if (note && noteText) note.textContent = noteText(v); } });
     return h('div', { class: 'blend-slider' }, input, out);
   };
+  /** World → Camera: the camera over the maps (battles have their own). */
+  const cameraTab = () => {
+    const D = DEFAULT_OVERWORLD_CAMERA, val = <K extends keyof OverworldCamera>(k: K) => cam[k] ?? D[k];
+    const set = <K extends keyof OverworldCamera>(k: K, v: number) => { if (v === D[k]) delete cam[k]; else cam[k] = v; };
+    const preset = (p: Required<OverworldCamera>) => { for (const k of Object.keys(p) as (keyof OverworldCamera)[]) set(k, p[k]); render(); };
+    return [h('section', { class: 'db-section db-narrow' }, h('h3', {}, 'Camera over the maps'),
+      h('p', { class: 'note' }, 'How the camera looks at the maps while exploring (battle maps have their own cameras). Standing sprites (trees, people, signs) lean back to face it, so a steep camera still shows their full height and they fill out their tile.'),
+      h('div', { class: 'stack row' },
+        h('button', { type: 'button', class: 'btn', onclick: () => preset(DEFAULT_OVERWORLD_CAMERA) }, 'Handheld 3D (default)'),
+        h('button', { type: 'button', class: 'btn ghost', onclick: () => preset(CLASSIC_OVERWORLD_CAMERA) }, 'Classic (low, upright sprites)')),
+      h('div', { class: 'db-grid' },
+        field('Angle (°)', numberInput(val('pitch'), (v) => set('pitch', Math.max(20, Math.min(80, Math.round(v * 10) / 10))), { step: 1, min: 20, max: 80 }), 'How steeply it looks down: 56 handheld, 42 classic.'),
+        field('Distance (tiles)', numberInput(val('distance'), (v) => set('distance', Math.max(6, Math.min(40, Math.round(v * 10) / 10))), { step: 0.5, min: 6, max: 40 }), 'Further back shows more of the map.'),
+        field('Field of view (°)', numberInput(val('fov'), (v) => set('fov', Math.max(15, Math.min(70, Math.round(v)))), { step: 1, min: 15, max: 70 }), 'Wider: more perspective.'),
+        field('Sprite lean (%)', numberInput(val('lean'), (v) => set('lean', Math.max(0, Math.min(100, Math.round(v)))), { step: 5, min: 0, max: 100 }), 'Of the camera’s angle: 0 upright, 100 facing it fully.')),
+      h('p', { class: 'note' }, 'Playtest to see it. Tall sprites right in front of walls may tuck into them when they lean a lot; lower the lean if so.'))];
+  };
+
   const timeTab = () => {
     const rateNote = h('div', { class: 'hint' }, dayLength(time.rate));
     const darkNote = h('div', { class: 'hint' });
@@ -528,6 +551,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const textColorsOut = JSON.stringify(textCols) === JSON.stringify(textColors(undefined)) ? null : textCols;
       const stylesOut = JSON.stringify(msgStyles) === JSON.stringify(messageStyles(undefined)) ? null : msgStyles;
       const climateOut = cleanClimate(climate) ?? null;
+      const camOut = Object.keys(cam).length ? cam : null;
       if (JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
         JSON.stringify(mOut ?? null) === JSON.stringify(db.menus ?? null) && gameTitle === db.title && JSON.stringify(tFinal) === JSON.stringify(db.time ?? null) &&
         JSON.stringify(Object.keys(ab).length ? ab : null) === JSON.stringify(db.abilities && Object.keys(db.abilities).length ? db.abilities : null) &&
@@ -541,7 +565,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null)) return 'same';
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -551,6 +575,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (mOut) db.menus = C(mOut); else delete db.menus;
       db.title = gameTitle;
       if (tFinal) db.time = C(tFinal); else delete db.time;
+      if (camOut) db.overworldCamera = C(camOut); else delete db.overworldCamera;
       if (itemsOut) db.items = C(itemsOut); else delete db.items;
       if (invOut) db.inventory = C(invOut); else delete db.inventory;
       if (combatOut) db.combat = C(combatOut); else delete db.combat;

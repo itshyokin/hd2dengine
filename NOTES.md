@@ -118,6 +118,8 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 84: Pocket Use Item picks from two lists (party with the one out in gold and the bench, and the foes; harmful
       items list the foes first), so benched members can be healed; the empty top HUD panel (condensed HUD) no longer
       draws a window in themes; keys reach the game again when a clicked button or hidden field kept the focus.
+- [x] Update 85: handheld-style map camera (Database → World → Camera: angle 56°, distance, field of view; "Classic"
+      preset for the old one) with standing sprites leaning back to face it (Sprite lean, 55% by default).
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
