@@ -4236,12 +4236,6 @@
         }
       ],
       "defense": 80,
-      "inflicts": [
-        {
-          "ailment": "poison",
-          "chance": 20
-        }
-      ],
       "tint": {
         "color": "#1eff00",
         "amount": 0.65,
@@ -4251,45 +4245,53 @@
       "battleOffset": -0.15
     },
     {
-      "id": "ember_slime",
-      "name": "Ember Slime",
+      "id": "slime_copy",
+      "name": "Red Slime",
       "look": {
-        "image": "assets/enemies/ember_slime_mvbqq5kb.png",
-        "flat": {
-          "height": 1.75
-        }
+        "image": "assets/enemies/slime_mvbnipsk.png",
+        "flat": {}
       },
-      "hp": 30,
-      "damage": 12,
-      "speed": 1.6,
-      "behaviour": "charger",
-      "attackRange": 3.5,
-      "cooldown": 2.4,
-      "windup": 0.75,
-      "sight": 6,
+      "hp": 22,
+      "damage": 6,
+      "speed": 1.5,
+      "behaviour": "melee",
+      "attackRange": 0.8,
+      "cooldown": 1.5,
+      "windup": 0.55,
+      "sight": 5,
       "fov": 160,
       "hearing": 4,
-      "xp": 18,
+      "xp": 8,
       "gold": [
-        1,
-        5
+        0,
+        3
       ],
       "drops": [
         {
-          "item": "ether",
-          "chance": 0.15
+          "item": "potion",
+          "chance": 0.1
         }
       ],
       "elements": [
         "fire"
       ],
-      "inflicts": [
+      "resists": [
+        "poison"
+      ],
+      "attackElement": "nature",
+      "actions": [
         {
-          "ailment": "burn",
-          "chance": 20
+          "name": "",
+          "kind": "attack"
         }
       ],
-      "defense": 80
+      "defense": 80,
+      "tint": {
+        "color": "#ff4d00",
+        "amount": 0.5,
+        "hue": 180
+      },
+      "battleOffset": -0.15
     },
     {
       "id": "bandit",
@@ -5926,7 +5928,8 @@
   ],
   "combat": {
     "turnBased": {
-      "mode": "single"
+      "mode": "single",
+      "statBlocks": true
     }
   }
 }
