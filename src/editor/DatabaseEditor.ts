@@ -1,4 +1,8 @@
 import { organizeForm } from './formLayout';
+import { compactForm } from './dom';
+
+/** Database tabs drawn compact (compactForm). */
+const COMPACT_TABS = new Set<string>(['player', 'heroes', 'combat', 'enemies', 'spells', 'climate', 'camera']);
 import { horsesTab } from './HorsesEditor';
 import { DEFAULT_HORSES, horseList } from '../game/horses';
 import type { HorseDef } from '../world/types';
@@ -166,6 +170,9 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     renderTab();
     // Switches together at the top, then the sections with a jump bar (every tab the same).
     organizeForm(content);
+    // The busiest pages: a narrow column, field grids, hints behind ⓘ.
+    if (COMPACT_TABS.has(tab)) { const f = content.querySelector<HTMLElement>('.items-layout .item-form'); if (f) compactForm(f); else compactForm(content).classList.add('db-page'); }
+    else content.classList.remove('db-compact', 'db-page');
     content.scrollTop = top;
     addTopDelete();
   };

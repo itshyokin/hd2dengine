@@ -123,3 +123,24 @@ export function backspaceAsEscape(): void {
     t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true, composed: true }));
   }, true);
 }
+
+/**
+ * A tidier Database page: the form is a narrow column, rows of fields wrap into a grid, and each field's long hint
+ * folds away behind a small ⓘ beside its label (tap or click it to read).
+ */
+export function compactForm(root: HTMLElement): HTMLElement {
+  root.classList.add('db-compact');
+  for (const hint of root.querySelectorAll<HTMLElement>('.field > .hint')) {
+    const f = hint.parentElement!, label = f.querySelector(':scope > label');
+    if (!label || f.querySelector(':scope > label > .info')) continue;
+    const b = h('button', { type: 'button', class: 'info', title: hint.textContent ?? '', 'aria-label': 'About this setting' }, 'i');
+    b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); f.classList.toggle('open'); });
+    label.append(b);
+  }
+  return root;
+}
+
+/** On / off settings in a framed list, one under another. */
+export function checkList(...boxes: (HTMLElement | null | false | undefined)[]): HTMLElement {
+  return h('div', { class: 'db-checks' }, ...boxes.filter((x): x is HTMLElement => !!x));
+}

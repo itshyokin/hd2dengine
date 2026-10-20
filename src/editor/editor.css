@@ -721,3 +721,37 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .db-narrow { max-width: 780px; }
 .db-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
 .db-grid .field input[type="number"] { width: 7ch; }
+/* Compact Database pages (compactForm): a narrow column, wrapping field grids, hints behind ⓘ. */
+.db-compact { max-width: 800px; }
+.db-compact .field-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 14px; align-items: end; }
+.db-compact .field-row > .field:has(select), .db-compact .field-row > .field:has(textarea) { grid-column: span 2; }
+.db-compact .field { gap: 3px; min-width: 0; }
+.db-compact .field > label { display: flex; align-items: center; gap: 6px; }
+.db-compact .field input[type="number"] { width: 9ch; max-width: 100%; }
+.db-compact .field input[type="text"], .db-compact .field select { max-width: 100%; }
+.db-compact .field > .hint { display: none; }
+.db-compact .field.open > .hint { display: block; }
+.db-compact .info { flex: none; width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 1px solid currentColor; background: none; color: var(--muted, #9ea3b6);
+  font: italic 700 11px/14px Georgia, serif; cursor: pointer; opacity: 0.75; }
+.db-compact .info:hover, .db-compact .field.open .info { opacity: 1; color: var(--ember, #ffb04a); }
+.db-compact .db-section { gap: 8px; }
+.db-compact .db-section > h3 { margin-bottom: 0; }
+.db-checks { display: grid; gap: 4px; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px; }
+.el-table { border-collapse: collapse; }
+.el-table th { font-weight: 600; font-size: 12px; padding: 2px 10px; text-align: center; }
+.el-table td { padding: 2px 10px; text-align: center; }
+.el-table td:first-child { text-align: left; }
+.el-table img { width: 14px; height: 14px; vertical-align: middle; margin-right: 6px; image-rendering: pixelated; }
+.db-compact .field-row > span:empty { display: none; }
+.db-compact .db-switch-list { display: grid; gap: 4px; }
+.db-compact .db-switch-list { grid-template-columns: 1fr; }
+.db-compact .el-table { width: auto; }
+.db-compact.db-page { max-width: none; }
+.db-compact.db-page > * { max-width: 800px; }
+.db-compact .db-switch-group { grid-template-columns: 1fr; gap: 4px; }
+.db-compact .db-switch-from:empty { display: none; }
+.db-compact .db-switch-from { font-weight: 600; opacity: 0.8; }
+.db-compact .db-table.costs, .db-compact .db-table.speeds { grid-template-columns: minmax(120px, auto) auto 1fr; }
+.db-compact .db-table select { width: auto; max-width: 100%; }
+.db-compact .climate-temps { justify-content: start; }
+.db-compact .db-table input[type="number"] { width: 9ch; max-width: 100%; }

@@ -32,7 +32,7 @@ export function climateTab(c: ClimateConfig, rerender: () => void): HTMLElement[
   return [
     h('section', { class: 'db-section' }, h('h3', {}, 'Dynamic weather'),
       checkbox('The outdoor weather changes by itself', c.dynamic, (v) => { c.dynamic = v; rerender(); }),
-      h('div', { class: 'db-table costs' },
+      h('div', { class: 'db-table climate-temps' },
         h('span', { class: 'db-name' }, 'Each spell lasts'), num(c.spell[0], (v) => (c.spell = [Math.max(0.5, v), Math.max(Math.max(0.5, v), c.spell[1])]), 0.5, 'Shortest spell'), h('span', { class: 'db-unit' }, 'to'),
         num(c.spell[1], (v) => (c.spell = [Math.min(c.spell[0], Math.max(0.5, v)), Math.max(0.5, v)]), 0.5, 'Longest spell'), h('span', { class: 'db-unit' }, 'game hours'),
         h('span', { class: 'db-name' }, 'Heat and cold in battle'), num(c.battle, (v) => (c.battle = Math.max(0, Math.min(100, Math.round(v)))), 5, 'Battle effect'), h('span', { class: 'db-unit' }, '%'), h('span'), h('span')),

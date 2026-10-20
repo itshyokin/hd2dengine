@@ -120,6 +120,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       draws a window in themes; keys reach the game again when a clicked button or hidden field kept the focus.
 - [x] Update 85: handheld-style map camera (Database → World → Camera: angle 56°, distance, field of view; "Classic"
       preset for the old one) with standing sprites leaning back to face it (Sprite lean, 55% by default).
+- [x] Update 86: compact Database pages (Player, Heroes, Combat, Enemies, Spells, Weather & temperature, Camera):
+      edit panel at most 800px, side-by-side short boxes, setting help behind an "i" button, switches stacked in one
+      column, enemy Immune / Absorbs as a checkbox table; the Weather page's spell-length row lines up again.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

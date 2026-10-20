@@ -42,23 +42,26 @@ export function defenceSection(d: Defence, rerender: () => void, who = 'It'): HT
   const pick = (k: number) => h('div', { class: 'el-pick' },
     h('img', { src: elementIconUrl(els[k] ?? 'neutral'), alt: '', class: 'el-icon' }),
     select(typed, els[k] ?? '', (v) => setEl(k, v), { 'aria-label': k ? 'Second element' : 'First element', ...(k && !els[0] ? { disabled: true } : {}) }));
-  const grid = (key: 'immune' | 'absorb') => h('div', { class: 'el-grid', role: 'group', 'aria-label': key === 'immune' ? 'Immune to' : 'Absorbs' },
-    ...ELEMENT_LIST.map((e) => {
-      const on = !!d[key]?.includes(e);
-      const b = h('button', { type: 'button', class: 'el-chip', 'aria-pressed': String(on), title: ELEMENT_NAMES[e], onclick: () => {
-        const set = new Set(d[key] ?? []);
-        if (on) set.delete(e); else set.add(e);
-        const other = key === 'immune' ? 'absorb' : 'immune';
-        if (!on && d[other]?.includes(e)) d[other] = d[other]!.filter((x) => x !== e);
-        if (d[other] && !d[other]!.length) delete d[other];
-        if (set.size) d[key] = ELEMENT_LIST.filter((x) => set.has(x)); else delete d[key];
-        rerender();
-      } }, h('img', { src: elementIconUrl(e), alt: '' }), ELEMENT_NAMES[e]);
-      return b;
-    }));
   return h('section', { class: 'db-section' }, h('h3', {}, 'Elements'),
     h('div', { class: 'field-row' }, field('Element', pick(0)), field('Second element', pick(1), 'Optional: hits are weighed against both (×4 caps at ×3).')),
     h('p', { class: 'note' }, els.length ? els.map((e) => `${ELEMENT_NAMES[e]}: weak to ${TYPED_ELEMENTS.filter((a) => matchups(a).strong.includes(e)).map((a) => ELEMENT_NAMES[a]).join(', ') || 'nothing'}`).join(' · ') : `${who} ${who === 'They' ? 'take' : 'takes'} normal damage from every element.`),
-    field('Immune to', grid('immune'), 'Takes no damage from these.'),
-    field('Absorbs', grid('absorb'), 'Healed by these instead of hurt.'));
+    elementTable(d, rerender));
+}
+
+/** Immune to / absorbs: one row per element, a tick box for each (one or the other). */
+function elementTable(d: Defence, rerender: () => void): HTMLElement {
+  const box = (e: Element, key: 'immune' | 'absorb') => {
+    const i = h('input', { type: 'checkbox', checked: !!d[key]?.includes(e), 'aria-label': `${key === 'immune' ? 'Immune to' : 'Absorbs'} ${ELEMENT_NAMES[e]}` }) as HTMLInputElement;
+    i.addEventListener('change', () => {
+      const set = new Set(d[key] ?? []), other = key === 'immune' ? 'absorb' : 'immune';
+      if (i.checked) { set.add(e); if (d[other]?.includes(e)) d[other] = d[other]!.filter((x) => x !== e); } else set.delete(e);
+      if (d[other] && !d[other]!.length) delete d[other];
+      if (set.size) d[key] = ELEMENT_LIST.filter((x) => set.has(x)); else delete d[key];
+      rerender();
+    });
+    return i;
+  };
+  return h('table', { class: 'el-table' },
+    h('tr', {}, h('th', {}, ''), h('th', { title: 'Takes no damage from it' }, 'Immune'), h('th', { title: 'Healed by it instead of hurt' }, 'Absorbs')),
+    ...ELEMENT_LIST.map((e) => h('tr', {}, h('td', {}, h('img', { src: elementIconUrl(e), alt: '' }), ELEMENT_NAMES[e]), h('td', {}, box(e, 'immune')), h('td', {}, box(e, 'absorb')))));
 }

@@ -107,6 +107,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 85: `Database.overworldCamera` (`src/game/cameraDefaults.ts`), Game's `overworldCam` / `cameraOffset`;
   `src/render/lean.ts` (`patchLean` on sprite, character, depth and distance materials; `setLean` each frame, 0 on
   battle maps). Torch flames don't lean yet.
+- 86: dom.ts `compactForm` (adds `.db-compact` and the "i" buttons that open a field's hint) and `checkList`;
+  DatabaseEditor `COMPACT_TABS` (list tabs compact the item form, others the whole page as `.db-page`);
+  elementFields `elementTable`; enemy Boss / Undead / Bestiary switches are loose so formLayout gathers them.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

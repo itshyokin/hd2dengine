@@ -317,6 +317,9 @@ With `npm run dev` running, open <http://localhost:5173/editor.html>. Same edito
   (Party, Battle, Abilities, Items, Story, World, Game): hover one for its name; the open tab's name shows at the right.
   Every form is laid out the same way: all its on / off **Switches** together at the top (under the name of the
   section each belongs to), then its named sections, with a **jump bar** above that goes straight to a section.
+  Player, Heroes, Combat, Enemies, Spells, Weather & temperature and Camera use a compact layout: the edit panel is at
+  most 800px wide, short boxes sit side by side, and each setting's explanation hides behind a small **i** next to
+  its name (click it to show or hide). An enemy's Immune / Absorbs elements are a checkbox table, one element a row.
   **Apply** puts the changes into the project **and saves `database.json`** straight away: "Changes saved. It's
   safe to close the Database." shows at the bottom left for a few seconds (or "No changes to save"). The window
   stays open; **Close** with changes not applied asks whether to apply and save them or let them go. Every list
