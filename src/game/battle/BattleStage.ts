@@ -299,7 +299,7 @@ export class BattleStage implements StageHooks {
     const mid = feet.clone().setY(feet.y + tall * 0.25), head = feet.clone().setY(feet.y + tall * 0.47);
     const ep = (foe?.home ?? ec).clone().setY((foe?.home.y ?? ec.y) + (foe ? foe.tall * foe.scale * 0.5 : 0.6));
     const tanV = Math.tan(THREE.MathUtils.degToRad(probe.fov / 2)), tanH = tanV * probe.aspect;
-    const turn = Math.atan(0.42 * tanH), tip = Math.atan(0.34 * tanV);
+    const turn = Math.atan(0.42 * tanH), tip = Math.atan(0.42 * tanV);
     const p = new THREE.Vector3(), dir = new THREE.Vector3(), best = { score: Infinity, pos: new THREE.Vector3(), look: new THREE.Vector3() };
     for (let b = 1.2; b <= 6; b += 0.3)
       for (let r = -2.5; r <= 2.5; r += 0.25)

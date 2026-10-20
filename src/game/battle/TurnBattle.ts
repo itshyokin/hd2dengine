@@ -10,7 +10,7 @@ import type { BattleScreen, ChoiceItem, FighterView, VictoryReport } from '../..
 import type { Ailment, BattleWeather, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
 import { BUFF_INFO, DEBUFFS, buffLabel } from '../status';
 import type { TurnBasedConfig } from '../combat/config';
-import { ELEMENT_COLORS } from '../elements';
+import { ELEMENT_COLORS, ELEMENT_NAMES } from '../elements';
 import { statusIconUrl } from '../../art/statusIcons';
 import type { QteResult, Sphere } from '../../ui/BattleScreen';
 import type { FaceButton } from '../../world/types';
@@ -120,6 +120,7 @@ export class TurnBattle {
     this.hurt = false;
     this.partyFell = false;
     this.toldLevel.clear();
+    this.announced = false; this.combo = null;
     this.rules = rules;
     for (const e of entries) e.battler.charging = null;
     this.all = entries;
@@ -150,7 +151,8 @@ export class TurnBattle {
     this.screen.setWeather(this.weatherText());
     const foes = this.foes;
     const names = foes.length === 1 ? foes[0].name : `${foes.length} enemies`;
-    this.screen.message(opening === 'preemptive' ? `You caught ${names} off guard!` : opening === 'ambush' ? `Ambushed by ${names}!` : `${names} ${foes.length === 1 ? 'appears' : 'appear'}!`, true);
+    const intro = opening === 'preemptive' ? `You caught ${names} off guard!` : opening === 'ambush' ? `Ambushed by ${names}!` : `${names} ${foes.length === 1 ? 'appears' : 'appear'}!`;
+    if (this.screen.pocket) this.tell(intro); else this.screen.message(intro, true);
     this.say(opening === 'ambush' ? `Ambushed by ${names}` : `Battle: ${names}`);
     this.phase = 'intro';
     this.showOrder();
@@ -159,6 +161,38 @@ export class TurnBattle {
 
   /** A line for the adventure log and the battle log beside the battle. */
   private say(text: string): void { this.screen.logLine(text); this.host.log(text); }
+
+  /** Pocket Handheld: a line in the text box that waits for OK (and the battle with it). Other layouts: nothing. */
+  private tell(text: string, extra?: { sound?: string; stats?: string[]; bars?: () => void }): void { this.screen.narrate(text, true, extra); }
+
+  /** Pocket Handheld: say what's happening and wait for OK before it happens. Other layouts: straight on. */
+  private announce(line: string, go: () => void): void {
+    if (!this.screen.pocket) { go(); return; }
+    this.tell(line);
+    this.later(0.01, go);
+  }
+
+  /** Pocket Handheld: the move has been announced (the second call carries it out). */
+  private announced = false;
+
+  /** An Addition's strikes, added up for one line at the end ("It does 34 damage!"). */
+  private combo: { total: number; element: Element; crit: boolean; weak: boolean; resist: boolean; t: Battler } | null = null;
+
+  /** Pocket Handheld's lines for a hit: its damage (and element), a critical, how effective. */
+  private tellHit(n: number, element: Element, crit: boolean, weak: boolean, resist: boolean, t: Battler): void {
+    if (!this.screen.pocket) return;
+    const many = this.all.filter((e) => e.battler.side === t.side && isUp(e.battler)).length > 1;
+    this.tell(`It does ${n} ${element !== 'neutral' ? `${ELEMENT_NAMES[element]} ` : ''}damage${many ? ` to ${t.name}` : ''}!`);
+    if (crit) this.tell('A critical hit!');
+    if (weak) this.tell('It’s super effective!');
+    else if (resist) this.tell('It’s not very effective…');
+  }
+
+  private flushCombo(): void {
+    const c = this.combo;
+    this.combo = null;
+    if (c && c.total > 0) this.tellHit(c.total, c.element, c.crit, c.weak, c.resist, c.t);
+  }
 
   private get battlers(): Battler[] { return this.all.map((e) => e.battler); }
   private get party(): Battler[] { return this.all.filter((e) => e.battler.side === 'party').map((e) => e.battler); }
@@ -170,6 +204,8 @@ export class TurnBattle {
   update(dt: number): void {
     if (this.phase === 'off') return;
     this.screen.update(dt);
+    // Pocket Handheld: the battle waits while the text box has lines to read.
+    if (this.screen.narrating) return;
     if (this.wait > 0) {
       this.wait -= dt;
       if (this.wait <= 0 && this.then) { const t = this.then; this.then = null; t(); }
@@ -342,7 +378,7 @@ export class TurnBattle {
     ];
     // Pocket Handheld: a 3 × 2 grid, the actions on top (Attack, Magic, Items), the rest under them.
     if (this.screen.pocket) { const order = ['Attack', 'Magic', 'Items', 'Guard', 'Swap', 'Escape']; cmds = [...cmds].sort((x, y) => order.indexOf(x.label) - order.indexOf(y.label)); }
-    this.screen.message(`${b.name}’s turn`, true);
+    this.screen.message(this.screen.pocket ? `What will ${b.name} do?` : `${b.name}’s turn`, true);
     this.screen.choose(b.name, cmds, (i) => { this.lastCommand = i; this.screen.message(''); cmds[i].run(); }, undefined, (i) => this.showOrder(cmds[i].rank), this.lastCommand, true);
   }
 
@@ -467,6 +503,8 @@ export class TurnBattle {
 
   private doAttack(b: Battler, t: Battler): void {
     if (this.defer(b, () => this.doAttack(b, this.retarget(b, t)))) return;
+    if (this.screen.pocket && !this.announced) { this.announced = true; this.announce(`${b.name} attacks!`, () => this.doAttack(b, t)); return; }
+    this.announced = false;
     this.screen.animate(b.key, 'lunge', undefined, t.key);
     this.host.sound('swing');
     this.later(0.28, () => {
@@ -547,8 +585,10 @@ export class TurnBattle {
   }
 
   private release(b: Battler, s: BattleSpell, r: SpellRank, targets: Battler[]): void {
+    if (this.screen.pocket && !this.announced) { this.announced = true; this.announce(`${b.name} casts ${r.name}!`, () => this.release(b, s, r, targets)); return; }
+    this.announced = false;
     const color = s.color ?? ELEMENT_COLORS[s.element];
-    this.screen.message(r.name);
+    if (!this.screen.pocket) this.screen.message(r.name);
     // A spell addition: the party caster presses its buttons in order first.
     const seq = b.side === 'party' ? spellSequence(s, r.rank) : [];
     if (seq.length) { this.castSequence(b, s, r, targets, color, seq); return; }
@@ -617,7 +657,10 @@ export class TurnBattle {
    */
   private doAddition(b: Battler, a: BattleAddition, t: Battler): void {
     if (this.defer(b, () => this.doAddition(b, a, this.retarget(b, t)))) return;
-    this.screen.message(a.name);
+    if (this.screen.pocket && !this.announced) { this.announced = true; this.announce(`${b.name} attacked with ${a.name}!`, () => this.doAddition(b, a, t)); return; }
+    this.announced = false;
+    if (this.screen.pocket) this.combo = { total: 0, element: b.attackElement, crit: false, weak: false, resist: false, t };
+    if (!this.screen.pocket) this.screen.message(a.name);
     // The camera closes in from a little to the side as the hero rushes in, and follows them.
     this.screen.shot('addition', b.key, t.key);
     this.screen.animate(b.key, 'approach', undefined, t.key);
@@ -785,15 +828,23 @@ export class TurnBattle {
       this.say(`${e.name} unleashes its overdrive!`);
     }
     const a = move.action;
+    if (this.screen.pocket && !this.announced) { this.announced = true; this.announce(a ? `${e.name} used ${a.name || this.actionWord(a)}!` : `${e.name} attacks!`, () => this.foeMove(e, move)); return; }
+    this.foeMove(e, move);
+  }
+
+  /** An enemy's chosen move, carried out. */
+  private foeMove(e: Battler, move: NonNullable<ReturnType<typeof enemyChoice>>): void {
+    this.announced = false;
+    const a = move.action;
     if (!a) {
       const t = move.targets[0];
-      this.screen.message(`${e.name} attacks!`);
+      if (!this.screen.pocket) this.screen.message(`${e.name} attacks!`);
       this.screen.animate(e.key, 'lunge', undefined, t.key);
       this.host.sound('swing');
       this.later(0.3, () => { this.hit(e, t, e.attack, e.attackElement, e.attackMagic, e.inflicts, undefined, !!e.counterspell); this.endTurn(e, RANK.attack, 0.8); });
       return;
     }
-    this.screen.message(`${e.name}: ${a.name || this.actionWord(a)}`);
+    if (!this.screen.pocket) this.screen.message(`${e.name}: ${a.name || this.actionWord(a)}`);
     if (a.kind === 'guard') { this.doGuard(e); return; }
     if (a.kind === 'buff') {
       const color = BUFF_INFO[a.buffs?.[0]?.buff ?? 'str'].color;
@@ -882,6 +933,7 @@ export class TurnBattle {
       this.screen.popup(t.key, 'Miss', 'info');
       this.host.sound('dodge');
       this.say(`${by.name} misses`);
+      this.tell(`${by.name}’s attack missed!`);
       return;
     }
     const scale = (by.side === 'party' ? this.cfg.partyDamage : this.cfg.enemyDamage) * (by.surging ? 1.5 : 1);
@@ -892,16 +944,18 @@ export class TurnBattle {
       this.screen.animate(t.key, 'dodge');
       this.host.sound('dodge');
       this.say(`${t.name} dodges ${by.name}’s ${magic ? 'spell' : 'attack'}`);
+      this.tell(`${t.name} dodged the ${magic ? 'spell' : 'attack'}!`);
       return;
     }
     const tint = color ?? (element !== 'neutral' ? ELEMENT_COLORS[element] : undefined);
-    if (r.kind === 'immune') { this.screen.popup(t.key, 'IMMUNE', 'big'); this.host.sound('thump'); this.say(`${t.name} is immune`); return; }
+    if (r.kind === 'immune') { this.screen.popup(t.key, 'IMMUNE', 'big'); this.host.sound('thump'); this.say(`${t.name} is immune`); this.tell(`It doesn’t affect ${t.name}…`); return; }
     if (r.kind === 'absorb') {
       t.hp = Math.min(t.maxHp, t.hp + r.amount);
       this.screen.popup(t.key, `+${r.amount}`, 'heal');
       this.screen.popup(t.key, 'Absorbed', 'info');
       this.host.sound('ringOn');
       this.refresh(t);
+      this.tell(`${t.name} absorbed it and healed ${r.amount}!`);
       return;
     }
     // A CRITICAL: a flash, the screen shakes, a big word with a crack and a rumble.
@@ -913,6 +967,9 @@ export class TurnBattle {
     const mat = !magic && t.impact ? t.impact : null;
     if (mat) this.screen.impact(t.key, mat.fx, r.crit);
     this.striker = by.side === 'party' ? { by, weak: r.label === 'Weak!' } : null;
+    // Pocket Handheld: the damage is told before anything it leads to (a foe falling); an Addition's add up.
+    if (this.combo) { const c = this.combo; c.total += r.amount; c.crit ||= r.crit; c.weak ||= r.label === 'Weak!'; c.resist ||= r.label === 'Resist'; c.element = element; c.t = t; }
+    else this.tellHit(r.amount, element, r.crit, r.label === 'Weak!', r.label === 'Resist', t);
     this.damage(t, r.amount, r.crit, tint, mat?.sound);
     this.striker = null;
     if (by.side === 'party') { this.host.tally?.('damageDealt', r.amount); this.host.tally?.('bestHit', r.amount, true); if (r.crit) this.host.tally?.('crits'); }
@@ -1016,7 +1073,7 @@ export class TurnBattle {
     const up = pv.level > was;
     this.screen.setXp(b.key, pv.frac, pv.level, up);
     this.toldLevel.set(who, pv.level);
-    if (up) { this.screen.logLine(`${b.name} grew to Lv ${pv.level}!`, 'lvup'); this.screen.cue('levelUp'); }
+    if (up) { this.say(`${b.name} grew to Lv ${pv.level}`); this.tell(`${b.name} reached Level ${pv.level}!`, { sound: 'levelUp' }); }
   }
 
   /** A foe fell: everyone fighting earns its EXP now (the finishing blow and a weakness a little more). */
@@ -1028,7 +1085,7 @@ export class TurnBattle {
     for (const g of gains) {
       const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);
       if (!p) continue;
-      if (this.screen.pocket && g.xp > 0) this.screen.logLine(`${p.name} gained ${g.xp} EXP`, 'exp');
+      if (this.screen.pocket && g.xp > 0) { this.say(`${p.name} gained ${g.xp} EXP`); this.tell(`${p.name} gained ${g.xp} EXP!`); }
       this.expPop(p, g.xp);
     }
   }
@@ -1041,13 +1098,15 @@ export class TurnBattle {
     t.status.buffs.clear();
     refreshAgility(t);
     setTimeout(() => this.screen.animate(t.key, 'faint'), 260);
-    if (t.side === 'enemy') { this.host.sound('defeat'); this.say(`${t.name} defeated`); this.foeEarned(t); }
-    else { this.partyFell = true; this.say(`${t.name} is knocked out`); }
+    this.flushCombo();
+    if (t.side === 'enemy') { this.host.sound('defeat'); this.say(`${t.name} defeated`); this.tell(`${t.name} was defeated!`); this.foeEarned(t); }
+    else { this.partyFell = true; this.say(`${t.name} is knocked out`); this.tell(`${t.name} was knocked out!`); }
     this.updateSpheres();
   }
 
   private endTurn(b: Battler, rank: number, pause: number): void {
     b.surging = false;
+    this.flushCombo();
     // Weather from a spell wears off after its rounds.
     if (Number.isFinite(this.weatherLeft) && --this.weatherLeft <= 0) {
       this.setWeather(this.baseWeather, 0);
@@ -1103,20 +1162,20 @@ export class TurnBattle {
 
   /** Pocket Handheld's results, in the log: EXP still to tell (bonuses, shared EXP), level ups and what they brought, the loot. */
   private pocketResults(report: VictoryReport): void {
-    const lines: { text: string; cls?: string; sound?: string; bars?: () => void }[] = [];
+    const lines: { text: string; sound?: string; bars?: () => void; stats?: string[] }[] = [];
     for (const h of report.heroes) {
       const who = Number(h.key.slice(1)) || 0, b = this.all.find((e) => e.battler.side === 'party' && (e.who ?? 0) === who)?.battler;
       const bars = () => { if (b) this.screen.setXp(b.key, h.after.toNext ? h.after.xp / h.after.toNext : 1, h.after.level); };
-      if (h.via) lines.push({ text: `${h.name} gained ${h.gained} EXP thanks to the ${h.via}!`, cls: 'exp', sound: 'expFill', bars });
-      else if (h.bonus && h.bonus.gained > 0) lines.push({ text: `${h.name} gained ${h.bonus.gained} bonus EXP (${h.bonus.bits.join(' · ')})`, cls: 'exp', sound: 'expFill', bars });
+      if (h.via) lines.push({ text: `${h.name} gained ${h.gained} EXP from sharing experience!`, sound: 'expFill', bars });
+      else if (h.bonus && h.bonus.gained > 0) lines.push({ text: `${h.name} gained ${h.bonus.gained} bonus EXP${h.bonus.bits.length ? ` (${h.bonus.bits.map((x) => x.replace(/ \+\d+$/, '')).join(', ')})` : ''}!`, sound: 'expFill', bars });
       else bars();
       const told = this.toldLevel.get(who) ?? h.level;
-      if (h.after.level > told) lines.push({ text: `${h.name} grew to Lv ${h.after.level}!`, cls: 'lvup', sound: 'levelUp', bars });
-      // Short enough for the text box: the health, magic and skill points (each stat's rise is on the Status page).
-      const brief = h.changes.filter((c) => !c.includes(' · ') && !/^[A-Z]{3} \+/.test(c));
-      if (h.after.level > h.level && brief.length) lines.push({ text: `${h.name}: ${brief.join(', ')}`, cls: 'lvup' });
+      if (h.after.level > told) lines.push({ text: `${h.name} reached Level ${h.after.level}!`, sound: 'levelUp', bars });
+      // What the new levels brought, in a small box beside the line.
+      const stats = h.changes.flatMap((c) => c.split(' · '));
+      if (h.after.level > h.level && stats.length) lines.push({ text: `${h.name} grew stronger!`, stats });
     }
-    for (const l of report.loot) lines.push({ text: l.kind === 'gold' ? `Got ${l.name}` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}${l.note ? ` (${l.note})` : ''}`, cls: 'loot', sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] });
+    for (const l of report.loot) lines.push({ text: l.kind === 'gold' ? `Got ${l.name}!` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}!${l.note ? ` (${l.note})` : ''}`, sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] });
     this.screen.pocketVictory(lines, () => {
       if (this.host.outro) this.host.outro(() => this.close('victory'));
       else this.close('victory');

@@ -946,6 +946,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Call-out* (when the whole string lands); Database → Heroes → *Attack sounds* (one at random when they land a weapon
   or bow attack). Import voice clips in Database → Audio.
 - **Victory music**: the fanfare, then Database → Audio → *Music after the fanfare* (unset: the map's music).
+- **Settings → Picture → Quality → Potato**: the lightest the map can be drawn, for slower tablets: a lower
+  resolution, and no shadows, glow, depth of field, ambient occlusion, detailed lighting, swaying plants, drifting
+  cloud shadows, mist, sun rays or neighbouring maps. Battles on battle maps keep their normal resolution. *Moving
+  cloud shadows* can be switched off on its own too.
 - **Healing out of battle**: Menu → Abilities → a hero → a healing spell: cast it on the party (it costs their MP).
 - **Battle screen layout** (Database → Combat): **Dragon Legend** (default, Legend of Dragoon style): each hero's
   card in a row along the bottom (the hero in the middle), with their face (Database → Heroes → *Face art*, or one cut
@@ -960,9 +964,13 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   words under the hero's block, the battle log is the text box along the bottom, and the camera starts low behind the
   hero (seen from the back, at the lower left) looking at the foe (upper right). The other cameras still work.
   Each side's block is half the screen wide (everything in it grows and shrinks with the screen, keeping its shape);
-  the command box stays one size, the chosen command boxed and marked ▶. There's no results screen: the EXP bar
-  fills as each foe falls, and the log tells it all ("Jordan gained 60 EXP", "Jordan grew to Lv 3!", bonuses at the
-  end, "Katrina gained 30 EXP thanks to the EXP All!", what the new levels brought, then the loot); OK goes on. The
+  the command box stays one size, the chosen command boxed and marked ▶. Like the handheld games, the **text box**
+  tells the battle one line at a time, each waiting for OK (▼): "Jordan attacked with Double Slash!", "It does 34
+  damage!", "It's super effective!", "Green Slime used Strike!", "It does 4 Nature damage!", "Green Slime was
+  defeated!", "Jordan gained 60 EXP!", "Jordan reached Level 3!". The battle waits while you read. The box moves to the
+  middle while there are no commands beside it; Y opens the full battle log. There's no results screen: the EXP bar
+  fills as each foe falls, and at the end the box tells the rest ("Katrina gained 30 EXP from sharing experience!",
+  "Katrina reached Level 2!", then "Katrina grew stronger!" with a box of what the level brought, then the loot). The
   other two layouts keep the EXP and loot screens.
 - **Choosing a target**: enemies are one row and the party another. Left / right move along the row; up / down
   change rows.

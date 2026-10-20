@@ -1803,23 +1803,23 @@ body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-q
 .battle.layout-pocket .battle-cam { left: auto; right: calc(12px + env(safe-area-inset-right, 0px)); }
 .battle.layout-pocket .battle-cards, .battle.layout-pocket .battle-status, .battle.layout-pocket .battle-order, .battle.layout-pocket .battle-blocks,
 .battle.layout-pocket .battle-msg, .battle.layout-pocket .bf-tag, .battle.layout-pocket .battle-desc { display: none !important; }
-.pb { position: relative; background: rgba(12, 14, 24, 0.9); border: max(2px, calc(var(--u) * 0.22)) solid var(--pb-edge, #c9a46a); border-radius: calc(var(--u) * 1.3);
-  padding: calc(var(--u) * 1.1) calc(var(--u) * 1.6); color: #f3ead8; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); cursor: pointer; transition: opacity 0.3s, box-shadow 0.2s; }
-.pb.hero { padding-right: calc(var(--u) * 8.4); }
+.pb { position: relative; background: rgba(12, 14, 24, 0.9); border: max(2px, calc(var(--u) * 0.22)) solid var(--pb-edge, #c9a46a); border-radius: calc(var(--u) * 1.1);
+  padding: calc(var(--u) * 0.6) calc(var(--u) * 1.4); color: #f3ead8; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); cursor: pointer; transition: opacity 0.3s, box-shadow 0.2s; }
+.pb.hero { padding-right: calc(var(--u) * 7.2); }
 .pb.targeted { box-shadow: 0 0 0 3px #ffd27a, 0 8px 22px rgba(0, 0, 0, 0.5); }
 .pb.down { opacity: 0.55; }
-.pb-top { display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 0.8); font-family: var(--f-display, inherit); font-size: calc(var(--u) * 2.2); font-weight: 700; letter-spacing: 0.02em; }
+.pb-top { display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 0.8); font-family: var(--f-display, inherit); font-size: calc(var(--u) * 1.85); font-weight: 700; letter-spacing: 0.02em; line-height: 1.2; }
 .pb-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-lv { color: #ffd38a; font-size: calc(var(--u) * 1.75); white-space: nowrap; display: inline-flex; align-items: center; gap: calc(var(--u) * 0.4); }
 .pb-lv img { width: calc(var(--u) * 1.8); height: calc(var(--u) * 1.8); image-rendering: pixelated; }
-.pb-line { display: flex; align-items: center; gap: calc(var(--u) * 0.8); margin-top: calc(var(--u) * 0.8); }
+.pb-line { display: flex; align-items: center; gap: calc(var(--u) * 0.8); margin-top: calc(var(--u) * 0.45); }
 .pb-k { font-size: calc(var(--u) * 1.25); font-weight: 800; color: #ffcf6a; letter-spacing: 0.06em; }
 .pb-bar { flex: 1; height: calc(var(--u) * 1.15); border-radius: calc(var(--u) * 0.7); background: #2a2d3a; border: 1px solid #000; overflow: hidden; }
 .pb-bar span { display: block; height: 100%; width: 100%; background: linear-gradient(#7cf08a, #3cb05a); transition: width 0.45s ease; }
 .pb.mid .pb-bar span { background: linear-gradient(#ffe27a, #e0a82a); }
 .pb.low .pb-bar span { background: linear-gradient(#ff8a7a, #d0402a); }
-.pb-num { text-align: right; font-size: calc(var(--u) * 2); font-weight: 700; margin-top: calc(var(--u) * 0.3); font-variant-numeric: tabular-nums; }
-.pb-foot { display: flex; align-items: center; gap: calc(var(--u) * 1.1); margin-top: calc(var(--u) * 0.9); }
+.pb-num { font-size: calc(var(--u) * 1.55); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 7.5ch; text-align: right; }
+.pb-foot { display: flex; align-items: center; gap: calc(var(--u) * 1.1); margin-top: calc(var(--u) * 0.5); }
 .pb-balls { display: flex; gap: calc(var(--u) * 0.7); }
 .pb-ball { position: relative; width: calc(var(--u) * 1.5); height: calc(var(--u) * 1.5); border-radius: 50%; border: max(2px, calc(var(--u) * 0.2)) solid #1a1420; background: radial-gradient(circle at 35% 35%, #ffd08a, #e07a1a 70%); }
 .pb-ball.ko { background: radial-gradient(circle at 35% 35%, #6a6a72, #2a2a32 70%); }
@@ -1831,7 +1831,7 @@ body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-q
 /* The foe's block underlines like the handheld games' bracket. */
 .pb-bracket { flex: 1; height: calc(var(--u) * 0.32); border-radius: 2px; background: linear-gradient(90deg, rgba(201, 164, 106, 0.8), rgba(201, 164, 106, 0)); }
 /* The hero's MP: a violet ring at the right of their block, emptying as magic is spent. */
-.pb-orb { --mp: 1; position: absolute; right: calc(var(--u) * 1.3); top: 50%; transform: translateY(-50%); width: calc(var(--u) * 6); height: calc(var(--u) * 6); border-radius: 50%;
+.pb-orb { --mp: 1; position: absolute; right: calc(var(--u) * 1.3); top: 50%; transform: translateY(-50%); width: calc(var(--u) * 5.2); height: calc(var(--u) * 5.2); border-radius: 50%;
   border: max(2px, calc(var(--u) * 0.3)) solid var(--pb-edge, #c9a46a); background: conic-gradient(#b37aff calc(var(--mp) * 360deg), #2a2440 0); display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
 .pb-orb b { width: 74%; height: 74%; border-radius: 50%; background: #0c0e18; display: grid; place-items: center; align-content: center; font-size: calc(var(--u) * 1); color: #d9c2ff; line-height: 1.05; letter-spacing: 0.06em; }
 .pb-orb b span { font-size: calc(var(--u) * 1.6); color: #fff; letter-spacing: 0; }
@@ -1853,27 +1853,37 @@ body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-q
 .battle.layout-pocket .bcmd-tile:disabled .bcmd-tile-label { opacity: 0.4; }
 .battle.layout-pocket .battle-cmd-cap { text-align: left; padding: 0 calc(var(--u) * 0.4); margin: calc(var(--u) * 0.4) 0 0; font-size: calc(var(--u) * 1.25); line-height: 1.3;
   height: 2.6em; min-height: 2.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-/* The battle log as the text box along the bottom left, as tall as the commands. */
-.battle.layout-pocket .battle-log { left: calc(var(--g) + env(safe-area-inset-left, 0px)); right: auto; top: auto; bottom: calc(var(--g) + env(safe-area-inset-bottom, 0px)); width: var(--half); z-index: 3; }
-.battle.layout-pocket .battle-log-lines { box-sizing: border-box; height: var(--cmd-h); min-height: var(--cmd-h); max-height: var(--cmd-h); background: rgba(12, 14, 24, 0.92);
-  border: max(2px, calc(var(--u) * 0.22)) solid var(--pb-edge, #c9a46a); border-radius: calc(var(--u) * 1.3); padding: calc(var(--u) * 1) calc(var(--u) * 1.6);
-  font-size: calc(var(--u) * 1.55); line-height: 1.5; gap: calc(var(--u) * 0.2); align-content: end; -webkit-mask-image: none; mask-image: none; }
-.battle.layout-pocket .battle-log-hint { position: absolute; right: calc(var(--u) * 1.2); bottom: calc(var(--u) * 0.5); font-size: calc(var(--u) * 0.95); opacity: 0.55; }
-/* Just the newest three lines, unless the player is reading back (Y). */
-.battle.layout-pocket .battle-log:not(.focused) .battle-log-lines > :nth-last-child(n + 4) { display: none; }
-.battle.layout-pocket .battle-log.focused .battle-log-lines { height: auto; max-height: min(46cqh, calc(var(--u) * 30)); align-content: start; }
-.battle-log-lines .exp { color: #9adfff; }
-.battle-log-lines .lvup { color: #ffd27a; font-weight: 700; }
+/* The text box (one line at a time, ▼ when it waits for OK) at the bottom left, beside the commands; in the middle
+   while there are none. The full battle log opens over the battle with Y. */
+.pocket-text { display: none; }
+.battle.layout-pocket .pocket-text { display: block; position: absolute; z-index: 3; box-sizing: border-box; left: calc(var(--g) + env(safe-area-inset-left, 0px)); bottom: calc(var(--g) + env(safe-area-inset-bottom, 0px));
+  width: var(--half); height: var(--cmd-h); padding: calc(var(--u) * 1.3) calc(var(--u) * 2); background: rgba(12, 14, 24, 0.94); border: max(2px, calc(var(--u) * 0.22)) solid var(--pb-edge, #c9a46a);
+  border-radius: calc(var(--u) * 1.3); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); color: #f3ead8; font-size: calc(var(--u) * 1.8); line-height: 1.45; transition: left 0.25s ease, width 0.25s ease, transform 0.25s ease; }
+.battle.layout-pocket.cmd-off .pocket-text { left: 50%; transform: translateX(-50%); width: min(calc(var(--u) * 64), calc(100cqw - var(--g) * 2)); }
+.pt-next { position: absolute; right: calc(var(--u) * 1.4); bottom: calc(var(--u) * 0.8); color: #ffd27a; font-size: calc(var(--u) * 1.3); visibility: hidden; }
+.pocket-text.waits .pt-next { visibility: visible; animation: pt-bob 0.8s ease-in-out infinite; }
+@keyframes pt-bob { 50% { transform: translateY(calc(var(--u, 10px) * 0.4)); } }
+.pt-stats { position: absolute; left: 0; bottom: calc(100% + var(--g, 12px)); min-width: calc(var(--u, 10px) * 26); padding: calc(var(--u, 10px) * 0.9) calc(var(--u, 10px) * 1.4);
+  background: rgba(12, 14, 24, 0.96); border: max(2px, calc(var(--u, 10px) * 0.22)) solid #ffd27a; border-radius: calc(var(--u, 10px) * 1); display: grid; grid-template-columns: 1fr 1fr; gap: 2px calc(var(--u, 10px) * 2);
+  font-size: calc(var(--u, 10px) * 1.45); animation: pt-pop 0.25s ease-out; }
+.pt-stats[hidden] { display: none; }
+.pt-stats div:first-child, .pt-stats div:nth-child(2) { color: #9dffb0; }
+@keyframes pt-pop { from { transform: scale(0.85); opacity: 0; } }
+.battle.layout-pocket .battle-log { left: auto; right: calc(var(--g) + env(safe-area-inset-right, 0px)); top: calc(56px + env(safe-area-inset-top, 0px)); bottom: auto; width: auto; z-index: 4; }
+.battle.layout-pocket .battle-log:not(.focused) .battle-log-lines { display: none; }
+.battle.layout-pocket .battle-log.focused { left: 50%; right: auto; transform: translateX(-50%); width: min(calc(var(--u) * 70), calc(100cqw - var(--g) * 2)); }
+.battle.layout-pocket .battle-log.focused .battle-log-lines { max-height: min(60cqh, calc(var(--u) * 40)); background: rgba(12, 14, 24, 0.96); font-size: calc(var(--u) * 1.5); -webkit-mask-image: none; mask-image: none; }
+.battle.layout-pocket .battle-log-hint { font-size: calc(var(--u) * 0.95); opacity: 0.55; }
 /* The flat battle screen: the hero big at the bottom left, the foe up and right. */
 .battle.layout-pocket .battle-field { left: 0; right: 0; top: 0; bottom: 0; }
-.battle.layout-pocket .battle-enemies { left: auto; right: 6%; width: 46%; top: 14%; bottom: auto; height: 42%; }
+.battle.layout-pocket .battle-enemies { left: auto; right: 6%; width: 46%; top: 9%; bottom: auto; height: 40%; }
 .battle.layout-pocket .battle-party { right: auto; left: 5%; width: 42%; top: auto; bottom: 22%; height: 46%; align-items: flex-start; justify-content: flex-end; }
 .battle.layout-pocket .battle-party .bf-pic { transform: scale(1.8); transform-origin: bottom left; }
 .battle.layout-pocket .battle-enemies .bf-pic { transform: scale(1.3); transform-origin: bottom center; }
 /* Upright screens: everything full width, stacked at the bottom (commands, then the log, then the hero's block). */
 @container (max-aspect-ratio: 1 / 1) {
   .battle.layout-pocket > * { --u: 1.9cqw; --g: 12px; --half: calc(100cqw - 24px); --cmd-h: calc(var(--u) * 12); }
-  .battle.layout-pocket .battle-log { bottom: calc(var(--g) * 2 + var(--cmd-h) + env(safe-area-inset-bottom, 0px)); }
+  .battle.layout-pocket .pocket-text, .battle.layout-pocket.cmd-off .pocket-text { left: var(--g); transform: none; width: var(--half); bottom: calc(var(--g) * 2 + var(--cmd-h) + env(safe-area-inset-bottom, 0px)); }
   .battle.layout-pocket .pocket-heroes { bottom: calc(var(--g) * 3 + var(--cmd-h) * 2 + env(safe-area-inset-bottom, 0px)); }
 }
 .battle-log-lines .loot { color: #ffe3a3; }

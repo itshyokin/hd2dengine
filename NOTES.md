@@ -104,6 +104,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       Journal's Type Chart.
 - [x] Forms (update 80): heroes' mid and final forms (level, look, face) with a transformation scene after the battle
       that reached the level; monsters' advanced forms (own entry, comes out at a level, Bestiary chain and order).
+- [x] Pocket text box and Potato quality (update 81): shorter stat blocks (HP numbers beside the bar); a one-line
+      text box that waits for OK (attacks, damage with its element, effectiveness, defeats, EXP, level ups with a
+      stats box, loot), centred when the commands are hidden; Potato quality and a cloud-shadows switch.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

@@ -1519,6 +1519,8 @@ export class Game {
   /** Most pixels per CSS pixel to draw at: the quality setting (auto: 1.5 on phones and tablets, 2 elsewhere). */
   private get pixelCap(): number {
     const q = this.settings?.quality ?? 'auto';
+    // Potato: the map drawn at well under the screen's resolution (battle maps at 1, which they run fine at).
+    if (q === 'potato') return this.stage ? 1 : 0.7;
     return q === 'high' ? 2 : q === 'balanced' ? 1.25 : q === 'performance' ? 1 : this.small ? 1.5 : 2;
   }
 
@@ -1753,6 +1755,9 @@ export class Game {
     if (!this.onTitle && !fighting) this.combat.updateBack();
     if (this.buildings.length) { const p = this.player.position; fadeBuildings(this.buildings, p.x, p.y, p.z, dt); }
 
+    // Potato: the drawing resolution follows the field (low) and battle maps (normal); neighbouring maps aren't drawn.
+    if (this.settings.quality === 'potato' && this.renderer.getPixelRatio() !== Math.min(window.devicePixelRatio || 1, this.pixelCap)) this.resize();
+    for (const pv of this.previews) pv.group.visible = this.settings.quality !== 'potato';
     // Performance quality: shadows are redrawn every other frame (half the shadow work; moving shadows lag a frame).
     const sm = this.renderer.shadowMap;
     if (this.settings.quality === 'performance') { sm.autoUpdate = false; if ((this.shadowTick++ & 1) === 0) sm.needsUpdate = true; }
@@ -5192,6 +5197,7 @@ export class Game {
     // The sun and sky light the stage while it's shown.
     stage.scene.add(this.hemi, this.sun, this.sun.target);
     this.stage = { stage, lights, built, env: this.time.environment, map, look: new THREE.Vector3(data.width / 2, 0, data.height / 2), music: data.battleMusic || data.music || undefined };
+    if (this.settings.quality === 'potato') this.applySettings();
     // The field's weather (rain, snow…) and mist and sun rays carry on over the battle.
     const w = this.mapWeather();
     this.weather.attach(stage.group, w.kind, w.amount, this.stage.look);
@@ -5221,6 +5227,7 @@ export class Game {
     const s = this.stage;
     if (!s) return;
     this.stage = null;
+    if (this.settings.quality === 'potato') this.applySettings();
     this.scene.add(this.hemi, this.sun, this.sun.target);
     // The weather goes back to the field (before the stage is thrown away).
     if (this.level) { const w = this.mapWeather(); this.weather.attach(this.level, w.kind, w.amount, this.camTarget); this.atmosphere.attach(this.level, this.camTarget); }
@@ -5755,8 +5762,9 @@ export class Game {
     const title = this.onTitle ? titleLabel(this.db.menus, 'options') : pauseLabel(this.db.menus, 'settings');
     const picture = () => this.menu.push('Picture', [
       { label: 'Brightness', slider: { value: Math.round(st.brightness * 100), min: 60, max: 140, step: 5, format: pct, set: (v) => set('brightness')(v / 100) } },
-      { label: 'Quality', detail: 'High: sharpest. Balanced and Performance draw fewer pixels and lighter shadows for a steadier frame rate on tablets and older computers.',
-        choice: { value: st.quality ?? 'auto', options: [['auto', 'Automatic'], ['high', 'High'], ['balanced', 'Balanced'], ['performance', 'Performance']], set: (v) => set('quality')(v as Settings['quality']) } },
+      { label: 'Quality', detail: 'High: sharpest. Balanced and Performance draw fewer pixels and lighter shadows for a steadier frame rate on tablets and older computers. Potato: the lightest the map can be (lower resolution; no shadows, glow, depth of field, swaying plants, drifting clouds, mist or neighbouring maps); battles stay as they are.',
+        choice: { value: st.quality ?? 'auto', options: [['auto', 'Automatic'], ['high', 'High'], ['balanced', 'Balanced'], ['performance', 'Performance'], ['potato', 'Potato']], set: (v) => set('quality')(v as Settings['quality']) } },
+      { label: 'Moving cloud shadows', detail: 'Cloud shadows drifting over the ground on maps with clouds.', toggle: { value: st.cloudShadows !== false, set: set('cloudShadows') } },
       { label: 'Show frame rate', toggle: { value: !!st.showFps, set: set('showFps') } },
       { label: 'Bloom (glow)', toggle: { value: st.bloom, set: set('bloom') } },
       { label: 'Depth of field', toggle: { value: st.depthOfField, set: set('depthOfField') } },
@@ -5843,21 +5851,23 @@ export class Game {
   private applySettings(): void {
     const st = this.settings;
     applyUiTheme(st.uiTheme || this.db.menus?.uiTheme);
-    this.post.settings.bloom = st.bloom;
-    this.post.settings.tiltShift = st.depthOfField;
+    // Potato: everything costly is off, whatever the switches below say.
+    const potato = st.quality === 'potato' && !this.stage;
+    this.post.settings.bloom = st.bloom && !potato;
+    this.post.settings.tiltShift = st.depthOfField && !potato;
     // Ambient occlusion: half-size on High (or Automatic on a computer), quarter-size on Balanced, off on Performance and on Automatic on phones and tablets.
     const q = st.quality ?? 'auto';
     const aoScale = q === 'balanced' ? 4 : 2;
-    this.ssao.enabled = st.ambientOcclusion && q !== 'performance' && !(q === 'auto' && this.small);
+    this.ssao.enabled = st.ambientOcclusion && q !== 'performance' && q !== 'potato' && !(q === 'auto' && this.small);
     if (this.ssao.scale !== aoScale) { this.ssao.scale = aoScale; this.resizeAO(); }
-    this.sun.castShadow = st.shadows;
+    this.sun.castShadow = st.shadows && !potato;
     // Sharper or lighter picture (quality): the drawing resolution and the sun's shadow detail.
-    const sm = st.quality === 'balanced' || st.quality === 'performance' || (st.quality === 'auto' && this.small) ? 1024 : 2048;
+    const sm = st.quality === 'balanced' || st.quality === 'performance' || potato || (st.quality === 'auto' && this.small) ? 1024 : 2048;
     if (this.sun.shadow.mapSize.x !== sm) { this.sun.shadow.mapSize.set(sm, sm); this.sun.shadow.map?.dispose(); this.sun.shadow.map = null as unknown as THREE.WebGLRenderTarget; }
     if (this.renderer.getPixelRatio() !== Math.min(window.devicePixelRatio || 1, this.pixelCap)) this.resize();
-    this.lights?.shadowLights.forEach((l) => (l.castShadow = st.lightShadows));
-    this.rings?.setShadows(st.lightShadows);
-    setNormalMapsEnabled(st.detailedLighting);
+    this.lights?.shadowLights.forEach((l) => (l.castShadow = st.lightShadows && !potato));
+    this.rings?.setShadows(st.lightShadows && !potato);
+    setNormalMapsEnabled(st.detailedLighting && !potato);
     setTextSpeed(TEXT_SPEEDS[st.textSpeed]);
     if (this.log) { this.log.feed = st.adventureLog; if (st.adventureLog === 'off') this.log.clearFeed(); }
     this.message?.setPlace(st.textBox ?? 'above');
@@ -6156,8 +6166,9 @@ export class Game {
   }
 
   private updateWeather(dt: number): void {
-    const w = this.mapWeather();
-    updateWind(this.elapsed, w.wind, w.dir);
+    const w = this.mapWeather(), potato = this.settings.quality === 'potato' && !this.stage;
+    // Potato: plants stand still (the sway is frozen; weather still drifts in the breeze).
+    updateWind(potato ? 0 : this.elapsed, potato ? 0 : w.wind, w.dir);
     if (this.weatherPending && this.level) {
       this.weatherPending = false;
       this.weather.attach(this.level, w.kind, w.amount, this.camTarget);
@@ -6191,14 +6202,14 @@ export class Game {
     // Rays slant no flatter than about 30° (a low dawn sun would otherwise lay them along the ground).
     this.sunUp.copy(this.time.sunDir); this.sunUp.y = Math.max(this.sunUp.y, 0.55); this.sunUp.normalize();
     // Cloud shadows: drifting with the wind (at least a slow crawl on a still day).
-    const cl = outdoor ? air?.clouds ?? 0 : 0;
+    const cl = outdoor && this.settings.cloudShadows !== false && !potato ? air?.clouds ?? 0 : 0;
     if (cl > 0) {
       const speed = 0.35 + wind.strength * 1.6;
       this.cloudOff.x -= wind.dx * speed * dt; this.cloudOff.z -= wind.dz * speed * dt;
     }
     setClouds(this.cloudOff.x, this.cloudOff.z, Math.min(0.85, cl * 0.7) * (outdoor ? clamp(this.sun.intensity / 1.5, 0, 1) * (1 - night) * (1 - 0.7 * rain) : 0));
     this.atmosphere.update(dt, center, this.elapsed, (x, z) => ground.surfaceY(x, z), {
-      mist: (air?.mist ?? 0) * mistTime, rays: air?.rays ?? 0, skyColor: this.fog.color, sunColor: this.sun.color, sun, sunDir: this.sunUp,
+      mist: potato ? 0 : (air?.mist ?? 0) * mistTime, rays: potato ? 0 : air?.rays ?? 0, skyColor: this.fog.color, sunColor: this.sun.color, sun, sunDir: this.sunUp,
     }, this.camera);
   }
 

@@ -8,6 +8,7 @@ import type { Input } from '../game/Input';
 import type { Element, FaceButton, ImpactFx } from '../world/types';
 import { ELEMENT_COLORS } from '../game/elements';
 import { elementPill } from './elementPill';
+import { esc } from './InventoryScreen';
 
 /** One timed strike of an Addition: the button, the seconds the ring takes to close, and the timing window. */
 export interface QteStrike { button: FaceButton | 'any'; time: number; window: number }
@@ -17,6 +18,9 @@ export interface SeqResult { correct: number; total: number; left: number }
 /** One of the four spheres on a Pocket Handheld block: still to fight (or fighting), knocked out, or no one. */
 export type Sphere = 'up' | 'ko' | 'empty';
 /** A Pocket Handheld block (Pokémon-style): name and level, health bar (and a hero's numbers, MP orb and EXP). */
+/** A line for Pocket Handheld's text box. */
+interface Narration { text: string; wait: boolean; sound?: string; bars?: () => void; stats?: string[] }
+
 interface PocketBlock { el: HTMLElement; hp: HTMLElement; num: HTMLElement | null; orb: HTMLElement | null; orbText: HTMLElement | null }
 
 interface Qte {
@@ -167,6 +171,7 @@ export class BattleScreen {
   private readonly blocksEl: HTMLElement;
   private readonly logEl: HTMLElement;
   private readonly logLines: HTMLElement;
+  private readonly pocketText: HTMLElement;
   /** The battle log is picked (Y): up / down scroll it. */
   private logFocus = false;
   /** Monster stat blocks across the top (Database → Combat): one per foe, with their bars. */
@@ -222,7 +227,7 @@ export class BattleScreen {
       </div>
       <div class="battle-desc" hidden></div>
       <div class="battle-blocks" aria-label="Foes"></div>
-      <div class="pocket-foes" aria-label="Foes"></div><div class="pocket-heroes" aria-label="Party"></div>
+      <div class="pocket-foes" aria-label="Foes"></div><div class="pocket-heroes" aria-label="Party"></div><div class="pocket-text" aria-live="polite"><div class="pt-line"></div><span class="pt-next">▼</span><div class="pt-stats" hidden></div></div>
       <div class="battle-log" role="log" aria-label="Battle log"><div class="battle-log-lines"></div><div class="battle-log-hint">Y: battle log</div></div>
       <div class="battle-result" hidden></div>`;
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
@@ -244,6 +249,7 @@ export class BattleScreen {
     this.blocksEl = q('.battle-blocks');
     this.logEl = q('.battle-log');
     this.logLines = q('.battle-log-lines');
+    this.pocketText = q('.pocket-text');
     this.logEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (!this.logFocus) this.focusLog(true); });
     // Y (the key, or the controller's Y) picks the battle log to scroll; again (or Back) lets go.
     addEventListener('keydown', (e) => {
@@ -255,7 +261,7 @@ export class BattleScreen {
     // Tapping anywhere while a message waits moves it on.
     this.root.addEventListener('pointerdown', (e) => {
       if (this.vic) { e.preventDefault(); this.vicNext(); return; }
-      if (this.pvic) { e.preventDefault(); this.input.press('ok'); return; }
+      if (this.narrCur?.wait && this.mode.kind !== 'list' && this.mode.kind !== 'target' && !this.qte && !this.seq) { e.preventDefault(); this.input.press('ok'); return; }
       if (this.mode.kind === 'wait' && !(e.target as HTMLElement).closest('.battle-cmd')) { e.preventDefault(); this.finishWait(); }
     });
     // Additions: the ring that closes on the target, the button to press, and touch buttons.
@@ -319,7 +325,7 @@ export class BattleScreen {
     this.endQte();
     this.vic?.el.remove();
     this.vic = null;
-    this.pvic = null;
+    this.narr = []; this.narrCur = null; this.narrDone = null;
     this.leftover?.remove();
     this.leftover = null;
     this.mode = { kind: 'idle' };
@@ -435,8 +441,7 @@ export class BattleScreen {
     if (v.color) el.style.setProperty('--hero', v.color);
     const els = v.elements?.length ? v.elements.slice(0, 2) : [];
     el.innerHTML = `<div class="pb-top"><span class="pb-name"></span><span class="pb-lv"></span></div>
-      <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div></div>
-      ${v.side === 'party' ? '<div class="pb-num"></div>' : ''}
+      <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div>${v.side === 'party' ? '<span class="pb-num"></span>' : ''}</div>
       <div class="pb-foot"><div class="pb-balls"></div>${v.side === 'party' ? '<div class="pb-xp"><span></span></div>' : '<div class="pb-bracket"></div>'}</div>
       ${v.side === 'party' ? '<div class="pb-orb"><b>MP<span></span></b></div>' : ''}`;
     (el.querySelector('.pb-name') as HTMLElement).textContent = v.name;
@@ -462,28 +467,58 @@ export class BattleScreen {
   }
 
   /**
-   * Pocket Handheld's victory: no results screen; the EXP, level ups and loot go in the log a line at a time
-   * (OK hurries them), then OK goes on.
+   * Pocket Handheld's victory: no results screen; the EXP, level ups (with what they brought) and loot are told in
+   * the text box a line at a time, each waiting for OK, then it goes on.
    */
-  pocketVictory(lines: { text: string; cls?: string; sound?: string; bars?: () => void }[], done: () => void): void {
+  pocketVictory(lines: { text: string; sound?: string; bars?: () => void; stats?: string[] }[], done: () => void): void {
     this.idle();
-    this.message('');
-    this.pvic = { lines, i: 0, t: 0.4, done, end: false };
+    for (const l of lines) this.narrate(l.text, true, l);
+    this.narrDone = done;
   }
 
-  private pvic: { lines: { text: string; cls?: string; sound?: string; bars?: () => void }[]; i: number; t: number; done: () => void; end: boolean } | null = null;
+  /* ---------------------------------------------------------------- Pocket Handheld's text box */
+  private narr: Narration[] = [];
+  private narrCur: (Narration & { t: number }) | null = null;
+  private narrDone: (() => void) | null = null;
 
-  private pocketVictoryStep(dt: number): void {
-    const v = this.pvic!, ok = this.input.consume('ok') || this.input.consume('cancel');
-    const show = (l: (typeof v.lines)[number]) => { this.logLine(l.text, l.cls); l.bars?.(); if (l.sound) this.onSound?.(l.sound); };
-    if (v.end) {
-      if (ok) { this.pvic = null; uiSound('menuOk'); v.done(); }
+  /**
+   * Pocket Handheld: a line in the text box. `wait`: it stays until OK (and the battle waits with it); otherwise the
+   * next line replaces it. `extra`: a sound, bars to move and stat changes to show as it comes up.
+   */
+  narrate(text: string, wait = true, extra: { sound?: string; bars?: () => void; stats?: string[] } = {}): void {
+    if (this.layout !== 'pocket' || !text) return;
+    this.narr.push({ text, wait, sound: extra.sound, bars: extra.bars, stats: extra.stats });
+    if (!this.narrCur?.wait) this.nextLine();
+  }
+
+  /** Lines are being read (the battle waits for them). */
+  get narrating(): boolean { return this.layout === 'pocket' && (!!this.narrCur?.wait || this.narr.length > 0 || !!this.narrDone); }
+
+  private nextLine(): void {
+    const n = this.narr.shift();
+    if (!n) {
+      if (this.narrCur?.wait) this.narrCur = null;
+      if (this.narrDone && !this.narrCur?.wait) { const d = this.narrDone; this.narrDone = null; d(); }
       return;
     }
-    if (ok) { while (v.i < v.lines.length) show(v.lines[v.i++]); }
-    v.t -= dt;
-    if (v.t <= 0 && v.i < v.lines.length) { show(v.lines[v.i++]); v.t = 0.7; }
-    if (v.i >= v.lines.length && (ok || v.t <= -0.3)) { v.end = true; this.logLine('▶ OK to continue', 'cont'); }
+    this.narrCur = { ...n, t: 0 };
+    this.pocketText.querySelector('.pt-line')!.textContent = n.text;
+    this.pocketText.classList.toggle('waits', n.wait);
+    n.bars?.();
+    if (n.sound) this.onSound?.(n.sound);
+    const st = this.pocketText.querySelector('.pt-stats') as HTMLElement;
+    st.hidden = !n.stats?.length;
+    st.innerHTML = (n.stats ?? []).map((x) => `<div>${esc(x)}</div>`).join('');
+  }
+
+  private narrUpdate(dt: number): boolean {
+    const c = this.narrCur;
+    if (!c?.wait) { if (this.narr.length || this.narrDone) this.nextLine(); return false; }
+    c.t += dt;
+    // OK moves on (a moment after the line comes up, so one press doesn't skip two).
+    if (this.mode.kind === 'list' || this.mode.kind === 'target') return false;
+    if ((this.input.consume('ok') || this.input.consume('cancel')) && c.t > 0.18) { uiSound('menuMove'); this.narrCur = null; this.nextLine(); }
+    return true;
   }
 
   /** Pocket Handheld: the four spheres on a side's first block (up to fight, knocked out with a red ✕, or empty). */
@@ -725,13 +760,12 @@ export class BattleScreen {
   /** A line at the top. Without `hold` it fades after a moment. */
   message(text: string, hold = false): void {
     // Pocket Handheld: messages go in the text box at the bottom (the battle log).
-    if (this.layout === 'pocket' && text && text !== this.lastPocketLine) { this.lastPocketLine = text; this.logLine(text); }
+    if (this.layout === 'pocket' && text) this.narrate(text, false);
     this.msgEl.textContent = text;
     this.msgEl.classList.toggle('on', !!text);
     this.msgTimer = hold ? Infinity : 2.2;
   }
 
-  private lastPocketLine = '';
 
   /** A number or word rising from a fighter. */
   popup(key: string, text: string, kind: 'dmg' | 'crit' | 'heal' | 'info' | 'mp' | 'big' | 'critBig' = 'dmg', color?: string): void {
@@ -907,7 +941,7 @@ export class BattleScreen {
     m.keys.forEach((k, i) => { const f = this.fighters.get(k); f?.el.classList.toggle('targeted', m.all || i === m.index); f?.pb.el.classList.toggle('targeted', m.all || i === m.index); f?.card?.classList.toggle('targeted', m.all || i === m.index); this.blocks.get(k)?.el.classList.toggle('targeted', m.all || i === m.index); });
     this.stage?.highlight(m.all ? m.keys : [m.keys[m.index]]);
     const f = this.fighters.get(m.keys[m.index]);
-    this.message(m.all ? (f?.view.side === 'party' ? 'The whole party' : 'Every foe') : f ? f.view.name : '', true);
+    if (this.layout !== 'pocket') this.message(m.all ? (f?.view.side === 'party' ? 'The whole party' : 'Every foe') : f ? f.view.name : '', true);
   }
 
   private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted', 'turn'); f.card?.classList.remove('targeted'); f.pb.el.classList.remove('targeted'); } for (const b of this.blocks.values()) b.el.classList.remove('targeted'); this.stage?.highlight([]); }
@@ -939,10 +973,14 @@ export class BattleScreen {
   update(dt: number): void {
     if (this.msgTimer !== Infinity && this.msgTimer > 0 && (this.msgTimer -= dt) <= 0) this.msgEl.classList.remove('on');
     if (this.vic) { this.updateVictory(dt); return; }
-    if (this.pvic) { this.pocketVictoryStep(dt); return; }
     if (this.camTimer > 0 && (this.camTimer -= dt) <= 0) this.camEl.classList.remove('lit');
     if (this.qte) { this.updateQte(dt); return; }
     if (this.seq) { this.updateSeq(dt); return; }
+    if (this.layout === 'pocket') {
+      // The text box moves to the middle while there are no commands beside it.
+      this.root.classList.toggle('cmd-off', this.cmdEl.hidden === true);
+      if (this.narrUpdate(dt)) return;
+    }
     const i = this.input, m = this.mode;
     // The controller's Y (and R) picks the battle log; while picked, up / down scroll it and Back lets go.
     if (i.consume('switchWeapon')) this.focusLog(!this.logFocus);

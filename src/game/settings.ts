@@ -10,7 +10,8 @@ import type { HudLayout } from '../ui/StatusBars';
 export type TextBoxPlace = 'above' | 'below' | 'top' | 'bottom' | 'center';
 
 /** Picture quality: how sharp the picture is drawn and how often shadows are redrawn (auto: by the device). */
-export type Quality = 'auto' | 'high' | 'balanced' | 'performance';
+/** potato: the lightest the map can be drawn (lower resolution, no shadows, glow, depth of field, swaying or drifting clouds). */
+export type Quality = 'auto' | 'high' | 'balanced' | 'performance' | 'potato';
 
 export interface Settings {
   quality: Quality;
@@ -23,6 +24,8 @@ export interface Settings {
   ambientOcclusion: boolean;
   lightShadows: boolean;
   detailedLighting: boolean;
+  /** Cloud shadows drifting over the ground. */
+  cloudShadows: boolean;
   /** Brightness multiplier, 0.6 – 1.4. */
   brightness: number;
   /** 0 – 100. Everything at once (the others are mixed under it). */
@@ -69,7 +72,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  quality: 'auto', showFps: false, bloom: true, depthOfField: true, shadows: true, ambientOcclusion: true, lightShadows: true, detailedLighting: true,
+  quality: 'auto', showFps: false, bloom: true, depthOfField: true, shadows: true, ambientOcclusion: true, lightShadows: true, detailedLighting: true, cloudShadows: true,
   brightness: 1, masterVolume: 50, uiVolume: 70, jingleVolume: 80, musicVolume: 70, soundVolume: 80, ambienceVolume: 70, textSpeed: 'normal', alwaysRun: false, clock12: false, crouch: 'toggle', sprint: 'hold', stickRun: true, textBox: 'above', adventureLog: 'all', footsteps: true,
 };
 

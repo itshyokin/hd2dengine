@@ -92,6 +92,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   from `formBase`, then `refreshLooks`: caches cleared via `SpriteLibrary.clearPictures`, leader and allies
   rebuilt), `nextEvolution` (when calm) and `src/ui/EvolveScreen.ts`; `EnemyDef.advance` used in `levelled`;
   Bestiary `forms` chain and order; editors: HeroesEditor `heroForms`, CombatEditor `advancedForm`.
+- 81: BattleScreen `narrate` / `narrating` (queue, `.pocket-text`, `.cmd-off`); TurnBattle `tell`, `announce`
+  (+ `announced`), `tellHit`, `combo` (an Addition's total) and `foeMove`; TurnBattle.update waits while narrating;
+  `pocketResults` lines with `stats`. Settings `quality: 'potato'` (pixelCap 0.7 off battle maps, applySettings
+  re-run when a stage opens / closes) and `cloudShadows`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
