@@ -776,6 +776,15 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   get +20% more. With no stones a hero is **Normal** (their Database elements, if any). Enemies with elements drop
   Fragments of them (60%). All the numbers are in Database → Combat → *Element stones*. Their elements show as pills
   (**FIRE** on orange) on their cards, in battle and on the HUD (small circles with the element's symbol).
+- **Hero forms** (Database → Heroes → *Forms*): a **mid** and a **final** form, each at a level, with its own look
+  (from Characters) and face art. After the battle that takes a hero to that level, a transformation scene plays
+  (their old look, white outlines flickering faster and faster, a flash, the new look) and from then on they look that
+  way everywhere: on the map, in battle, on their cards. Party members have forms too. Saved with the game.
+- **Advanced monster forms** (Database → Enemies → *Advanced form*): another enemy (its own entry, art, numbers and
+  loot) that comes out instead once this one's level reaches a set level: a spawn's level range, or dynamic levels
+  catching up with the party, so old areas can start showing the advanced form. *Make an advanced form* adds a copy
+  right after it with its numbers grown to that level. The Bestiary lists each advanced form right after its base
+  and shows them linked (*Green Slime —Lv 6→ Red Slime*; unmet ones as ?).
 - **Type Chart** (Journal → Type Chart): every element against every other (green ×2, red ½), each one's strengths
   and weaknesses, and what the stones give.
 - **Status** (Party → a hero → Status): their gauges and numbers on the left, what they're wearing in the middle, and

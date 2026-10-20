@@ -88,6 +88,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   EquipScreen slots `element1` / `element2`, `Battler.affinity` (in `strike`), `ElementalDefence.weak`; Game's
   `heroAffinity`, `heroDefence`, `fragmentDrops`, `fuse`; `src/ui/elementPill.ts`, `src/ui/typeChart.ts`; forge
   shards dropped (GameState load keeps only levels).
+- 80: forms: `HeroDef.forms`, `GameState.forms`; Game's `applyForms` (sets `db.player` / hero `look` / `face`
+  from `formBase`, then `refreshLooks`: caches cleared via `SpriteLibrary.clearPictures`, leader and allies
+  rebuilt), `nextEvolution` (when calm) and `src/ui/EvolveScreen.ts`; `EnemyDef.advance` used in `levelled`;
+  Bestiary `forms` chain and order; editors: HeroesEditor `heroForms`, CombatEditor `advancedForm`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

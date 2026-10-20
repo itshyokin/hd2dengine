@@ -8,7 +8,7 @@ import { ailmentChips } from './statusFields';
 import type { Ailment } from '../world/types';
 import { defenceSection } from './elementFields';
 import { ATTRS, ATTR_BASE, ATTR_INFO, ATTR_MAX, ATTR_MIN, CREATION_METHODS, CREATION_NAMES, attrEffect, attrsFrom } from '../game/attributes';
-import type { AdditionDef, AllyStyle, ClassDef, CombatData, CreationSettings, HeroDef, ItemDef, SpellEntry } from '../world/types';
+import type { AdditionDef, AllyStyle, ClassDef, CombatData, CreationSettings, HeroDef, HeroForm, ItemDef, SpellEntry } from '../world/types';
 import type { CharactersWork } from './CharactersEditor';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 
@@ -106,6 +106,7 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
         h('button', { type: 'button', class: 'btn small', onclick: () => face.pick(x, rerender) }, x.face ? 'Change…' : 'Choose a picture…'),
         x.face ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete x.face; rerender(); } }, 'Use their look') : h('span')),
         'Their face on the battle screen (Dragon Legend layout). Square pictures look best; without one, a face is cut from their look.')] : []),
+      heroForms(x, looks, face, rerender),
       h('div', { class: 'field' }, h('label', {}, 'Attack sounds'),
         ...(x.attackSounds ?? []).map((src, k) => h('div', { class: 'field-row' }, soundField(`Sound ${k + 1}`, src, (v) => { if (v) x.attackSounds![k] = v; }),
           h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove sound ${k + 1}`, onclick: () => { x.attackSounds!.splice(k, 1); if (!x.attackSounds!.length) delete x.attackSounds; rerender(); } }, '✕'))),
@@ -171,4 +172,29 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
     h('p', { class: 'note' }, 'Heroes after the first can join the party (event command “Change party”, or “In the party from the start”). Stats grow each level by their ranks (Progression curve); skill points per level are in Combat.'),
     h('div', { class: 'items-layout' }, list, form),
   ];
+}
+
+/**
+ * Heroes → Forms: a mid and a final form, each at a level, with its own look (Characters) and face art. The hero
+ * transforms after the battle that takes them to that level.
+ */
+function heroForms(x: HeroDef, looks: [string, string][], face: { pick: (x: HeroDef, done: () => void) => void; url: (p: string) => string } | undefined, rerender: () => void): HTMLElement {
+  const forms = x.forms ?? [];
+  const tidy = () => { const f = (x.forms ?? []).filter(Boolean); while (f.length && !f[f.length - 1].level && !f[f.length - 1].look && !f[f.length - 1].face) f.pop(); if (f.length) x.forms = f; else delete x.forms; };
+  const row = (k: 0 | 1) => {
+    const fm: HeroForm = forms[k] ?? { level: 0 };
+    const put = () => { const f = (x.forms ??= []); while (f.length < k) f.push({ level: 0 }); f[k] = fm; tidy(); };
+    // The face picker writes `face` on what it's given: here, the form.
+    const proxy = { get face() { return fm.face; }, set face(v: string | undefined) { if (v) fm.face = v; else delete fm.face; put(); } } as unknown as HeroDef;
+    const name = k ? 'Final form' : 'Mid form';
+    return h('div', { class: 'field-row' },
+      field(`${name} level`, numberInput(fm.level || 0, (v) => { fm.level = Math.max(0, Math.min(99, Math.round(v))); put(); }, { step: 1, min: 0, max: 99 }), k ? 'Higher than the mid form’s. 0: none.' : '0: none.'),
+      field(`${name} look`, select([['', 'Same look'], ...looks], fm.look ?? '', (v) => { if (v) fm.look = v; else delete fm.look; put(); }), 'Their sprite (from Characters) in that form.'),
+      ...(face ? [field(`${name} face`, h('div', { class: 'face-pick' },
+        fm.face ? h('img', { class: 'face-thumb', src: face.url(fm.face), alt: '' }) : h('span', { class: 'note' }, 'Same face'),
+        h('button', { type: 'button', class: 'btn small', onclick: () => face.pick(proxy, rerender) }, fm.face ? 'Change…' : 'Choose a picture…'),
+        fm.face ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete fm.face; put(); rerender(); } }, 'Same face') : h('span')))] : []));
+  };
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Forms'), row(0), row(1),
+    h('p', { class: 'note' }, 'As they grow, heroes can transform: at the mid form’s level, then the final form’s, they take on a new look and face (unset ones stay as before). It happens after the battle that took them to that level, with a transformation scene.'));
 }

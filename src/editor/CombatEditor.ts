@@ -11,6 +11,7 @@ import { ITEM_ICONS } from '../art/itemIcons';
 import { enemyWeaponSprites } from '../game/combat/weaponSprites';
 import { weaponSpriteField } from './weaponPicker';
 import { DEFAULT_COMBAT, combatConfig } from '../game/combat/config';
+import { atLevel } from '../game/enemyLevels';
 import { enemyAgility } from '../game/battle/rules';
 import type { CombatData, EncounterPick, EnemyAction, EnemyBehaviour, EnemyDef, FlatLook, ImpactFx, Material, WeaponClass } from '../world/types';
 import { FX_INFO, IMPACT_FX, MATERIALS, MATERIAL_INFO, materialOf } from '../game/battle/impact';
@@ -173,7 +174,7 @@ export function enemiesTab(store: EditorStore, list: EnemyDef[], state: { sel: n
   const d = list[state.sel];
   const form = h('div', { class: 'item-form' });
   if (!d) form.append(h('p', { class: 'note' }, 'No enemies yet. Add a type here, then place it on a map: Events layer → click a tile → Create enemy here.'));
-  else form.append(...enemyForm(store, list, d, rerender, () => { list.splice(state.sel, 1); state.sel = Math.max(0, state.sel - 1); rerender(); }));
+  else form.append(...enemyForm(store, list, d, rerender, () => { list.splice(state.sel, 1); state.sel = Math.max(0, state.sel - 1); rerender(); }, (i) => { state.sel = i; }));
   return [h('div', { class: 'items-layout' }, side, form)];
 }
 
@@ -209,7 +210,7 @@ function pickFlatImage(store: EditorStore, d: EnemyDef, done: () => void): void 
   input.click();
 }
 
-function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: () => void, remove: () => void): HTMLElement[] {
+function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: () => void, remove: () => void, pick: (i: number) => void = () => {}): HTMLElement[] {
   const n = (v: number, set: (x: number) => void, step = 1, min = 0) => numberInput(v, (x) => set(Math.max(min, x)), { step, min });
   const chars = Object.entries(store.db.characters).map(([k, c]) => [`c:${k}`, `Character: ${c.name}`] as [string, string]);
   const monsters = Object.entries(MONSTERS).map(([k, m]) => [`m:${k}`, `Monster: ${m.name}`] as [string, string]);
@@ -299,6 +300,7 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
         value: d.shieldSprite, auto: '', kinds: ['shield'], autoLabel: 'None',
         onChange: (v) => { if (v === undefined || v === '') delete d.shieldSprite; else d.shieldSprite = v; rerender(); },
       })))] : []),
+    advancedForm(store, list, d, rerender, pick),
     h('section', { class: 'db-section' }, h('h3', {}, 'Fighting'),
       field('Behaviour', select(BEHAVIOURS, d.behaviour, (v) => { d.behaviour = v as EnemyBehaviour; if (v === 'ranged' && d.attackRange < 4) d.attackRange = 7; if (v === 'charger' && d.attackRange < 2) d.attackRange = 3.5; if (v === 'melee' && d.attackRange > 2) d.attackRange = 1; rerender(); })),
       h('div', { class: 'field-row' },
@@ -451,4 +453,33 @@ function elementStones(c: ReturnType<typeof combatConfig>, data: CombatData): HT
       field('Fragment drop chance %', num(e.dropChance, (v) => put('dropChance', Math.max(0, Math.min(100, Math.round(v)))), 5, 0, 'Fragment drop chance')),
       field('Fragments dropped', num(e.dropCount, (v) => put('dropCount', Math.max(0, Math.round(v))), 1, 0, 'Fragments dropped'))),
     h('p', { class: 'note' }, 'Each hero has two Element slots (Equipment, or Bag → Shards): Primary and Secondary. A Fragment, Shard or Heart Stone there gives them its element, so its weaknesses too, and makes their hits of it stronger. The Primary slot’s element is what their basic attacks hit with; with none, they’re Normal. Enemies with elements drop Fragments of them; the bag fuses Fragments into a Shard and Shards of one element into a Heart Stone. The stones are items (Database → Items, “ess_…”): rename them or change their icons and prices there.'));
+}
+
+/**
+ * Enemies → Advanced form: at a level, another enemy (its own entry, with its own art, numbers and loot) comes out in
+ * its place. "Make one" adds a copy right after this one with its numbers grown to that level.
+ */
+function advancedForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: () => void, pick: (i: number) => void): HTMLElement {
+  const others = list.filter((x) => x !== d).map((x) => [x.id, x.name] as [string, string]);
+  const from = list.find((x) => x.advance?.into === d.id);
+  const make = () => {
+    const lv = d.advance?.level ?? Math.max(2, (d.level ?? 1) + 9);
+    let id = `${d.id}_adv`, n = 2;
+    while (list.some((x) => x.id === id)) id = `${d.id}_adv${n++}`;
+    const grown = atLevel(d, lv, combatConfig(store.db.combat).enemyGrowth);
+    const copy: EnemyDef = JSON.parse(JSON.stringify({ ...grown, id, name: `${d.name} (advanced)`, level: lv }));
+    delete copy.advance;
+    const at = list.indexOf(d) + 1;
+    list.splice(at, 0, copy);
+    d.advance = { into: id, level: lv };
+    pick(at);
+    rerender();
+  };
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Advanced form'),
+    h('div', { class: 'field-row' },
+      field('Becomes', select([['', 'Nothing (no advanced form)'], ...others], d.advance?.into ?? '', (v) => { if (v) d.advance = { into: v, level: d.advance?.level ?? Math.max(2, (d.level ?? 1) + 9) }; else delete d.advance; rerender(); }),
+        'When it comes out at this level or higher, this enemy appears instead.'),
+      d.advance ? field('At level', numberInput(d.advance.level, (v) => { d.advance!.level = Math.max(2, Math.min(99, Math.round(v))); }, { step: 1, min: 2, max: 99 })) : h('span'),
+      d.advance ? h('span') : h('button', { type: 'button', class: 'btn', onclick: make }, 'Make an advanced form')),
+    h('p', { class: 'note' }, `${from ? `This is ${from.name}’s advanced form (from level ${from.advance!.level}). ` : ''}A spawn's level range, or dynamic levels catching up with the party, can roll a level high enough: then its advanced form comes out in its place (in old areas too). “Make an advanced form” adds a copy right after this one, its numbers grown to that level (change its art, name and loot there). The Bestiary shows them linked.`));
 }

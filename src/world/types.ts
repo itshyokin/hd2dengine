@@ -805,6 +805,9 @@ export interface CreationSettings {
 }
 
 /** A hero (Database → Heroes): their name, look and starting stats. */
+/** A hero's later form: the level it comes at, its look (a Characters id) and face art. */
+export interface HeroForm { level: number; look?: string; face?: string }
+
 export interface HeroDef {
   id: string;
   name: string;
@@ -812,6 +815,11 @@ export interface HeroDef {
   look?: string;
   /** Face art for the battle screen and menus (an image path); unset: a face cut from their look. */
   face?: string;
+  /**
+   * Their mid and final forms (first, second): at that level they transform, after the battle that took them there,
+   * into a new look (from Characters) and face art. Unset parts keep the form before's.
+   */
+  forms?: HeroForm[];
   /** Turn-based: voice clips, one at random as they land a weapon or bow attack (sound sources). */
   attackSounds?: string[];
   /** Turn-based battles: raise (+) or lower (−) their picture, in tiles, when the art floats or sinks. */
@@ -1238,6 +1246,11 @@ export interface EnemyDef {
   elements?: Element[];
   immune?: Element[];
   absorb?: Element[];
+  /**
+   * Its advanced form: at this level or higher (a level range, or dynamic levels catching up with the party) the
+   * enemy `into` (its own Database entry) comes out instead. The Bestiary shows them linked.
+   */
+  advance?: { into: string; level: number };
   /** The element its attacks hit with (default: its first element). */
   attackElement?: Element;
   /** Ailments its hits can give, ailments it can't get, and undead (always a zombie: healing hurts it). */

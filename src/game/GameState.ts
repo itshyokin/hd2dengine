@@ -47,6 +47,8 @@ export class GameState {
   readonly records = new Map<string, number>();
   /** Weapons and armor upgraded or enchanted at a forge (by item id). */
   readonly forge = new Map<string, ForgeEntry>();
+  /** Heroes in a later form (hero id → 1 mid, 2 final). */
+  readonly forms = new Map<string, number>();
 
   /** Count something for the Journal's records (`best`: keep the highest instead of adding). */
   tally(key: string, n = 1, best = false): void {
@@ -143,8 +145,10 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean }): void {
+  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; forms?: Record<string, number> }): void {
     this.weaponsOff = !!d.weaponsOff;
+    this.forms.clear();
+    for (const [k, v] of Object.entries(d.forms ?? {})) { const n = Math.round(Number(v) || 0); if (n > 0) this.forms.set(k, Math.min(2, n)); }
     this.roosts.clear();
     for (const [k, r] of Object.entries(d.roosts ?? {})) if (r && typeof r.map === 'string') this.roosts.set(k, { name: String(r.name ?? k), map: r.map, x: Number(r.x) || 0, z: Number(r.z) || 0 });
     const h = d.horse;
@@ -174,9 +178,10 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean } {
+  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; forms?: Record<string, number> } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
+    if (this.forms.size) out.forms = Object.fromEntries(this.forms);
     if (this.enemyLevels) out.enemyLevels = { ...this.enemyLevels };
     if (this.expAllOff.size) out.expAllOff = [...this.expAllOff];
     if (this.horse) out.horse = { ...this.horse };

@@ -102,6 +102,7 @@ import { StatusScreen } from '../ui/StatusScreen';
 import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
+import { EvolveScreen } from '../ui/EvolveScreen';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
 import { ELEMENT_COLORS, ELEMENT_LIST, ELEMENT_NAMES, elementResult } from './elements';
@@ -308,6 +309,7 @@ export class Game {
   private log!: AdventureLog;
   private logScreen!: AdventureLogScreen;
   private recordsScreen!: RecordsScreen;
+  private evolve!: EvolveScreen;
   private bestiaryScreen!: BestiaryScreen;
   /** How long the player has pushed into a touch event they can't walk onto. */
   private bumpT = 0;
@@ -660,6 +662,7 @@ export class Game {
     this.hud.logEl = this.log.el;
     this.logScreen = new AdventureLogScreen(this.ui, this.input);
     this.recordsScreen = new RecordsScreen(this.ui, this.input);
+    this.evolve = new EvolveScreen(this.ui, this.input);
     this.bestiaryScreen = new BestiaryScreen(this.ui, this.input);
     this.tracker = new QuestTracker(this.ui);
     this.hud.questEl = this.tracker.el;
@@ -1658,7 +1661,7 @@ export class Game {
     this.updateFps(raw);
     const dt = Math.min(raw, 0.05);
     this.elapsed += dt;
-    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen;
+    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
@@ -1675,6 +1678,7 @@ export class Game {
     if (paused) {
       // The topmost screen takes the keys: shop, then bag, then the menu under them. The console freezes everything.
       if (this.devConsole.isOpen) { /* typing */ }
+      else if (this.evolve.isOpen) this.evolve.update(dt);
       else if (this.creation.isOpen) this.creation.update();
       else if (this.worldMap.isOpen) this.worldMap.update(dt);
       else if (this.achScreen.isOpen) this.achScreen.update();
@@ -2439,7 +2443,7 @@ export class Game {
       before: () => {
         this.bankPickups('discard');
         this.log.clearFeed();
-        this.state.load(d.state);
+        this.state.load(d.state); this.applyForms();
         this.applyForge();
         this.stats.refill();
         this.stats.change('hp', 'set', d.gauges.hp);
@@ -4600,7 +4604,17 @@ export class Game {
   private bestiary(): BestiaryEntry[] {
     const B = this.combatCfg.bestiary, r = (k: string) => this.state.record(k);
     const mapTitle = (n: string) => (n === this.mapName ? this.mapData?.name : this.worldTitles.get(n)) || n;
-    return (this.db.enemies ?? []).filter((d) => !d.noBestiary).map((d) => {
+    // Each advanced form right after the one it comes from (the rest in the Database's order).
+    const all = (this.db.enemies ?? []).filter((d) => !d.noBestiary), order: EnemyDef[] = [];
+    const add = (d: EnemyDef, depth = 0) => {
+      if (order.includes(d) || depth > 4) return;
+      order.push(d);
+      const nx = d.advance ? all.find((y) => y.id === d.advance!.into) : undefined;
+      if (nx) add(nx, depth + 1);
+    };
+    for (const d of all) if (!all.some((y) => y !== d && y.advance?.into === d.id)) add(d);
+    for (const d of all) add(d);
+    return order.map((d) => {
       const won = r(`kill:${d.id}`), seen = won > 0 || r(`seen:${d.id}`) > 0;
       const places = [...this.state.records].filter(([k, v]) => v > 0 && k.startsWith(`seenAt:${d.id}:`)).map(([k]) => mapTitle(k.slice(`seenAt:${d.id}:`.length)));
       const v = Math.max(0, d.hpVariance ?? 0), hp = v ? `${Math.max(1, Math.round(d.hp * (1 - v / 100)))}–${Math.round(d.hp * (1 + v / 100))}` : String(d.hp);
@@ -4612,8 +4626,14 @@ export class Game {
         else if (x.mult > 1) groups.weak.push(e); else if (x.mult < 1) groups.resist.push(e);
       }
       const gate = <T,>(n: number, make: () => T): T | { need: number } => (won >= n ? make() : { need: n - won });
+      // Its forms: back to the base (whoever advances into it), then on through each advanced form.
+      const all = this.db.enemies ?? [], chain: EnemyDef[] = [d];
+      for (let k = 0, x = d; k < 4; k++) { const prev = all.find((y) => y.advance?.into === x.id); if (!prev || chain.includes(prev)) break; chain.unshift(prev); x = prev; }
+      for (let k = 0, x = d; k < 4 && x.advance; k++) { const nx = all.find((y) => y.id === x.advance!.into); if (!nx || chain.includes(nx)) break; chain.push(nx); x = nx; }
+      const met = (y: EnemyDef) => r(`kill:${y.id}`) > 0 || r(`seen:${y.id}`) > 0;
+      const forms = chain.length > 1 ? chain.map((y, k) => ({ name: y.name, picture: met(y) ? this.enemyPicture(y).icon : null, level: k ? chain[k - 1].advance?.level : undefined, current: y === d })) : undefined;
       return {
-        id: d.id, name: d.name, seen, defeated: won, picture: this.enemyPicture(d).icon, description: d.description, places,
+        id: d.id, name: d.name, seen, defeated: won, picture: this.enemyPicture(d).icon, description: d.description, places, forms,
         stats: gate(B.stats, () => ({ hp, attack: d.damage, defence: d.defense ?? 0, magicDefence: d.magicDefense ?? d.defense ?? 0, exp: d.xp, gold: d.gold ? (d.gold[0] === d.gold[1] ? `${d.gold[0]}` : `${d.gold[0]}–${d.gold[1]}`) : '0', boss: d.boss })),
         elements: gate(B.elements, () => ({ weak: groups.weak.map(chip), resist: groups.resist.map(chip), immune: groups.immune.map(chip), absorb: groups.absorb.map(chip), attack: ELEMENT_NAMES[enemyElement(d) ?? 'neutral'] })),
         drops: gate(B.drops, () => (d.drops ?? []).filter((x) => this.items.has(x.item)).map((x) => ({ name: this.items.get(x.item)!.name, icon: this.itemIcon(x.item), chance: x.chance }))),
@@ -4759,7 +4779,10 @@ export class Game {
   private levelled(def: EnemyDef, range?: LevelRange): EnemyDef {
     const dyn = this.state.enemyLevels;
     const lv = dyn && !def.boss ? partyLevel(this.partyAverageLevel(), dyn.spread) : rollLevel(def, range);
-    return atLevel(def, lv, this.combatCfg.enemyGrowth);
+    // High enough for its advanced form (Database → Enemies → Advanced form): that comes out instead, at this level.
+    let d = def;
+    for (let k = 0; k < 4 && d.advance && lv >= d.advance.level; k++) { const n = this.db.enemies?.find((x) => x.id === d.advance!.into); if (!n || n === d) break; d = n; }
+    return atLevel(d, lv, this.combatCfg.enemyGrowth);
   }
 
   /** The active party's average level. */
@@ -4833,6 +4856,68 @@ export class Game {
       if (a === 'chill') st.chillStacks = e.stacks ?? 1;
     }
     return st;
+  }
+
+  // ---------------------------------------------------------------- forms (Database → Heroes → Forms)
+  /** Each hero's own look and face, before any later form (kept the first time forms are put on). */
+  private formBase: Map<string, { look?: string; face?: string }> | null = null;
+
+  /** Put every hero in their current form: their look (the player's, for the hero) and face art. */
+  private applyForms(): void {
+    const main = mainHero(this.db);
+    this.formBase ??= new Map((this.db.heroes ?? []).map((h) => [h.id, { look: h === main ? this.db.player : h.look, face: h.face }]));
+    let changed = false;
+    for (const h of this.db.heroes ?? []) {
+      const b = this.formBase.get(h.id);
+      if (!b) continue;
+      let look = b.look, face = b.face;
+      const f = this.state.forms.get(h.id) ?? 0;
+      for (let k = 0; k < f; k++) { const fm = h.forms?.[k]; if (fm?.look && this.db.characters[fm.look]) look = fm.look; if (fm?.face) face = fm.face; }
+      if (h === main) { if (look && this.db.player !== look) { this.db.player = look; changed = true; } }
+      else if (h.look !== look) { h.look = look; changed = true; }
+      if (h.face !== face) { if (face) h.face = face; else delete h.face; changed = true; }
+    }
+    if (changed) this.refreshLooks();
+  }
+
+  /** Pictures drawn from the heroes' looks are drawn again (a form changed). */
+  private refreshLooks(): void {
+    this.portraitUrl = null;
+    this.memberPortraits.clear();
+    this.bigArt.clear();
+    this.sprites.clearPictures();
+    this.faceShown = false;
+    if (!this.player) return;
+    this.leaderKey = 'changed';
+    this.spawnAllies();
+  }
+
+  /** The form a hero's level has reached (0 base, 1 mid, 2 final). */
+  private formDue(def: HeroDef, level: number): number {
+    let f = 0;
+    (def.forms ?? []).slice(0, 2).forEach((fm, k) => { if (fm && fm.level > 0 && level >= fm.level && (fm.look || fm.face)) f = k + 1; });
+    return f;
+  }
+
+  /** The next hero due to transform: shown, then the rest one after another. */
+  private nextEvolution(): void {
+    if (this.evolve.isOpen) return;
+    const list = [{ def: mainHero(this.db), level: this.progress.level }, ...this.members().map((m) => ({ def: m.def, level: m.data.level }))];
+    for (const { def, level } of list) {
+      const now = this.state.forms.get(def.id) ?? 0, due = this.formDue(def, level);
+      if (due <= now || !this.db.heroes?.includes(def)) continue;
+      const main = def === mainHero(this.db);
+      const beforeLook = this.db.characters[(main ? this.db.player : def.look) ?? ''] ?? this.db.characters[this.db.player];
+      const before = this.sprites.standingFrame(`evo:${main ? this.db.player : def.look}`, beforeLook, 'down', 0);
+      this.state.forms.set(def.id, due);
+      this.applyForms();
+      const afterLook = this.db.characters[(main ? this.db.player : def.look) ?? ''] ?? beforeLook;
+      const after = this.sprites.standingFrame(`evo:${main ? this.db.player : def.look}`, afterLook, 'down', 0);
+      this.log.add(`${def.name} transformed into ${due === 2 ? 'their final form' : 'a new form'}!`, 'level');
+      this.state.tally('transformed');
+      this.evolve.show(def.name, due === 2 ? 'their final form' : 'a new form', before, after, () => {}, (n) => this.audio.play(n));
+      return;
+    }
   }
 
   /** What a hero's Element slots add up to (0: the hero, 1…: party members). */
@@ -5563,6 +5648,8 @@ export class Game {
     const host = this.allyHost();
     for (const a of this.allies) a.update(dt, host);
     if (this.calmFor > 2.5) for (const a of this.fighters) if (a.data.pendingXp) this.allyXp(a);
+    // A hero who reached a new form's level transforms once things are calm (after the battle that took them there).
+    if (this.calmFor > 1.2 && !this.battle.active && this.fieldFree()) this.nextEvolution();
     // Condensed hero bars (Settings → HUD): the hero's card leads the party's.
     const pr = this.progress;
     const heroEls = this.heroAffinity(0).elements;
@@ -5891,7 +5978,7 @@ export class Game {
       before: () => {
         this.bankPickups('discard');
         this.log.clearFeed();
-        this.state.load({});
+        this.state.load({}); this.applyForms();
         this.applyForge();
         this.state.initAbilities(this.db.abilities);
         this.stats.refill();
@@ -5924,7 +6011,7 @@ export class Game {
     const tb = this.db.menus?.titleBackground, titleMap = tb?.kind === 'map' && tb.map ? tb.map : this.db.startMap;
     this.requestTransfer(titleMap, titleMap === this.db.startMap && !(tb?.kind === 'map' && tb.map) ? { x: st.x, z: st.z, dir: st.dir } : { x: tb?.x ?? 0.5, z: tb?.z ?? 0.5 }, 'black', {
       slow: true,
-      before: () => { this.bankPickups('discard'); this.log.clearFeed(); this.state.load({}); this.applyForge(); this.state.initAbilities(this.db.abilities); this.stats.refill(); this.time.set(this.db.startHour, true); this.respawnPoint = null; this.playTime = 0; this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize); this.progress.load(undefined, this.heroBase()); this.combat.heroStatus.clear(); this.quests.load(undefined); this.party.load(undefined); this.heroAt = 0; this.visited.clear(); this.explored.clear(); this.syncSkills(); this.rings.off(); this.refreshRing(); },
+      before: () => { this.bankPickups('discard'); this.log.clearFeed(); this.state.load({}); this.applyForms(); this.applyForge(); this.state.initAbilities(this.db.abilities); this.stats.refill(); this.time.set(this.db.startHour, true); this.respawnPoint = null; this.playTime = 0; this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize); this.progress.load(undefined, this.heroBase()); this.combat.heroStatus.clear(); this.quests.load(undefined); this.party.load(undefined); this.heroAt = 0; this.visited.clear(); this.explored.clear(); this.syncSkills(); this.rings.off(); this.refreshRing(); },
       fresh: true,
       after: () => this.openTitle(),
     });

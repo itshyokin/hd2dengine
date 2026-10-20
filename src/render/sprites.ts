@@ -228,6 +228,9 @@ export class SpriteLibrary {
 
   private readonly standing = new Map<string, HTMLCanvasElement>();
 
+  /** Forget the cut-out pictures (standing frames, portraits): a hero's look changed (a new form). */
+  clearPictures(): void { this.standing.clear(); this.portraits.clear(); }
+
   /**
    * A character's whole standing frame facing `dir` (for turn-based battles), trimmed to what's drawn and scaled
    * up `scale` times with sharp pixels. `key` caches it.

@@ -26,6 +26,8 @@ export interface BestiaryEntry {
   stats: { hp: string; attack: number; defence: number; magicDefence: number; exp: number; gold: string; boss?: boolean } | { need: number };
   elements: { weak: Chip[]; resist: Chip[]; immune: Chip[]; absorb: Chip[]; attack: string } | { need: number };
   drops: { name: string; icon: string; chance: number }[] | { need: number };
+  /** Its forms, base first (Database → Enemies → Advanced form): each one's picture (when met) and the level it comes at. */
+  forms?: { name: string; picture: string | null; level?: number; current: boolean }[];
 }
 
 const locked = (x: unknown): x is { need: number } => !!x && typeof x === 'object' && 'need' in (x as object);
@@ -90,6 +92,7 @@ export class BestiaryScreen {
           <p class="bs-count">Defeated: <b>${e.defeated.toLocaleString()}</b></p>
           ${e.places.length ? `<p class="bs-places">Seen in ${e.places.map(esc).join(', ')}</p>` : ''}</div></div>
         ${e.description ? `<p class="bs-desc">${esc(e.description)}</p>` : ''}
+        ${e.forms && e.forms.length > 1 ? `<section><h4>Forms</h4><div class="bs-forms">${e.forms.map((f, k) => `${k ? `<span class="bs-arrow">Lv ${f.level ?? '?'}<i>→</i></span>` : ''}<span class="bs-form${f.current ? ' cur' : ''}" title="${esc(f.picture ? f.name : '???')}">${f.picture ? `<img src="${f.picture}" alt="">` : '<b>?</b>'}<small>${esc(f.picture ? f.name : '???')}</small></span>`).join('')}</div></section>` : ''}
         <section><h4>Numbers</h4>${locked(st) ? more(st.need) : `<dl class="bs-stats">
           <div><dt>HP</dt><dd>${st.hp}</dd></div><div><dt>Attack</dt><dd>${st.attack}</dd></div><div><dt>Defence</dt><dd>${st.defence}</dd></div>
           <div><dt>Magic defence</dt><dd>${st.magicDefence}</dd></div><div><dt>EXP</dt><dd>${st.exp}</dd></div><div><dt>Gold</dt><dd>${st.gold}</dd></div></dl>`}</section>

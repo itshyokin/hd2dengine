@@ -102,6 +102,8 @@ Kept in the project so they travel with the code. Tick them off as they're built
       basic attack's element), tiered damage and weakness, pair bonus, same-element spell bonus, fusing from the bag,
       Fragment drops; shards no longer set in gear; Normal instead of Non-elemental; element pills and circles; the
       Journal's Type Chart.
+- [x] Forms (update 80): heroes' mid and final forms (level, look, face) with a transformation scene after the battle
+      that reached the level; monsters' advanced forms (own entry, comes out at a level, Bestiary chain and order).
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
