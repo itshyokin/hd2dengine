@@ -78,6 +78,10 @@ export interface VictoryHero {
   changes: string[];
   /** Where their bar ends up. */
   after: { level: number; xp: number; toNext: number };
+  /** Sat out but earned EXP all the same: the item that shared it (EXP Share, EXP All). */
+  via?: string;
+  /** The EXP earned fighting, split up (Pocket Handheld's log): bonuses beyond each foe's own EXP. */
+  bonus?: { gained: number; bits: string[] };
 }
 export interface VictoryLoot { name: string; icon: string; count: number; kind: 'gold' | 'potion' | 'key' | 'material' | 'gear' | 'item'; note?: string }
 export interface VictoryReport { xp: number; heroes: VictoryHero[]; loot: VictoryLoot[] }
@@ -251,6 +255,7 @@ export class BattleScreen {
     // Tapping anywhere while a message waits moves it on.
     this.root.addEventListener('pointerdown', (e) => {
       if (this.vic) { e.preventDefault(); this.vicNext(); return; }
+      if (this.pvic) { e.preventDefault(); this.input.press('ok'); return; }
       if (this.mode.kind === 'wait' && !(e.target as HTMLElement).closest('.battle-cmd')) { e.preventDefault(); this.finishWait(); }
     });
     // Additions: the ring that closes on the target, the button to press, and touch buttons.
@@ -314,6 +319,7 @@ export class BattleScreen {
     this.endQte();
     this.vic?.el.remove();
     this.vic = null;
+    this.pvic = null;
     this.leftover?.remove();
     this.leftover = null;
     this.mode = { kind: 'idle' };
@@ -441,6 +447,42 @@ export class BattleScreen {
     if (xp && v.xp) xp.style.width = `${v.xp.next > 0 ? Math.max(0, Math.min(100, (v.xp.have / v.xp.next) * 100)) : 100}%`;
     el.addEventListener('click', () => this.tapFighter(v.key));
     return { el, hp: el.querySelector('.pb-bar span') as HTMLElement, num: el.querySelector('.pb-num'), orb: el.querySelector('.pb-orb'), orbText: el.querySelector('.pb-orb span') };
+  }
+
+  /** Pocket Handheld: a hero's EXP bar (0 … 1) and level, as EXP comes in during the battle. */
+  setXp(key: string, frac: number, level?: number, up = false): void {
+    const f = this.fighters.get(key);
+    if (!f) return;
+    const span = f.pb.el.querySelector('.pb-xp span') as HTMLElement | null;
+    if (span) span.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`;
+    const lv = f.pb.el.querySelector('.pb-lv') as HTMLElement;
+    if (level) lv.textContent = `Lv ${level}`;
+    if (up) { lv.classList.remove('up'); void lv.offsetWidth; lv.classList.add('up'); }
+  }
+
+  /**
+   * Pocket Handheld's victory: no results screen; the EXP, level ups and loot go in the log a line at a time
+   * (OK hurries them), then OK goes on.
+   */
+  pocketVictory(lines: { text: string; cls?: string; sound?: string; bars?: () => void }[], done: () => void): void {
+    this.idle();
+    this.message('');
+    this.pvic = { lines, i: 0, t: 0.4, done, end: false };
+  }
+
+  private pvic: { lines: { text: string; cls?: string; sound?: string; bars?: () => void }[]; i: number; t: number; done: () => void; end: boolean } | null = null;
+
+  private pocketVictoryStep(dt: number): void {
+    const v = this.pvic!, ok = this.input.consume('ok') || this.input.consume('cancel');
+    const show = (l: (typeof v.lines)[number]) => { this.logLine(l.text, l.cls); l.bars?.(); if (l.sound) this.onSound?.(l.sound); };
+    if (v.end) {
+      if (ok) { this.pvic = null; uiSound('menuOk'); v.done(); }
+      return;
+    }
+    if (ok) { while (v.i < v.lines.length) show(v.lines[v.i++]); }
+    v.t -= dt;
+    if (v.t <= 0 && v.i < v.lines.length) { show(v.lines[v.i++]); v.t = 0.7; }
+    if (v.i >= v.lines.length && (ok || v.t <= -0.3)) { v.end = true; this.logLine('▶ OK to continue', 'cont'); }
   }
 
   /** Pocket Handheld: the four spheres on a side's first block (up to fight, knocked out with a red ✕, or empty). */
@@ -610,12 +652,13 @@ export class BattleScreen {
   }
 
   /** A line in the battle log (left side). */
-  logLine(text: string): void {
+  logLine(text: string, cls?: string): void {
     // Pocket Handheld shows messages in the log too: the same words twice in a row ("steps in!", "steps in") once.
     const same = (a: string) => a.trim().replace(/[.!]+$/, '');
     if (this.layout === 'pocket' && same(this.logLines.lastElementChild?.textContent ?? '') === same(text)) return;
     const p = document.createElement('div');
     p.textContent = text;
+    if (cls) p.className = cls;
     this.logLines.append(p);
     while (this.logLines.childElementCount > 200) this.logLines.firstElementChild?.remove();
     // Keep showing the newest unless the player is reading back.
@@ -896,6 +939,7 @@ export class BattleScreen {
   update(dt: number): void {
     if (this.msgTimer !== Infinity && this.msgTimer > 0 && (this.msgTimer -= dt) <= 0) this.msgEl.classList.remove('on');
     if (this.vic) { this.updateVictory(dt); return; }
+    if (this.pvic) { this.pocketVictoryStep(dt); return; }
     if (this.camTimer > 0 && (this.camTimer -= dt) <= 0) this.camEl.classList.remove('lit');
     if (this.qte) { this.updateQte(dt); return; }
     if (this.seq) { this.updateSeq(dt); return; }
@@ -994,6 +1038,8 @@ export class BattleScreen {
   }
 
   private vicSound(name: string): void { this.onSound?.(name); }
+  /** Play one of the victory screen's sounds (a level up, the EXP filling). */
+  cue(name: string): void { this.onSound?.(name); }
 
   /** OK / B / a tap on the victory screens: hurry the animation, or go on. */
   private vicNext(): void {

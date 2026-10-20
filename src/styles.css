@@ -1792,74 +1792,94 @@ body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-q
 .spell-seq.broken { border-color: #ff6a6a; }
 
 /* ---------------------------------------------------------------- Pocket Handheld battle layout (Pokémon-style) */
+/* Everything here is sized in --u (1% of the screen's width, less on short screens), so the blocks keep their shape and
+   each side's block is half the screen wide. */
+.battle.layout-pocket { container-type: size; }
+.battle.layout-pocket > * { --u: min(1cqw, 1.78cqh); --g: calc(var(--u) * 1.2); --half: calc(var(--u) * 50 - var(--g) * 1.5); --cmd-h: calc(var(--u) * 12); }
 .pocket-foes, .pocket-heroes { display: none; }
-.battle.layout-pocket .pocket-foes, .battle.layout-pocket .pocket-heroes { display: grid; gap: 8px; position: absolute; z-index: 3; width: min(420px, 42vw); }
-.battle.layout-pocket .pocket-foes { left: calc(16px + env(safe-area-inset-left, 0px)); top: calc(16px + env(safe-area-inset-top, 0px)); }
-.battle.layout-pocket .pocket-heroes { right: calc(40px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: min(396px, calc(42vw - 24px)); }
+.battle.layout-pocket .pocket-foes, .battle.layout-pocket .pocket-heroes { display: grid; gap: calc(var(--u) * 0.8); position: absolute; z-index: 3; width: var(--half); }
+.battle.layout-pocket .pocket-foes { left: calc(var(--g) + env(safe-area-inset-left, 0px)); top: calc(var(--g) + env(safe-area-inset-top, 0px)); }
+.battle.layout-pocket .pocket-heroes { right: calc(var(--g) + env(safe-area-inset-right, 0px)); bottom: calc(var(--g) * 2 + var(--cmd-h) + env(safe-area-inset-bottom, 0px)); }
 .battle.layout-pocket .battle-cam { left: auto; right: calc(12px + env(safe-area-inset-right, 0px)); }
 .battle.layout-pocket .battle-cards, .battle.layout-pocket .battle-status, .battle.layout-pocket .battle-order, .battle.layout-pocket .battle-blocks,
 .battle.layout-pocket .battle-msg, .battle.layout-pocket .bf-tag, .battle.layout-pocket .battle-desc { display: none !important; }
-.pb { position: relative; background: rgba(12, 14, 24, 0.9); border: 2px solid var(--pb-edge, #c9a46a); border-radius: 12px; padding: 10px 14px 10px; color: #f3ead8;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); cursor: pointer; transition: opacity 0.3s, box-shadow 0.2s; }
-.pb.hero { padding-right: 46px; }
+.pb { position: relative; background: rgba(12, 14, 24, 0.9); border: max(2px, calc(var(--u) * 0.22)) solid var(--pb-edge, #c9a46a); border-radius: calc(var(--u) * 1.3);
+  padding: calc(var(--u) * 1.1) calc(var(--u) * 1.6); color: #f3ead8; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); cursor: pointer; transition: opacity 0.3s, box-shadow 0.2s; }
+.pb.hero { padding-right: calc(var(--u) * 8.4); }
 .pb.targeted { box-shadow: 0 0 0 3px #ffd27a, 0 8px 22px rgba(0, 0, 0, 0.5); }
 .pb.down { opacity: 0.55; }
-.pb-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-family: var(--f-display, inherit); font-size: 19px; font-weight: 700; letter-spacing: 0.02em; }
+.pb-top { display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 0.8); font-family: var(--f-display, inherit); font-size: calc(var(--u) * 2.2); font-weight: 700; letter-spacing: 0.02em; }
 .pb-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pb-lv { color: #ffd38a; font-size: 15px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
-.pb-lv img { width: 16px; height: 16px; image-rendering: pixelated; }
-.pb-line { display: flex; align-items: center; gap: 7px; margin-top: 7px; }
-.pb-k { font-size: 11px; font-weight: 800; color: #ffcf6a; letter-spacing: 0.06em; }
-.pb-bar { flex: 1; height: 10px; border-radius: 6px; background: #2a2d3a; border: 1px solid #000; overflow: hidden; }
+.pb-lv { color: #ffd38a; font-size: calc(var(--u) * 1.75); white-space: nowrap; display: inline-flex; align-items: center; gap: calc(var(--u) * 0.4); }
+.pb-lv img { width: calc(var(--u) * 1.8); height: calc(var(--u) * 1.8); image-rendering: pixelated; }
+.pb-line { display: flex; align-items: center; gap: calc(var(--u) * 0.8); margin-top: calc(var(--u) * 0.8); }
+.pb-k { font-size: calc(var(--u) * 1.25); font-weight: 800; color: #ffcf6a; letter-spacing: 0.06em; }
+.pb-bar { flex: 1; height: calc(var(--u) * 1.15); border-radius: calc(var(--u) * 0.7); background: #2a2d3a; border: 1px solid #000; overflow: hidden; }
 .pb-bar span { display: block; height: 100%; width: 100%; background: linear-gradient(#7cf08a, #3cb05a); transition: width 0.45s ease; }
 .pb.mid .pb-bar span { background: linear-gradient(#ffe27a, #e0a82a); }
 .pb.low .pb-bar span { background: linear-gradient(#ff8a7a, #d0402a); }
-.pb-num { text-align: right; font-size: 17px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
-.pb-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-.pb-balls { display: flex; gap: 6px; }
-.pb-ball { position: relative; width: 13px; height: 13px; border-radius: 50%; border: 2px solid #1a1420; background: radial-gradient(circle at 35% 35%, #ffd08a, #e07a1a 70%); }
+.pb-num { text-align: right; font-size: calc(var(--u) * 2); font-weight: 700; margin-top: calc(var(--u) * 0.3); font-variant-numeric: tabular-nums; }
+.pb-foot { display: flex; align-items: center; gap: calc(var(--u) * 1.1); margin-top: calc(var(--u) * 0.9); }
+.pb-balls { display: flex; gap: calc(var(--u) * 0.7); }
+.pb-ball { position: relative; width: calc(var(--u) * 1.5); height: calc(var(--u) * 1.5); border-radius: 50%; border: max(2px, calc(var(--u) * 0.2)) solid #1a1420; background: radial-gradient(circle at 35% 35%, #ffd08a, #e07a1a 70%); }
 .pb-ball.ko { background: radial-gradient(circle at 35% 35%, #6a6a72, #2a2a32 70%); }
-.pb-ball.ko::after { content: '✕'; position: absolute; inset: -5px; display: grid; place-items: center; color: #ff3b2e; font-size: 17px; font-weight: 900; line-height: 1; text-shadow: 0 0 2px #000, 0 0 3px #000; }
+.pb-ball.ko::after { content: '✕'; position: absolute; inset: calc(var(--u) * -0.6); display: grid; place-items: center; color: #ff3b2e; font-size: calc(var(--u) * 1.95); font-weight: 900; line-height: 1; text-shadow: 0 0 2px #000, 0 0 3px #000; }
 .pb-ball.empty { background: transparent; border-color: rgba(220, 220, 235, 0.55); }
-.pb-xp { flex: 1; height: 5px; border-radius: 3px; background: #2a2d3a; overflow: hidden; }
-.pb-xp span { display: block; height: 100%; background: linear-gradient(90deg, #7ad8ff, #3a9ad8); }
+.pb-xp { flex: 1; height: calc(var(--u) * 0.6); border-radius: calc(var(--u) * 0.3); background: #2a2d3a; overflow: hidden; }
+.pb-xp span { display: block; height: 100%; background: linear-gradient(90deg, #7ad8ff, #3a9ad8); transition: width 0.9s ease; }
+.pb-xp.full span { background: linear-gradient(90deg, #d6f4ff, #7ad8ff); box-shadow: 0 0 8px #7ad8ff; }
 /* The foe's block underlines like the handheld games' bracket. */
-.pb-bracket { flex: 1; height: 3px; border-radius: 2px; background: linear-gradient(90deg, rgba(201, 164, 106, 0.8), rgba(201, 164, 106, 0)); }
-/* The hero's MP: a violet ring on the right edge, emptying as magic is spent. */
-.pb-orb { --mp: 1; position: absolute; right: -20px; top: 50%; transform: translateY(-50%); width: 54px; height: 54px; border-radius: 50%; border: 3px solid var(--pb-edge, #c9a46a);
-  background: conic-gradient(#b37aff calc(var(--mp) * 360deg), #2a2440 0); display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
-.pb-orb b { width: 40px; height: 40px; border-radius: 50%; background: #0c0e18; display: grid; place-items: center; align-content: center; font-size: 9px; color: #d9c2ff; line-height: 1.05; letter-spacing: 0.06em; }
-.pb-orb b span { font-size: 14px; color: #fff; letter-spacing: 0; }
+.pb-bracket { flex: 1; height: calc(var(--u) * 0.32); border-radius: 2px; background: linear-gradient(90deg, rgba(201, 164, 106, 0.8), rgba(201, 164, 106, 0)); }
+/* The hero's MP: a violet ring at the right of their block, emptying as magic is spent. */
+.pb-orb { --mp: 1; position: absolute; right: calc(var(--u) * 1.3); top: 50%; transform: translateY(-50%); width: calc(var(--u) * 6); height: calc(var(--u) * 6); border-radius: 50%;
+  border: max(2px, calc(var(--u) * 0.3)) solid var(--pb-edge, #c9a46a); background: conic-gradient(#b37aff calc(var(--mp) * 360deg), #2a2440 0); display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
+.pb-orb b { width: 74%; height: 74%; border-radius: 50%; background: #0c0e18; display: grid; place-items: center; align-content: center; font-size: calc(var(--u) * 1); color: #d9c2ff; line-height: 1.05; letter-spacing: 0.06em; }
+.pb-orb b span { font-size: calc(var(--u) * 1.6); color: #fff; letter-spacing: 0; }
 .pb-orb.none { filter: grayscale(1) opacity(0.5); }
-/* The commands: a 3 × 2 grid of words under the hero's block. */
-.battle.layout-pocket .battle-bottom { left: auto; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: min(420px, 42vw); display: block; }
-.battle.layout-pocket .battle-cmd.bar { background: rgba(12, 14, 24, 0.92); border: 2px solid var(--pb-edge, #c9a46a); border-radius: 12px; padding: 8px 10px; justify-items: stretch; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); }
+/* The commands: a 3 × 2 grid of words under the hero's block, always the same size. */
+.battle.layout-pocket .battle-bottom { left: auto; right: calc(var(--g) + env(safe-area-inset-right, 0px)); bottom: calc(var(--g) + env(safe-area-inset-bottom, 0px)); width: var(--half); display: block; }
+.battle.layout-pocket .battle-cmd.bar { box-sizing: border-box; height: var(--cmd-h); width: 100%; overflow: hidden; display: grid; grid-template-rows: 1fr auto; align-content: stretch;
+  background: rgba(12, 14, 24, 0.92); border: max(2px, calc(var(--u) * 0.22)) solid var(--pb-edge, #c9a46a); border-radius: calc(var(--u) * 1.3); padding: calc(var(--u) * 0.8) calc(var(--u) * 1); justify-items: stretch; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); }
 .battle.layout-pocket .battle-cmd.bar .battle-cmd-title { display: none; }
-.battle.layout-pocket .battle-cmd.bar .battle-cmd-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px; }
-.battle.layout-pocket .bcmd-tile { width: auto; height: 34px; display: flex; align-items: center; justify-content: flex-start; padding: 0 8px 0 18px; background: none; border: 0; box-shadow: none; position: relative; }
+.battle.layout-pocket .battle-cmd.bar .battle-cmd-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: calc(var(--u) * 0.4) calc(var(--u) * 0.8); width: 100%; min-width: 0; }
+.battle.layout-pocket .bcmd-tile { width: auto; min-width: 0; height: auto; display: flex; align-items: center; justify-content: flex-start; padding: 0 calc(var(--u) * 0.6) 0 calc(var(--u) * 2.1);
+  background: none; border: max(1px, calc(var(--u) * 0.15)) solid transparent; border-radius: calc(var(--u) * 0.6); box-shadow: none; position: relative; transform: none !important; }
 .battle.layout-pocket .bcmd-tile svg { display: none; }
-.battle.layout-pocket .bcmd-tile .bcmd-tile-label { font-family: var(--f-display, inherit); font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #f3ead8; }
-.battle.layout-pocket .bcmd-tile[aria-selected="true"]::before { content: '▶'; position: absolute; left: 3px; top: 50%; transform: translateY(-50%); color: #ffd27a; font-size: 11px; }
+.battle.layout-pocket .bcmd-tile .bcmd-tile-label { font-family: var(--f-display, inherit); font-size: calc(var(--u) * 1.65); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #f3ead8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The one chosen: a ▶ and a box round it. */
+.battle.layout-pocket .bcmd-tile[aria-selected="true"] { border-color: rgba(255, 210, 122, 0.85); background: rgba(255, 210, 122, 0.1); }
+.battle.layout-pocket .bcmd-tile[aria-selected="true"]::before { content: '▶'; position: absolute; left: calc(var(--u) * 0.6); top: 50%; transform: translateY(-50%); color: #ffd27a; font-size: calc(var(--u) * 1.15); }
 .battle.layout-pocket .bcmd-tile[aria-selected="true"] .bcmd-tile-label { color: #ffd27a; }
 .battle.layout-pocket .bcmd-tile:disabled .bcmd-tile-label { opacity: 0.4; }
-.battle.layout-pocket .battle-cmd-cap { text-align: left; padding: 0 4px; min-height: 0; }
-/* The battle log as the text box along the bottom. */
-.battle.layout-pocket .battle-log { left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(min(420px, 42vw) + 32px); top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: auto; z-index: 3; }
-.battle.layout-pocket .battle-log-lines { max-height: 74px; min-height: 74px; background: rgba(12, 14, 24, 0.92); border: 2px solid var(--pb-edge, #c9a46a); border-radius: 12px; padding: 8px 14px;
-  font-size: 14px; line-height: 1.55; -webkit-mask-image: none; mask-image: none; }
-.battle.layout-pocket .battle-log-hint { text-align: right; }
+.battle.layout-pocket .battle-cmd-cap { text-align: left; padding: 0 calc(var(--u) * 0.4); margin: calc(var(--u) * 0.4) 0 0; font-size: calc(var(--u) * 1.25); line-height: 1.3;
+  height: 2.6em; min-height: 2.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* The battle log as the text box along the bottom left, as tall as the commands. */
+.battle.layout-pocket .battle-log { left: calc(var(--g) + env(safe-area-inset-left, 0px)); right: auto; top: auto; bottom: calc(var(--g) + env(safe-area-inset-bottom, 0px)); width: var(--half); z-index: 3; }
+.battle.layout-pocket .battle-log-lines { box-sizing: border-box; height: var(--cmd-h); min-height: var(--cmd-h); max-height: var(--cmd-h); background: rgba(12, 14, 24, 0.92);
+  border: max(2px, calc(var(--u) * 0.22)) solid var(--pb-edge, #c9a46a); border-radius: calc(var(--u) * 1.3); padding: calc(var(--u) * 1) calc(var(--u) * 1.6);
+  font-size: calc(var(--u) * 1.55); line-height: 1.5; gap: calc(var(--u) * 0.2); align-content: end; -webkit-mask-image: none; mask-image: none; }
+.battle.layout-pocket .battle-log-hint { position: absolute; right: calc(var(--u) * 1.2); bottom: calc(var(--u) * 0.5); font-size: calc(var(--u) * 0.95); opacity: 0.55; }
 /* Just the newest three lines, unless the player is reading back (Y). */
 .battle.layout-pocket .battle-log:not(.focused) .battle-log-lines > :nth-last-child(n + 4) { display: none; }
+.battle.layout-pocket .battle-log.focused .battle-log-lines { height: auto; max-height: min(46cqh, calc(var(--u) * 30)); align-content: start; }
+.battle-log-lines .exp { color: #9adfff; }
+.battle-log-lines .lvup { color: #ffd27a; font-weight: 700; }
 /* The flat battle screen: the hero big at the bottom left, the foe up and right. */
 .battle.layout-pocket .battle-field { left: 0; right: 0; top: 0; bottom: 0; }
 .battle.layout-pocket .battle-enemies { left: auto; right: 6%; width: 46%; top: 14%; bottom: auto; height: 42%; }
 .battle.layout-pocket .battle-party { right: auto; left: 5%; width: 42%; top: auto; bottom: 22%; height: 46%; align-items: flex-start; justify-content: flex-end; }
 .battle.layout-pocket .battle-party .bf-pic { transform: scale(1.8); transform-origin: bottom left; }
 .battle.layout-pocket .battle-enemies .bf-pic { transform: scale(1.3); transform-origin: bottom center; }
-@media (max-width: 760px) {
-  .battle.layout-pocket .pocket-foes, .battle.layout-pocket .pocket-heroes, .battle.layout-pocket .battle-bottom { width: calc(100% - 32px); }
-  .battle.layout-pocket .pocket-heroes { bottom: calc(260px + env(safe-area-inset-bottom, 0px)); width: calc(100% - 64px); }
-  .battle.layout-pocket .battle-log { right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
-  .battle.layout-pocket .battle-log-lines { min-height: 70px; max-height: 70px; }
+/* Upright screens: everything full width, stacked at the bottom (commands, then the log, then the hero's block). */
+@container (max-aspect-ratio: 1 / 1) {
+  .battle.layout-pocket > * { --u: 1.9cqw; --g: 12px; --half: calc(100cqw - 24px); --cmd-h: calc(var(--u) * 12); }
+  .battle.layout-pocket .battle-log { bottom: calc(var(--g) * 2 + var(--cmd-h) + env(safe-area-inset-bottom, 0px)); }
+  .battle.layout-pocket .pocket-heroes { bottom: calc(var(--g) * 3 + var(--cmd-h) * 2 + env(safe-area-inset-bottom, 0px)); }
 }
-.battle.layout-pocket .battle-log.focused .battle-log-lines { max-height: min(46vh, 260px); }
+.battle-log-lines .loot { color: #ffe3a3; }
+.battle-log-lines .cont { color: #ffd27a; text-align: right; animation: pocket-blink 1.1s steps(2) infinite; }
+@keyframes pocket-blink { 50% { opacity: 0.35; } }
+.pb-lv.up { animation: pb-lvup 0.9s ease; }
+@keyframes pb-lvup { 0%, 100% { transform: none; color: #ffd38a; } 30% { transform: scale(1.35); color: #fff; text-shadow: 0 0 10px #ffd27a; } }
+/* Controls opened from Settings: the Settings list behind it doesn't show through. */
+body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }

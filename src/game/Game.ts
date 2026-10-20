@@ -5189,6 +5189,17 @@ export class Game {
           return { who, xp: xp + finish + w };
         });
       },
+      // Pocket Handheld's EXP bar during the battle: where a hero's bar would be with what they've earned so far.
+      xpPreview: (who) => {
+        const e = this.earned.get(who), m = who ? this.members()[who - 1]?.data : undefined;
+        let level = m ? m.level : this.progress.level, have = m ? m.xp : this.progress.xp, left = e ? e.base + e.finish + e.weak + e.addition : 0;
+        for (;;) {
+          const need = xpToNext(this.combatCfg, level);
+          if (need <= 0) return { level, frac: 1 };
+          if (have + left < need) return { level, frac: (have + left) / need };
+          left -= need - have; have = 0; level++;
+        }
+      },
       // Each Addition strike landed earns a little EXP (a perfect one twice that); completing it, more.
       strikeExp: (who, key, result) => {
         const xp = Math.max(0, this.battleFoes.get(key)?.xp ?? 0), b = this.combatCfg.exp;
@@ -5302,27 +5313,29 @@ export class Game {
     // What each hero earned: fighters what they won as foes fell (and bonuses); those sitting it out, an EXP Share's
     // or EXP All's percent of the foes' EXP.
     const b = this.combatCfg.exp, noKo = !this.battle.partyFell;
-    const benchPct = (who: number): number => {
+    const benchPct = (who: number): { pct: number; name: string } => {
       const worn = who ? this.members()[who - 1]?.data.equip ?? {} : this.inventory.equip;
-      let pct = 0;
-      for (const id of Object.values(worn)) { const d = id ? this.items.get(id) : undefined; if (d?.exp && !d.exp.all) pct = Math.max(pct, d.exp.share); }
-      for (const st of this.inventory.slots) { const d = st ? this.items.get(st.id) : undefined; if (d?.exp?.all && !this.state.expAllOff.has(d.id)) pct = Math.max(pct, d.exp.share); }
-      return pct;
+      let pct = 0, name = '';
+      for (const id of Object.values(worn)) { const d = id ? this.items.get(id) : undefined; if (d?.exp && !d.exp.all && d.exp.share > pct) { pct = d.exp.share; name = d.name; } }
+      for (const st of this.inventory.slots) { const d = st ? this.items.get(st.id) : undefined; if (d?.exp?.all && !this.state.expAllOff.has(d.id) && d.exp.share > pct) { pct = d.exp.share; name = d.name; } }
+      return { pct, name };
     };
-    const share = (who: number): { gained: number; note: string } => {
+    const share = (who: number): { gained: number; note: string; via?: string; bonus?: VictoryHero['bonus'] } => {
       const e = this.earned.get(who);
       if (e) {
         const ko = noKo && e.base > 0 ? Math.round((e.base * b.noKo) / 100) : 0;
         const bits = [`Base ${e.base}`, e.finish ? `Finishing blows +${e.finish}` : '', e.weak ? `Weaknesses +${e.weak}` : '', e.addition ? `Additions +${e.addition}` : '', ko ? `No KOs +${ko}` : ''].filter(Boolean);
         const gained = e.base + e.finish + e.weak + e.addition + ko;
-        return { gained, note: gained && bits.length > 1 ? bits.join(' · ') : '' };
+        // The EXP not yet told as foes fell (Pocket Handheld): Additions and No KOs.
+        const later = [e.addition ? `Additions +${e.addition}` : '', ko ? `No KOs +${ko}` : ''].filter(Boolean);
+        return { gained, note: gained && bits.length > 1 ? bits.join(' · ') : '', bonus: { gained: e.addition + ko, bits: later } };
       }
-      const pct = benchPct(who), gained = Math.round((xp * pct) / 100);
-      return { gained, note: gained ? `Sat out: ${pct}% (EXP Share)` : 'Sat out: no EXP' };
+      const { pct, name } = benchPct(who), gained = Math.round((xp * pct) / 100);
+      return { gained, note: gained ? `Sat out: ${pct}% (${name || 'EXP Share'})` : 'Sat out: no EXP', via: gained ? name || 'EXP Share' : undefined };
     };
     {
       const pr = this.progress, before = { level: pr.level, xp: pr.xp, toNext: pr.toNext, hp: this.stats.cfg.max.hp, mp: this.stats.cfg.max.mp, stats: { ...pr.stats }, sk: pr.points };
-      const { gained, note } = share(0);
+      const { gained, note, via, bonus } = share(0);
       const segs = gained > 0 ? segments(pr.level, pr.xp, gained) : [];
       if (gained > 0) this.gainXp(gained, true, true);
       const changes: string[] = [];
@@ -5331,12 +5344,12 @@ export class Game {
         statChanges(changes, before.stats, pr.stats); gain(changes, 'skill point', pr.points - before.sk);
       }
       this.portraitUrl ??= this.sprites.portrait('hero', this.db.characters[this.db.player], 48).toDataURL();
-      heroes.push({ key: 'p0', name: mainHero(this.db).name, icon: this.portraitUrl, color: this.heroColor(0), level: before.level, xp: before.xp, toNext: before.toNext, gained, note, segments: segs, changes, after: { level: pr.level, xp: pr.xp, toNext: pr.toNext } });
+      heroes.push({ key: 'p0', name: mainHero(this.db).name, icon: this.portraitUrl, color: this.heroColor(0), level: before.level, xp: before.xp, toNext: before.toNext, gained, note, via, bonus, segments: segs, changes, after: { level: pr.level, xp: pr.xp, toNext: pr.toNext } });
     }
     const sk = this.combatCfg.pointsPerLevel;
     this.members().forEach((m, k) => {
       const d = m.data, n0 = this.allyNumbers(d, m.def), before = { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), stats: { ...d.stats }, sk: d.skillPoints ?? 0 };
-      const { gained, note } = share(k + 1), out = !!d.down && !gained;
+      const { gained, note, via, bonus } = share(k + 1), out = !!d.down && !gained;
       const segs = gained > 0 ? segments(d.level, d.xp, gained) : [];
       const changes: string[] = [];
       if (gained > 0) {
@@ -5348,7 +5361,7 @@ export class Game {
           statChanges(changes, before.stats, d.stats); gain(changes, 'skill point', (d.skillPoints ?? 0) - before.sk);
         }
       }
-      heroes.push({ key: `p${k + 1}`, name: m.def.name, icon: this.memberPortrait(m.def), color: this.heroColor(k + 1), out, level: before.level, xp: before.xp, toNext: before.toNext, gained, note, segments: segs, changes, after: { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level) } });
+      heroes.push({ key: `p${k + 1}`, name: m.def.name, icon: this.memberPortrait(m.def), color: this.heroColor(k + 1), out, level: before.level, xp: before.xp, toNext: before.toNext, gained, note, via, bonus, segments: segs, changes, after: { level: d.level, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level) } });
     });
     return { xp, heroes, loot };
   }

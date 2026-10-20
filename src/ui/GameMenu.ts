@@ -178,6 +178,8 @@ export class GameMenu {
       });
       return b;
     }));
+    // Keep the chosen row in view (a long list, such as Settings, scrolls as the controller moves down it).
+    (this.listEl.children[s.index] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
   }
 }
 

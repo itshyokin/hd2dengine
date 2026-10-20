@@ -937,6 +937,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   still to come, dark with a red ✕ for each one knocked out, empty for no one. The commands are a 3 × 2 grid of
   words under the hero's block, the battle log is the text box along the bottom, and the camera starts low behind the
   hero (seen from the back, at the lower left) looking at the foe (upper right). The other cameras still work.
+  Each side's block is half the screen wide (everything in it grows and shrinks with the screen, keeping its shape);
+  the command box stays one size, the chosen command boxed and marked ▶. There's no results screen: the EXP bar
+  fills as each foe falls, and the log tells it all ("Jordan gained 60 EXP", "Jordan grew to Lv 3!", bonuses at the
+  end, "Katrina gained 30 EXP thanks to the EXP All!", what the new levels brought, then the loot); OK goes on. The
+  other two layouts keep the EXP and loot screens.
 - **Choosing a target**: enemies are one row and the party another. Left / right move along the row; up / down
   change rows.
 - **Commands** (Legend of Dragoon style): a row of pictures, Attack, Guard, Magic, Items and Escape; left / right

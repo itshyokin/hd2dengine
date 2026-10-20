@@ -80,6 +80,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 77: Pocket Handheld layout (`turnBased.layout: 'pocket'`): BattleScreen `pocketBlock`, `setSpheres` (TurnBattle's
   `updateSpheres`), `.layout-pocket` CSS; BattleStage `pocket` and `pocketCamera` (searches for a spot putting the
   hero lower left and the foe upper right); heroes get a `back` picture; `SINGLE_MAX = 4` in combat/config.ts.
+- 78: Pocket CSS sized in `--u` (container units on `.battle.layout-pocket`); TurnBattle `showXp` / `pocketResults`
+  (host `xpPreview`), BattleScreen `setXp` / `pocketVictory`; `VictoryHero.via` and `bonus`; GameMenu scrolls the
+  chosen row into view; themes.ts fills under the frame (`background-clip: border-box`) and frames `.hud-xp`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

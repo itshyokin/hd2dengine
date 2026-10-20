@@ -94,6 +94,10 @@ Kept in the project so they travel with the code. Tick them off as they're built
       HP numbers, EXP bar and a violet MP orb; four spheres per side (orange to fight, dark with a red ✕ when KO'd,
       empty); commands as a 3 × 2 word grid; the log as a bottom text box; the handheld camera (hero from behind at
       the lower left, foe upper right). Single mode now fights at most 4 (party pool and trainer foes).
+- [x] Pocket polish (update 78): blocks half the screen wide and scaled; a fixed-size command box with a boxed choice;
+      EXP and loot told in the log (no results screen in Pocket Handheld; EXP Share / All named); the Settings list
+      scrolls to follow the controller; themed frames no longer show a gap inside the outline; the bottom EXP bar
+      takes the theme's frame; Controls opened from Settings no longer shows the list through it.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

@@ -201,7 +201,7 @@ const LOOKS: Record<Exclude<UiThemeId, 'ember'>, ThemeLook> = {
 /** Big windows (menus, the pause frame, text boxes, results). */
 const FRAMES = ['.pause-shell', '.menu-box', '.inv-box', '.sk-box', '.ctl-box', '.cr-box', '.log-box', '.quest-box', '.mk-box', '.st-box', '.eq-box', '.rec-box', '.sv-box', '.pt-box', '.battle-victory', '.msg-box', '.mk-confirm'];
 /** Small HUD and battle panels. */
-const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot'];
+const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp'];
 /** Windows inside the pause frame (it already has one). */
 const INNER = ['body.pause-open .inv > .inv-box', 'body.pause-open .menu > .menu-box', 'body.pause-open .inv > *'];
 
@@ -225,13 +225,13 @@ function css(id: Exclude<UiThemeId, 'ember'>): string {
   const out = `
 ${sel([...FRAMES, ...SMALL])} { --ember: ${L.accent}; --ember-ink: ${L.accentInk}; --ink: ${L.ink}; --muted: ${L.muted}; --window: ${L.fillColor}; --line: ${L.light ? 'rgba(60,40,20,0.22)' : 'rgba(255,255,255,0.14)'}; }
 ${sel(FRAMES)} {
-  background: ${L.fillColor} url(${fill}) repeat !important; background-clip: padding-box !important;
+  background: ${L.fillColor} url(${fill}) repeat !important; background-clip: border-box !important; background-origin: border-box !important;
   border: ${L.border}px solid transparent !important; border-image: url(${frame}) ${slice} / ${L.border}px round !important;
   border-radius: 0 !important; color: ${L.ink} !important; backdrop-filter: none !important;
   box-shadow: 0 14px 40px rgba(0,0,0,0.55)${L.glow ? `, 0 0 18px ${L.glow}` : ''} !important;
 }
 ${sel(SMALL)} {
-  background: ${L.fillColor} url(${fill}) repeat !important; background-clip: padding-box !important;
+  background: ${L.fillColor} url(${fill}) repeat !important; background-clip: border-box !important; background-origin: border-box !important;
   border: ${L.small}px solid transparent !important; border-image: url(${frame}) ${slice} / ${L.small}px round !important;
   border-radius: 0 !important; color: ${L.ink} !important; backdrop-filter: none !important;
 }
@@ -244,6 +244,10 @@ ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selec
 ${T} .bcmd-tile[aria-selected="true"] { filter: drop-shadow(0 0 8px ${L.accent}); }
 ${T} :is(.pt-card.sel, .ip-card.sel, .mk-row.sel, .mk-slot.sel, .mk-choice[aria-selected="true"]) { outline: 2px solid ${L.accent}; outline-offset: -2px; }
 ${T} .hud-minimap { border-color: ${L.accent} !important; }
+/* The EXP bar along the bottom: the theme's frame, its track inked to match. */
+${T} .hud-xp { border-radius: 0 !important; }
+${T} .hud-xp-track { background: ${L.light ? 'rgba(60,40,20,0.22)' : 'rgba(0,0,0,0.45)'} !important; box-shadow: inset 0 0 0 1px ${L.light ? 'rgba(60,40,20,0.35)' : 'rgba(0,0,0,0.6)'} !important; }
+${T} .hud-xp-lv { color: ${L.muted} !important; font-family: ${L.title} !important; }
 ${L.light ? `
 /* Light paper or marble: dark ink everywhere inside the windows (coloured words keep their colour). */
 ${[...FRAMES, ...SMALL].map((f) => textSel.map((t) => `${T} ${f} ${t}:not([style*="color"]):not(.bar):not([class*="bar"]):not(.rank-pill)`).join(',')).join(',\n')} { color: ${L.ink} !important; text-shadow: none !important; }

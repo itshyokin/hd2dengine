@@ -77,6 +77,8 @@ export interface BattleHost {
    * members standing in the battle. EXP each earned from it (shown as it falls).
    */
   foeDefeated?(foe: string, by: number | null, weak: boolean, fighting: number[]): { who: number; xp: number }[];
+  /** Where a hero's EXP bar would be now, with what they've earned so far this battle (Pocket Handheld). */
+  xpPreview?(who: number): { level: number; frac: number };
   /** Single mode, one foe at a time: the next foe (`e`) steps in where `outKey` fell. */
   foeIn?(outKey: string, e: BattleEntry): void;
   /** Party member `who` landed an Addition strike on `foe` (or `complete`d one): bonus EXP for it. */
@@ -117,6 +119,7 @@ export class TurnBattle {
   start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean; waiting?: BattleEntry[] } = {}): void {
     this.hurt = false;
     this.partyFell = false;
+    this.toldLevel.clear();
     this.rules = rules;
     for (const e of entries) e.battler.charging = null;
     this.all = entries;
@@ -994,13 +997,40 @@ export class TurnBattle {
   partyFell = false;
 
   /** "+12 EXP" at the bottom left, for one of the party. */
-  private expPop(b: Battler, n: number): void { if (n > 0) this.screen.expPop(`${b.name} +${n} EXP`); }
+  private expPop(b: Battler, n: number): void {
+    if (n <= 0) return;
+    // Pocket Handheld: no pops; the bar creeps up (the log tells the EXP as each foe falls, the rest at the end).
+    if (this.screen.pocket) this.showXp(b);
+    else this.screen.expPop(`${b.name} +${n} EXP`);
+  }
+
+  /** Levels already told in the log this battle (Pocket Handheld), by hero. */
+  private toldLevel = new Map<number, number>();
+
+  /** Pocket Handheld: a hero's EXP bar moved up to what they've earned; a level reached is told in the log. */
+  private showXp(b: Battler): void {
+    const who = this.entry(b).who ?? 0, pv = this.host.xpPreview?.(who);
+    if (!pv) return;
+    if (!this.toldLevel.has(who)) this.toldLevel.set(who, pv.level);
+    const was = this.toldLevel.get(who)!;
+    const up = pv.level > was;
+    this.screen.setXp(b.key, pv.frac, pv.level, up);
+    this.toldLevel.set(who, pv.level);
+    if (up) { this.screen.logLine(`${b.name} grew to Lv ${pv.level}!`, 'lvup'); this.screen.cue('levelUp'); }
+  }
 
   /** A foe fell: everyone fighting earns its EXP now (the finishing blow and a weakness a little more). */
   private foeEarned(t: Battler): void {
     const k = this.striker, fighting = this.party.filter(isUp).map((p) => this.entry(p).who ?? 0);
+    // Their levels before this foe's EXP (so a level reached now is told).
+    for (const w of fighting) if (!this.toldLevel.has(w)) { const pv = this.host.xpPreview?.(w); if (pv) this.toldLevel.set(w, pv.level); }
     const gains = this.host.foeDefeated?.(t.key, k ? this.entry(k.by).who ?? 0 : null, !!k?.weak, fighting) ?? [];
-    for (const g of gains) { const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who); if (p) this.expPop(p, g.xp); }
+    for (const g of gains) {
+      const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);
+      if (!p) continue;
+      if (this.screen.pocket && g.xp > 0) this.screen.logLine(`${p.name} gained ${g.xp} EXP`, 'exp');
+      this.expPop(p, g.xp);
+    }
   }
 
   private fall(t: Battler): void {
@@ -1063,10 +1093,33 @@ export class TurnBattle {
     this.later(0.9, () => {
       const report = this.host.victory(beaten);
       this.host.fanfare?.();
+      if (this.screen.pocket) { this.pocketResults(report); return; }
       this.screen.victory(report, () => {
         if (this.host.outro) this.host.outro(() => this.close('victory'));
         else this.close('victory');
       });
+    });
+  }
+
+  /** Pocket Handheld's results, in the log: EXP still to tell (bonuses, shared EXP), level ups and what they brought, the loot. */
+  private pocketResults(report: VictoryReport): void {
+    const lines: { text: string; cls?: string; sound?: string; bars?: () => void }[] = [];
+    for (const h of report.heroes) {
+      const who = Number(h.key.slice(1)) || 0, b = this.all.find((e) => e.battler.side === 'party' && (e.who ?? 0) === who)?.battler;
+      const bars = () => { if (b) this.screen.setXp(b.key, h.after.toNext ? h.after.xp / h.after.toNext : 1, h.after.level); };
+      if (h.via) lines.push({ text: `${h.name} gained ${h.gained} EXP thanks to the ${h.via}!`, cls: 'exp', sound: 'expFill', bars });
+      else if (h.bonus && h.bonus.gained > 0) lines.push({ text: `${h.name} gained ${h.bonus.gained} bonus EXP (${h.bonus.bits.join(' · ')})`, cls: 'exp', sound: 'expFill', bars });
+      else bars();
+      const told = this.toldLevel.get(who) ?? h.level;
+      if (h.after.level > told) lines.push({ text: `${h.name} grew to Lv ${h.after.level}!`, cls: 'lvup', sound: 'levelUp', bars });
+      // Short enough for the text box: the health, magic and skill points (each stat's rise is on the Status page).
+      const brief = h.changes.filter((c) => !c.includes(' · ') && !/^[A-Z]{3} \+/.test(c));
+      if (h.after.level > h.level && brief.length) lines.push({ text: `${h.name}: ${brief.join(', ')}`, cls: 'lvup' });
+    }
+    for (const l of report.loot) lines.push({ text: l.kind === 'gold' ? `Got ${l.name}` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}${l.note ? ` (${l.note})` : ''}`, cls: 'loot', sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] });
+    this.screen.pocketVictory(lines, () => {
+      if (this.host.outro) this.host.outro(() => this.close('victory'));
+      else this.close('victory');
     });
   }
 
