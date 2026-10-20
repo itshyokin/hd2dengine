@@ -29,6 +29,8 @@ export interface SaveData {
   gauges: { hp: number; mp: number; sp: number };
   /** The hero's ailments and buffs. */
   status?: { id: import('./status').EffectId; left: number | null; total: number | null; stacks?: number; amount?: number }[];
+  /** The hero's ailments from a battle that last into the next one (turns left). */
+  heroAilments?: Record<string, number>;
   /** The last respawn point used, if any. */
   respawn: SavePoint | null;
   /** Bag, gold and equipment (older saves have none). */

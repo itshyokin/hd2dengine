@@ -216,7 +216,7 @@ const LOOKS: Record<Exclude<UiThemeId, 'ember'>, ThemeLook> = {
 /** Big windows (menus, the pause frame, text boxes, results). */
 const FRAMES = ['.pause-shell', '.menu-box', '.inv-box', '.sk-box', '.ctl-box', '.cr-box', '.log-box', '.quest-box', '.mk-box', '.st-box', '.eq-box', '.rec-box', '.sv-box', '.pt-box', '.battle-victory', '.msg-box', '.mk-confirm'];
 /** Small HUD and battle panels. */
-const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp', '.pb', '.pocket-text', '.pt-stats', '.layout-pocket .battle-cmd.bar', '.pp-col', '.pc-actions', '.pc-swap'];
+const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp', '.pb', '.pocket-text', '.pt-stats', '.layout-pocket .battle-cmd.bar', '.pp-col', '.pc-actions', '.pc-swap', '.pr-slot', '.pr-msg', '.pr-menu'];
 /** Windows inside the pause frame (it already has one). */
 const INNER = ['body.pause-open .inv > .inv-box', 'body.pause-open .menu > .menu-box', 'body.pause-open .inv > *'];
 
@@ -333,7 +333,8 @@ ${T} :is(.menu-title, .battle-result-title) { color: ${L.accent} !important; fon
 ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"] { background: ${L.sel} !important; color: ${L.selInk} !important; box-shadow: 0 1px 0 rgba(0,0,0,0.4) !important; }
 ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"] * { color: ${L.selInk} !important; }
 ${T} .bcmd-tile[aria-selected="true"] { filter: drop-shadow(0 0 8px ${L.accent}); }
-${T} :is(.pt-card.sel, .ip-card.sel, .mk-row.sel, .mk-slot.sel, .mk-choice[aria-selected="true"]) { outline: 2px solid ${L.accent}; outline-offset: -2px; }
+${T} :is(.pt-card.sel, .ip-card.sel, .mk-row.sel, .mk-slot.sel, .mk-choice[aria-selected="true"], .pr-slot.sel) { outline: 2px solid ${L.accent}; outline-offset: -2px; }
+${T} .pr-slot.target { outline: 2px dashed ${L.accent}; outline-offset: -2px; }
 ${T} .hud-minimap { border-color: ${L.accent} !important; }
 /* The condensed HUD (stats on the party cards) leaves the top panel empty: no window drawn for it. */
 ${T} .hud-top.hud-compact { background: none !important; border: 0 !important; border-image: none !important; box-shadow: none !important; }

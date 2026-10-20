@@ -130,6 +130,13 @@ Kept in the project so they travel with the code. Tick them off as they're built
       bow and the hand fire lean with their sprite (no more poking out in front); the window theme and other unset
       settings no longer reset when the game loads; the party pop-up, swap list, selected party card, skill tree
       names and tabs follow the theme (selected words readable on a tinted selection).
+- [x] Update 88: soft-blocky bevels taper into closed corners (no dark wedges; no round shoreline walls through
+      them); battle EXP told and filled once after Victory (total + bonus), the bar running through each level;
+      ailments last into the next battle (per ailment, Database → Combat → Ailments → Lasts; cured by items or rest);
+      hits play out in order (strike, step back, flash, drain with counting numbers, then the lines); burn and poison
+      bite at the end of each round with a line; "is fast asleep!" and "woke up!" lines; party members no longer heal
+      on the map when the hero's health doesn't; HUD MP purple and EXP light blue (as in battle) and a gold level
+      pill; loot lines with icons; the Party tab and Status page redone in the handheld games' style.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

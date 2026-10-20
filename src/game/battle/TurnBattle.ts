@@ -19,6 +19,7 @@ import {
   type BattleAddition, type Battler, type BattleSpell, type Opening, RANK, type SpellRank, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
   BASE_ACCURACY, WEATHER_EFFECT, battleWeather, spellSequence, refreshAgility, regenAmount, roundOrder, spellBoost, spend, startCounters, strike, tickOf,
 } from './rules';
+import { DRAIN } from '../../ui/BattleScreen';
 import { AILMENT_WORD, BLIND_MISS_CHANCE, BUFF_TURNS, type BattleAilment, ailmentName, rollInflicts } from './status';
 import { hitChance } from '../attributes';
 
@@ -88,6 +89,9 @@ export interface BattleHost {
 }
 
 type Phase = 'off' | 'intro' | 'next' | 'command' | 'busy' | 'over';
+
+/** Pocket Handheld: how long an attacker takes to step back after a hit, before the target flashes. */
+const STEP_BACK = 0.3;
 
 export class TurnBattle {
   private all: BattleEntry[] = [];
@@ -225,6 +229,8 @@ export class TurnBattle {
     if (this.cfg.order === 'rounds') {
       this.queue = this.queue.filter(isUp);
       if (!this.queue.length) {
+        // The round is over: burn and poison bite everyone they're on, a line each.
+        if (this.round > 0 && this.bitRound !== this.round) { this.bitRound = this.round; if (this.roundEnd()) return; }
         // Single mode: the hero picks first; then everyone goes, fastest first (a swap, an item, guarding or running before anything).
         if (this.single && !this.planned) { const h = this.party.find(isUp); if (h && !h.charging) { this.planRound(h); return; } }
         this.round++; this.queue = roundOrder(this.battlers, this.round === 1 ? this.opening : 'normal'); if (!this.queue.length) this.queue = roundOrder(this.battlers);
@@ -247,7 +253,7 @@ export class TurnBattle {
     if (plan) this.planned = null;
     // Guarding (and its ward against ailments) lasts until their own next turn.
     who.guarding = false;
-    const start = who.status.startTurn(who.maxHp);
+    const start = who.status.startTurn(who.maxHp, this.cfg.order !== 'rounds');
     this.refresh(who);
     this.showOrder();
     this.phase = 'busy';
@@ -258,6 +264,7 @@ export class TurnBattle {
       this.screen.popup(who.key, String(d.amount), 'dmg', d.ailment === 'burn' ? '#ff9a5a' : '#8ee05a');
       this.screen.animate(who.key, 'hit');
       this.say(`${who.name} takes ${d.amount} from ${d.ailment === 'burn' ? 'the burn' : 'poison'}`);
+      this.tell(`${who.name} is hurt by ${d.ailment === 'burn' ? 'its burn' : 'poison'}!`);
       pause = 0.6;
     }
     if (start.damage.length) {
@@ -268,6 +275,7 @@ export class TurnBattle {
       if (start.skip) {
         const words: Partial<Record<BattleAilment, string>> = { frozen: 'is frozen solid', paralyze: 'is paralyzed', sleep: 'is asleep' };
         this.screen.message(`${who!.name} ${words[start.skip] ?? 'can’t move'}…`);
+        this.tell(({ frozen: `${who!.name} is frozen solid!`, paralyze: `${who!.name} is paralyzed! It can’t move!`, sleep: `${who!.name} is fast asleep!` } as Partial<Record<BattleAilment, string>>)[start.skip] ?? `${who!.name} can’t move!`);
         this.screen.popup(who!.key, ailmentName(start.skip), 'info');
         this.endTurn(who!, RANK.attack, 0.9);
         return;
@@ -416,6 +424,12 @@ export class TurnBattle {
   }
 
   /** The party members fighting now (0 the hero), in their places: the lineup to keep after the battle. */
+  /** Each hero's ailments as the battle ends (turns left), fighting or on the bench: they last into the next battle. */
+  partyAilments(): { who: number; turns: [BattleAilment, number][] }[] {
+    return [...this.all, ...this.waiting].filter((e) => e.battler.side === 'party' && e.battler.hp > 0)
+      .map((e) => ({ who: e.who ?? 0, turns: e.battler.status.list.filter((a) => a !== 'stagger').map((a) => [a, e.battler.status.turns.get(a)!] as [BattleAilment, number]) }));
+  }
+
   lineup(): number[] { return this.all.filter((e) => e.battler.side === 'party').map((e) => e.who ?? 0); }
 
   /** What Attack does: the set Addition's name (when Additions are set per hero). */
@@ -1012,7 +1026,11 @@ export class TurnBattle {
     this.striker = by.side === 'party' ? { by, weak: r.label === 'Weak!' } : null;
     // Pocket Handheld: the damage is told before anything it leads to (a foe falling); an Addition's add up.
     if (this.combo) { const c = this.combo; c.total += r.amount; c.crit ||= r.crit; c.weak ||= r.label === 'Weak!'; c.resist ||= r.label === 'Resist'; c.element = element; c.t = t; }
-    else this.tellHit(r.crit, r.label === 'Weak!', r.label === 'Resist');
+    else {
+      // Pocket Handheld: the attacker steps back, the target flashes and its health drains; then the lines.
+      this.screen.pauseText(STEP_BACK + DRAIN + 0.15);
+      this.tellHit(r.crit, r.label === 'Weak!', r.label === 'Resist');
+    }
     this.damage(t, r.amount, r.crit, tint, mat?.sound);
     this.striker = null;
     if (by.side === 'party') { this.host.tally?.('damageDealt', r.amount); this.host.tally?.('bestHit', r.amount, true); if (r.crit) this.host.tally?.('crits'); }
@@ -1070,14 +1088,17 @@ export class TurnBattle {
     if (t.side === 'party' && n > 0) this.hurt = true;
     t.hp = Math.max(this.floor(t), t.hp - n);
     this.screen.popup(t.key, String(n), crit ? 'crit' : 'dmg', color);
-    this.screen.animate(t.key, 'hit', color);
     this.host.sound(t.side === 'party' ? 'hurt' : sound ?? (crit ? 'crit' : 'hit'));
+    // Pocket Handheld (one hit, not an Addition's string): the flash and the drain once the attacker is back.
+    const later = this.screen.pocket && !this.combo;
+    if (later) this.screen.after(STEP_BACK, () => { this.screen.animate(t.key, 'hit', color); this.refresh(t); });
+    else this.screen.animate(t.key, 'hit', color);
     // A boss's overdrive fills as it's hurt (full after losing two fifths of its health).
     if (t.overdrive !== undefined && t.hp > 0) this.fillOverdrive(t, (n / Math.max(1, t.maxHp * 0.4)) * 100);
     // A hit wakes the sleeping.
     if (t.hp > 0 && t.status.hurt()) this.screen.popup(t.key, 'Woke up', 'info');
     if (t.hp <= 0) this.fall(t);
-    this.refresh(t);
+    if (!later) this.refresh(t);
   }
 
   private fillOverdrive(b: Battler, by: number): void {
@@ -1128,8 +1149,8 @@ export class TurnBattle {
     for (const g of gains) {
       const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);
       if (!p) continue;
-      if (this.screen.pocket && g.xp > 0) this.say(`${p.name} gained ${g.xp} EXP`);
-      this.expPop(p, g.xp);
+      // Pocket Handheld tells (and fills) all the EXP at once, after "Victory!".
+      if (!this.screen.pocket) this.expPop(p, g.xp);
     }
   }
 
@@ -1140,11 +1161,37 @@ export class TurnBattle {
     t.status.chillStacks = 0;
     t.status.buffs.clear();
     refreshAgility(t);
-    setTimeout(() => this.screen.animate(t.key, 'faint'), 260);
+    if (this.screen.pocket) this.screen.after(STEP_BACK + DRAIN, () => this.screen.animate(t.key, 'faint'));
+    else setTimeout(() => this.screen.animate(t.key, 'faint'), 260);
     this.flushCombo();
     if (t.side === 'enemy') { this.host.sound('defeat'); this.say(`${t.name} defeated`); this.tell(`${t.name} was defeated!`); this.foeEarned(t); }
     else { this.partyFell = true; this.say(`${t.name} is knocked out`); this.tell(`${t.name} was knocked out!`); }
     this.updateSpheres();
+  }
+
+  /** The last round whose end burn and poison have bitten. */
+  private bitRound = 0;
+
+  /** Rounds: the end of a round. Burn and poison bite (a line each, the bar draining as it's read). Whether any did. */
+  private roundEnd(): boolean {
+    let any = false;
+    for (const b of this.battlers.filter(isUp)) {
+      for (const d of b.status.bite(b.maxHp)) {
+        if (!isUp(b)) break;
+        any = true;
+        b.hp = Math.max(this.floor(b), b.hp - d.amount);
+        const color = d.ailment === 'burn' ? '#ff9a5a' : '#8ee05a';
+        const show = () => { this.screen.popup(b.key, String(d.amount), 'dmg', color); this.screen.animate(b.key, 'hit'); this.refresh(b); };
+        this.say(`${b.name} takes ${d.amount} from ${d.ailment === 'burn' ? 'the burn' : 'poison'}`);
+        if (this.screen.pocket) { this.screen.narrate(`${b.name} is hurt by ${d.ailment === 'burn' ? 'its burn' : 'poison'}!`, true, { bars: show }); this.screen.pauseText(DRAIN); }
+        else show();
+        if (!isUp(b)) this.fall(b);
+      }
+    }
+    if (!any) return false;
+    this.phase = 'busy';
+    this.later(this.screen.pocket ? 0.05 : 0.8, () => { if (!this.checkOver()) this.phase = 'next'; });
+    return true;
   }
 
   private endTurn(b: Battler, rank: number, pause: number): void {
@@ -1161,6 +1208,8 @@ export class TurnBattle {
     if (gone.length) {
       refreshAgility(b);
       this.screen.popup(b.key, gone.length === 1 ? `${ailmentName(gone[0])} wore off` : 'Recovered', 'info');
+      const WORE: Partial<Record<BattleAilment, string>> = { sleep: 'woke up!', frozen: 'thawed out!', paralyze: 'can move again!', burn: 'is no longer burned!', poison: 'is no longer poisoned!', confusion: 'snapped out of its confusion!', chill: 'warmed up!', blind: 'can see again!', silence: 'can cast again!' };
+      for (const a of gone) if (WORE[a]) this.tell(`${b.name} ${WORE[a]}`);
     }
     // Regeneration gives health back (the undead are hurt by it); then buffs tick down too.
     const regen = isUp(b) ? regenAmount(b) : 0;
@@ -1212,21 +1261,22 @@ export class TurnBattle {
 
   /** Pocket Handheld's results, in the log: EXP still to tell (bonuses, shared EXP), level ups and what they brought, the loot. */
   private pocketResults(report: VictoryReport): void {
-    const exp: { text: string; sound?: string; bars?: () => void; stats?: string[] }[] = [];
+    const exp: { text: string; sound?: string; bars?: () => void; stats?: string[]; icon?: string }[] = [];
     const ups: typeof exp = [];
     for (const h of report.heroes) {
       const who = Number(h.key.slice(1)) || 0, b = this.all.find((e) => e.battler.side === 'party' && (e.who ?? 0) === who)?.battler;
-      const bars = () => { if (b) this.screen.setXp(b.key, h.after.toNext ? h.after.xp / h.after.toNext : 1, h.after.level); };
-      // Their EXP in one window: what they earned, and under it the bonus.
+      // The bar fills once, through every level it passes (the level ticks up at each), to where it ends up.
+      const bars = () => { if (b) this.screen.fillXp(b.key, h.segments, h.after); };
+      // All their EXP in one window: the total, and under it how much of that was bonus.
       if (h.via && h.gained > 0) exp.push({ text: `${h.name} gained ${h.gained} EXP from sharing experience!`, sound: 'expFill', bars });
       else if (h.gained > 0) {
-        const bonus = h.bonus?.gained ?? 0, base = h.gained - bonus;
-        exp.push({ text: `${h.name} gained ${base} EXP!${bonus > 0 ? `\nBonus EXP: +${bonus}${h.bonus!.bits.length ? ` (${h.bonus!.bits.map((x) => x.replace(/ \+\d+$/, '')).join(', ')})` : ''}` : ''}`, sound: 'expFill', bars });
+        const bonus = h.bonus?.gained ?? 0;
+        exp.push({ text: `${h.name} gained ${h.gained} EXP!${bonus > 0 ? `\nIncludes bonus EXP +${bonus}${h.bonus!.bits.length ? ` (${h.bonus!.bits.map((x) => x.replace(/ \+\d+$/, '')).join(', ')})` : ''}` : ''}`, sound: 'expFill', bars });
       }
       // A level up: a ding, the new level and (in a box beside it) what it brought.
       if (h.after.level > h.level) ups.push({ text: `${h.name} reached Level ${h.after.level}!`, sound: 'levelUp', stats: h.changes.flatMap((c) => c.split(' · ')) });
     }
-    const loot = report.loot.map((l) => ({ text: l.kind === 'gold' ? `Got ${l.name}!` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}!${l.note ? ` (${l.note})` : ''}`, sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] as string }));
+    const loot = report.loot.map((l) => ({ icon: l.icon, text: l.kind === 'gold' ? `+${l.name}!` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}!${l.note ? ` (${l.note})` : ''}`, sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] as string }));
     this.screen.pocketVictory([...exp, ...loot, ...ups], () => {
       if (this.host.outro) this.host.outro(() => this.close('victory'));
       else this.close('victory');

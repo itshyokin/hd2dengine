@@ -116,6 +116,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   used by combat/Held.ts; TurnBattle.update ticks `wait` while narrating; settings.ts `normalizeSettings` keeps the
   optional keys (uiTheme was dropped on every load); themes.ts covers `.pc-actions`, `.pc-swap`, `.sk-name`, and a
   stronger selected-ink rule.
+- 88: terrainGeometry `bevelEnds` / `bevelProfile` (tapered bevels and walls; closing triangles gone; no shoreline
+  rounding on 'b'); BattleScreen `fillXp`, `pauseText`, `after`, `tickNumbers`, `DRAIN`, Narration `pause` / `icon`;
+  TurnBattle `STEP_BACK`, `roundEnd` / `bitRound`, `partyAilments`; BattleStatus `bite`; Game `heroAilments` (saved),
+  `lingering`, `clearLingering`, `keepAilments`, `ailmentPill`, MemberData `ailments`; StatusPill `stays`; AllyHost
+  `regenHp`; PartyScreen rewritten (`.pr-*`), CharacterScreen pages (`.cs-summary`).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

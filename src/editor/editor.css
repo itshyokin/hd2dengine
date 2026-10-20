@@ -755,7 +755,7 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .db-compact .db-table select { width: auto; max-width: 100%; }
 .db-compact .climate-temps { justify-content: start; }
 .db-compact .db-table input[type="number"] { width: 9ch; max-width: 100%; }
-.db-table.status-pills { grid-template-columns: max-content 60px 56px 104px 34px 34px; gap: 6px 8px; justify-content: start; }
+.db-table.status-pills { grid-template-columns: max-content 60px 56px 104px 34px 34px 36px; gap: 6px 8px; justify-content: start; }
 .db-table.status-pills input[type="text"] { width: 100%; min-width: 0; }
 .db-table.status-pills .st-pill { --u: 11px; justify-self: start; }
 .db-table.status-pills input[type="color"] { width: 34px; height: 26px; padding: 0; }

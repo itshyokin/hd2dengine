@@ -111,7 +111,7 @@ export class StatusBars {
       el.hidden = !m;
       el.dataset.empty = m ? '' : '1';
       el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}">${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
-      <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <small>Lv ${m.level}</small>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
+      <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
       <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}</div>` : '';

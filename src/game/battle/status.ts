@@ -117,13 +117,19 @@ export class BattleStatus {
   hurt(): boolean { if (!this.has('sleep')) return false; this.turns.delete('sleep'); return true; }
 
   /** The start of their turn: the guard drops, burn and poison bite, and whether an ailment takes the turn. */
-  startTurn(maxHp: number): TurnStart {
+  startTurn(maxHp: number, bite = true): TurnStart {
     this.ward = false;
+    const damage = bite ? this.bite(maxHp) : [];
+    const skip = (['frozen', 'paralyze', 'sleep'] as BattleAilment[]).find((a) => this.has(a)) ?? null;
+    return { damage, skip, confused: !skip && this.has('confusion') };
+  }
+
+  /** What burn and poison take (at the start of their turn, or with Rounds at the end of each round). */
+  bite(maxHp: number): TurnStart['damage'] {
     const damage: TurnStart['damage'] = [];
     if (this.has('burn')) damage.push({ ailment: 'burn', amount: Math.max(1, Math.round(maxHp * BURN_SHARE)) });
     if (this.has('poison')) damage.push({ ailment: 'poison', amount: Math.max(1, Math.round(maxHp * POISON_SHARE)) });
-    const skip = (['frozen', 'paralyze', 'sleep'] as BattleAilment[]).find((a) => this.has(a)) ?? null;
-    return { damage, skip, confused: !skip && this.has('confusion') };
+    return damage;
   }
 
   /** The end of their turn: everything ticks down one; what wore off. */

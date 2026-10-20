@@ -46,6 +46,8 @@ export interface MemberData {
   down?: boolean;
   /** Learned spells and Additions, the readied ones, and class. */
   abilities?: AbilityData;
+  /** Ailments from a battle that last into the next one (turns left), until cured or rested. */
+  ailments?: Record<string, number>;
 }
 
 export class PartyState {
@@ -124,6 +126,8 @@ export interface AllyHost {
   leader: { x: number; y: number; z: number };
   /** Has the party been out of a fight for a while? */
   calm: boolean;
+  /** Health comes back on its own (Database → Player: off by default, so a hurt member stays hurt until healed or rested). */
+  regenHp: boolean;
   numbers(m: MemberData, def: HeroDef): AllyNumbers;
   float(text: string, x: number, y: number, z: number, kind: 'dmg' | 'heal' | 'info' | 'hurt'): void;
   sound(name: 'hurt' | 'swing' | 'heal' | 'save', x: number, z: number): void;
@@ -192,7 +196,7 @@ export class Ally {
       this.sprite.animate(dt, false);
       return;
     }
-    if (h.calm) this.data.hp = Math.min(n.max.hp, this.data.hp + dt * 0.5);
+    if (h.calm && h.regenHp) this.data.hp = Math.min(n.max.hp, this.data.hp + dt * 0.5);
 
     let moving = false, running = false;
     // Following: a spot on the hero's trail, hopping where the hero jumped.

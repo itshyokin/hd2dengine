@@ -23,9 +23,12 @@ export type Sphere = 'up' | 'ko' | 'empty';
 export const TYPE_SPEED = 55;
 
 /** A line for Pocket Handheld's text box. */
-interface Narration { text: string; wait: boolean; sound?: string; bars?: () => void; stats?: string[] }
+/** Pocket Handheld: how long a health bar takes to drain (seconds); the battle waits for it. */
+export const DRAIN = 0.9;
 
-interface PocketBlock { el: HTMLElement; hp: HTMLElement; num: HTMLElement | null; orb: HTMLElement | null; orbText: HTMLElement | null }
+interface Narration { text: string; wait: boolean; sound?: string; bars?: () => void; stats?: string[]; /** A picture before the words (the gold coin, an item's icon). */ icon?: string; /** A pause (seconds) with the last line left up: the battle waits (a health bar draining). */ pause?: number }
+
+interface PocketBlock { el: HTMLElement; hp: HTMLElement; num: HTMLElement | null; orb: HTMLElement | null; orbText: HTMLElement | null; /** The HP shown (counting toward the real one), its target, the most, and how fast it counts. */ shown?: number; to?: number; max?: number; rate?: number }
 
 interface Qte {
   target: string;
@@ -236,7 +239,7 @@ export class BattleScreen {
       </div>
       <div class="battle-desc" hidden></div>
       <div class="battle-blocks" aria-label="Foes"></div>
-      <div class="pocket-foes" aria-label="Foes"></div><div class="pocket-heroes" aria-label="Party"></div><div class="pocket-text" aria-live="polite"><div class="pt-line"></div><span class="pt-next">▼</span><div class="pt-stats" hidden></div></div>
+      <div class="pocket-foes" aria-label="Foes"></div><div class="pocket-heroes" aria-label="Party"></div><div class="pocket-text" aria-live="polite"><div class="pt-line"><img class="pt-icon" alt="" hidden><span class="pt-text"></span></div><span class="pt-next">▼</span><div class="pt-stats" hidden></div></div>
       <div class="battle-log" role="log" aria-label="Battle log"><div class="battle-log-lines"></div><div class="battle-log-hint">Y: battle log</div></div>
       <div class="battle-result" hidden></div>`;
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
@@ -334,7 +337,7 @@ export class BattleScreen {
     this.endQte();
     this.vic?.el.remove();
     this.vic = null;
-    this.narr = []; this.narrCur = null; this.narrDone = null;
+    this.narr = []; this.narrCur = null; this.narrDone = null; for (const t of this.xpTimers) clearTimeout(t); this.xpTimers = []; this.timers = [];
     this.leftover?.remove();
     this.leftover = null;
     this.mode = { kind: 'idle' };
@@ -482,11 +485,41 @@ export class BattleScreen {
     if (up) { lv.classList.remove('up'); void lv.offsetWidth; lv.classList.add('up'); }
   }
 
+  private xpTimers: number[] = [];
+  /**
+   * Pocket Handheld: fill a hero's EXP bar through each stretch (a level up empties it and ticks the level), ending
+   * where it ends up. Each stretch takes a little under a second.
+   */
+  fillXp(key: string, segs: { level: number; from: number; to: number; up: boolean }[], after: { level: number; xp: number; toNext: number }): void {
+    const f = this.fighters.get(key);
+    const span = f?.pb.el.querySelector('.pb-xp span') as HTMLElement | null;
+    if (!f || !span) return;
+    const lv = f.pb.el.querySelector('.pb-lv') as HTMLElement;
+    const list = segs.length ? segs : [{ level: after.level, from: after.toNext ? after.xp / after.toNext : 1, to: after.toNext ? after.xp / after.toNext : 1, up: false }];
+    const STEP = 0.85;
+    list.forEach((s, i) => {
+      this.xpTimers.push(window.setTimeout(() => {
+        // Jump (no slide) to where this stretch starts, then slide to its end.
+        span.style.transition = 'none';
+        span.style.width = `${Math.max(0, Math.min(100, s.from * 100))}%`;
+        lv.textContent = `Lv ${s.level}`;
+        void span.offsetWidth;
+        span.style.transition = `width ${STEP}s ease-out`;
+        span.style.width = `${Math.max(0, Math.min(100, s.to * 100))}%`;
+        span.parentElement!.classList.toggle('full', s.up);
+        if (s.up) this.xpTimers.push(window.setTimeout(() => { lv.textContent = `Lv ${s.level + 1}`; lv.classList.remove('up'); void lv.offsetWidth; lv.classList.add('up'); span.parentElement!.classList.remove('full'); }, STEP * 1000));
+      }, i * (STEP + 0.15) * 1000));
+    });
+    // Ending exactly on a level up: the new level's empty bar (or what's carried into it) to finish.
+    const last = list[list.length - 1];
+    if (last.up) this.xpTimers.push(window.setTimeout(() => { span.style.transition = 'none'; span.style.width = `${after.toNext ? Math.min(100, (after.xp / after.toNext) * 100) : 100}%`; }, list.length * (STEP + 0.15) * 1000));
+  }
+
   /**
    * Pocket Handheld's victory: no results screen; the EXP, level ups (with what they brought) and loot are told in
    * the text box a line at a time, each waiting for OK, then it goes on.
    */
-  pocketVictory(lines: { text: string; sound?: string; bars?: () => void; stats?: string[] }[], done: () => void): void {
+  pocketVictory(lines: { text: string; sound?: string; bars?: () => void; stats?: string[]; icon?: string }[], done: () => void): void {
     this.idle();
     for (const l of lines) this.narrate(l.text, true, l);
     this.narrDone = done;
@@ -501,14 +534,40 @@ export class BattleScreen {
    * Pocket Handheld: a line in the text box. `wait`: it stays until OK (and the battle waits with it); otherwise the
    * next line replaces it. `extra`: a sound, bars to move and stat changes to show as it comes up.
    */
-  narrate(text: string, wait = true, extra: { sound?: string; bars?: () => void; stats?: string[] } = {}): void {
+  narrate(text: string, wait = true, extra: { sound?: string; bars?: () => void; stats?: string[]; icon?: string } = {}): void {
     if (this.layout !== 'pocket' || !text) return;
-    this.narr.push({ text, wait, sound: extra.sound, bars: extra.bars, stats: extra.stats });
-    if (!this.narrCur?.wait) this.nextLine();
+    this.narr.push({ text, wait, sound: extra.sound, bars: extra.bars, stats: extra.stats, icon: extra.icon });
+    if (!this.narrCur?.wait && !this.narrCur?.pause) this.nextLine();
   }
 
   /** Lines are being read (the battle waits for them). */
-  get narrating(): boolean { return this.layout === 'pocket' && (!!this.narrCur?.wait || this.narr.length > 0 || !!this.narrDone); }
+  get narrating(): boolean { return this.layout === 'pocket' && (!!this.narrCur?.wait || !!this.narrCur?.pause || this.narr.length > 0 || !!this.narrDone); }
+
+  /** Pocket Handheld's HP numbers, counting toward the real ones. */
+  private tickNumbers(dt: number): void {
+    if (this.layout !== 'pocket') return;
+    for (const f of this.fighters.values()) {
+      const pb = f.pb;
+      if (!pb.num || pb.shown === undefined || pb.to === undefined || pb.shown === pb.to) continue;
+      const step = (pb.rate ?? 30) * dt;
+      pb.shown = pb.shown > pb.to ? Math.max(pb.to, pb.shown - step) : Math.min(pb.to, pb.shown + step);
+      pb.num.textContent = `${Math.round(pb.shown)} / ${pb.max}`;
+    }
+  }
+
+  /** Pocket Handheld: hold the text box (and the battle) this long, the last line still up (a health bar draining). */
+  pauseText(seconds: number): void {
+    if (this.layout !== 'pocket' || seconds <= 0) return;
+    const last = this.narr[this.narr.length - 1];
+    if (last?.pause) { last.pause = Math.max(last.pause, seconds); return; }
+    if (!this.narr.length && this.narrCur?.pause) { this.narrCur.pause = Math.max(this.narrCur.pause, this.narrCur.t + seconds); return; }
+    this.narr.push({ text: '', wait: false, pause: seconds });
+    if (!this.narrCur?.wait && !this.narrCur?.pause) this.nextLine();
+  }
+
+  /** Things to do a little later (a hit's flash once the attacker is back), on the battle's clock. */
+  private timers: { t: number; fn: () => void }[] = [];
+  after(seconds: number, fn: () => void): void { if (seconds <= 0) fn(); else this.timers.push({ t: seconds, fn }); }
 
   private nextLine(): void {
     const n = this.narr.shift();
@@ -518,7 +577,10 @@ export class BattleScreen {
       return;
     }
     this.narrCur = { ...n, t: 0 };
-    this.pocketText.querySelector('.pt-line')!.textContent = '';
+    if (n.pause) return;
+    this.pocketText.querySelector('.pt-text')!.textContent = '';
+    const ic = this.pocketText.querySelector('.pt-icon') as HTMLImageElement;
+    ic.hidden = !n.icon; if (n.icon) ic.src = n.icon;
     this.pocketText.classList.toggle('waits', n.wait);
     n.bars?.();
     if (n.sound) this.onSound?.(n.sound);
@@ -529,12 +591,18 @@ export class BattleScreen {
 
   private narrUpdate(dt: number): boolean {
     const c = this.narrCur;
+    if (c?.pause) {
+      c.t += dt;
+      if (c.t >= c.pause) { this.narrCur = null; this.nextLine(); }
+      this.input.consume('ok'); this.input.consume('cancel');
+      return true;
+    }
     if (c) {
       // Typed out a letter at a time.
       const was = Math.floor(c.t * TYPE_SPEED);
       c.t += dt;
       const n = Math.min(c.text.length, Math.floor(c.t * TYPE_SPEED));
-      if (n !== was || n === c.text.length) { const el = this.pocketText.querySelector('.pt-line')!; if (el.textContent !== c.text.slice(0, n)) el.textContent = c.text.slice(0, n); }
+      if (n !== was || n === c.text.length) { const el = this.pocketText.querySelector('.pt-text')!; if (el.textContent !== c.text.slice(0, n)) el.textContent = c.text.slice(0, n); }
       this.pocketText.classList.toggle('typed', n >= c.text.length);
     }
     if (!c?.wait) { if (this.narr.length || this.narrDone) this.nextLine(); return false; }
@@ -621,7 +689,13 @@ export class BattleScreen {
     pb.el.classList.toggle('mid', share <= 0.5 && share > 0.2);
     pb.el.classList.toggle('low', share <= 0.2);
     pb.el.classList.toggle('down', down);
-    if (pb.num) pb.num.textContent = `${Math.ceil(Math.max(0, v.hp))} / ${v.maxHp}`;
+    if (pb.num) {
+      // Pocket Handheld: the numbers count down (or up) with the bar, Pokémon-style.
+      const to = Math.ceil(Math.max(0, v.hp));
+      if (pb.shown === undefined || this.layout !== 'pocket') { pb.shown = to; pb.num.textContent = `${to} / ${v.maxHp}`; }
+      else if (to !== pb.to) pb.rate = Math.max(1, Math.abs(to - pb.shown) / DRAIN);
+      pb.to = to; pb.max = v.maxHp;
+    }
     if (pb.orb) {
       pb.orb.style.setProperty('--mp', String(v.maxMp ? Math.max(0, Math.min(1, v.mp / v.maxMp)) : 0));
       pb.orb.classList.toggle('none', !v.maxMp);
@@ -1047,6 +1121,11 @@ export class BattleScreen {
 
   /** Keys and buttons, and the message timer. */
   update(dt: number): void {
+    if (this.timers.length) {
+      const due = this.timers.filter((x) => (x.t -= dt) <= 0);
+      if (due.length) { this.timers = this.timers.filter((x) => x.t > 0); for (const x of due) x.fn(); }
+    }
+    this.tickNumbers(dt);
     if (this.msgTimer !== Infinity && this.msgTimer > 0 && (this.msgTimer -= dt) <= 0) this.msgEl.classList.remove('on');
     if (this.vic) { this.updateVictory(dt); return; }
     if (this.camTimer > 0 && (this.camTimer -= dt) <= 0) this.camEl.classList.remove('lit');

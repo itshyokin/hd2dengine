@@ -1,9 +1,10 @@
 /**
- * The pause menu's Party tab: the three fighting (the active party) as tall cards with their art, name, level,
- * health, magic and EXP. ← → choose one; Space opens what can be done for them (Status, Equipment, Skill Tree, Stats,
- * Addition, Magic, Swap). Swap opens the rest of the party (Legend of Dragoon style) to trade places with.
- * Anyone with points to spend has a gold outline and a LEVEL UP badge.
- * Keys: ← → choose · Space opens · ↑ ↓ in lists · Esc back · LB / RB other tabs.
+ * The pause menu's Party tab, laid out like the handheld monster games: the lead (whoever is first in the lineup) in a
+ * big card on the left, everyone else down the right (those fighting, then the reserve). A message box along the
+ * bottom says what to do; choosing someone opens what can be done for them in a menu at the bottom right (Status,
+ * Equipment, Skill Tree, Addition, Magic, Swap). Swap then asks where to move them: pick anyone to trade places.
+ * Anyone with skill points to spend shows a LEVEL UP badge.
+ * Keys: ↑ ↓ choose (← → between the lead and the list) · Space opens · Esc back · LB / RB other tabs.
  */
 import { elementPill } from './elementPill';
 import type { Input } from '../game/Input';
@@ -25,8 +26,10 @@ export interface PartyMemberView {
   down?: boolean;
   /** Can't leave the active party (Database → Combat: the hero always fights). */
   locked?: boolean;
-  /** Their elements (element stones worn), as pills under the name. */
+  /** Their elements (element stones worn), as pills. */
   elements?: import('../world/types').Element[];
+  /** An ailment they carry (from the map, or left from a battle), as a pill ("PSN"). */
+  ailment?: { tag: string; color: string; ink: string; name: string };
 }
 
 export interface PartyAction { id: string; label: string; detail?: string; disabled?: boolean }
@@ -43,13 +46,16 @@ export interface PartyHost {
   swap(a: number, b: number): void;
 }
 
-type Mode = { kind: 'cards' } | { kind: 'actions'; index: number } | { kind: 'swap'; index: number };
+type Mode = { kind: 'pick' } | { kind: 'actions'; index: number } | { kind: 'swap'; to: number };
 
 export class PartyScreen {
   private readonly root = document.createElement('div');
   private open = false;
+  /** Who is chosen: their place in the lineup (0: the lead). */
   private sel = 0;
-  private mode: Mode = { kind: 'cards' };
+  /** The last place chosen in the list on the right (→ from the lead goes back there). */
+  private listSel = 1;
+  private mode: Mode = { kind: 'pick' };
   private tabs: TabGroup | undefined;
   private onClose: () => void = () => {};
 
@@ -69,8 +75,8 @@ export class PartyScreen {
     this.open = true;
     this.onClose = onClose;
     this.tabs = tabs;
-    if (!keep) this.mode = { kind: 'cards' };
-    this.sel = Math.min(this.sel, Math.max(0, this.cards().length - 1));
+    if (!keep) this.mode = { kind: 'pick' };
+    this.sel = Math.min(this.sel, Math.max(0, this.all().length - 1));
     this.root.hidden = false;
     this.render();
   }
@@ -78,128 +84,164 @@ export class PartyScreen {
   /** Put away without closing (another pause tab is taking over). */
   hide(): void { this.open = false; this.root.hidden = true; }
 
-  private cards(): PartyMemberView[] { return this.host.members().slice(0, this.host.active); }
-  /** Who the chosen card can trade places with: the others fighting, then the bench. */
-  private others(): PartyMemberView[] {
-    const all = this.host.members(), me = this.cards()[this.sel];
-    // Someone who always fights can only change places with the others fighting.
-    return all.filter((m, k) => m.who !== me?.who && (!me?.locked || k < this.host.active));
+  private all(): PartyMemberView[] { return this.host.members(); }
+
+  /** Whether the chosen one can trade places with whoever is at `k`. */
+  private canSwapWith(k: number): boolean {
+    const all = this.all(), me = all[this.sel], o = all[k];
+    if (!me || !o || k === this.sel) return false;
+    // Someone who always fights can only change places with the others fighting (and nobody takes their place from the bench).
+    if (me.locked && k >= this.host.active) return false;
+    if (o.locked && this.sel >= this.host.active) return false;
+    return true;
   }
 
   private close(): void { this.open = false; this.root.hidden = true; uiSound('menuBack'); this.onClose(); }
 
   private back(): void {
-    if (this.mode.kind !== 'cards') { this.mode = this.mode.kind === 'swap' ? { kind: 'actions', index: this.swapIndex() } : { kind: 'cards' }; uiSound('menuBack'); this.render(); return; }
+    if (this.mode.kind === 'swap') { this.mode = { kind: 'actions', index: this.swapIndex() }; uiSound('menuBack'); this.render(); return; }
+    if (this.mode.kind === 'actions') { this.mode = { kind: 'pick' }; uiSound('menuBack'); this.render(); return; }
     this.close();
   }
 
   private swapIndex(): number { return Math.max(0, this.actionList().findIndex((a) => a.id === 'swap')); }
 
   private actionList(): PartyAction[] {
-    const me = this.cards()[this.sel];
+    const me = this.all()[this.sel];
     if (!me) return [];
-    const list = this.host.actions(me.who);
-    return [...list, { id: 'swap', label: 'Swap', detail: me.locked ? 'Always fights: change places with the others fighting' : 'Trade places with someone else in the party', disabled: this.others().length < 1 }];
+    const others = this.all().some((_, k) => this.canSwapWith(k));
+    return [...this.host.actions(me.who), { id: 'swap', label: 'Swap', detail: 'Trade places with someone else in the party', disabled: !others }, { id: 'cancel', label: 'Cancel' }];
   }
 
   private pick(): void {
-    const me = this.cards()[this.sel];
+    const all = this.all(), me = all[this.sel];
     if (!me) return;
-    if (this.mode.kind === 'cards') { this.mode = { kind: 'actions', index: Math.max(0, this.actionList().findIndex((a) => !a.disabled)) }; uiSound('menuOk'); this.render(); return; }
+    if (this.mode.kind === 'pick') { this.mode = { kind: 'actions', index: Math.max(0, this.actionList().findIndex((a) => !a.disabled)) }; uiSound('menuOk'); this.render(); return; }
     if (this.mode.kind === 'actions') {
       const a = this.actionList()[this.mode.index];
       if (!a || a.disabled) return;
+      if (a.id === 'cancel') { this.back(); return; }
       uiSound('menuOk');
-      if (a.id === 'swap') { this.mode = { kind: 'swap', index: 0 }; this.render(); return; }
+      if (a.id === 'swap') {
+        const first = all.findIndex((_, k) => this.canSwapWith(k));
+        this.mode = { kind: 'swap', to: Math.max(0, first) };
+        this.render();
+        return;
+      }
       const onClose = this.onClose, tabs = this.tabs;
       this.open = false;
       this.root.hidden = true;
       this.host.run(me.who, a.id, () => this.show(onClose, tabs, true));
       return;
     }
-    const other = this.others()[this.mode.index];
-    if (!other) return;
-    this.host.swap(me.who, other.who);
+    const to = this.mode.to;
+    if (!this.canSwapWith(to)) return;
+    this.host.swap(me.who, all[to].who);
     uiSound('menuOk');
-    // The newcomer takes this card's place: stay on the card, back to choosing.
-    this.mode = { kind: 'cards' };
+    // Stay on the place they moved to.
+    this.sel = to;
+    if (to > 0) this.listSel = to;
+    this.mode = { kind: 'pick' };
     this.render();
+  }
+
+  /** Move the choice: ↑ ↓ through everyone, ← to the lead, → back into the list. */
+  private move(get: () => number, set: (k: number) => void, ok: (k: number) => boolean): boolean {
+    const i = this.input, n = this.all().length;
+    if (!n) return false;
+    const go = (k: number) => { if (k === get()) return; set(k); uiSound('menuMove'); this.render(); };
+    const step = (d: number) => { let k = get(); for (let c = 0; c < n; c++) { k = (k + d + n) % n; if (ok(k)) { go(k); return; } } };
+    if (i.consume('down')) { step(1); return true; }
+    if (i.consume('up')) { step(-1); return true; }
+    if (i.consume('left')) { if (ok(0)) go(0); return true; }
+    if (i.consume('right')) { const k = get() === 0 ? Math.min(this.listSel, n - 1) : get(); if (k > 0 && ok(k)) go(k); else step(1); return true; }
+    return false;
   }
 
   update(): void {
     if (!this.open) return;
     const i = this.input, m = this.mode;
     if (i.consume('cancel')) { this.back(); return; }
-    if (m.kind === 'cards') {
+    if (m.kind === 'pick') {
       if (tabKeys(i, this.tabs)) return;
-      const n = this.cards().length;
-      if (n && (i.consume('left') || i.consume('up'))) { this.sel = (this.sel + n - 1) % n; uiSound('menuMove'); this.render(); return; }
-      if (n && (i.consume('right') || i.consume('down'))) { this.sel = (this.sel + 1) % n; uiSound('menuMove'); this.render(); return; }
+      if (this.move(() => this.sel, (k) => { this.sel = k; if (k > 0) this.listSel = k; }, () => true)) return;
+    } else if (m.kind === 'swap') {
+      if (this.move(() => m.to, (k) => { m.to = k; }, (k) => this.canSwapWith(k))) return;
     } else {
-      const len = m.kind === 'actions' ? this.actionList().length : this.others().length;
-      const dis = (k: number) => (m.kind === 'actions' ? !!this.actionList()[k]?.disabled : false);
+      const list = this.actionList(), len = list.length;
       const step = (d: number) => {
         let k = m.index;
-        for (let c = 0; c < len; c++) { k = (k + d + len) % len; if (!dis(k)) break; }
+        for (let c = 0; c < len; c++) { k = (k + d + len) % len; if (!list[k]?.disabled) break; }
         if (k !== m.index) { m.index = k; uiSound('menuMove'); this.render(); }
       };
-      if (len && (i.consume('down') || (m.kind === 'swap' && i.consume('right')))) { step(1); return; }
-      if (len && (i.consume('up') || (m.kind === 'swap' && i.consume('left')))) { step(-1); return; }
+      if (len && i.consume('down')) { step(1); return; }
+      if (len && i.consume('up')) { step(-1); return; }
     }
     if (i.confirm()) this.pick();
   }
 
   private render(): void {
-    const list = this.cards(), all = this.host.members(), m = this.mode;
+    const all = this.all(), m = this.mode, me = all[this.sel];
     const pct = (v: number, max: number) => Math.max(0, Math.min(100, (v / Math.max(1, max)) * 100));
-    const bar = (cls: string, v: number, max: number, label: string) =>
-      `<div class="pc-bar ${cls}"><span>${label}</span><b>${Math.round(v)} / ${Math.round(max)}</b><div><i style="width:${pct(v, max)}%"></i></div></div>`;
-    const cards = list.map((c, k) => {
-      const up = c.skillPoints > 0;
-      const gains = [c.skillPoints > 0 ? `${c.skillPoints} Skill Point${c.skillPoints === 1 ? '' : 's'}` : '', ''].filter(Boolean).join(' · ');
-      const xp = c.xp.next === null ? 100 : pct(c.xp.have, c.xp.next);
-      const actions = k === this.sel && m.kind === 'actions' ? this.actionList() : null;
-      return `<div class="pc-card${k === this.sel ? ' sel' : ''}${up ? ' lvlup' : ''}${c.down ? ' down' : ''}" data-k="${k}" role="option" aria-selected="${k === this.sel}"${c.color ? ` style="--hero:${c.color}"` : ''}>
-        ${up ? '<span class="pt-badge">LEVEL UP</span>' : ''}
-        <div class="pc-art"><img src="${c.art}" alt=""></div>
-        <div class="pc-name"><b>${esc(c.name)}</b><small>Lv ${c.level}${c.down ? ' · KO' : ''}</small>${c.elements?.length ? `<span class="el-pills">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>
-        ${bar('hp', c.hp[0], c.hp[1], 'HP')}${bar('mp', c.mp[0], c.mp[1], 'MP')}
-        <div class="pc-bar xp"><span>EXP</span><b>${c.xp.next === null ? 'MAX' : `${c.xp.have} / ${c.xp.next}`}</b><div><i style="width:${xp}%"></i></div></div>
-        ${gains ? `<div class="pt-gains">${gains}</div>` : ''}
-        ${actions ? `<div class="pc-actions" role="listbox">${actions.map((a, p) => `<button type="button" class="menu-item" data-p="${p}" ${a.disabled ? 'disabled' : ''} aria-selected="${m.kind === 'actions' && p === m.index}"><span class="menu-label">${esc(a.label)}</span></button>`).join('')}</div>` : ''}
+    const hpTier = (c: PartyMemberView) => { const s = c.hp[0] / Math.max(1, c.hp[1]); return s <= 0.2 ? ' low' : s <= 0.5 ? ' mid' : ''; };
+    const lv = (c: PartyMemberView) => `<span class="lv-pill" style="color:#3a2200">Lv ${c.level}</span>`;
+    const ail = (c: PartyMemberView) => c.down ? '<span class="st-pill" style="background:#5a5a68;color:#f4f4fa" title="Knocked out">KO</span>'
+      : c.ailment ? `<span class="st-pill" style="background:${c.ailment.color};color:${c.ailment.ink}" title="${esc(c.ailment.name)}">${esc(c.ailment.tag)}</span>` : '';
+    const slotCls = (k: number) => {
+      const c = all[k], target = m.kind === 'swap' && m.to === k;
+      return `${k === this.sel ? ' sel' : ''}${target ? ' target' : ''}${m.kind === 'swap' && !this.canSwapWith(k) && k !== this.sel ? ' dim' : ''}${c.down ? ' down' : ''}`;
+    };
+    const lead = all[0];
+    const leadCard = lead ? `<div class="pr-lead pr-slot${slotCls(0)}" data-k="0" role="option" aria-selected="${this.sel === 0}"${lead.color ? ` style="--hero:${lead.color}"` : ''}>
+        ${lead.skillPoints > 0 ? '<span class="pt-badge">LEVEL UP</span>' : ''}
+        <div class="pr-art"><img src="${lead.art}" alt=""></div>
+        <div class="pr-name"><b>${esc(lead.name)}</b>${lv(lead)}${ail(lead)}</div>
+        ${lead.elements?.length ? `<div class="pr-els">${lead.elements.map((e) => elementPill(e)).join('')}</div>` : ''}
+        <div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(lead)}"><i style="width:${pct(lead.hp[0], lead.hp[1])}%"></i></div></div>
+        <div class="pr-num">${Math.round(lead.hp[0])} / ${Math.round(lead.hp[1])}</div>
+        <div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(lead.mp[0], lead.mp[1])}%"></i></div></div>
+        <div class="pr-num">${Math.round(lead.mp[0])} / ${Math.round(lead.mp[1])}</div>
+        <div class="pr-line"><span class="pr-k">EXP</span><div class="pr-bar xp"><i style="width:${lead.xp.next === null ? 100 : pct(lead.xp.have, lead.xp.next)}%"></i></div></div>
+      </div>` : '';
+    const rows = all.slice(1).map((c, j) => {
+      const k = j + 1, first = k === this.host.active;
+      return `${first ? '<div class="pr-sep">Reserve</div>' : ''}<div class="pr-row pr-slot${slotCls(k)}${k >= this.host.active ? ' bench' : ''}" data-k="${k}" role="option" aria-selected="${this.sel === k}"${c.color ? ` style="--hero:${c.color}"` : ''}>
+        <img class="pr-face" src="${c.portrait}" alt="">
+        <div class="pr-row-main">
+          <div class="pr-row-top"><b>${esc(c.name)}</b>${lv(c)}${ail(c)}${c.skillPoints > 0 ? '<span class="pr-up">LEVEL UP</span>' : ''}${c.elements?.length ? `<span class="pr-els">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>
+          <div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(c)}"><i style="width:${pct(c.hp[0], c.hp[1])}%"></i></div><span class="pr-num">${Math.round(c.hp[0])} / ${Math.round(c.hp[1])}</span></div>
+          <div class="pr-line thin"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(c.mp[0], c.mp[1])}%"></i></div><span class="pr-num">${Math.round(c.mp[0])} / ${Math.round(c.mp[1])}</span></div>
+        </div>
       </div>`;
     }).join('');
-    const bench = all.slice(this.host.active);
-    let swap = '';
-    if (m.kind === 'swap') {
-      const me = list[this.sel], others = this.others();
-      swap = `<div class="pc-swap"><div class="pc-swap-title">Swap ${esc(me?.name ?? '')} with…</div><div class="pc-swap-list" role="listbox">${others.map((o, p) => {
-        const fighting = all.indexOf(o) < this.host.active;
-        return `<button type="button" class="pc-mini${p === m.index ? ' sel' : ''}${o.down ? ' down' : ''}" data-s="${p}" aria-selected="${p === m.index}">
-          <img src="${o.portrait}" alt=""><span><b>${esc(o.name)}</b><small>Lv ${o.level} · HP ${Math.round(o.hp[0])}/${Math.round(o.hp[1])} · MP ${Math.round(o.mp[0])}/${Math.round(o.mp[1])}${fighting ? ' · in the party' : ''}</small></span></button>`;
-      }).join('') || '<p class="pc-empty">Nobody else to swap with.</p>'}</div></div>`;
-    }
-    const sel = list[this.sel], act = m.kind === 'actions' ? this.actionList()[m.index] : null;
-    const note = m.kind === 'cards' ? '← → choose · Space: open · Esc: close'
-      : m.kind === 'actions' ? `${act?.detail ?? ''}${act?.detail ? ' · ' : ''}↑ ↓ choose · Space: open · Esc: back`
-        : '↑ ↓ choose · Space: swap · Esc: back';
-    this.root.innerHTML = `<div class="inv-box pc-box">
-      <div class="pc-cards" role="listbox">${cards}</div>
-      ${swap}
-      <div class="pc-foot">${bench.length && m.kind !== 'swap' ? `<div class="pc-bench"><span>Reserve</span>${bench.map((b) => `<img src="${b.portrait}" alt="${esc(b.name)}" title="${esc(b.name)} · Lv ${b.level}"${b.down ? ' class="down"' : ''}>`).join('')}</div>` : '<span></span>'}
-      <div class="menu-note">${esc(note)}</div></div>
+    const acts = m.kind === 'actions' ? this.actionList() : null;
+    const act = acts ? acts[(m as { index: number }).index] : null;
+    const msg = m.kind === 'pick' ? (all.length > 1 ? 'Choose a party member.' : `${esc(me?.name ?? '')} is on their own.`)
+      : m.kind === 'actions' ? `Do what with ${esc(me?.name ?? '')}?${act?.detail ? `<small>${esc(act.detail)}</small>` : ''}`
+        : `Move ${esc(me?.name ?? '')} to where?`;
+    const note = m.kind === 'pick' ? '↑ ↓ ← → choose · Space: open · Esc: close'
+      : m.kind === 'actions' ? '↑ ↓ choose · Space: open · Esc: back' : '↑ ↓ ← → choose · Space: swap · Esc: back';
+    this.root.innerHTML = `<div class="inv-box pr-box">
+      <div class="pr-main">
+        <div class="pr-left">${leadCard}</div>
+        <div class="pr-list" role="listbox">${rows || '<p class="pr-empty">Nobody else has joined yet.</p>'}</div>
+      </div>
+      <div class="pr-foot">
+        <div class="pr-msg">${msg}</div>
+        ${acts ? `<div class="pr-menu" role="listbox">${acts.map((a, p) => `<button type="button" class="menu-item" data-p="${p}" ${a.disabled ? 'disabled' : ''} aria-selected="${p === (m as { index: number }).index}"><span class="menu-label">${esc(a.label)}</span></button>`).join('')}</div>` : ''}
+      </div>
+      <div class="menu-note">${esc(note)}</div>
     </div>`;
-    void sel;
-    this.root.querySelectorAll<HTMLElement>('.pc-card').forEach((el) => el.addEventListener('click', (e) => {
-      const p = (e.target as HTMLElement).closest<HTMLElement>('[data-p]');
+    this.root.querySelectorAll<HTMLElement>('.pr-slot').forEach((el) => el.addEventListener('click', () => {
       const k = Number(el.dataset.k);
-      if (p && this.mode.kind === 'actions') { this.mode.index = Number(p.dataset.p); this.pick(); return; }
-      if (k === this.sel && this.mode.kind === 'cards') { this.pick(); return; }
-      this.sel = k; this.mode = { kind: 'cards' }; uiSound('menuMove'); this.render();
+      if (this.mode.kind === 'swap') { if (this.canSwapWith(k)) { this.mode.to = k; this.pick(); } return; }
+      if (k === this.sel && this.mode.kind === 'pick') { this.pick(); return; }
+      this.sel = k; if (k > 0) this.listSel = k;
+      this.mode = { kind: 'pick' }; uiSound('menuMove'); this.render();
     }));
-    this.root.querySelectorAll<HTMLElement>('[data-s]').forEach((el) => el.addEventListener('click', () => {
-      if (this.mode.kind !== 'swap') return;
-      this.mode.index = Number(el.dataset.s); this.pick();
+    this.root.querySelectorAll<HTMLElement>('[data-p]').forEach((el) => el.addEventListener('click', () => {
+      if (this.mode.kind !== 'actions') return;
+      this.mode.index = Number(el.dataset.p); this.pick();
     }));
   }
 }

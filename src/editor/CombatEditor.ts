@@ -39,7 +39,7 @@ function statusPillsSection(tb: NonNullable<CombatData['turnBased']>, T: ReturnT
     const d = DEFAULT_STATUS_PILLS[a], cur = { ...T.statusPills[a] };
     const pill = h('span', { class: 'st-pill' });
     const draw = () => { pill.textContent = (tb.statusWords === 'full' ? cur.word : cur.tag) || '—'; pill.style.background = cur.color; pill.style.color = cur.ink; };
-    const set = (k: keyof StatusPill, v: string) => {
+    const set = (k: Exclude<keyof StatusPill, 'stays'>, v: string) => {
       cur[k] = v || d[k];
       const o = ((tb.statusPills ??= {})[a] ??= {});
       if (!v || v === d[k]) delete o[k]; else o[k] = v;
@@ -52,13 +52,19 @@ function statusPillsSection(tb: NonNullable<CombatData['turnBased']>, T: ReturnT
     return [h('span', { class: 'db-name' }, AILMENT_INFO[a].name), pill,
       textInput(cur.tag, (v) => set('tag', v.trim().toUpperCase().slice(0, 6)), { 'aria-label': `${AILMENT_INFO[a].name} tag`, maxlength: 6 }),
       textInput(cur.word, (v) => set('word', v.trim().toUpperCase().slice(0, 14)), { 'aria-label': `${AILMENT_INFO[a].name} word`, maxlength: 14 }),
-      color('color', 'pill colour'), color('ink', 'text colour')];
+      color('color', 'pill colour'), color('ink', 'text colour'),
+      h('input', { type: 'checkbox', checked: cur.stays, title: 'Lasts after the battle, into the next one', 'aria-label': `${AILMENT_INFO[a].name} lasts after battle`, onchange: (e: Event) => {
+        const v = (e.target as HTMLInputElement).checked, o = ((tb.statusPills ??= {})[a] ??= {});
+        if (v === d.stays) delete o.stays; else o.stays = v;
+        if (!Object.keys(o).length) delete tb.statusPills![a];
+        if (!Object.keys(tb.statusPills!).length) delete tb.statusPills;
+      } })];
   });
-  return h('section', { class: 'db-section' }, h('h3', {}, 'Status pills'),
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Ailments'),
     field('Pills show', select([['short', 'Short tags (PSN)'], ['full', 'Full words (POISONED)']], T.statusWords, (v) => { if (v === 'full') tb.statusWords = 'full'; else delete tb.statusWords; redraws.forEach((r) => r()); }),
       'In the Pocket Handheld layout an ailment shows as a pill beside the fighter’s name and level.'),
-    h('div', { class: 'db-table status-pills' }, ...['Ailment', 'Pill', 'Tag', 'Word', 'Pill', 'Text'].map((t) => h('span', { class: 'db-head' }, t)), ...rows),
-    h('p', { class: 'note' }, 'A fighter has one ailment at a time: one that’s poisoned can’t be burned until it’s cured or wears off (Chill and the Frozen it leads to count as one; Zombie replaces the rest). Clear a box to go back to its default.'));
+    h('div', { class: 'db-table status-pills' }, ...['Ailment', 'Pill', 'Tag', 'Word', 'Pill', 'Text', 'Lasts'].map((t) => h('span', { class: 'db-head' }, t)), ...rows),
+    h('p', { class: 'note' }, 'A fighter has one ailment at a time: one that’s poisoned can’t be burned until it’s cured or wears off (Chill and the Frozen it leads to count as one; Zombie replaces the rest). Lasts: still there after the battle, into the next one, until it wears off there, an item cures it or the party rests. Clear a box to go back to its default.'));
 }
 
 /** The Combat tab. Edits `data` (only differences from the defaults are kept when saving). */

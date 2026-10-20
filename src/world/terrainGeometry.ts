@@ -98,7 +98,7 @@ export function cellSurfaces(map: TileMap, x: number, z: number): Surface[] {
   // Soft blocky: edges that drop to lower ground are bevelled (the top slopes down a little before the wall).
   if (map.heightStyle(x, z) === 'b' && !r) {
     const b = bevels(map, x, z);
-    if (b.some((v) => v > 0)) return bevelSurfaces(x, z, c[0], b);
+    if (b.some((v) => v > 0)) return bevelSurfaces(x, z, c[0], b, bevelEnds(map, x, z, b));
   }
   // A corner slope: four triangles from its centre, so the raised corner (or the one left low) curves evenly.
   if (r?.ramp.style === 'corner' && r.raised) {
@@ -136,17 +136,56 @@ export function bevels(map: TileMap, x: number, z: number): number[] {
   });
 }
 
+/**
+ * Where each bevel ends against ground at least as high as this cell (and not bevelled the same way): there it
+ * tapers to nothing, a short grassy slope into the corner, instead of stopping at a little wall. For each edge
+ * (N, S, W, E) its low end (west or north) and its high end.
+ */
+export function bevelEnds(map: TileMap, x: number, z: number, bev: number[]): boolean[][] {
+  const top = map.heightAt(x, z);
+  return EDGES.map((e, ei) => [0, 1].map((k) => {
+    if (!bev[ei]) return false;
+    const corner = CORNER_XZ[e.a[k]], other = CORNER_XZ[e.a[1 - k]];
+    const nx = x + Math.sign(corner[0] - other[0]), nz = z + Math.sign(corner[1] - other[1]);
+    if (!map.inMap(nx, nz)) return false;
+    const nTop = Math.max(...map.cornersAt(nx, nz));
+    if (nTop < top - 1e-3) return false;
+    // The same bevel carries straight on into the neighbour: no end here.
+    if (Math.abs(nTop - top) < 1e-3 && map.heightStyle(nx, nz) === 'b' && !map.rampAt(nx, nz) && Math.abs(bevels(map, nx, nz)[ei] - bev[ei]) < 1e-3) return false;
+    return true;
+  }));
+}
+
+/** The drop along a bevelled edge, as (position along the edge, drop) points: tapering to 0 at a closed end. */
+function bevelProfile(lo: number, hi: number, d: number, ends: boolean[]): [number, number][] {
+  const t = Math.min(d, (hi - lo) / 2), pts: [number, number][] = [[lo, ends[0] ? 0 : d]];
+  if (ends[0]) pts.push([lo + t, d]);
+  if (ends[1]) pts.push([hi - t, d]);
+  pts.push([hi, ends[1] ? 0 : d]);
+  return pts.filter((p, i) => i === 0 || p[0] - pts[i - 1][0] > 1e-6);
+}
+
 /** A bevelled top: the flat middle, a sloped strip on each dropping edge, and the corners between them. */
-function bevelSurfaces(x: number, z: number, y: number, b: number[]): Surface[] {
+function bevelSurfaces(x: number, z: number, y: number, b: number[], ends: boolean[][]): Surface[] {
   const [bn, bs, bw, be] = b;
   const x0 = x, x1 = x + 1, z0 = z, z1 = z + 1, ix0 = x0 + bw, ix1 = x1 - be, iz0 = z0 + bn, iz1 = z1 - bs;
   const out: Surface[] = [[[ix0, y, iz0], [ix1, y, iz0], [ix1, y, iz1], [ix0, y, iz1]]];
-  if (bn) out.push([[ix0, y - bn, z0], [ix1, y - bn, z0], [ix1, y, iz0], [ix0, y, iz0]]);
-  if (bs) out.push([[ix0, y, iz1], [ix1, y, iz1], [ix1, y - bs, z1], [ix0, y - bs, z1]]);
-  if (bw) out.push([[x0, y - bw, iz0], [ix0, y, iz0], [ix0, y, iz1], [x0, y - bw, iz1]]);
-  if (be) out.push([[ix1, y, iz0], [x1, y - be, iz0], [x1, y - be, iz1], [ix1, y, iz1]]);
+  // Each strip, piece by piece along its profile (outer edge dropped, inner edge at the top).
+  const strip = (ei: number, lo: number, hi: number, outer: (s: number) => [number, number], inner: (s: number) => [number, number]) => {
+    const pts = bevelProfile(lo, hi, b[ei], ends[ei]);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [s1, d1] = pts[i], [s2, d2] = pts[i + 1], [ax, az] = outer(s1), [bx, bz] = outer(s2), [cx, cz] = inner(s2), [dx, dz] = inner(s1);
+      out.push([[ax, y - d1, az], [bx, y - d2, bz], [cx, y, cz], [dx, y, dz]]);
+    }
+  };
+  if (bn) strip(0, ix0, ix1, (s) => [s, z0], (s) => [s, iz0]);
+  if (bs) strip(1, ix0, ix1, (s) => [s, z1], (s) => [s, iz1]);
+  if (bw) strip(2, iz0, iz1, (s) => [x0, s], (s) => [ix0, s]);
+  if (be) strip(3, iz0, iz1, (s) => [x1, s], (s) => [ix1, s]);
   // Corners: where two bevels meet, a slanted patch; where only one, its strip carries on to the corner.
   const corner = (cx: number, cz: number, ex: number, ez: number, dX: number, dZ: number) => {
+    // Nothing to fill when the corner has no width (one edge isn't bevelled): it would only be a sliver on end.
+    if (Math.abs(ex - cx) < 1e-6 || Math.abs(ez - cz) < 1e-6) return;
     const d = Math.max(dX, dZ);
     out.push([[cx, y - d, cz], [ex, y - dZ, cz], [ex, y, ez], [cx, y - dX, ez]]);
   };
@@ -195,8 +234,10 @@ export function cornerRounding(map: TileMap, x: number, z: number): CornerRoundi
     if (!nb.every(([cx, cz]) => flat(cx, cz))) continue;
     const hs = nb.map(([cx, cz]) => map.heightAt(cx, cz));
     if (hs[1] !== hs[0] || hs[2] !== hs[0]) continue;
-    if (hs[0] < h && nb.every(([cx, cz]) => map.waterAt(cx, cz))) { r.convex[k] = true; r.lowY[k] = hs[0]; }
-    else if (hs[0] > h && wet) { r.concave[k] = true; r.highY[k] = hs[0]; }
+    // Soft blocky banks aren't rounded: their bevels already soften the edge, and a round wall would stand up
+    // through the bevel as a dark wedge.
+    if (hs[0] < h && nb.every(([cx, cz]) => map.waterAt(cx, cz))) { if (map.heightStyle(x, z) !== 'b') { r.convex[k] = true; r.lowY[k] = hs[0]; } }
+    else if (hs[0] > h && wet && !nb.some(([cx, cz]) => map.heightStyle(cx, cz) === 'b')) { r.concave[k] = true; r.highY[k] = hs[0]; }
   }
   return r;
 }
@@ -391,6 +432,7 @@ function addWalls(map: TileMap, x: number, z: number, walls: QuadList, rounded: 
   const stairs = ramp?.ramp.style === 'stairs' && ramp.dir ? ramp.dir : null;
   const style = ramp ? '.' : map.heightStyle(x, z);
   const bev = style === 'b' ? bevels(map, x, z) : [0, 0, 0, 0];
+  const bevEnd = style === 'b' ? bevelEnds(map, x, z, bev) : null;
   for (const [ei, e] of EDGES.entries()) {
     const nx = x + e.nb[0], nz = z + e.nb[1];
     const inside = map.inMap(nx, nz);
@@ -446,35 +488,25 @@ function addWalls(map: TileMap, x: number, z: number, walls: QuadList, rounded: 
       if (rounded[e.a[0]]) [sx1, sz1, sa1, sb1] = [mx, mz, ma, mb];
       if (rounded[e.a[1]]) [sx2, sz2, sa2, sb2] = [mx, mz, ma, mb];
       if (rounded[e.a[0]] && rounded[e.a[1]]) continue;
+      // Soft blocky, a bevel tapering to nothing at an end: the wall's top follows it (up to the full height there).
+      if (bevEnd && (bevEnd[ei][0] || bevEnd[ei][1]) && !rounded[e.a[0]] && !rounded[e.a[1]]) {
+        const pts = bevelProfile(0, 1, bev[ei], bevEnd[ei]), c1 = c[e.a[0]], c2 = c[e.a[1]];
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const [t1, d1] = pts[i], [t2, d2] = pts[i + 1];
+          const qx1 = x1 + (x2 - x1) * t1, qz1 = z1 + (z2 - z1) * t1, qx2 = x1 + (x2 - x1) * t2, qz2 = z1 + (z2 - z1) * t2;
+          const top1 = c1 + (c2 - c1) * t1 - d1, top2 = c1 + (c2 - c1) * t2 - d2;
+          const g1 = b1 + (b2 - b1) * t1, g2 = b1 + (b2 - b1) * t2;
+          if (top1 - g1 < 1e-4 && top2 - g2 < 1e-4) continue;
+          const f1 = Math.min(top1, g1) - SINK, f2 = Math.min(top2, g2) - SINK;
+          walls.add([[qx1, top1, qz1], [qx2, top2, qz2], [qx2, f2, qz2], [qx1, f1, qz1]],
+            [[u(qx1, qz1), top1], [u(qx2, qz2), top2], [u(qx2, qz2), f2], [u(qx1, qz1), f1]], e.out);
+        }
+        continue;
+      }
       const lo1 = Math.min(sa1, sb1) - SINK, lo2 = Math.min(sa2, sb2) - SINK;
       if (style === 'c') { jaggedWall(walls, [sx1, sz1], [sx2, sz2], sa1, sa2, lo1, lo2, e.out, e.along); continue; }
       walls.add([[sx1, sa1, sz1], [sx2, sa2, sz2], [sx2, lo2, sz2], [sx1, lo1, sz1]],
         [[u(sx1, sz1), sa1], [u(sx2, sz2), sa2], [u(sx2, sz2), lo2], [u(sx1, sz1), lo1]], e.out);
-    }
-  }
-
-  // Soft blocky: where a bevelled edge ends against ground that isn't bevelled the same way (a neighbour as high or
-  // higher, with a square edge there), close the bevel's open end with a little triangle, so no gap shows.
-  if (style === 'b') {
-    const top = map.heightAt(x, z);
-    for (const [ei, e] of EDGES.entries()) {
-      const b = bev[ei];
-      if (!b) continue;
-      for (const k of [0, 1]) {
-        const corner = CORNER_XZ[e.a[k]], other = CORNER_XZ[e.a[1 - k]];
-        // The side neighbour across this end of the edge.
-        const sx = Math.sign(corner[0] - other[0]), sz = Math.sign(corner[1] - other[1]);
-        const nx = x + sx, nz = z + sz;
-        if (!map.inMap(nx, nz)) continue;
-        const nTop = Math.max(...map.cornersAt(nx, nz));
-        if (nTop < top - 1e-3) continue;
-        if (Math.abs(nTop - top) < 1e-3 && map.heightStyle(nx, nz) === 'b' && !map.rampAt(nx, nz) && Math.abs(bevels(map, nx, nz)[ei] - b) < 1e-3) continue;
-        const px = x + corner[0], pz = z + corner[1];
-        const ix = px - e.out[0] * b, iz = pz - e.out[2] * b;
-        const uu = (qx: number, qz: number) => (e.along === 'x' ? qz : qx);
-        walls.add([[px, top - b, pz], [px, top, pz], [ix, top, iz], [ix, top, iz]],
-          [[uu(px, pz), top - b], [uu(px, pz), top], [uu(ix, iz), top], [uu(ix, iz), top]], [-sx, 0, -sz]);
-      }
     }
   }
 

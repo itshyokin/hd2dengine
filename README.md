@@ -536,14 +536,18 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   bag's pockets, the Journal's pages) move with **LT / RT** (Z / C). The bottom line shows where you are, the time
   played and your gold. The HUD steps aside while it's open. Map shows once there's a World layout, Achievements
   once there are achievements; System holds Save, Load and Quit to Title.
-- **Party**: the three fighting, as tall cards with their art (Face art from Database → Heroes, or their sprite drawn
-  large), name, level, HP, MP and EXP; the rest of the party (up to eight) shows as **Reserve** underneath. ← → pick
-  a card, Space opens its list: **Status** (stats with their growth ranks), **Equipment**, **Skill Tree**, **Addition**
-  (the one Attack performs), **Magic** (their spells; healing spells can be cast from here), **Class** (when they
-  have more than one) and **Swap**: the rest of the party appears (Legend of Dragoon style), pick who takes this card's
-  place. Anyone can be swapped out, the hero too (they still lead on the map; the others fighting follow them).
-  **Database → Combat → The hero always fights** keeps the hero in the three. Anyone with points to spend has a gold
-  outline and a **LEVEL UP** badge; the selected card has an arrow above and below it, pointing at it.
+- **Party** (handheld style): the lead (first in the lineup) in a big card on the left with their art, name, a gold
+  level pill, any ailment (PSN…), elements, HP, MP and EXP; everyone else down the right (portrait, name, level,
+  ailment, HP and MP), the **Reserve** after those fighting. A message box along the bottom says what to do. ↑ ↓
+  choose (← to the lead, → back to the list); Space opens a menu at the bottom right: **Status**, **Equipment**,
+  **Skill Tree**, **Addition** (the one Attack performs), **Magic** (healing can be cast from here), **Class** (when
+  they have more than one), **Swap** ("Move Katrina to where?": pick anyone to trade places with) and Cancel.
+  **Database → Combat → The hero always fights** keeps the hero among those fighting. Anyone with skill points to
+  spend shows a **LEVEL UP** badge.
+- **Status** (Party → someone → Status), like the handheld games' summary: the hero on the left (picture, name, level
+  pill, ailment, elements) and three pages on the right, ← → between them: **Profile** (About, ailments, a party
+  member's fighting style), **Stats** (HP, MP, SP, stats with their growth ranks, damage and defence, EXP and how much
+  to the next level) and **Gear** (what they're wearing).
 - **Map**: the world map (Pokémon Gold / Silver style), drawn from your maps themselves and laid out as in the
   **World layout** (Map editor toolbar → **World**). The **stick glides** across it (faster the further it's pushed);
   the **D-pad** (arrow keys) moves the crosshair **one tile** a press, repeating while held, to fine-tune; or drag it.
@@ -985,11 +989,18 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   follows waits for OK (▼): "A critical hit!", "It's super effective!", "It's not very effective…", "Green Slime
   was defeated!". **Items** open two lists side by side: the party (the one out in gold at the top, then the bench, so
   benched heroes can be healed too) and the foes; harmful items list the foes first. Left / right between them, up /
-  down to choose. An **ailment** shows as a pill beside the name and level (PSN on purple, BRN on orange…; Database →
+  down to choose. A hit plays out in order: the attacker strikes and steps back, the target flashes and its health
+  drains (the numbers count down with it), and the battle waits for that before the next line. With **Rounds** (and
+  Single mode), burn and poison bite at the end of each round, a line each ("Jordan is hurt by poison!"); a fighter
+  who can't act says so ("…is fast asleep!"), and one that wears off says that too. EXP is told and the bar filled
+  once, after "Victory!": the total (and how much was bonus), the bar running through any level it passes. The loot
+  lines show the coin or the item's icon ("+10 Gold!"). An **ailment** shows as a pill beside the name and level (PSN on purple, BRN on orange…; Database →
   Combat → Status pills switches to full words, POISONED, and sets each pill's colour, text colour, tag and word);
   only buffs show over the fighter's head. A fighter has **one ailment at a time** in turn-based battles: one that's
   poisoned can't be burned until it's cured or wears off (Chill and the Frozen it leads to count as one; Zombie
-  replaces the rest). Elements show as pills with their circle and symbol docked on the left end. An Addition's ring
+  replaces the rest). Ailments **last after the battle** into the next one, until they wear off there, an item cures
+  them or the party rests (each ailment can be set not to: Database → Combat → Ailments → Lasts); they show on the
+  Party and Status pages. Elements show as pills with their circle and symbol docked on the left end. An Addition's ring
   appears in the middle of the screen. Damage numbers show on the fighters only (and the EXP bar fills as each foe falls). The end of a
   battle: "Victory!" with the fanfare (the victory tune follows), then each hero's EXP in one window (what they earned,
   and under it the bonus), the loot, and each level up with a ding and a box of what it brought. A hero who reached a

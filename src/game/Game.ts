@@ -607,7 +607,7 @@ export class Game {
     this.charScreen = new CharacterScreen(this.ui, this.input, {
       hero: (h) => {
         const host = this.equipHost(), x = host.heroes()[h], def = h ? this.members()[h - 1]?.def : mainHero(this.db);
-        return { name: x?.name ?? '', level: x?.level ?? 1, portrait: x?.portrait ?? '', color: this.heroColor(h), about: def?.about };
+        return { name: x?.name ?? '', level: x?.level ?? 1, portrait: x?.portrait ?? '', color: this.heroColor(h), about: def?.about, art: this.heroArt(h), elements: this.heroAffinity(h).elements, ailment: this.ailmentPill(h) };
       },
       gauges: (h) => {
         const m = h ? this.members()[h - 1] : null;
@@ -2364,6 +2364,7 @@ export class Game {
     for (const a of this.fighters) { const n = this.allyNumbers(a.data, a.def); a.data.hp = n.max.hp; a.data.mp = n.max.mp; a.data.down = false; a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
     for (const m of this.party.members) if (!this.allies.some((a) => a.data === m)) { m.down = false; m.hp = this.stats.cfg.max.hp; m.mp = this.stats.cfg.max.mp; }
     this.combat.heroStatus.cure(['all']);
+    this.clearLingering(['all']);
     const p = this.player.position;
     this.bursts.spawn(p.x, p.y + 0.6, p.z, { color: '#9be8a0', n: 20, speed: 1.2, up: 2.4, life: 0.8, size: 0.08, gravity: -0.5, additive: true });
     this.audio.play('save');
@@ -2385,6 +2386,7 @@ export class Game {
       state: this.state.toJSON(),
       gauges: { hp: this.stats.hp, mp: this.stats.mp, sp: this.stats.sp },
       ...(this.combat.heroStatus.list.length ? { status: this.combat.heroStatus.toJSON() } : {}),
+      ...(Object.keys(this.heroAilments).length ? { heroAilments: { ...this.heroAilments } } : {}),
       inventory: this.inventory.toJSON(),
       progress: this.progress.toJSON(),
       ...(this.party.members.length ? { party: this.party.toJSON() } : {}),
@@ -2475,6 +2477,7 @@ export class Game {
         // Saves from before party members had skill trees: the skill points their levels would have given.
         for (const m of this.party.members) if (m.skillPoints === undefined) { m.skillPoints = (m.level - 1) * this.combatCfg.pointsPerLevel; m.skills ??= {}; }
         this.combat.heroStatus.load(d.status);
+        this.heroAilments = { ...(d.heroAilments ?? {}) };
         this.quests.load(d.quests);
         this.syncSkills();
         this.rings.off();
@@ -2538,6 +2541,8 @@ export class Game {
         this.setStatRank(m.def.id, d.statRank.stat, d.statRank.rank);
         got.push(`${ATTR_INFO[d.statRank.stat].name} now grows at Rank ${d.statRank.rank}`);
       }
+      // Ailments left from a battle.
+      if (!battle && d.cures?.length) { const cured = this.clearLingering(d.cures, who); if (cured.length) got.push(`cured ${cured.map((a) => effectName(a as never)).join(', ')}`); }
       for (const g of ['hp', 'mp', 'sp'] as const) {
         const v = d.restore?.[g];
         if (!v) continue;
@@ -2561,8 +2566,8 @@ export class Game {
       gains.push(`${ATTR_INFO[d.statRank.stat].name} now grows at Rank ${d.statRank.rank}`);
     }
     if (d.cures?.length) {
-      const cured = st.cure(d.cures);
-      if (cured.length) gains.push(`cured ${cured.map(effectName).join(', ')}`);
+      const cured = [...st.cure(d.cures).map(effectName), ...(battle ? [] : this.clearLingering(d.cures, 0).filter((a) => !st.has(a as never)).map((a) => effectName(a as never)))];
+      if (cured.length) gains.push(`cured ${[...new Set(cured)].join(', ')}`);
     }
     for (const g of ['hp', 'mp', 'sp'] as const) {
       const v = d.restore?.[g];
@@ -3866,6 +3871,7 @@ export class Game {
     const st = this.combat.heroStatus, p = this.player.position;
     if (op === 'cure') {
       const cured = st.cure([a]);
+      this.clearLingering([a], 0);
       if (cured.length && !quiet) this.overlay.float(`${cured.map(effectName).join(', ')} cured`, p.x, p.y + 1.7, p.z, 'info');
       return;
     }
@@ -4484,15 +4490,24 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements,
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0),
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements,
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who),
     };
+  }
+
+  /** Someone's ailment as a pill (the hero's from the map first, else one left from a battle), or none. */
+  private ailmentPill(who: number): PartyMemberView['ailment'] {
+    const tb = this.combatCfg.turnBased;
+    const a = (who ? Object.keys(this.members()[who - 1]?.data.ailments ?? {})[0]
+      : this.combat.heroStatus.list.find((e) => !e.id.startsWith('buff:'))?.id ?? Object.keys(this.heroAilments)[0]) as BattleAilment | undefined;
+    const p = a ? tb.statusPills[a] : undefined;
+    return a && p ? { tag: tb.statusWords === 'full' ? p.word : p.tag, color: p.color, ink: p.ink, name: effectName(a) } : undefined;
   }
 
   /** What can be done for someone from their card. */
@@ -4858,6 +4873,38 @@ export class Game {
     return out;
   }
 
+  /** The hero's ailments from the last battle, lasting into the next (members keep theirs on their data). */
+  private heroAilments: Record<string, number> = {};
+
+  /** A battle's status with ailments left from the last battle on it. */
+  private lingering(st: BattleStatus, list?: Record<string, number>): BattleStatus {
+    for (const [a, t] of Object.entries(list ?? {})) if (t > 0) st.turns.set(a as BattleAilment, t);
+    return st;
+  }
+
+  /** Cure lingering battle ailments (an item's list; 'all' everything but Zombie) for one hero (0: the hero) or everyone. */
+  private clearLingering(cures: readonly string[], who?: number): string[] {
+    const all = cures.includes('all'), out: string[] = [];
+    const strip = (rec: Record<string, number> | undefined) => {
+      if (!rec) return;
+      for (const a of Object.keys(rec)) if (a === 'zombie' ? cures.includes('zombie') : all || cures.includes(a) || (a === 'frozen' && cures.includes('chill'))) { delete rec[a]; out.push(a); }
+    };
+    if (who === undefined || who === 0) strip(this.heroAilments);
+    this.members().forEach(({ data: m }, k) => { if (who === undefined || who === k + 1) { strip(m.ailments); if (m.ailments && !Object.keys(m.ailments).length) delete m.ailments; } });
+    return out;
+  }
+
+  /** As a battle ends: each hero's ailments that last (Database → Combat → Ailments) are kept for the next one. */
+  private keepAilments(list: { who: number; turns: [BattleAilment, number][] }[]): void {
+    const pills = this.combatCfg.turnBased.statusPills, onMap = new Set(this.combat.heroStatus.list.map((e) => e.id));
+    for (const { who, turns } of list) {
+      const rec: Record<string, number> = {};
+      for (const [a, t] of turns) if (pills[a]?.stays && t > 0 && !(who === 0 && onMap.has(a))) rec[a] = Number.isFinite(t) ? t : 99;
+      if (who === 0) this.heroAilments = rec;
+      else { const m = this.members()[who - 1]?.data; if (m) { if (Object.keys(rec).length) m.ailments = rec; else delete m.ailments; } }
+    }
+  }
+
   /** The hero's ailments carried into a battle from the map (seconds become turns; buffs stay on the map). */
   private heroBattleStatus(): BattleStatus {
     const resists = [...(mainHero(this.db).resists ?? []), ...this.wornGear().flatMap((g) => g?.protects ?? [])];
@@ -4868,6 +4915,8 @@ export class Game {
       st.turns.set(a, turnsFromSeconds(a, e.left));
       if (a === 'chill') st.chillStacks = e.stacks ?? 1;
     }
+    // And those left from the last battle.
+    for (const [a, t] of Object.entries(this.heroAilments)) if (!st.has(a as BattleAilment)) st.turns.set(a as BattleAilment, t);
     return st;
   }
 
@@ -4998,7 +5047,7 @@ export class Game {
         ...this.aimOf(this.items.get((useBow ? m.data.equip.ranged : m.data.equip.weapon) ?? ''), t.attrs.dex), evasion: evasionOf(t.attrs.agi), spellEvasion: evasionOf(t.attrs.mdf), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: msk.get('guardHeal'),
         defence: this.heroDefence(who),
         spells, ct: 0, guarding: false,
-        status: new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]),
+        status: this.lingering(new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]), m.data.ailments),
         inflicts: useBow ? undefined : n.meleeInflicts,
         additions: this.battleAdditions(ab), addition: ab.addition,
       },
@@ -5394,6 +5443,7 @@ export class Game {
         this.outro = { done };
       },
       finished: (outcome, beaten) => {
+        if (outcome !== 'defeat') this.keepAilments(this.battle.partyAilments());
         this.keepLineup(this.battle.lineup());
         this.battleGrace = this.combatCfg.turnBased.grace;
         this.encounterWalked = 0;
@@ -5500,9 +5550,8 @@ export class Game {
         const ko = noKo && e.base > 0 ? Math.round((e.base * b.noKo) / 100) : 0;
         const bits = [`Base ${e.base}`, e.finish ? `Finishing blows +${e.finish}` : '', e.weak ? `Weaknesses +${e.weak}` : '', e.addition ? `Additions +${e.addition}` : '', ko ? `No KOs +${ko}` : ''].filter(Boolean);
         const gained = e.base + e.finish + e.weak + e.addition + ko;
-        // The EXP not yet told as foes fell (Pocket Handheld): Additions and No KOs.
-        const later = [e.addition ? `Additions +${e.addition}` : '', ko ? `No KOs +${ko}` : ''].filter(Boolean);
-        return { gained, note: gained && bits.length > 1 ? bits.join(' · ') : '', bonus: { gained: e.addition + ko, bits: later } };
+        // Pocket Handheld tells it all at once: the total, and how much of it was bonus (everything beyond the foes' own EXP).
+        return { gained, note: gained && bits.length > 1 ? bits.join(' · ') : '', bonus: { gained: e.finish + e.weak + e.addition + ko, bits: bits.slice(1) } };
       }
       const { pct, name } = benchPct(who), gained = Math.round((xp * pct) / 100);
       return { gained, note: gained ? `Sat out: ${pct}% (${name || 'EXP Share'})` : 'Sat out: no EXP', via: gained ? name || 'EXP Share' : undefined };
@@ -5701,6 +5750,7 @@ export class Game {
       trailPoint: (d) => this.trailPoint(d),
       get leader() { return g.player.position as unknown as { x: number; y: number; z: number }; },
       get calm() { return g.calmFor > 3; },
+      get regenHp() { return !g.stats.cfg.noRegen.hp; },
       numbers: (m, def) => this.allyNumbers(m, def),
       float: (t, x, y, z, k) => this.overlay.float(t, x, y, z, k),
       sound: (n, x, z) => this.audio.play(n === 'swing' ? 'swing' : n === 'heal' ? 'ringOn' : n, x, z),
@@ -6014,7 +6064,7 @@ export class Game {
         this.playTime = 0;
         this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize);
         this.progress.load(undefined, attrs ?? this.heroBase());
-        this.combat.heroStatus.clear();
+        this.combat.heroStatus.clear(); this.heroAilments = {};
         this.quests.load(undefined);
         this.startParty();
         this.ensureWornInBag();
@@ -6038,7 +6088,7 @@ export class Game {
     const tb = this.db.menus?.titleBackground, titleMap = tb?.kind === 'map' && tb.map ? tb.map : this.db.startMap;
     this.requestTransfer(titleMap, titleMap === this.db.startMap && !(tb?.kind === 'map' && tb.map) ? { x: st.x, z: st.z, dir: st.dir } : { x: tb?.x ?? 0.5, z: tb?.z ?? 0.5 }, 'black', {
       slow: true,
-      before: () => { this.bankPickups('discard'); this.log.clearFeed(); this.state.load({}); this.applyForms(); this.applyForge(); this.state.initAbilities(this.db.abilities); this.stats.refill(); this.time.set(this.db.startHour, true); this.respawnPoint = null; this.playTime = 0; this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize); this.progress.load(undefined, this.heroBase()); this.combat.heroStatus.clear(); this.quests.load(undefined); this.party.load(undefined); this.heroAt = 0; this.visited.clear(); this.explored.clear(); this.syncSkills(); this.rings.off(); this.refreshRing(); },
+      before: () => { this.bankPickups('discard'); this.log.clearFeed(); this.state.load({}); this.applyForms(); this.applyForge(); this.state.initAbilities(this.db.abilities); this.stats.refill(); this.time.set(this.db.startHour, true); this.respawnPoint = null; this.playTime = 0; this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize); this.progress.load(undefined, this.heroBase()); this.combat.heroStatus.clear(); this.heroAilments = {}; this.quests.load(undefined); this.party.load(undefined); this.heroAt = 0; this.visited.clear(); this.explored.clear(); this.syncSkills(); this.rings.off(); this.refreshRing(); },
       fresh: true,
       after: () => this.openTitle(),
     });
@@ -6066,6 +6116,7 @@ export class Game {
       // Back to the last respawn point used, or the player start, with everything refilled.
       this.dying = 0;
       this.drowning = false;
+      this.clearLingering(['all']);
       this.player.clearAction();
       this.stats.refill();
       const r = this.respawnPoint ?? { map: this.db.startMap, x: this.db.start.x, z: this.db.start.z, dir: this.db.start.dir };
