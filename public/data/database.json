@@ -5929,7 +5929,8 @@
   "combat": {
     "turnBased": {
       "mode": "single",
-      "statBlocks": true
+      "statBlocks": true,
+      "layout": "pocket"
     }
   }
 }
