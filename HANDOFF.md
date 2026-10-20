@@ -121,6 +121,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   TurnBattle `STEP_BACK`, `roundEnd` / `bitRound`, `partyAilments`; BattleStatus `bite`; Game `heroAilments` (saved),
   `lingering`, `clearLingering`, `keepAilments`, `ailmentPill`, MemberData `ailments`; StatusPill `stays`; AllyHost
   `regenHp`; PartyScreen rewritten (`.pr-*`), CharacterScreen pages (`.cs-summary`).
+- 89 (part 1): CharacterScreen without styles (`.cs-cols`); terrainGeometry `SOFT_LOOK` { round, lip } (both 0 for
+  now; `globalThis.__softLook` overrides for previews), `bevelRounds`, `bevelArc`, `LipFn`, QuadList `extra`;
+  render/lipFade.ts `patchLip`; WorldBuilder lip meshes.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

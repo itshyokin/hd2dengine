@@ -545,9 +545,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   **Database → Combat → The hero always fights** keeps the hero among those fighting. Anyone with skill points to
   spend shows a **LEVEL UP** badge.
 - **Status** (Party → someone → Status), like the handheld games' summary: the hero on the left (picture, name, level
-  pill, ailment, elements) and three pages on the right, ← → between them: **Profile** (About, ailments, a party
-  member's fighting style), **Stats** (HP, MP, SP, stats with their growth ranks, damage and defence, EXP and how much
-  to the next level) and **Gear** (what they're wearing).
+  pill, ailment, elements) and three pages on the right, ← → between them: **Profile** (About and ailments),
+  **Stats** (HP, MP, SP; the seven stats with their growth ranks on the left, damage and defence on the right; EXP
+  and how much to the next level) and **Gear** (what they're wearing).
 - **Map**: the world map (Pokémon Gold / Silver style), drawn from your maps themselves and laid out as in the
   **World layout** (Map editor toolbar → **World**). The **stick glides** across it (faster the further it's pushed);
   the **D-pad** (arrow keys) moves the crosshair **one tile** a press, repeating while held, to fine-tune; or drag it.

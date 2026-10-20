@@ -2,6 +2,7 @@
  * Turns map data into scene geometry: the ground with its heights, cliff walls and stairs,
  * imported tiles, animated water, and instanced prop sprites.
  */
+import { patchLip } from '../render/lipFade';
 import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
@@ -113,10 +114,14 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
   const geo = buildTerrainGeometry(map, spans, wallLook);
 
   // Ground: every cell's top surface, textured with one image painted from the terrain layer.
-  const gc = groundCanvas(map);
-  const groundMat = patchSeason(patchAreaTint(new THREE.MeshStandardMaterial({ map: makeTexture(gc, { mip: true }), roughness: 1, metalness: 0 })), 'ground');
-  registerNormalMap(groundMat, makeTexture(normalMapFrom(gc, { strength: 2 }), { linear: true, mip: true }));
-  groundMat.normalScale.set(0.7, 0.7);
+  const gc = groundCanvas(map), groundTex = makeTexture(gc, { mip: true }), groundNormal = makeTexture(normalMapFrom(gc, { strength: 2 }), { linear: true, mip: true });
+  const makeGroundMat = () => {
+    const m = patchSeason(patchAreaTint(new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1, metalness: 0 })), 'ground');
+    registerNormalMap(m, groundNormal);
+    m.normalScale.set(0.7, 0.7);
+    return m;
+  };
+  const groundMat = makeGroundMat();
   const ground = mesh(geo.ground, groundMat);
   ground.castShadow = true;
   scene.add(ground);
@@ -139,6 +144,9 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
     scene.add(m);
   }
   for (const [key, quads] of geo.slivers) scene.add(mesh(quads, tileMat(key, false)));
+  // Soft blocky's grass lip over the cliff tops (the painted ground, then any imported tile over it).
+  if (geo.lip.quads) scene.add(mesh(geo.lip, patchLip(makeGroundMat())));
+  for (const [key, quads] of geo.lipOverlays) if (quads.quads) scene.add(mesh(quads, patchLip(tileMat(key, false))));
 
   // Cliff walls and stair risers, one mesh per look.
   for (const [look, quads] of geo.walls) {
@@ -178,6 +186,7 @@ function mesh(q: QuadList, mat: THREE.Material): THREE.Mesh {
   g.setAttribute('position', new THREE.Float32BufferAttribute(q.pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(q.nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(q.uv, 2));
+  if (q.extra.length) g.setAttribute('fade', new THREE.Float32BufferAttribute(q.extra, 1));
   g.setIndex(q.idx);
   const m = new THREE.Mesh(g, mat);
   m.receiveShadow = true;

@@ -1,9 +1,9 @@
 /**
  * A hero's Status page (Party → a hero → Status), laid out like the handheld monster games' summary: the hero on the
- * left (their picture, name, level, elements and any ailment), and pages on the right: Profile (who they are, ailments
- * and, for party members, their fighting style, the one thing to change here), Stats (health, magic, EXP and their
- * numbers) and Gear (what they're wearing; equipping is done from the bag).
- * Keys: ← → pages · ↑ ↓ choose a fighting style · Space picks it · Esc back.
+ * left (their picture, name, level, elements and any ailment), and pages on the right: Profile (who they are and any
+ * ailments), Stats (health, magic, their stats on the left and battle numbers on the right, EXP) and Gear (what
+ * they're wearing; equipping is done from the bag).
+ * Keys: ← → pages · Esc back.
  */
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
@@ -19,9 +19,6 @@ export interface CharacterHost {
   slots(h: number): { label: string; item: EquipChoice | null }[];
   view(h: number): EquipView;
   ailments(h: number): { name: string; icon: string; left?: string }[];
-  /** Party members' fighting styles (null for the hero you play), with a line on what each does. */
-  styles(h: number): { value: string; options: { value: string; name: string; does: string }[]; note?: string } | null;
-  setStyle(h: number, value: string): void;
   /** Each stat's progression rank (A … F), shown as a pill beside it. */
   ranks?(h: number): Record<Attr, Rank>;
 }
@@ -30,7 +27,6 @@ export class CharacterScreen {
   private readonly root = document.createElement('div');
   private open = false;
   private hero = 0;
-  private sel = 0;
   private page = 0;
   private onClose: () => void = () => {};
   private static readonly PAGES = ['Profile', 'Stats', 'Gear'];
@@ -52,8 +48,6 @@ export class CharacterScreen {
     this.onClose = onClose;
     this.open = true;
     this.page = 0;
-    const st = this.host.styles(hero);
-    this.sel = st ? Math.max(0, st.options.findIndex((o) => o.value === st.value)) : 0;
     this.root.hidden = false;
     this.render();
   }
@@ -71,28 +65,15 @@ export class CharacterScreen {
 
   update(): void {
     if (!this.open) return;
-    const i = this.input, st = this.host.styles(this.hero);
+    const i = this.input;
     if (i.consume('cancel')) { this.close(); return; }
-    if (i.consume('left')) { this.turn(-1); return; }
-    if (i.consume('right')) { this.turn(1); return; }
-    if (this.page !== 0 || !st) { i.consume('up'); i.consume('down'); i.confirm(); return; }
-    const n = st.options.length;
-    if (i.consume('up')) { this.sel = (this.sel + n - 1) % n; uiSound('menuMove'); this.render(); return; }
-    if (i.consume('down')) { this.sel = (this.sel + 1) % n; uiSound('menuMove'); this.render(); return; }
-    if (i.confirm()) this.pick(this.sel);
-  }
-
-  private pick(k: number): void {
-    const st = this.host.styles(this.hero);
-    if (!st?.options[k]) return;
-    this.sel = k;
-    this.host.setStyle(this.hero, st.options[k].value);
-    uiSound('menuOk');
-    this.render();
+    if (i.consume('left') || i.consume('up')) { this.turn(-1); return; }
+    if (i.consume('right') || i.consume('down')) { this.turn(1); return; }
+    i.confirm();
   }
 
   private render(): void {
-    const h = this.host, k = this.hero, who = h.hero(k), g = h.gauges(k), st = h.styles(k);
+    const h = this.host, k = this.hero, who = h.hero(k), g = h.gauges(k);
     const pct = (a: number, max: number) => Math.max(0, Math.min(100, (a / Math.max(1, max)) * 100));
     const bar = (label: string, [a, max]: [number, number], cls: string) =>
       `<div class="cs-bar ${cls}"><span>${label}</span><div><i style="width:${pct(a, max)}%"></i></div><b>${Math.round(a)} / ${Math.round(max)}</b></div>`;
@@ -104,19 +85,17 @@ export class CharacterScreen {
         <p class="cs-about">${who.about ? esc(who.about).replace(/\n/g, '<br>') : '<span class="cs-none">Nothing written about them yet.</span>'}</p>
         <div class="cs-sec">Ailments</div>
         ${ail.length || who.ailment ? `<div class="cs-ail">${who.ailment && !ail.length ? `<span><span class="st-pill" style="background:${who.ailment.color};color:${who.ailment.ink}">${esc(who.ailment.tag)}</span> ${esc(who.ailment.name)} <small>until cured or rested</small></span>` : ''}${ail.map((a) => `<span><img src="${a.icon}" alt=""> ${esc(a.name)}${a.left ? ` <small>${esc(a.left)}</small>` : ''}</span>`).join('')}</div>` : '<p class="cs-none">None.</p>'}
-        ${st ? `<div class="cs-sec">Fighting style</div>
-        <div class="cs-styles" role="listbox">${st.options.map((o, j) => `<button type="button" class="cs-style${j === this.sel ? ' sel' : ''}${o.value === st.value ? ' on' : ''}" data-s="${j}" role="option" aria-selected="${j === this.sel}">
-          <span class="cs-dot" aria-hidden="true"></span><span><b>${esc(o.name)}</b><small>${esc(o.does)}</small></span></button>`).join('')}</div>
-        ${st.note ? `<p class="cs-note">${esc(st.note)}</p>` : ''}` : ''}`;
+`;
     } else if (this.page === 1) {
       const v = h.view(k), rk = h.ranks?.(k);
       const cell = (label: string, val: number | string, pill = '') => `<div class="cs-cell"><span>${label}</span>${pill}<b>${val}</b></div>`;
       body = `<div class="cs-sec">Health and magic</div>
         ${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}${bar('SP', g.sp, 'sp')}
-        <div class="cs-sec">Stats</div>
-        <div class="cs-grid">${ATTRS.map((a) => cell(ATTR_INFO[a].name, v.attrs[a], rk ? rankPill(rk[a]) : '')).join('')}</div>
-        <div class="cs-grid">${cell('Melee damage', Math.round(v.melee))}${cell('Bow damage', Math.round(v.bow))}${cell('Spell damage', Math.round(v.spell))}
-          ${cell('Critical hits', `${Math.round(v.crit)}%`)}${cell('Defence', Math.round(v.armour))}${cell('Magic defence', Math.round(v.magicArmour))}</div>
+        <div class="cs-cols">
+          <div><div class="cs-sec">Stats</div><div class="cs-list">${ATTRS.map((a) => cell(ATTR_INFO[a].name, v.attrs[a], rk ? rankPill(rk[a]) : '')).join('')}</div></div>
+          <div><div class="cs-sec">In battle</div><div class="cs-list">${cell('Melee damage', Math.round(v.melee))}${cell('Bow damage', Math.round(v.bow))}${cell('Spell damage', Math.round(v.spell))}
+            ${cell('Critical hits', `${Math.round(v.crit)}%`)}${cell('Defence', Math.round(v.armour))}${cell('Magic defence', Math.round(v.magicArmour))}</div></div>
+        </div>
         <div class="cs-sec">EXP</div>
         <div class="cs-grid">${cell('EXP points', g.xp.have)}${cell('Next level', g.xp.next === null ? '—' : Math.max(0, g.xp.next - g.xp.have))}</div>
         <div class="cs-bar xp"><span>EXP</span><div><i style="width:${g.xp.next === null ? 100 : pct(g.xp.have, g.xp.next)}%"></i></div><b>${g.xp.next === null ? 'MAX' : `${g.xp.have} / ${g.xp.next}`}</b></div>`;
@@ -137,9 +116,8 @@ export class CharacterScreen {
           <div class="cs-page">${body}</div>
         </div>
       </div>
-      <div class="menu-note">← → pages${this.page === 0 && st ? ' · ↑ ↓ choose a fighting style · Space: use it' : ''} · Esc: back</div>
+      <div class="menu-note">← → pages · Esc: back</div>
     </div>`;
-    this.root.querySelectorAll<HTMLElement>('[data-s]').forEach((b) => b.addEventListener('click', () => this.pick(Number(b.dataset.s))));
     this.root.querySelectorAll<HTMLElement>('[data-page]').forEach((b) => b.addEventListener('click', () => { this.page = Number(b.dataset.page); uiSound('menuMove'); this.render(); }));
   }
 }

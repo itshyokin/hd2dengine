@@ -137,6 +137,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       bite at the end of each round with a line; "is fast asleep!" and "woke up!" lines; party members no longer heal
       on the map when the hero's health doesn't; HUD MP purple and EXP light blue (as in battle) and a gold level
       pill; loot lines with icons; the Party tab and Status page redone in the handheld games' style.
+- [x] Update 89 (part 1): Status page Stats with the seven stats on the left and the battle numbers on the right;
+      fighting styles gone from Status and Equipment. Soft-blocky rounded corners and a dithered grass lip over the
+      cliff tops are built in but off (SOFT_LOOK in terrainGeometry.ts) until a look is picked from the previews.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

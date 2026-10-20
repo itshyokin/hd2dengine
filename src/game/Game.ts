@@ -76,7 +76,7 @@ import { QuestLogScreen, QuestTracker, rewardText } from '../ui/QuestLog';
 import { creditSections } from './credits';
 import { HudArranger } from '../ui/HudArranger';
 import type { PropDef, SkillNode } from '../world/types';
-import { EQUIP_SLOTS, type AllyStyle, type Ailment, type Database, type Dir, type EquipSlot, type HeroDef, type ItemDef, type MapData, type PropData, type PauseOption, type TitleOption, type WeatherKind } from '../world/types';
+import { EQUIP_SLOTS, type Ailment, type Database, type Dir, type EquipSlot, type HeroDef, type ItemDef, type MapData, type PropData, type PauseOption, type TitleOption, type WeatherKind } from '../world/types';
 import { loadAssets, loadDatabase, loadMap } from '../shared/dataFiles';
 import { applyTheme } from '../world/mapThemes';
 import { loadCanvas } from '../shared/images';
@@ -85,7 +85,7 @@ import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './invento
 import { forgeRules, forgedDef, upgradable, upgradeCost } from './forge';
 import { typeChartHtml } from '../ui/typeChart';
 import { affinity, affinityText, essenceItem, fuseCount, nextTier, type Affinity } from './essence';
-import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, STYLE_NAMES, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
+import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, speedMultiplier } from './attributes';
 import { classStatGear, gearSkill } from './classes';
@@ -597,13 +597,7 @@ export class Game {
     });
     this.creation = new CreationScreen(this.ui, this.input);
     this.equipScreen = new EquipScreen(this.ui, this.input, this.equipHost());
-    // A hero's Status page: numbers, what they wear, About, ailments and (party members) fighting style.
-    const STYLE_DOES: Record<AllyStyle, string> = {
-      fighter: 'Closes in and fights with their melee weapon.',
-      archer: 'Keeps back and shoots with their bow.',
-      caster: 'Keeps back and throws their readied spell shard.',
-      healer: 'Heals whoever drops below half health; otherwise casts.',
-    };
+    // A hero's Status page: who they are, ailments, their numbers and what they wear.
     this.charScreen = new CharacterScreen(this.ui, this.input, {
       hero: (h) => {
         const host = this.equipHost(), x = host.heroes()[h], def = h ? this.members()[h - 1]?.def : mainHero(this.db);
@@ -618,15 +612,6 @@ export class Game {
       slots: (h) => this.equipHost().slots(h),
       view: (h) => this.equipHost().view(h),
       ailments: (h) => h ? [] : this.combat.heroStatus.list.map((e) => ({ name: effectName(e.id), icon: statusIconUrl(e.id), left: Number.isFinite(e.total) ? `${Math.ceil(e.left)}s` : undefined })),
-      styles: (h) => {
-        const mem = h ? this.members()[h - 1] : null;
-        if (!mem) return null;
-        const n = this.allyNumbers(mem.data, mem.def), real = fightingStyle(mem.def, mem.data, n), want = mem.data.style ?? mem.def.ai ?? 'fighter';
-        const why: Record<AllyStyle, string> = { fighter: 'No melee weapon', archer: 'No bow equipped', caster: 'No spell shard readied', healer: '' };
-        return { value: want, options: (Object.keys(STYLE_NAMES) as AllyStyle[]).map((k) => ({ value: k, name: STYLE_NAMES[k], does: STYLE_DOES[k] })),
-          note: real !== want ? `${why[want]}: fights with ${STYLE_NAMES[real].toLowerCase()} for now.` : undefined };
-      },
-      setStyle: (h, v) => { const mem = h ? this.members()[h - 1] : null; if (mem) mem.data.style = v as AllyStyle; },
       ranks: (h) => this.heroRanks(h),
     });
     // Party (the pause menu's first tab): the three fighting as cards; Status, Equipment, Skill Tree… and Swap.
@@ -2835,16 +2820,7 @@ export class Game {
         const spell = shard?.spell ? (shard.spell.damage ?? this.combatCfg.fire.damage) * powerMultiplier(t.attrs.mag) : 0;
         return { ...t, melee, bow, spell };
       },
-      style: (h) => {
-        const mem = h ? this.members()[h - 1] : null;
-        if (!mem) return null;
-        const n = this.allyNumbers(mem.data, mem.def), real = fightingStyle(mem.def, mem.data, n), want = mem.data.style ?? mem.def.ai ?? 'fighter';
-        const why: Record<AllyStyle, string> = { fighter: 'no melee weapon', archer: 'no bow', caster: 'no spell shard', healer: '' };
-        return { value: want, options: (Object.keys(STYLE_NAMES) as AllyStyle[]).map((k) => [k, STYLE_NAMES[k]] as [string, string]),
-          note: real !== want ? `${why[want]}: fights with ${STYLE_NAMES[real].toLowerCase()} for now` : undefined };
-      },
       elements: (h) => affinityText(this.heroAffinity(h)),
-      setStyle: (h, v) => { const mem = h ? this.members()[h - 1] : null; if (mem) mem.data.style = v as AllyStyle; },
       equip: (h, slot, id) => {
         if (slot === 'element1' || slot === 'element2') {
           const key = `elem:${h}:${slot === 'element2' ? 1 : 0}`;
