@@ -4,6 +4,9 @@
  */
 import { ailmentChips, buffsField, inflictsField, weatherField } from './statusFields';
 import type { Ailment } from '../world/types';
+import { DEFAULT_STATUS_PILLS, type StatusPill } from '../game/battle/statusPills';
+import type { BattleAilment } from '../game/battle/status';
+import { AILMENT_INFO } from '../game/status';
 import { defenceSection, elementSelect } from './elementFields';
 import { ELEMENT_NAMES } from '../game/elements';
 import { MONSTERS } from '../art/placeholderArt';
@@ -28,6 +31,35 @@ import type { EssenceTier } from '../world/types';
 
 const num = (v: number, set: (n: number) => void, step = 1, min = 0, label = '') =>
   numberInput(v, (n) => set(Math.max(min, n)), { step, min, 'aria-label': label, class: 'db-num' });
+
+/** Status pills: short tags or full words, and each ailment's colours and text. */
+function statusPillsSection(tb: NonNullable<CombatData['turnBased']>, T: ReturnType<typeof combatConfig>['turnBased']): HTMLElement {
+  const redraws: (() => void)[] = [];
+  const rows = (Object.keys(DEFAULT_STATUS_PILLS) as BattleAilment[]).flatMap((a) => {
+    const d = DEFAULT_STATUS_PILLS[a], cur = { ...T.statusPills[a] };
+    const pill = h('span', { class: 'st-pill' });
+    const draw = () => { pill.textContent = (tb.statusWords === 'full' ? cur.word : cur.tag) || '—'; pill.style.background = cur.color; pill.style.color = cur.ink; };
+    const set = (k: keyof StatusPill, v: string) => {
+      cur[k] = v || d[k];
+      const o = ((tb.statusPills ??= {})[a] ??= {});
+      if (!v || v === d[k]) delete o[k]; else o[k] = v;
+      if (!Object.keys(o).length) delete tb.statusPills![a];
+      if (!Object.keys(tb.statusPills!).length) delete tb.statusPills;
+      draw();
+    };
+    draw(); redraws.push(draw);
+    const color = (k: 'color' | 'ink', label: string) => h('input', { type: 'color', value: cur[k], 'aria-label': `${AILMENT_INFO[a].name} ${label}`, oninput: (e: Event) => set(k, (e.target as HTMLInputElement).value) });
+    return [h('span', { class: 'db-name' }, AILMENT_INFO[a].name), pill,
+      textInput(cur.tag, (v) => set('tag', v.trim().toUpperCase().slice(0, 6)), { 'aria-label': `${AILMENT_INFO[a].name} tag`, maxlength: 6 }),
+      textInput(cur.word, (v) => set('word', v.trim().toUpperCase().slice(0, 14)), { 'aria-label': `${AILMENT_INFO[a].name} word`, maxlength: 14 }),
+      color('color', 'pill colour'), color('ink', 'text colour')];
+  });
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Status pills'),
+    field('Pills show', select([['short', 'Short tags (PSN)'], ['full', 'Full words (POISONED)']], T.statusWords, (v) => { if (v === 'full') tb.statusWords = 'full'; else delete tb.statusWords; redraws.forEach((r) => r()); }),
+      'In the Pocket Handheld layout an ailment shows as a pill beside the fighter’s name and level.'),
+    h('div', { class: 'db-table status-pills' }, ...['Ailment', 'Pill', 'Tag', 'Word', 'Pill', 'Text'].map((t) => h('span', { class: 'db-head' }, t)), ...rows),
+    h('p', { class: 'note' }, 'A fighter has one ailment at a time: one that’s poisoned can’t be burned until it’s cured or wears off (Chill and the Frozen it leads to count as one; Zombie replaces the rest). Clear a box to go back to its default.'));
+}
 
 /** The Combat tab. Edits `data` (only differences from the defaults are kept when saving). */
 export function combatTab(data: CombatData): HTMLElement[] {
@@ -69,6 +101,7 @@ export function combatTab(data: CombatData): HTMLElement[] {
         field('Party damage ×', num(T.partyDamage, (v) => (tb.partyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Party damage')),
         field('Enemy damage ×', num(T.enemyDamage, (v) => (tb.enemyDamage = Math.max(0.1, v)), 0.05, 0.1, 'Enemy damage'), 'Scale either side to make battles quicker or harder. Both start at 1 (the same numbers as on the map).')),
       h('p', { class: 'note' }, 'Enemies on the map chase the hero when they see or hear them, and start a battle when they reach them.')),
+    statusPillsSection(tb, T),
     h('section', { class: 'db-section' }, h('h3', {}, 'EXP bonuses'),
       h('div', { class: 'field-row' }, ...([['finish', 'Finishing blow'], ['weak', 'Finished with a weakness'], ['strike', 'Each Addition strike'], ['complete', 'Addition completed'], ['noKo', 'No one knocked out']] as const).map(([k, name]) => field(`${name} %`,
         num(c.exp[k], (v) => ((data.exp ??= {})[k] = Math.max(0, Math.min(200, Math.round(v)))), 1, 0, `${name} EXP bonus`)))),

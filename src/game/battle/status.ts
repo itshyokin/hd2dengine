@@ -37,6 +37,8 @@ export interface BattleBuff { amount: number; turns: number }
 /** What a turn's start did: damage from burn or poison, and whether the fighter can act. */
 export interface TurnStart { damage: { ailment: 'burn' | 'poison'; amount: number }[]; skip: BattleAilment | null; confused: boolean }
 
+const family = (a: BattleAilment): BattleAilment => (a === 'frozen' ? 'chill' : a);
+
 export class BattleStatus {
   /** Turns left for each ailment (Infinity: all battle), and Chill's build-up. */
   readonly turns = new Map<BattleAilment, number>();
@@ -59,11 +61,14 @@ export class BattleStatus {
 
   /**
    * Try to give an ailment. Returns what happened: given, refreshed, frozen (a third chill), resisted (they can't
-   * get it, or they're guarding), or nothing (zombies get no other ailments).
+   * get it, or they're guarding), or nothing (zombies get no other ailments; anyone with an ailment gets no second).
    */
   give(a: Ailment, turns?: number): 'given' | 'refreshed' | 'frozen' | 'resisted' | 'none' {
     if (this.ward || this.resists.includes(a)) return 'resisted';
     if (this.zombie && a !== 'zombie') return 'none';
+    // One ailment at a time: a fighter that's poisoned can't be burned too (Chill and the Frozen it leads to count as
+    // one; Stagger is only a moment, and Zombie wipes the rest).
+    if (a !== 'stagger' && a !== 'zombie' && this.list.some((o) => o !== 'zombie' && family(o) !== family(a))) return 'none';
     let t = turns ?? BATTLE_AILMENT[a].turns;
     if (this.boss && Number.isFinite(t)) t = Math.max(1, Math.ceil(t / 2));
     if (a === 'zombie') { for (const k of [...this.turns.keys()]) this.turns.delete(k); this.chillStacks = 0; }

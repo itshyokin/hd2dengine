@@ -1411,6 +1411,10 @@ export interface TurnBasedData {
   partyFollows?: boolean;
   /** Monster stat blocks across the top of the battle screen (default off). */
   statBlocks?: boolean;
+  /** Status pills beside a fighter's name: short tags ("PSN", default) or full words ("POISONED"). */
+  statusWords?: 'short' | 'full';
+  /** Each ailment's pill: colour, text colour, tag and word (only what differs from the defaults). */
+  statusPills?: Partial<Record<string, { color?: string; ink?: string; tag?: string; word?: string }>>;
   /**
    * Group (default: up to three a side, the turn order bar) or Single (Pokémon-style: one hero out at a time, swapped
    * any time, both sides pick and the faster goes first, no turn bar).

@@ -117,7 +117,8 @@ export function normalizeSettings(raw: unknown): Settings {
   const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const s: Settings = { ...DEFAULT_SETTINGS };
   const out = s as unknown as Record<string, unknown>;
-  for (const k of [...Object.keys(DEFAULT_SETTINGS), 'bindings', 'bindingsVersion', 'hud']) if (src[k] !== undefined) out[k] = src[k];
+  // The settings with no default (unset means the game's own choice) are kept too: the window theme was being lost.
+  for (const k of [...Object.keys(DEFAULT_SETTINGS), 'bindings', 'bindingsVersion', 'hud', 'uiTheme', 'tempUnit', 'tapToWalk', 'easyText', 'textTicks']) if (src[k] !== undefined) out[k] = src[k];
   // The default controller layout changed: a layout saved with an older one is replaced (keys are kept).
   if (s.bindings && (s.bindingsVersion ?? 1) < BINDINGS_VERSION) { s.bindings = { keys: s.bindings.keys ?? {}, pad: {} }; s.bindingsVersion = BINDINGS_VERSION; }
   return s;

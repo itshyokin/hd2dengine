@@ -110,6 +110,12 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 86: dom.ts `compactForm` (adds `.db-compact` and the "i" buttons that open a field's hint) and `checkList`;
   DatabaseEditor `COMPACT_TABS` (list tabs compact the item form, others the whole page as `.db-page`);
   elementFields `elementTable`; enemy Boss / Undead / Bestiary switches are loose so formLayout gathers them.
+- 87: `src/game/battle/statusPills.ts` (defaults + `statusPills()` merge), `TurnBasedData.statusWords` /
+  `statusPills`, BattleScreen `setPills` and the `.st-pill` after `.pb-lv` (Vitals status entries carry `ailment`);
+  BattleStatus `give` refuses a second ailment; `elementPill` is now icon + `.el-pill-t`; render/lean.ts `leanWith`
+  used by combat/Held.ts; TurnBattle.update ticks `wait` while narrating; settings.ts `normalizeSettings` keeps the
+  optional keys (uiTheme was dropped on every load); themes.ts covers `.pc-actions`, `.pc-swap`, `.sk-name`, and a
+  stronger selected-ink rule.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

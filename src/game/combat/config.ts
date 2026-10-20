@@ -10,6 +10,8 @@ import { DEFAULT_ESSENCE, essenceRules, type EssenceRules } from '../essence';
 import { ATTRS, ATTR_MAX, ATTR_POINTS_PER_LEVEL, type Attrs, attrsFrom, baseAttrs, finalDamage, throughFraction } from '../attributes';
 import type { AbilityData, CombatData, Database, EncounterPick, EnemyGrowth, ExpBonus, TurnOrder, WeaponClass } from '../../world/types';
 import { abilityJSON } from '../abilities';
+import { statusPills, type StatusPill } from '../battle/statusPills';
+import type { BattleAilment } from '../battle/status';
 
 export interface ClassTuning { speed: number; reach: number; damage: number }
 
@@ -32,6 +34,9 @@ export interface TurnBasedConfig {
   partyFollows: boolean;
   /** Monster stat blocks across the top of the battle screen (instead of names and bars over the foes). */
   statBlocks: boolean;
+  /** Status pills: short tags (PSN) or full words (POISONED), and each ailment's colours and text. */
+  statusWords: 'short' | 'full';
+  statusPills: Record<BattleAilment, StatusPill>;
   /** Group battles, or Single (Pokémon-style: one hero out at a time). */
   mode: 'group' | 'single';
   /** Single mode: heroes who can be swapped in (1 – 8). */
@@ -40,7 +45,7 @@ export interface TurnBasedConfig {
   singlePick: EncounterPick;
 }
 
-export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon', heroLocked: false, partyFollows: true, statBlocks: false, mode: 'group', singleParty: 3, singlePick: 'random' };
+export const DEFAULT_TURN_BASED: TurnBasedConfig = { order: 'ctb', flee: 50, joinRadius: 6, maxEnemies: 3, partyDamage: 1, enemyDamage: 1, grace: 3, guardHeal: 10, additions: 'set', additionTiming: 'press', layout: 'dragon', heroLocked: false, partyFollows: true, statBlocks: false, statusWords: 'short', statusPills: statusPills(), mode: 'group', singleParty: 3, singlePick: 'random' };
 
 export interface CombatConfig {
   turnBased: TurnBasedConfig;
@@ -110,7 +115,7 @@ export function combatConfig(data?: CombatData): CombatConfig {
     turnBased: {
       ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
       flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(MAX_FOES, Math.round(tb.maxEnemies))),
-      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press', layout: tb.layout === 'fantasy' || tb.layout === 'pocket' ? tb.layout : 'dragon', heroLocked: !!tb.heroLocked, statBlocks: !!tb.statBlocks, mode: tb.mode === 'single' ? 'single' : 'group', singleParty: Math.max(1, Math.min(4, Math.round(tb.singleParty ?? 3))), singlePick: tb.singlePick === 'full' || tb.singlePick === 'oneByOne' ? tb.singlePick : 'random',
+      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press', layout: tb.layout === 'fantasy' || tb.layout === 'pocket' ? tb.layout : 'dragon', heroLocked: !!tb.heroLocked, statBlocks: !!tb.statBlocks, statusWords: tb.statusWords === 'full' ? 'full' : 'short', statusPills: statusPills(s.turnBased?.statusPills), mode: tb.mode === 'single' ? 'single' : 'group', singleParty: Math.max(1, Math.min(4, Math.round(tb.singleParty ?? 3))), singlePick: tb.singlePick === 'full' || tb.singlePick === 'oneByOne' ? tb.singlePick : 'random',
     },
     unarmedDamage: s.unarmedDamage ?? d.unarmedDamage,
     classes,

@@ -123,6 +123,13 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 86: compact Database pages (Player, Heroes, Combat, Enemies, Spells, Weather & temperature, Camera):
       edit panel at most 800px, side-by-side short boxes, setting help behind an "i" button, switches stacked in one
       column, enemy Immune / Absorbs as a checkbox table; the Weather page's spell-length row lines up again.
+- [x] Update 87: status pills beside the name and level in Pocket Handheld (short tags by default, full words as a
+      setting; colours, tag and word per ailment in Database → Combat → Status pills); one ailment at a time in
+      turn-based battles; element pills get their circle and symbol docked on the left; the Addition ring in the
+      middle of the screen; battle pauses run on while the text box is read (no wait after OK); slung weapons, the
+      bow and the hand fire lean with their sprite (no more poking out in front); the window theme and other unset
+      settings no longer reset when the game loads; the party pop-up, swap list, selected party card, skill tree
+      names and tabs follow the theme (selected words readable on a tinted selection).
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
