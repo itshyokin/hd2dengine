@@ -985,7 +985,12 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   follows waits for OK (▼): "A critical hit!", "It's super effective!", "It's not very effective…", "Green Slime
   was defeated!". **Items** open two lists side by side: the party (the one out in gold at the top, then the bench, so
   benched heroes can be healed too) and the foes; harmful items list the foes first. Left / right between them, up /
-  down to choose. Damage numbers show on the fighters only (and the EXP bar fills as each foe falls). The end of a
+  down to choose. An **ailment** shows as a pill beside the name and level (PSN on purple, BRN on orange…; Database →
+  Combat → Status pills switches to full words, POISONED, and sets each pill's colour, text colour, tag and word);
+  only buffs show over the fighter's head. A fighter has **one ailment at a time** in turn-based battles: one that's
+  poisoned can't be burned until it's cured or wears off (Chill and the Frozen it leads to count as one; Zombie
+  replaces the rest). Elements show as pills with their circle and symbol docked on the left end. An Addition's ring
+  appears in the middle of the screen. Damage numbers show on the fighters only (and the EXP bar fills as each foe falls). The end of a
   battle: "Victory!" with the fanfare (the victory tune follows), then each hero's EXP in one window (what they earned,
   and under it the bonus), the loot, and each level up with a ding and a box of what it brought. A hero who reached a
   new form transforms after the screen fades out, before the map fades back in. The box moves to the

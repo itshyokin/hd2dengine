@@ -216,7 +216,7 @@ const LOOKS: Record<Exclude<UiThemeId, 'ember'>, ThemeLook> = {
 /** Big windows (menus, the pause frame, text boxes, results). */
 const FRAMES = ['.pause-shell', '.menu-box', '.inv-box', '.sk-box', '.ctl-box', '.cr-box', '.log-box', '.quest-box', '.mk-box', '.st-box', '.eq-box', '.rec-box', '.sv-box', '.pt-box', '.battle-victory', '.msg-box', '.mk-confirm'];
 /** Small HUD and battle panels. */
-const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp', '.pb', '.pocket-text', '.pt-stats', '.layout-pocket .battle-cmd.bar', '.pp-col'];
+const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp', '.pb', '.pocket-text', '.pt-stats', '.layout-pocket .battle-cmd.bar', '.pp-col', '.pc-actions', '.pc-swap'];
 /** Windows inside the pause frame (it already has one). */
 const INNER = ['body.pause-open .inv > .inv-box', 'body.pause-open .menu > .menu-box', 'body.pause-open .inv > *'];
 
@@ -298,6 +298,12 @@ function css(id: Exclude<UiThemeId, 'ember'>, style: WindowStyle = {}): string {
     // The frame colour runs through the theme: its accent, its selection colours and the coloured bits of its texture.
     L.accent = tintHex(L0.accent, style.accent);
     L.sel = L0.sel.replace(/#[0-9a-f]{6}/gi, (h) => tintHex(h, style.accent!));
+    // The selected words stay readable on the new colour: light on a dark selection, dark on a light one.
+    const first = L.sel.match(/#([0-9a-f]{6})/i)?.[1];
+    if (first) {
+      const v = parseInt(first, 16), lum = (0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) / 255;
+      L.selInk = lum < 0.55 ? '#fffaf0' : '#1a1410';
+    }
   }
   // A window colour of its own: the selection is a soft shade of the text instead of the theme's.
   if (style.color) { L.sel = rgba(L.ink, 0.16); L.selInk = L.ink; }
@@ -343,12 +349,23 @@ ${T} :is(.pb, .pocket-text, .pt-stats, .layout-pocket .battle-cmd.bar) { color: 
 ${T} .hud-xp { border-radius: 0 !important; }
 ${T} .hud-xp-track { background: ${L.light ? 'rgba(60,40,20,0.22)' : 'rgba(0,0,0,0.45)'} !important; box-shadow: inset 0 0 0 1px ${L.light ? 'rgba(60,40,20,0.35)' : 'rgba(0,0,0,0.6)'} !important; }
 ${T} .hud-xp-lv { color: ${L.muted} !important; font-family: ${L.title} !important; }
+/* The skill tree is drawn (SVG): its names, dots and lines take the window's ink. */
+${T} .sk-name { fill: ${style.text || L.ink} !important; }
+${T} .sk-node:not(.some, .full, .open) .sk-name { fill-opacity: 0.7; }
+${T} .sk-line { stroke: ${L.light ? 'rgba(60,40,20,0.3)' : 'rgba(255,255,255,0.22)'} !important; }
+${T} .sk-detail, ${T} .pc-mini { background: ${L.light ? 'rgba(60,40,20,0.06)' : 'rgba(255,255,255,0.05)'} !important; }
+${T} .pc-mini { border-color: ${L.light ? 'rgba(60,40,20,0.18)' : 'rgba(255,255,255,0.1)'} !important; }
+${T} .pc-mini.sel { border-color: ${L.accent} !important; }
+${T} .pc-card.sel { border-color: ${L.accent} !important; box-shadow: 0 0 0 2px ${rgba(L.accent, 0.35)} !important; }
+${T} .pc-swap-title, ${T} .sk-title, ${T} .sk-points b { color: ${L.accent} !important; }
 ${L.light || style.text ? `
 /* Light paper or marble: dark ink everywhere inside the windows (coloured words keep their colour). */
 ${[...FRAMES, ...SMALL].map((f) => textSel.map((t) => `${T} ${f} ${t}:not([style*="color"]):not(.bar):not([class*="bar"]):not(.rank-pill)`).join(',')).join(',\n')} { color: ${L.ink} !important; text-shadow: none !important; }
 ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.note, .menu-note, small, .muted, .item-sub) { color: ${L.muted} !important; }
 ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.menu-title, .battle-result-title) { color: ${L.accent} !important; }
 ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"], ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"] * { color: ${L.selInk} !important; }
+/* (Stronger than the ink rule above, which otherwise wins inside windows: the selected words keep the selection's ink.) */
+${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)${'[aria-selected="true"]'.repeat(6)}, ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)${'[aria-selected="true"]'.repeat(6)} * { color: ${L.selInk} !important; }
 ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(input, select, textarea) { color: ${L.ink}; background: rgba(255,255,255,0.5); }
 ` : ''}`;
   cache.set(key, out);
@@ -376,7 +393,9 @@ function emberCss(st: WindowStyle): string {
   return [
     `${T} .hud-top.hud-compact { background: none !important; border-color: transparent !important; box-shadow: none !important; }`,
     st.accent ? `${all} { --ember: ${st.accent}; }` : '',
+    st.accent ? `${T} .pc-card.sel { box-shadow: 0 0 0 2px ${rgba(st.accent, 0.35)} !important; }` : '',
     st.color || op < 1 ? `${all} { background: ${rgba(st.color || '#0e111c', op * 0.95)} !important; ${op < 1 ? 'backdrop-filter: none !important;' : ''} }` : '',
+    st.text ? `${T} .sk-name { fill: ${st.text} !important; }` : '',
     st.text ? `${all} { color: ${st.text} !important; }\n${[...FRAMES, ...SMALL].map((f) => textSel.map((x) => `${T} ${f} ${x}:not([style*="color"]):not([class*="bar"]):not(.menu-title):not(.el-pill):not(:is(.ps-tab, .tab, .sk-tab, [aria-selected="true"]) *):not(.ps-tab, .tab, .sk-tab)`).join(',')).join(',\n')} { color: ${st.text} !important; }` : '',
   ].filter(Boolean).join('\n');
 }

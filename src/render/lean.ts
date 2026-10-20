@@ -9,6 +9,21 @@ const uniforms = { uHdLean: { value: 0 } };
 
 /** The lean now, in radians (0: upright). */
 export function setLean(radians: number): void { uniforms.uHdLean.value = radians; }
+/** The lean now (radians). */
+export const leanNow = (): number => uniforms.uHdLean.value;
+
+/**
+ * Lean a separate object that belongs with a sprite standing at `base` (a weapon on its back, a fire in its hand):
+ * up the leaned sprite instead of straight up, and tilted back the same. Call after placing it upright.
+ */
+export function leanWith(o: THREE.Object3D, base: THREE.Vector3): void {
+  const a = uniforms.uHdLean.value;
+  o.rotation.x = -a;
+  if (!a) return;
+  const dy = o.position.y - base.y;
+  o.position.y = base.y + dy * Math.cos(a);
+  o.position.z -= dy * Math.sin(a);
+}
 
 /** Make a sprite material lean with the camera. */
 export function patchLean<T extends THREE.Material>(mat: T): T {

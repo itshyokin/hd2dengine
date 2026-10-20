@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { Pix } from '../../core/pixel';
 import { bayer, clamp, vnoise } from '../../core/math';
 import type { Dir } from '../../world/types';
+import { leanWith } from '../../render/lean';
 
 const textures = new WeakMap<HTMLCanvasElement, THREE.Texture>();
 function tex(c: HTMLCanvasElement): THREE.Texture {
@@ -154,6 +155,7 @@ export class Held {
     const z = dir === 'up' ? -0.06 : 0.06;
     this.pivot.position.set(p.x + x * s, p.y + (0.5 + raise) * s, p.z + z);
     this.pivot.scale.set(side * s, s, s);
+    leanWith(this.pivot, p);
     return side;
   }
 
@@ -217,6 +219,7 @@ export class Held {
       // Flickering through its frames (the two hands out of step), bigger and brighter while a spell is cast.
       f.flame.position.set(hx, hy, hz + 0.01);
       f.flame.scale.setScalar(s * (0.75 + amount * 0.45));
+      leanWith(f.glow, p); leanWith(f.flame, p);
       f.mat.map!.offset.x = ((Math.floor(this.spin * 5) + k * 2) % FLAME_FRAMES) / FLAME_FRAMES;
       f.mat.opacity = Math.min(1, 0.4 + amount);
       if (icon) {
@@ -226,6 +229,7 @@ export class Held {
         f.shard.position.set(hx, hy + Math.sin(this.spin * 2.4 + k * 1.7) * 0.025 * s, hz + 0.012);
         f.shard.rotation.set(0, 0, Math.sin(this.spin * 1.3 + k * 2.1) * 0.18);
         f.shard.scale.setScalar(s * (0.9 + amount * 0.3));
+        leanWith(f.shard, p);
         f.shardMat.opacity = Math.min(1, 0.5 + amount);
       }
     });
@@ -254,6 +258,7 @@ export class Held {
       // Icons cut from a weapon sprite are shown at the sprite's own scale (a dagger stays smaller than a longsword).
       const size = icon.dataset.spritePixels ? icon.width / 32 : BACK_SIZE;
       m.scale.set(hx * s * size, s * size, s);
+      leanWith(m, p);
       m.visible = true;
     };
     // Only the readied weapon is carried, so each sits where it shows best: from the front or back the hilt (or the
@@ -268,7 +273,7 @@ export class Held {
     }
     // A shield hangs flat in the middle of the back, under the weapon (upright, not turned like the weapons).
     put(this.backShield, shield, side ? -side * 0.12 : 0, 0.5, away ? 0.01 : -0.01);
-    if (shield) { const k = shield.dataset.spritePixels ? shield.width / 32 : 0.85; this.backShield.rotation.set(0, 0, 0); this.backShield.scale.set(s * k, s * k, s); }
+    if (shield) { const k = shield.dataset.spritePixels ? shield.width / 32 : 0.85; this.backShield.rotation.set(this.backShield.rotation.x, 0, 0); this.backShield.scale.set(s * k, s * k, s); }
     // The quiver (with a bow readied): tilted over the right shoulder, its arrows' fletching sticking up.
     const q = this.backQuiver;
     q.visible = quiver;
@@ -277,6 +282,7 @@ export class Held {
       q.position.set(p.x + qx * s, p.y + 0.72 * s, p.z + z + (away ? 0.015 : -0.015));
       q.rotation.set(0, 0, (side ? side : away ? -1 : 1) * 0.35);
       q.scale.set(s, s, s);
+      leanWith(q, p);
     }
   }
 

@@ -4,6 +4,7 @@
  * and touch: arrows / D-pad move, OK picks, Cancel goes back; fighters and menu entries can be tapped.
  * It only shows things and asks questions: the battle itself is run by TurnBattle.
  */
+import { DEFAULT_STATUS_PILLS, type StatusPill } from '../game/battle/statusPills';
 import type { Input } from '../game/Input';
 import type { Element, FaceButton, ImpactFx } from '../world/types';
 import { ELEMENT_COLORS } from '../game/elements';
@@ -117,7 +118,7 @@ export interface StageHooks {
 /** Fighter animations. approach / strike / back: an Addition (close in, strike per button, then run back). */
 export type Anim = 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge';
 
-export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Badly hurt or ailing (the wounded pose). */ weak?: boolean; /** Ailments on them: icon and a name for the tooltip. */ status?: { icon: string; name: string }[] }
+export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Badly hurt or ailing (the wounded pose). */ weak?: boolean; /** Ailments and buffs on them: icon, a name for the tooltip, and which ailment (none for a buff). */ status?: { icon: string; name: string; ailment?: string }[] }
 
 export interface ChoiceItem {
   label: string;
@@ -595,8 +596,22 @@ export class BattleScreen {
     const sk = (v.status ?? []).map((x) => x.name).join('|');
     if (sk !== f.statusKey) {
       f.statusKey = sk;
+      // Pocket Handheld: the ailment is a pill beside the name and level ("PSN"); only buffs stay over the head.
+      const ail = [...(v.status ?? [])].reverse().find((x) => x.ailment);
+      f.pb.el.querySelector('.st-pill')?.remove();
+      if (ail) {
+        const p = this.pills[ail.ailment!];
+        if (p) {
+          const s = document.createElement('span');
+          s.className = 'st-pill'; s.title = ail.name;
+          s.style.background = p.color; s.style.color = p.ink;
+          s.textContent = this.pillWords === 'full' ? p.word : p.tag;
+          f.pb.el.querySelector('.pb-lv')!.after(s);
+        }
+      }
+      const over = this.layout === 'pocket' ? (v.status ?? []).filter((x) => !x.ailment) : v.status ?? [];
+      f.icons.replaceChildren(...over.map((x) => { const im = document.createElement('img'); im.src = x.icon; im.alt = x.name; im.title = x.name; return im; }));
       const make = () => (v.status ?? []).map((x) => { const im = document.createElement('img'); im.src = x.icon; im.alt = x.name; im.title = x.name; return im; });
-      f.icons.replaceChildren(...make());
       f.rowIcons?.replaceChildren(...make());
     }
     if (f.bar) f.bar.style.width = `${Math.max(0, Math.min(100, (v.hp / Math.max(1, v.maxHp)) * 100))}%`;
@@ -651,6 +666,11 @@ export class BattleScreen {
   }
 
   get pocket(): boolean { return this.layout === 'pocket'; }
+
+  private pills: Record<string, StatusPill> = DEFAULT_STATUS_PILLS;
+  private pillWords: 'short' | 'full' = 'short';
+  /** Status pills (Pocket Handheld): each ailment's colours and text, and short tags or full words. */
+  setPills(pills: Record<string, StatusPill>, words: 'short' | 'full'): void { this.pills = pills; this.pillWords = words; }
 
   /** Whose turn it is (highlighted), and the turn order after them. */
   setOrder(keys: string[], active: string | null): void {
@@ -1290,10 +1310,9 @@ export class BattleScreen {
     const glyph = document.createElement('div');
     glyph.className = 'qte-btn';
     this.qteEl.append(mark, ring, glyph);
-    // Over the target's picture.
-    const r = f.img.getBoundingClientRect(), base = this.root.getBoundingClientRect();
-    this.qteEl.style.left = `${r.left - base.left + r.width / 2}px`;
-    this.qteEl.style.top = `${r.top - base.top + r.height / 2}px`;
+    // In the middle of the screen (the camera closes in on the strikes there), clear of the stat blocks.
+    this.qteEl.style.left = '50%';
+    this.qteEl.style.top = '45%';
     this.qteEl.hidden = false;
     this.padsEl.hidden = auto;
     this.qte = { target, strikes, auto, i: 0, t: 0, onStrike, done, ring, pressed: [] };

@@ -139,6 +139,7 @@ export class TurnBattle {
     for (const e of entries) { e.battler.guarding = false; refreshAgility(e.battler); }
     this.screen.setLayout(cfg.layout);
     this.screen.setBlocks(cfg.statBlocks);
+    this.screen.setPills(cfg.statusPills, cfg.statusWords);
     // The weather it starts in (the map's), for the whole battle unless a spell changes it.
     this.weatherLeft = Infinity;
     battleWeather.kind = this.baseWeather = this.host.startWeather?.() ?? 'none';
@@ -204,13 +205,13 @@ export class TurnBattle {
   update(dt: number): void {
     if (this.phase === 'off') return;
     this.screen.update(dt);
+    // Pauses (for an animation to play out) run on while the text box is read, so OK goes straight on to what's next
+    // instead of sitting out the rest of the pause after the chime.
+    if (this.wait > 0) this.wait -= dt;
     // Pocket Handheld: the battle waits while the text box has lines to read.
     if (this.screen.narrating) return;
-    if (this.wait > 0) {
-      this.wait -= dt;
-      if (this.wait <= 0 && this.then) { const t = this.then; this.then = null; t(); }
-      return;
-    }
+    if (this.wait > 0) return;
+    if (this.then) { const t = this.then; this.then = null; t(); return; }
     if (this.phase === 'next') this.nextTurn();
   }
 
@@ -1265,7 +1266,7 @@ export class TurnBattle {
       hp: b.hp, maxHp: b.maxHp, mp: b.mp, maxMp: b.maxMp, guarding: b.guarding,
       weak: b.hp > 0 && (b.hp <= b.maxHp * 0.25 || st.list.some((a) => a !== 'zombie')),
       status: [
-        ...st.list.map((a) => ({ icon: statusIconUrl(a), name: `${ailmentName(a)}${Number.isFinite(st.turns.get(a)!) ? ` (${st.turns.get(a)} turn${st.turns.get(a) === 1 ? '' : 's'})` : ''}` })),
+        ...st.list.map((a) => ({ ailment: a, icon: statusIconUrl(a), name: `${ailmentName(a)}${Number.isFinite(st.turns.get(a)!) ? ` (${st.turns.get(a)} turn${st.turns.get(a) === 1 ? '' : 's'})` : ''}` })),
         ...[...st.buffs].map(([k, v]) => ({ icon: statusIconUrl(`buff:${k}`), name: `${buffLabel(k)} (${Number.isFinite(v.turns) ? `${v.turns} turn${v.turns === 1 ? '' : 's'}` : 'all battle'})` })),
       ],
     });

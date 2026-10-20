@@ -6,9 +6,9 @@ import { ELEMENT_COLORS, ELEMENT_NAMES } from '../game/elements';
 import { PILL_INK, elementIconUrl } from '../art/elementIcons';
 import type { Element } from '../world/types';
 
-/** A pill: "FIRE" on orange. */
+/** A pill: the element's circle and symbol docked on the left end, then "FIRE" on orange. */
 export function elementPill(e: Element, extra = ''): string {
-  return `<span class="el-pill${extra ? ` ${extra}` : ''}" style="background:${ELEMENT_COLORS[e]};color:${PILL_INK[e]}">${ELEMENT_NAMES[e].toUpperCase()}</span>`;
+  return `<span class="el-pill${extra ? ` ${extra}` : ''}" title="${ELEMENT_NAMES[e]}"><img class="el-pill-ico" src="${elementIconUrl(e)}" alt=""><span class="el-pill-t" style="background:${ELEMENT_COLORS[e]};color:${PILL_INK[e]}">${ELEMENT_NAMES[e].toUpperCase()}</span></span>`;
 }
 
 /** A circle with the symbol, for small spaces. */
