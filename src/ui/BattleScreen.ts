@@ -451,7 +451,7 @@ export class BattleScreen {
     const lv = el.querySelector('.pb-lv') as HTMLElement;
     lv.textContent = v.level ? `Lv ${v.level}` : '';
     // Their elements as pills ("FIRE"), beside the level.
-    if (els.length) { const p = document.createElement('span'); p.className = 'pb-els'; p.innerHTML = els.map((e) => elementPill(e)).join(''); el.querySelector('.pb-top')!.insertBefore(p, lv); }
+    if (els.length) { const p = document.createElement('span'); p.className = 'pb-els'; p.innerHTML = els.map((e) => elementPill(e)).join(''); el.querySelector('.pb-top')!.append(p); }
     const xp = el.querySelector('.pb-xp span') as HTMLElement | null;
     if (xp && v.xp) xp.style.width = `${v.xp.next > 0 ? Math.max(0, Math.min(100, (v.xp.have / v.xp.next) * 100)) : 100}%`;
     el.addEventListener('click', () => this.tapFighter(v.key));

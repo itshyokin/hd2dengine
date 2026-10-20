@@ -1156,6 +1156,8 @@ export type PauseOption = 'items' | 'equipment' | 'skills' | 'abilities' | 'jour
 export interface MenuConfig {
   /** The window theme for menus, text boxes and the HUD (players can pick another in Settings): ember (default), parchment, wood, dwarven, elvish, titan. */
   uiTheme?: string;
+  /** The game's touches on its window theme (players can change them in Settings). */
+  window?: import('../ui/themes').WindowStyle;
   /** Big text on the title screen (defaults to the game's title) and a line under it. */
   titleText?: string;
   subtitle?: string;

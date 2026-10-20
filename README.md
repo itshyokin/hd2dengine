@@ -949,6 +949,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
 - **RetroMon window theme** (Settings → Window theme, or Database → Title & menus): handheld-era windows, white panels
   with dark pixel text and a thick black border with a thin line inside; made for the Pocket Handheld battle layout
   (its stat blocks, text box and commands take it too).
+- **Window touches** (Settings → Gameplay, under Window theme; the game's own in Database → Title & menus): **Window
+  opacity** (see-through windows; below 100% a theme's texture gives way to its plain colour), **Window colour** (a
+  tint; a light theme can go dark), **Text colour** (the main text only: coloured names, items and places keep their
+  colours) and **Frame colour** (the frame's coloured lines and gems, the selection and the texture's coloured bits:
+  Titan's red veins turned blue). They work on every theme, Ember too.
 - **Settings → Picture → Quality → Potato**: the lightest the map can be drawn, for slower tablets: a lower
   resolution, and no shadows, glow, depth of field, ambient occlusion, detailed lighting, swaying plants, drifting
   cloud shadows, mist, sun rays or neighbouring maps. Battles on battle maps keep their normal resolution. *Moving
@@ -971,7 +976,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   target. Like the handheld games, the **text box** types the battle out a line at a time: a move is announced
   ("Jordan attacks with Double Slash!", "Green Slime attacks!") and, after a short pause, happens (no button); what
   follows waits for OK (▼): "A critical hit!", "It's super effective!", "It's not very effective…", "Green Slime
-  was defeated!", "Jordan gained 60 EXP!", "Jordan reached Level 3!". Damage numbers show on the fighters only. The box moves to the
+  was defeated!". Damage numbers show on the fighters only (and the EXP bar fills as each foe falls). The end of a
+  battle: "Victory!" with the fanfare (the victory tune follows), then each hero's EXP in one window (what they earned,
+  and under it the bonus), the loot, and each level up with a ding and a box of what it brought. A hero who reached a
+  new form transforms after the screen fades out, before the map fades back in. The box moves to the
   middle while there are no commands beside it; Y opens the full battle log. There's no results screen: the EXP bar
   fills as each foe falls, and at the end the box tells the rest ("Katrina gained 30 EXP from sharing experience!",
   "Katrina reached Level 2!", then "Katrina grew stronger!" with a box of what the level brought, then the loot). The

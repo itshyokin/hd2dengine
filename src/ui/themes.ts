@@ -226,13 +226,83 @@ function canvasURL(w: number, h: number, draw: (g: CanvasRenderingContext2D) => 
   return c.toDataURL();
 }
 
-const cache = new Map<UiThemeId, string>();
-function css(id: Exclude<UiThemeId, 'ember'>): string {
-  const hit = cache.get(id);
+/**
+ * The player's (or the game's) touches on a theme: how see-through the windows are, their colour, the main text colour
+ * and the frame's colour (its coloured lines and gems take that hue: Titan's red veins turned blue, say).
+ */
+export interface WindowStyle { opacity?: number; color?: string; text?: string; accent?: string }
+
+const hexRgb = (h: string): [number, number, number] => { const n = parseInt(h.replace('#', '').padEnd(6, '0').slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const rgba = (h: string, a: number) => { const [r, g, b] = hexRgb(h); return `rgba(${r},${g},${b},${Math.round(a * 100) / 100})`; };
+
+/** RGB (0 … 255) to hue (0 … 1), saturation and lightness, and back. */
+function hsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l];
+  const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function rgb(h: number, s: number, l: number): [number, number, number] {
+  if (!s) return [l * 255, l * 255, l * 255];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = (t: number) => { t = (t + 1) % 1; return 255 * (t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p); };
+  return [f(h + 1 / 3), f(h), f(h - 1 / 3)];
+}
+
+/** A frame redrawn in another colour: its coloured pixels take the colour's hue (greys and black stay as they are). */
+/** `near`: only pixels of about this colour's hue are changed (a texture's coloured bits, not the whole texture). */
+function tintFrame(draw: (g: CanvasRenderingContext2D) => void, S: number, accent: string, minSat = 0.18, near?: string): string {
+  const nh = near ? hsl(...hexRgb(near))[0] : -1;
+  return canvasURL(S, S, (g) => {
+    draw(g);
+    const [th, ts] = hsl(...hexRgb(accent)), img = g.getImageData(0, 0, S, S), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      const [, s, l] = hsl(d[i], d[i + 1], d[i + 2]);
+      if (s < minSat && ts > 0.18) continue;
+      if (nh >= 0) { const h0 = hsl(d[i], d[i + 1], d[i + 2])[0], dh = Math.min(Math.abs(h0 - nh), 1 - Math.abs(h0 - nh)); if (dh > 0.06 || l < 0.08) continue; }
+      const [r, gg, b] = rgb(th, ts > 0.18 ? Math.max(s, ts * 0.8) : 0, l);
+      d[i] = r; d[i + 1] = gg; d[i + 2] = b;
+    }
+    g.putImageData(img, 0, 0);
+  });
+}
+
+/** One colour moved to another's hue (greys stay grey). */
+function tintHex(hex: string, accent: string): string {
+  const [, s, l] = hsl(...hexRgb(hex)), [th, ts] = hsl(...hexRgb(accent));
+  if (s < 0.18 || ts < 0.18) return hex;
+  const [r, g, b] = rgb(th, Math.max(s, ts * 0.8), l);
+  return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** The CSS for a window's background with the style's colour and see-through-ness. */
+function windowBackground(fillColor: string, fillUrl: string | null, st: WindowStyle): string {
+  const op = Math.max(0, Math.min(1, (st.opacity ?? 100) / 100));
+  if (op < 1) return `background: ${rgba(st.color || fillColor, op)} !important;`;
+  if (st.color && fillUrl) return `background: ${st.color} url(${fillUrl}) repeat !important; background-blend-mode: multiply !important;`;
+  if (st.color) return `background: ${st.color} !important;`;
+  return fillUrl ? `background: ${fillColor} url(${fillUrl}) repeat !important;` : '';
+}
+
+const cache = new Map<string, string>();
+function css(id: Exclude<UiThemeId, 'ember'>, style: WindowStyle = {}): string {
+  const key = `${id}|${JSON.stringify(style)}`;
+  const hit = cache.get(key);
   if (hit) return hit;
-  const L = LOOKS[id], S = 64;
-  const frame = canvasURL(S, S, (g) => L.frame(g, S));
-  const fill = canvasURL(256, 256, (g) => L.fill(g, 256, 256));
+  const L0 = LOOKS[id], S = 64;
+  const L: ThemeLook = { ...L0, ...(style.text ? { ink: style.text } : {}) };
+  if (style.accent) {
+    // The frame colour runs through the theme: its accent, its selection colours and the coloured bits of its texture.
+    L.accent = tintHex(L0.accent, style.accent);
+    L.sel = L0.sel.replace(/#[0-9a-f]{6}/gi, (h) => tintHex(h, style.accent!));
+  }
+  // A window colour of its own: the selection is a soft shade of the text instead of the theme's.
+  if (style.color) { L.sel = rgba(L.ink, 0.16); L.selInk = L.ink; }
+  const frame = style.accent ? tintFrame((g) => L0.frame(g, S), S, style.accent) : canvasURL(S, S, (g) => L0.frame(g, S));
+  const fill = style.accent ? tintFrame((g) => L0.fill(g, 256, 256), 256, style.accent, 0.25, L0.accent) : canvasURL(256, 256, (g) => L.fill(g, 256, 256));
   const T = `html[data-ui-theme="${id}"]`;
   const sel = (list: string[]) => list.map((x) => `${T} ${x}`).join(',\n');
   const slice = 28;
@@ -240,13 +310,13 @@ function css(id: Exclude<UiThemeId, 'ember'>): string {
   const out = `
 ${sel([...FRAMES, ...SMALL])} { --ember: ${L.accent}; --ember-ink: ${L.accentInk}; --ink: ${L.ink}; --muted: ${L.muted}; --window: ${L.fillColor}; --line: ${L.light ? 'rgba(60,40,20,0.22)' : 'rgba(255,255,255,0.14)'}; }
 ${sel(FRAMES)} {
-  background: ${L.fillColor} url(${fill}) repeat !important; background-clip: border-box !important; background-origin: border-box !important;
+  ${windowBackground(L.fillColor, fill, style)} background-clip: border-box !important; background-origin: border-box !important;
   border: ${L.border}px solid transparent !important; border-image: url(${frame}) ${slice} / ${L.border}px round !important;
   border-radius: 0 !important; color: ${L.ink} !important; backdrop-filter: none !important;
   box-shadow: 0 14px 40px rgba(0,0,0,0.55)${L.glow ? `, 0 0 18px ${L.glow}` : ''} !important;
 }
 ${sel(SMALL)} {
-  background: ${L.fillColor} url(${fill}) repeat !important; background-clip: border-box !important; background-origin: border-box !important;
+  ${windowBackground(L.fillColor, fill, style)} background-clip: border-box !important; background-origin: border-box !important;
   border: ${L.small}px solid transparent !important; border-image: url(${frame}) ${slice} / ${L.small}px round !important;
   border-radius: 0 !important; color: ${L.ink} !important; backdrop-filter: none !important;
 }
@@ -271,7 +341,7 @@ ${T} :is(.pb, .pocket-text, .pt-stats, .layout-pocket .battle-cmd.bar) { color: 
 ${T} .hud-xp { border-radius: 0 !important; }
 ${T} .hud-xp-track { background: ${L.light ? 'rgba(60,40,20,0.22)' : 'rgba(0,0,0,0.45)'} !important; box-shadow: inset 0 0 0 1px ${L.light ? 'rgba(60,40,20,0.35)' : 'rgba(0,0,0,0.6)'} !important; }
 ${T} .hud-xp-lv { color: ${L.muted} !important; font-family: ${L.title} !important; }
-${L.light ? `
+${L.light || style.text ? `
 /* Light paper or marble: dark ink everywhere inside the windows (coloured words keep their colour). */
 ${[...FRAMES, ...SMALL].map((f) => textSel.map((t) => `${T} ${f} ${t}:not([style*="color"]):not(.bar):not([class*="bar"]):not(.rank-pill)`).join(',')).join(',\n')} { color: ${L.ink} !important; text-shadow: none !important; }
 ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.note, .menu-note, small, .muted, .item-sub) { color: ${L.muted} !important; }
@@ -279,19 +349,32 @@ ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.menu-title, .battle-result-tit
 ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"], ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"] * { color: ${L.selInk} !important; }
 ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(input, select, textarea) { color: ${L.ink}; background: rgba(255,255,255,0.5); }
 ` : ''}`;
-  cache.set(id, out);
+  cache.set(key, out);
   return out;
 }
 
 let current: UiThemeId = 'ember';
 /** Put a theme on (Ember: the plain look). */
-export function applyUiTheme(id: string | undefined): void {
+export function applyUiTheme(id: string | undefined, style: WindowStyle = {}): void {
   const t = (UI_THEMES.some((x) => x.id === id) ? id : 'ember') as UiThemeId;
   current = t;
+  const touched = (style.opacity ?? 100) < 100 || !!style.color || !!style.text || !!style.accent;
   let el = document.getElementById('ui-theme') as HTMLStyleElement | null;
-  if (t === 'ember') { el?.remove(); delete document.documentElement.dataset.uiTheme; return; }
+  if (t === 'ember' && !touched) { el?.remove(); delete document.documentElement.dataset.uiTheme; return; }
   if (!el) { el = document.createElement('style'); el.id = 'ui-theme'; document.head.appendChild(el); }
-  el.textContent = css(t);
+  el.textContent = t === 'ember' ? emberCss(style) : css(t, style);
   document.documentElement.dataset.uiTheme = t;
+}
+
+/** Ember (the plain look) with the style's touches: its windows' colour and see-through-ness, the text, the gold. */
+function emberCss(st: WindowStyle): string {
+  const T = 'html[data-ui-theme="ember"]', all = [...FRAMES, ...SMALL].map((x) => `${T} ${x}`).join(',\n');
+  const op = Math.max(0, Math.min(1, (st.opacity ?? 100) / 100));
+  const textSel = ['span', 'b', 'strong', 'small', 'p', 'div', 'label', 'li', 'em', 'button', 'td', 'th', 'output'];
+  return [
+    st.accent ? `${all} { --ember: ${st.accent}; }` : '',
+    st.color || op < 1 ? `${all} { background: ${rgba(st.color || '#0e111c', op * 0.95)} !important; ${op < 1 ? 'backdrop-filter: none !important;' : ''} }` : '',
+    st.text ? `${all} { color: ${st.text} !important; }\n${[...FRAMES, ...SMALL].map((f) => textSel.map((x) => `${T} ${f} ${x}:not([style*="color"]):not([class*="bar"]):not(.menu-title):not(.el-pill):not(:is(.ps-tab, .tab, .sk-tab, [aria-selected="true"]) *):not(.ps-tab, .tab, .sk-tab)`).join(',')).join(',\n')} { color: ${st.text} !important; }` : '',
+  ].filter(Boolean).join('\n');
 }
 export const uiTheme = (): UiThemeId => current;

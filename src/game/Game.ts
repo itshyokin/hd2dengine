@@ -155,6 +155,10 @@ const INVENTORY_TABS: { id: BagFilter; label: string }[] = [
 ];
 /** The key the shared outdoor weather is kept under (events' changes, in the save). */
 const WORLD_WEATHER = '@world';
+/** Settings → Window colour, Text colour and Frame colour choices ('': the theme's own). */
+const WINDOW_COLORS: [string, string][] = [['', 'The theme’s'], ['#f8f8f0', 'White'], ['#f4ecd0', 'Cream'], ['#dce8f8', 'Pale blue'], ['#e0f0d8', 'Pale green'], ['#f8e0e8', 'Pale pink'], ['#9aa0a8', 'Grey'], ['#1c2440', 'Navy'], ['#1c3424', 'Forest'], ['#3a1820', 'Wine'], ['#101014', 'Black']];
+const TEXT_COLORS: [string, string][] = [['', 'The theme’s'], ['#181818', 'Black'], ['#404048', 'Dark grey'], ['#1c2a58', 'Navy'], ['#4a2e18', 'Brown'], ['#f4f4f0', 'White'], ['#f3ead8', 'Cream'], ['#ffd27a', 'Gold']];
+const FRAME_COLORS: [string, string][] = [['', 'The theme’s'], ['#d83828', 'Red'], ['#e8862a', 'Orange'], ['#e0b040', 'Gold'], ['#3aa850', 'Green'], ['#2aa8a0', 'Teal'], ['#3a70e0', 'Blue'], ['#8a50d8', 'Purple'], ['#e050a0', 'Pink']];
 /** The Journal's tabs. */
 const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['records', 'Records']];
 const INTERACT_RANGE = 1.3;
@@ -1743,9 +1747,11 @@ export class Game {
       const done = this.outro.done;
       this.outro = null;
       done();
-      // Back on the field: the picture fades in as its music and sounds return.
+      // Back on the field: the picture fades in as its music and sounds return; a hero who reached a new form
+      // transforms first, while the screen is still dark.
       this.battleSound = null;
-      this.fade = { from: 1, to: 0, t: 0, duration: 1.4 };
+      const fadeIn = () => { this.fade = { from: 1, to: 0, t: 0, duration: 1.4 }; };
+      if (!this.nextEvolution(fadeIn)) fadeIn();
     }
     this.updateSleep(dt);
     document.body.classList.toggle('sleeping', this.sleepLook > 0.05);
@@ -4905,8 +4911,8 @@ export class Game {
   }
 
   /** The next hero due to transform: shown, then the rest one after another. */
-  private nextEvolution(): void {
-    if (this.evolve.isOpen) return;
+  private nextEvolution(after?: () => void): boolean {
+    if (this.evolve.isOpen) return true;
     const list = [{ def: mainHero(this.db), level: this.progress.level }, ...this.members().map((m) => ({ def: m.def, level: m.data.level }))];
     for (const { def, level } of list) {
       const now = this.state.forms.get(def.id) ?? 0, due = this.formDue(def, level);
@@ -4917,12 +4923,14 @@ export class Game {
       this.state.forms.set(def.id, due);
       this.applyForms();
       const afterLook = this.db.characters[(main ? this.db.player : def.look) ?? ''] ?? beforeLook;
-      const after = this.sprites.standingFrame(`evo:${main ? this.db.player : def.look}`, afterLook, 'down', 0);
+      const shown = this.sprites.standingFrame(`evo:${main ? this.db.player : def.look}`, afterLook, 'down', 0);
       this.log.add(`${def.name} transformed into ${due === 2 ? 'their final form' : 'a new form'}!`, 'level');
       this.state.tally('transformed');
-      this.evolve.show(def.name, due === 2 ? 'their final form' : 'a new form', before, after, () => {}, (n) => this.audio.play(n));
-      return;
+      // One after another (two heroes reaching a form in the same battle), then `after`.
+      this.evolve.show(def.name, due === 2 ? 'their final form' : 'a new form', before, shown, () => { if (!this.nextEvolution(after)) after?.(); }, (n) => this.audio.play(n));
+      return true;
     }
+    return false;
   }
 
   /** What a hero's Element slots add up to (0: the hero, 1…: party members). */
@@ -5785,6 +5793,10 @@ export class Game {
     ], { note: 'Left / right change a volume.' });
     const gameplay = () => this.menu.push('Gameplay', [
       { label: 'Window theme', detail: 'How menus, text boxes and the HUD look.', choice: { value: st.uiTheme ?? '', options: [['', `The game’s own (${UI_THEMES.find((t) => t.id === (this.db.menus?.uiTheme ?? 'ember'))?.name ?? 'Ember'})`], ...UI_THEMES.map((t) => [t.id, t.name] as [string, string])], set: (v) => set('uiTheme')(v || undefined) } },
+      { label: 'Window opacity', detail: 'How see-through windows are (100%: solid; below, the theme’s texture gives way to its plain colour).', slider: { value: st.windowOpacity ?? 100, min: 30, max: 100, step: 5, format: pct, set: set('windowOpacity') } },
+      { label: 'Window colour', detail: 'Tints the windows (a light theme can go dark, a dark one light: pick a text colour to match).', choice: { value: st.windowColor ?? '', options: WINDOW_COLORS, set: (v) => set('windowColor')(v) } },
+      { label: 'Text colour', detail: 'The main text in windows (coloured names, items and places keep their colours).', choice: { value: st.windowText ?? '', options: TEXT_COLORS, set: (v) => set('windowText')(v) } },
+      { label: 'Frame colour', detail: 'The coloured lines and gems of the window frames (Titan’s red veins turned blue, say).', choice: { value: st.windowAccent ?? '', options: FRAME_COLORS, set: (v) => set('windowAccent')(v) } },
       { label: 'Easy-to-read text', detail: 'Plain, smooth letters instead of the game’s pixel font.', toggle: { value: !!st.easyText, set: (v) => set('easyText')(v || undefined) } },
       { label: 'Text boxes', detail: 'Above or below whoever is talking (as a speech bubble), or fixed on screen.', choice: { value: st.textBox ?? 'above', options: [['above', 'Above speaker'], ['below', 'Below speaker'], ['top', 'Top of screen'], ['bottom', 'Bottom of screen'], ['center', 'Centre of screen']], set: (v) => set('textBox')(v as Settings['textBox']) } },
       { label: 'Text speed', choice: { value: st.textSpeed, options: [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']], set: (v) => set('textSpeed')(v as Settings['textSpeed']) } },
@@ -5850,7 +5862,9 @@ export class Game {
   /** Push the settings into the renderer, lights and message window. */
   private applySettings(): void {
     const st = this.settings;
-    applyUiTheme(st.uiTheme || this.db.menus?.uiTheme);
+    // The window theme, with the game's touches and then the player's.
+    const gw = this.db.menus?.window ?? {};
+    applyUiTheme(st.uiTheme || this.db.menus?.uiTheme, { opacity: st.windowOpacity < 100 ? st.windowOpacity : gw.opacity, color: st.windowColor || gw.color, text: st.windowText || gw.text, accent: st.windowAccent || gw.accent });
     // Potato: everything costly is off, whatever the switches below say.
     const potato = st.quality === 'potato' && !this.stage;
     this.post.settings.bloom = st.bloom && !potato;

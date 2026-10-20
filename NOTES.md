@@ -110,6 +110,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Pocket flow (update 82): one foe out → no target choice; moves announced (typed, short pause, no button);
       no damage lines, effectiveness / criticals wait for OK; the text box types its lines; RetroMon window theme
       (also skins the Pocket blocks, text box and commands in every theme).
+- [x] Window touches and results order (update 83): window opacity, colour, text colour and frame colour (Settings and
+      Database); element pills at the end of the HP bar's row; Pocket results: Victory + fanfare, EXP (with bonus)
+      in one window, loot, level ups with stats; transformations play in the dark before the map fades in.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

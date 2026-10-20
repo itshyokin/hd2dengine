@@ -99,6 +99,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 82: `announce` narrates without waiting and `later`s by the typing time (`TYPE_SPEED` in BattleScreen) + 0.55 s;
   `tellHit(crit, weak, resist)`; `pickTarget` skips the choice in Pocket with one on the usual side; themes.ts
   `retro` look and the Pocket selectors in SMALL.
+- 83: themes.ts `WindowStyle` (`applyUiTheme(id, style)`, `tintFrame`, `tintHex`, `windowBackground`, `emberCss`);
+  Settings `windowOpacity` / `windowColor` / `windowText` / `windowAccent`, `MenuConfig.window`; TurnBattle `win`
+  (Pocket: fanfare + tell first) and `pocketResults` order; Game's outro runs `nextEvolution(after)` before the fade in.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

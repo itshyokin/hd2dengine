@@ -1076,7 +1076,7 @@ export class TurnBattle {
     const up = pv.level > was;
     this.screen.setXp(b.key, pv.frac, pv.level, up);
     this.toldLevel.set(who, pv.level);
-    if (up) { this.say(`${b.name} grew to Lv ${pv.level}`); this.tell(`${b.name} reached Level ${pv.level}!`, { sound: 'levelUp' }); }
+    if (up) this.say(`${b.name} grew to Lv ${pv.level}`);
   }
 
   /** A foe fell: everyone fighting earns its EXP now (the finishing blow and a weakness a little more). */
@@ -1088,7 +1088,7 @@ export class TurnBattle {
     for (const g of gains) {
       const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);
       if (!p) continue;
-      if (this.screen.pocket && g.xp > 0) { this.say(`${p.name} gained ${g.xp} EXP`); this.tell(`${p.name} gained ${g.xp} EXP!`); }
+      if (this.screen.pocket && g.xp > 0) this.say(`${p.name} gained ${g.xp} EXP`);
       this.expPop(p, g.xp);
     }
   }
@@ -1149,9 +1149,16 @@ export class TurnBattle {
     this.phase = 'over';
     this.screen.idle();
     this.screen.setOrder([], null);
-    this.screen.message('Victory!', true);
     const beaten = [...this.gone, ...this.all.filter((e) => e.battler.side === 'enemy')].map((e) => e.ref);
     this.writeParty();
+    // Pocket Handheld: "Victory!" with the fanfare (the victory tune follows it), then the EXP, loot and level ups.
+    if (this.screen.pocket) {
+      this.host.fanfare?.();
+      this.tell('Victory!');
+      this.later(0.05, () => this.pocketResults(this.host.victory(beaten)));
+      return;
+    }
+    this.screen.message('Victory!', true);
     this.later(0.9, () => {
       const report = this.host.victory(beaten);
       this.host.fanfare?.();
@@ -1165,21 +1172,22 @@ export class TurnBattle {
 
   /** Pocket Handheld's results, in the log: EXP still to tell (bonuses, shared EXP), level ups and what they brought, the loot. */
   private pocketResults(report: VictoryReport): void {
-    const lines: { text: string; sound?: string; bars?: () => void; stats?: string[] }[] = [];
+    const exp: { text: string; sound?: string; bars?: () => void; stats?: string[] }[] = [];
+    const ups: typeof exp = [];
     for (const h of report.heroes) {
       const who = Number(h.key.slice(1)) || 0, b = this.all.find((e) => e.battler.side === 'party' && (e.who ?? 0) === who)?.battler;
       const bars = () => { if (b) this.screen.setXp(b.key, h.after.toNext ? h.after.xp / h.after.toNext : 1, h.after.level); };
-      if (h.via) lines.push({ text: `${h.name} gained ${h.gained} EXP from sharing experience!`, sound: 'expFill', bars });
-      else if (h.bonus && h.bonus.gained > 0) lines.push({ text: `${h.name} gained ${h.bonus.gained} bonus EXP${h.bonus.bits.length ? ` (${h.bonus.bits.map((x) => x.replace(/ \+\d+$/, '')).join(', ')})` : ''}!`, sound: 'expFill', bars });
-      else bars();
-      const told = this.toldLevel.get(who) ?? h.level;
-      if (h.after.level > told) lines.push({ text: `${h.name} reached Level ${h.after.level}!`, sound: 'levelUp', bars });
-      // What the new levels brought, in a small box beside the line.
-      const stats = h.changes.flatMap((c) => c.split(' · '));
-      if (h.after.level > h.level && stats.length) lines.push({ text: `${h.name} grew stronger!`, stats });
+      // Their EXP in one window: what they earned, and under it the bonus.
+      if (h.via && h.gained > 0) exp.push({ text: `${h.name} gained ${h.gained} EXP from sharing experience!`, sound: 'expFill', bars });
+      else if (h.gained > 0) {
+        const bonus = h.bonus?.gained ?? 0, base = h.gained - bonus;
+        exp.push({ text: `${h.name} gained ${base} EXP!${bonus > 0 ? `\nBonus EXP: +${bonus}${h.bonus!.bits.length ? ` (${h.bonus!.bits.map((x) => x.replace(/ \+\d+$/, '')).join(', ')})` : ''}` : ''}`, sound: 'expFill', bars });
+      }
+      // A level up: a ding, the new level and (in a box beside it) what it brought.
+      if (h.after.level > h.level) ups.push({ text: `${h.name} reached Level ${h.after.level}!`, sound: 'levelUp', stats: h.changes.flatMap((c) => c.split(' · ')) });
     }
-    for (const l of report.loot) lines.push({ text: l.kind === 'gold' ? `Got ${l.name}!` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}!${l.note ? ` (${l.note})` : ''}`, sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] });
-    this.screen.pocketVictory(lines, () => {
+    const loot = report.loot.map((l) => ({ text: l.kind === 'gold' ? `Got ${l.name}!` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}!${l.note ? ` (${l.note})` : ''}`, sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] as string }));
+    this.screen.pocketVictory([...exp, ...loot, ...ups], () => {
       if (this.host.outro) this.host.outro(() => this.close('victory'));
       else this.close('victory');
     });

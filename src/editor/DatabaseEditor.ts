@@ -426,7 +426,23 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     h('section', { class: 'db-section' },
       h('h3', {}, 'Window theme'),
       field('Menus, text boxes and the HUD', select(UI_THEMES.map((t) => [t.id, `${t.name}: ${t.note}`] as [string, string]), menus.uiTheme ?? 'ember', (v) => { if (v === 'ember') delete menus.uiTheme; else menus.uiTheme = v; }),
-        'The game’s look. Players can choose another in Settings → Gameplay → Window theme. Playtest to see it.')),
+        'The game’s look. Players can choose another in Settings → Gameplay → Window theme. Playtest to see it.'),
+      (() => {
+        const w = () => (menus.window ??= {}), tidy = () => { if (menus.window && !Object.values(menus.window).some((v) => v !== undefined && v !== '')) delete menus.window; };
+        const color = (label: string, k: 'color' | 'text' | 'accent', hint: string) => {
+          const inp = h('input', { type: 'color', value: menus.window?.[k] || '#ffffff' }) as HTMLInputElement;
+          const on = h('input', { type: 'checkbox', checked: !!menus.window?.[k] }) as HTMLInputElement;
+          const apply = () => { if (on.checked) w()[k] = inp.value; else if (menus.window) delete menus.window[k]; tidy(); };
+          inp.addEventListener('input', () => { on.checked = true; apply(); });
+          on.addEventListener('change', apply);
+          return field(label, h('span', { class: 'stack row' }, on, inp), hint);
+        };
+        return h('div', { class: 'field-row' },
+          field('Window opacity %', numberInput(menus.window?.opacity ?? 100, (v) => { const n = Math.max(30, Math.min(100, Math.round(v))); if (n === 100) { if (menus.window) delete menus.window.opacity; } else w().opacity = n; tidy(); }, { step: 5, min: 30, max: 100 }), '100: solid.'),
+          color('Window colour', 'color', 'Tick to tint the windows.'),
+          color('Text colour', 'text', 'The main text (coloured names keep theirs).'),
+          color('Frame colour', 'accent', 'The frame’s coloured lines and gems.'));
+      })()),
     h('section', { class: 'db-section' },
       h('h3', {}, 'Title screen'),
       field('Game title', textInput(gameTitle, (v) => (gameTitle = v.trim() || gameTitle)), 'Also names the save files: changing it starts a fresh set of saves.'),
