@@ -5,6 +5,7 @@
  * Anyone with points to spend has a gold outline and a LEVEL UP badge.
  * Keys: ← → choose · Space opens · ↑ ↓ in lists · Esc back · LB / RB other tabs.
  */
+import { elementPill } from './elementPill';
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
 import { esc } from './InventoryScreen';
@@ -24,6 +25,8 @@ export interface PartyMemberView {
   down?: boolean;
   /** Can't leave the active party (Database → Combat: the hero always fights). */
   locked?: boolean;
+  /** Their elements (element stones worn), as pills under the name. */
+  elements?: import('../world/types').Element[];
 }
 
 export interface PartyAction { id: string; label: string; detail?: string; disabled?: boolean }
@@ -159,7 +162,7 @@ export class PartyScreen {
       return `<div class="pc-card${k === this.sel ? ' sel' : ''}${up ? ' lvlup' : ''}${c.down ? ' down' : ''}" data-k="${k}" role="option" aria-selected="${k === this.sel}"${c.color ? ` style="--hero:${c.color}"` : ''}>
         ${up ? '<span class="pt-badge">LEVEL UP</span>' : ''}
         <div class="pc-art"><img src="${c.art}" alt=""></div>
-        <div class="pc-name"><b>${esc(c.name)}</b><small>Lv ${c.level}${c.down ? ' · KO' : ''}</small></div>
+        <div class="pc-name"><b>${esc(c.name)}</b><small>Lv ${c.level}${c.down ? ' · KO' : ''}</small>${c.elements?.length ? `<span class="el-pills">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>
         ${bar('hp', c.hp[0], c.hp[1], 'HP')}${bar('mp', c.mp[0], c.mp[1], 'MP')}
         <div class="pc-bar xp"><span>EXP</span><b>${c.xp.next === null ? 'MAX' : `${c.xp.have} / ${c.xp.next}`}</b><div><i style="width:${xp}%"></i></div></div>
         ${gains ? `<div class="pt-gains">${gains}</div>` : ''}

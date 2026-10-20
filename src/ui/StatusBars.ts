@@ -4,6 +4,8 @@
  * and a round mini-map under them. Top left: the selected weapon. Each party member's card is its own piece.
  * Low health pulses red around the screen edges, and a hit flashes it, so a draining bar is hard to miss.
  */
+import { elementDot } from './elementPill';
+import type { Element } from '../world/types';
 import type { PlayerStats } from '../game/stats';
 
 /** The stats piece: magic, health, EXP (stamina has its own ring). */
@@ -54,7 +56,9 @@ const THERMO = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6.2" y="1.5
 interface Row { fill: HTMLElement; ghost: HTMLElement; num: HTMLElement; row: HTMLElement; shown: number; last: number }
 
 /** One party card's numbers. */
-export interface PartyCard { name: string; level?: number; face?: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean; xp?: number; toNext?: number }
+export interface PartyCard { name: string; level?: number; face?: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean; xp?: number; toNext?: number;
+  /** Their elements (element stones worn), as circles by the name. */
+  elements?: Element[] }
 
 const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
 
@@ -96,7 +100,7 @@ export class StatusBars {
   private partyKey = '';
   private partyCount = 0;
   setParty(list: PartyCard[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down]));
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -107,7 +111,7 @@ export class StatusBars {
       el.hidden = !m;
       el.dataset.empty = m ? '' : '1';
       el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}">${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
-      <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <small>Lv ${m.level}</small>` : ''}</span>
+      <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <small>Lv ${m.level}</small>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
       <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}</div>` : '';
@@ -349,6 +353,16 @@ export class StatusBars {
     this.hiddenAll = hidden;
     this.partyEl.hidden = hidden || !this.partyCount;
     this.quick.hidden = hidden || this.quick.dataset.empty === '1';
+  }
+
+  /** The hero's elements (element stones worn): circles beside their level. */
+  private heroEls = '';
+  setHeroElements(list: Element[]): void {
+    const key = list.join(',');
+    if (key === this.heroEls) return;
+    this.heroEls = key;
+    this.levelEl.querySelectorAll('.el-dot').forEach((x) => x.remove());
+    this.levelEl.insertAdjacentHTML('beforeend', list.map(elementDot).join(''));
   }
 
   /** Level and experience towards the next one. */

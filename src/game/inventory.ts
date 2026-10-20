@@ -10,6 +10,8 @@ export interface Stack { id: string; n: number }
 export interface InventoryData { slots: (Stack | null)[]; gold: number; equip: Partial<Record<EquipSlot, string>>; ammo?: string | null; quick?: (string | null)[];
   /** The key item (a field tool: lantern, water-walking boots) quick-assigned to the B button. */
   bTool?: string | null;
+  /** The hero's Element slots (Primary, Secondary): element stones (item ids). */
+  elements?: (string | null)[];
   /** The size of each pocket when it was saved (older saves had one shared bag: their items are sorted into pockets). */
   pocket?: number;
   /** How many pockets the bag had (gear became two pockets: weapons and armor). */
@@ -24,6 +26,8 @@ export function pocketOf(d: ItemDef | undefined): Pocket {
   // Gear is two pockets side by side: weapons (swords, bows, arrows) and armor (armor, shields, accessories).
   if (d.kind === 'equipment') return d.slot === 'magic' ? 'shard' : d.slot === 'weapon' || d.slot === 'ranged' ? 'weapon' : 'armor';
   if (d.kind === 'ammo') return 'weapon';
+  // Element stones sit with the spell shards.
+  if (d.essence) return 'shard';
   return d.kind === 'consumable' ? 'consumable' : d.kind === 'key' ? 'key' : 'material';
 }
 
@@ -53,6 +57,8 @@ export class Inventory {
   slots: (Stack | null)[];
   gold = 0;
   equip: Partial<Record<EquipSlot, string>> = {};
+  /** The hero's Element slots (Primary, Secondary): the element stones worn (each holds one copy in the bag). */
+  elements: (string | null)[] = [null, null];
   /** The arrows the player chose to shoot (falls back to never-ending arrows when they run out). */
   ammo: string | null = null;
   /** Quick items: the item each quick slot uses (it stays assigned when they run out). */
@@ -245,7 +251,7 @@ export class Inventory {
   }
 
   toJSON(): InventoryData {
-    return { slots: this.slots.map((s) => (s ? { ...s } : null)), gold: this.gold, equip: { ...this.equip }, ammo: this.ammo, quick: [...this.quick], ...(this.bTool ? { bTool: this.bTool } : {}), pocket: this.size, layout: POCKETS.length };
+    return { slots: this.slots.map((s) => (s ? { ...s } : null)), gold: this.gold, equip: { ...this.equip }, ammo: this.ammo, quick: [...this.quick], ...(this.bTool ? { bTool: this.bTool } : {}), ...(this.elements.some(Boolean) ? { elements: [...this.elements] } : {}), pocket: this.size, layout: POCKETS.length };
   }
 
   /** Restore from a save. Items no longer in the database are dropped; a bigger or smaller bag keeps what fits. */
@@ -254,6 +260,7 @@ export class Inventory {
     this.slots = new Array(this.length).fill(null);
     this.gold = Math.max(0, d.gold ?? 0);
     this.equip = {};
+    this.elements = [0, 1].map((k) => { const id = d.elements?.[k]; return id && this.def(id)?.essence ? id : null; });
     this.ammo = d.ammo && this.def(d.ammo) ? d.ammo : null;
     this.quick = Array.from({ length: QUICK_SLOTS }, (_, k) => { const id = d.quick?.[k]; return id && this.def(id) ? id : null; });
     this.bTool = d.bTool && this.def(d.bTool)?.tool ? d.bTool : null;

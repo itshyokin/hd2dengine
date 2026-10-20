@@ -12,7 +12,8 @@ import { ATTRS, ATTR_INFO, type HeroTotals } from '../game/attributes';
 import { esc } from './InventoryScreen';
 import { tabKeys, tabStrip, wireTabs, type TabGroup } from './tabs';
 
-export type EquipSlotId = 'weapon' | 'shield' | 'ranged' | 'magic' | 'armor' | 'accessory' | 'ammo';
+/** element1 / element2: the Element slots (Primary, Secondary) for element stones. */
+export type EquipSlotId = 'weapon' | 'shield' | 'ranged' | 'magic' | 'armor' | 'accessory' | 'ammo' | 'element1' | 'element2';
 
 export interface EquipChoice {
   id: string; name: string; icon: string; color?: string | null; detail?: string; count?: number;
@@ -25,7 +26,10 @@ export interface EquipView extends HeroTotals { melee: number; bow: number; spel
 
 export interface EquipHost {
   heroes(): { id: string; name: string; level: number; portrait: string }[];
-  slots(hero: number): { slot: EquipSlotId; label: string; item: EquipChoice | null }[];
+  /** `none`: what an empty slot says (the Element slots explain themselves). */
+  slots(hero: number): { slot: EquipSlotId; label: string; item: EquipChoice | null; none?: string }[];
+  /** The hero's elements from their stones, in a line ("Fire +40% · Water +25%"), shown under their numbers. */
+  elements?(hero: number): string;
   /** Every piece of equipment in the bag (weapons, bows, shields, armor, accessories, arrows). */
   gear(all?: boolean): GearEntry[];
   /** What in the bag fits a slot (for this hero). */
@@ -207,9 +211,9 @@ export class EquipScreen {
       <img src="${x.portrait}" alt=""><span><b>${esc(x.name)}</b><small>Level ${x.level}</small></span></button>`)).join('');
     const icon = (c: EquipChoice | null | undefined) => (c ? `<img src="${c.icon}" alt="">` : '<span class="eq-empty"></span>');
     const shard = (c: EquipChoice | null | undefined) => (c?.shard ? `<img class="eq-shard" src="${c.shard.icon}" alt="${esc(c.shard.name)}" title="Set with ${esc(c.shard.name)}">` : '<span></span>');
-    const name = (c: EquipChoice | null | undefined, none = '(nothing)') => (c ? `<span class="eq-name"${c.color ? ` style="color:${c.color}"` : ''}>${esc(c.name)}</span>` : `<span class="eq-name none">${none}</span>`);
+    const name = (c: EquipChoice | null | undefined, none = '(nothing)') => (c ? `<span class="eq-name"${c.color ? ` style="color:${c.color}"` : ''}>${esc(c.name)}</span>` : `<span class="eq-name none">${esc(none)}</span>`);
     const slotRows = slots.map((s, k) => `<button type="button" class="eq-slot${(m.kind === 'slots' || m.kind === 'pick') && k === this.slot ? ' sel' : ''}${m.kind === 'pick' && k === this.slot ? ' open' : ''}" data-slot="${k}">
-      <span class="eq-label">${esc(s.label)}</span>${icon(s.item)}${name(s.item)}${shard(s.item)}</button>`).join('');
+      <span class="eq-label">${esc(s.label)}</span>${icon(s.item)}${name(s.item, s.none)}${shard(s.item)}</button>`).join('');
     const style = h.style?.(this.hero);
     const styleRow = style ? `<button type="button" class="eq-slot eq-style${m.kind === 'slots' && this.slot === slots.length ? ' sel' : ''}" data-style="1">
       <span class="eq-label">Fighting style</span><span class="eq-empty off" aria-hidden="true"></span><span class="eq-name">◀ ${esc(style.options.find(([v]) => v === style.value)?.[1] ?? style.value)} ▶${style.note ? ` <small>${esc(style.note)}</small>` : ''}</span><span></span></button>` : '';
@@ -232,6 +236,7 @@ export class EquipScreen {
       row('Critical hits', now.crit, next?.crit, '%'),
       row('Defence', now.armour, next?.armour),
       row('Magic defence', now.magicArmour, next?.magicArmour),
+      ...(h.elements ? [`<div class="eq-stat eq-elements"><span>Elements</span><b>${esc(h.elements(this.hero))}</b><em></em></div>`] : []),
     ].join('');
     const many = heroes.length > 1 && !this.locked, sw = this.tabs ? 'Y or R' : 'LB / RB (Q / E)';
     const note = m.kind === 'pick' ? '↑ ↓ compare · Space: equip · Esc: back'

@@ -21,7 +21,7 @@ export function elementSelect(value: Element | undefined, set: (e: Element | und
 
 /** Strong / weak against, for a hint under an element choice. */
 export function matchupText(e: Element | undefined): string {
-  if (!e || e === 'neutral') return 'Non-elemental: normal damage to everything.';
+  if (!e || e === 'neutral') return 'Normal: even damage to everything.';
   const m = matchups(e);
   return `Strong against ${m.strong.map((x) => ELEMENT_NAMES[x]).join(', ') || 'nothing'} (×2); weak against ${m.weak.map((x) => ELEMENT_NAMES[x]).join(', ') || 'nothing'} (×½).`;
 }

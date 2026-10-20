@@ -6,8 +6,8 @@
  */
 import type { Input } from '../game/Input';
 import type { Element, FaceButton, ImpactFx } from '../world/types';
-import { ELEMENT_COLORS, ELEMENT_NAMES } from '../game/elements';
-import { elementIconUrl } from '../art/elementIcons';
+import { ELEMENT_COLORS } from '../game/elements';
+import { elementPill } from './elementPill';
 
 /** One timed strike of an Addition: the button, the seconds the ring takes to close, and the timing window. */
 export interface QteStrike { button: FaceButton | 'any'; time: number; window: number }
@@ -433,7 +433,7 @@ export class BattleScreen {
     const el = document.createElement('div');
     el.className = `pb ${v.side === 'enemy' ? 'foe' : 'hero'}`;
     if (v.color) el.style.setProperty('--hero', v.color);
-    const els = v.side === 'enemy' && v.elements?.length ? v.elements.slice(0, 2) : [];
+    const els = v.elements?.length ? v.elements.slice(0, 2) : [];
     el.innerHTML = `<div class="pb-top"><span class="pb-name"></span><span class="pb-lv"></span></div>
       <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div></div>
       ${v.side === 'party' ? '<div class="pb-num"></div>' : ''}
@@ -442,7 +442,8 @@ export class BattleScreen {
     (el.querySelector('.pb-name') as HTMLElement).textContent = v.name;
     const lv = el.querySelector('.pb-lv') as HTMLElement;
     lv.textContent = v.level ? `Lv ${v.level}` : '';
-    for (const e of els) { const im = document.createElement('img'); im.src = elementIconUrl(e); im.alt = ELEMENT_NAMES[e]; im.title = ELEMENT_NAMES[e]; lv.prepend(im); }
+    // Their elements as pills ("FIRE"), beside the level.
+    if (els.length) { const p = document.createElement('span'); p.className = 'pb-els'; p.innerHTML = els.map((e) => elementPill(e)).join(''); el.querySelector('.pb-top')!.insertBefore(p, lv); }
     const xp = el.querySelector('.pb-xp span') as HTMLElement | null;
     if (xp && v.xp) xp.style.width = `${v.xp.next > 0 ? Math.max(0, Math.min(100, (v.xp.have / v.xp.next) * 100)) : 100}%`;
     el.addEventListener('click', () => this.tapFighter(v.key));
@@ -635,8 +636,7 @@ export class BattleScreen {
     (el.querySelector('.mb-name') as HTMLElement).textContent = v.name;
     if (v.level) { const lv = document.createElement('span'); lv.className = 'bf-lv'; lv.textContent = `Lv ${v.level}`; el.querySelector('.mb-name')!.append(' ', lv); }
     const elEl = el.querySelector('.mb-el') as HTMLElement;
-    if (els.length) for (const e of els) { const im = document.createElement('img'); im.src = elementIconUrl(e); im.alt = ''; const t = document.createElement('span'); t.textContent = ELEMENT_NAMES[e]; t.style.color = ELEMENT_COLORS[e]; elEl.append(im, t); }
-    else elEl.textContent = 'Normal';
+    elEl.innerHTML = (els.length ? els : ['neutral' as Element]).map((e) => elementPill(e)).join(' ');
     el.addEventListener('click', () => this.tapFighter(v.key));
     this.blocksEl.append(el);
     const mpBar = el.querySelector('.mb-bar.mp') as HTMLElement;

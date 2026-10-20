@@ -299,6 +299,53 @@ export const ITEM_ICONS: Record<string, { name: string; draw: Draw }> = {
   } },
 };
 
+/* ---------------------------------------------------------------- element stones */
+const ESS_RAMPS: Record<string, [[string, string, string, string], string]> = {
+  water: [['#e4fbff', '#7ee0f0', '#2fa6c8', '#1a5f86'], '#ffffff'],
+  fire: [['#ffe9a8', '#ffab3d', '#e8582a', '#a8301c'], '#fff6d0'],
+  nature: [['#e4ffb8', '#9ee05a', '#55a834', '#2e6a24'], '#f4ffd8'],
+  earth: [['#f0d8a8', '#c89a5a', '#8a6232', '#5a3c1e'], '#fff0c8'],
+  shock: [['#fffbd0', '#ffe45a', '#e0b02a', '#9a6e14'], '#ffffff'],
+  light: [['#ffffff', '#fff2c0', '#e8cf7a', '#b0924a'], '#ffffff'],
+  dark: [['#d8c8ff', '#9a7ad8', '#5e44a0', '#33245e'], '#efe4ff'],
+};
+const ESS_NAMES: Record<string, string> = { water: 'Water', fire: 'Fire', nature: 'Nature', earth: 'Earth', shock: 'Shock', light: 'Light', dark: 'Dark' };
+
+/** A fragment: a small broken chip. */
+function fragment(ramp: [string, string, string, string], mark: string): Draw {
+  const outline: [number, number][] = [[7, 3.5], [11.5, 7], [10, 12.5], [4.5, 12], [3.8, 7.5]];
+  return (p) => {
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const cx = x + 0.5, cy = y + 0.5;
+        if (!inPoly(cx, cy, outline)) continue;
+        p.set(x, y, cy < 7 ? (cx < 8 ? ramp[0] : ramp[1]) : cx < 7 ? ramp[1] : cy > 10.5 ? ramp[3] : ramp[2]);
+      }
+    p.set(6, 6, mark); p.set(7, 7, mark);
+  };
+}
+
+/** A heart stone: a faceted heart-shaped gem with a bright core. */
+function heartStone(ramp: [string, string, string, string], mark: string): Draw {
+  return (p) => {
+    const inside = (x: number, y: number) => ell(x, y, 5.6, 5.8, 3.4, 3.2) || ell(x, y, 10.4, 5.8, 3.4, 3.2) || (y >= 5.8 && y <= 14.2 && Math.abs(x - 8) < (14.2 - y) * 0.82);
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const cx = x + 0.5, cy = y + 0.5;
+        if (!inside(cx, cy)) continue;
+        const d = Math.hypot(cx - 7, cy - 7.5);
+        p.set(x, y, d < 2 ? ramp[0] : cx < 8 && cy < 9 ? ramp[1] : cy > 11 || cx > 11 ? ramp[3] : ramp[2]);
+      }
+    p.set(5, 4, mark); p.set(6, 4, mark); p.set(4, 5, mark); p.set(7, 7, '#ffffff');
+  };
+}
+
+for (const [el, [ramp, mark]] of Object.entries(ESS_RAMPS)) {
+  ITEM_ICONS[`ess_fragment_${el}`] = { name: `${ESS_NAMES[el]} fragment`, draw: fragment(ramp, mark) };
+  ITEM_ICONS[`ess_shard_${el}`] = { name: `${ESS_NAMES[el]} shard`, draw: shard(ramp, mark) };
+  ITEM_ICONS[`ess_heart_${el}`] = { name: `${ESS_NAMES[el]} heart stone`, draw: heartStone(ramp, mark) };
+}
+
 const cache = new Map<string, HTMLCanvasElement>();
 
 /** The 16 × 16 canvas for a built-in icon (cached; an unknown name draws a grey square). */

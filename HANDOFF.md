@@ -83,6 +83,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 78: Pocket CSS sized in `--u` (container units on `.battle.layout-pocket`); TurnBattle `showXp` / `pocketResults`
   (host `xpPreview`), BattleScreen `setXp` / `pocketVictory`; `VictoryHero.via` and `bonus`; GameMenu scrolls the
   chosen row into view; themes.ts fills under the frame (`background-clip: border-box`) and frames `.hud-xp`.
+- 79: element stones: `src/game/essence.ts` (rules, built-in items via `withEssenceItems` in migrateItems,
+  `affinity`), `ItemDef.essence`, `Inventory.elements` / `MemberData.elements`, holder keys `elem:<who>:<k>`,
+  EquipScreen slots `element1` / `element2`, `Battler.affinity` (in `strike`), `ElementalDefence.weak`; Game's
+  `heroAffinity`, `heroDefence`, `fragmentDrops`, `fuse`; `src/ui/elementPill.ts`, `src/ui/typeChart.ts`; forge
+  shards dropped (GameState load keeps only levels).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

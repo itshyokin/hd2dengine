@@ -98,6 +98,10 @@ Kept in the project so they travel with the code. Tick them off as they're built
       EXP and loot told in the log (no results screen in Pocket Handheld; EXP Share / All named); the Settings list
       scrolls to follow the controller; themed frames no longer show a gap inside the outline; the bottom EXP bar
       takes the theme's frame; Controls opened from Settings no longer shows the list through it.
+- [x] Element stones (update 79): Fragments / Shards / Heart Stones per element in two Element slots (Primary sets the
+      basic attack's element), tiered damage and weakness, pair bonus, same-element spell bonus, fusing from the bag,
+      Fragment drops; shards no longer set in gear; Normal instead of Non-elemental; element pills and circles; the
+      Journal's Type Chart.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

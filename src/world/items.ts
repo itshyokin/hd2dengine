@@ -3,6 +3,7 @@
  */
 import { RARITY_COLORS, type Database, type FieldPower, type ItemDef, type Rarity } from './types';
 import { FISH } from './fishing';
+import { withEssenceItems } from '../game/essence';
 
 /**
  * Before rings, light items went in a "Light" slot. They're rings with the Light power now
@@ -49,6 +50,8 @@ export function migrateItems(db: Database): boolean {
   if (shardsToTools(db)) changed = true;
   if (addForging(db)) changed = true;
   if (addFishing(db)) changed = true;
+  // Element stones (Fragments, Shards and Heart Stones of each element), added once each by id.
+  { const n = items.length, all = withEssenceItems(items); if (all.length !== n) { items.push(...all.slice(n)); changed = true; } }
   // The Light spell is a glow all around the hero now, not a beam: flashlights become orbs reaching further.
   for (const d of items) {
     const l = d.light;

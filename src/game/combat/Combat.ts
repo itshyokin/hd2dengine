@@ -60,6 +60,8 @@ export interface CombatHost {
   levelled?(def: EnemyDef, range?: LevelRange): EnemyDef;
   /** The hero's elements, immunities and absorbs. */
   heroElements(): ElementalDefence;
+  /** The hero's element stones: their Primary element (their swings and arrows hit with it) and damage bonuses. */
+  heroAffinity?(): { primary?: Element; elements: Element[]; bonus: Partial<Record<Element, number>>; sameType: number };
   /** A melee swing hit nothing: it can chop something cuttable in front of the hero. */
   swingMissed?(): void;
   /** Trained with this weapon class (the skill tree)? Untrained, medium and heavy weapons swing slowly. */
@@ -431,7 +433,8 @@ export class Combat {
     const speed = t.speed * speedMultiplier(hero.dex) * this.heroStatus.speed;
     const bonus = (1 + (sk.get('meleeDamage') + (cls === 'unarmed' ? 0 : sk.get(`${cls}Damage` as 'lightDamage'))) / 100) * powerMultiplier(hero.str);
     const [dx, dz] = this.aim(t.reach);
-    this.swing = { t: 0, dur: SWING_TIME / speed * (this.combo === 3 ? 1.25 : 1), hit: false, dx, dz, combo: this.combo, reach: t.reach, damage: base * t.damage * bonus * (this.combo === 3 ? 1.3 : 1), element: (cls === 'unarmed' ? undefined : w?.element) ?? 'neutral', inflicts: cls === 'unarmed' ? undefined : w?.inflicts };
+    const ha = h.heroAffinity?.(), el = ha?.primary ?? (cls === 'unarmed' ? undefined : w?.element) ?? 'neutral', boost = 1 + (ha?.bonus[el] ?? 0) / 100;
+    this.swing = { t: 0, dur: SWING_TIME / speed * (this.combo === 3 ? 1.25 : 1), hit: false, dx, dz, combo: this.combo, reach: t.reach, damage: base * t.damage * bonus * boost * (this.combo === 3 ? 1.3 : 1), element: el, inflicts: cls === 'unarmed' ? undefined : w?.inflicts };
     h.player.faceVector(dx, dz);
     // Animated sheets: a slash, the other way on the second hit of a combo, and a big backswing to finish
     // (heavy weapons always swing the big one).
@@ -517,7 +520,8 @@ export class Combat {
     const speed = h.cfg.bow.arrowSpeed * (0.55 + 0.45 * power);
     const damage = (bow.weapon.damage + (arrow?.ammo?.damage ?? 0)) * (0.35 + 0.65 * power) * (1 + h.skills.get('bowDamage') / 100) * powerMultiplier(h.hero().attrs.dex);
     // Elemental arrows hit with their own element; plain ones with the bow's.
-    this.launch('arrow', 'player', p.x + dx * 0.3, p.y + 0.7, p.z + dz * 0.3, dx, (ty - (p.y + 0.7)) / Math.max(1, dist), dz, speed, range, damage, undefined, (arrow?.element && arrow.element !== 'neutral' ? arrow.element : bow.element) ?? 'neutral', [...(bow.inflicts ?? []), ...(arrow?.inflicts ?? [])]);
+    const ha = h.heroAffinity?.(), ael: Element = (arrow?.element && arrow.element !== 'neutral' ? arrow.element : ha?.primary ?? bow.element) ?? 'neutral';
+    this.launch('arrow', 'player', p.x + dx * 0.3, p.y + 0.7, p.z + dz * 0.3, dx, (ty - (p.y + 0.7)) / Math.max(1, dist), dz, speed, range, damage * (1 + (ha?.bonus[ael] ?? 0) / 100), undefined, ael, [...(bow.inflicts ?? []), ...(arrow?.inflicts ?? [])]);
     h.player.faceVector(dx, dz);
     // The release: the end of the shoot animation (its first part is the draw, held while aiming).
     h.player.play('shoot', 0.28, 9);
@@ -540,7 +544,8 @@ export class Combat {
     const p = h.player.position, [dx, dz] = this.aim(0);
     const ty = this.lock ? this.lock.y + 0.6 : p.y + 0.6;
     const dist = this.lock ? Math.hypot(this.lock.x - p.x, this.lock.z - p.z) : range;
-    this.launch('fire', 'player', p.x + dx * 0.4, p.y + 0.65, p.z + dz * 0.4, dx, (ty - (p.y + 0.65)) / Math.max(1, dist), dz, speed, range, (sp.damage ?? f.damage) * powerMultiplier(h.hero().attrs.mag) * (1 + sk.get('spellDamage') / 100), sp.color || SPELL_DEFAULT_COLOR, shard.element ?? 'neutral', shard.inflicts);
+    const ha = h.heroAffinity?.(), sel: Element = shard.element ?? 'neutral', own = sel !== 'neutral' && ha ? (1 + (ha.bonus[sel] ?? 0) / 100) * (ha.elements.includes(sel) ? 1 + ha.sameType / 100 : 1) : 1;
+    this.launch('fire', 'player', p.x + dx * 0.4, p.y + 0.65, p.z + dz * 0.4, dx, (ty - (p.y + 0.65)) / Math.max(1, dist), dz, speed, range, (sp.damage ?? f.damage) * powerMultiplier(h.hero().attrs.mag) * (1 + sk.get('spellDamage') / 100) * own, sp.color || SPELL_DEFAULT_COLOR, sel, shard.inflicts);
     h.player.faceVector(dx, dz);
     h.player.play('spellcast', 0.42);
     this.cast = 0.28;

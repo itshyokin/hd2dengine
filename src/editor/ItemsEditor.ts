@@ -8,7 +8,7 @@ import type { Ailment } from '../world/types';
 import { elementSelect, matchupText } from './elementFields';
 import { ITEM_ICONS, builtinIcon, builtinIconName } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS } from '../game/inventory';
-import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight } from '../world/types';
+import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight, type EssenceTier } from '../world/types';
 import { WEAPON_TYPES, WEAPON_TYPE_NAME, armorWeightOf, weaponTypeOf } from '../game/classes';
 import { FIELD_GLOW, POWER_NAMES, itemColor } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
@@ -147,6 +147,12 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       field('At a forge, smelts into', select([['', 'Nothing (not ore)'], ...others], d.smelt?.into ?? '', (v) => { if (v) d.smelt = { ...d.smelt, into: v }; else delete d.smelt; rerender(); }),
         'Ore becomes ingots (Iron Ore → Iron Ingot); an ingot can make a better one (Iron Ingot → Steel Ingot).'),
       d.smelt ? field('How many for one', numberInput(d.smelt.need ?? 2, (v) => { const n = Math.max(1, Math.round(v)); d.smelt!.need = n === 2 ? undefined : n; }, { step: 1, min: 1 })) : h('span')));
+    // An element stone: worn in a hero's Element slots (Database → Combat → Element stones sets what each kind gives).
+    out.push(h('div', { class: 'field-row' },
+      field('Element stone', select([['', 'No'], ['fragment', 'Fragment'], ['shard', 'Shard'], ['heart', 'Heart Stone']], d.essence?.tier ?? '', (v) => {
+        if (v) d.essence = { element: d.essence?.element ?? 'fire', tier: v as EssenceTier }; else delete d.essence; rerender();
+      }), 'Worn in a hero’s Element slot: it gives them its element (and its weaknesses) and stronger hits of it. Kept in the bag’s Shards tab.'),
+      d.essence ? field('Of element', elementSelect(d.essence.element, (e) => { if (d.essence && e && e !== 'neutral') d.essence.element = e; rerender(); })) : h('span')));
   }
   if (d.kind === 'consumable') {
     const r = (d.restore ??= {});
@@ -199,7 +205,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
     const a = (d.ammo ??= { damage: 2 });
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Arrows'),
       field('Extra damage', numberInput(a.damage, (v) => (a.damage = Math.max(0, Math.round(v))), { step: 1, min: 0 }), 'Added to the bow’s damage.'),
-      field('Element', elementSelect(d.element, (e) => { if (e && e !== 'neutral') d.element = e; else delete d.element; rerender(); }), d.element ? matchupText(d.element) : 'Non-elemental arrows hit with the bow’s element.'),
+      field('Element', elementSelect(d.element, (e) => { if (e && e !== 'neutral') d.element = e; else delete d.element; rerender(); }), d.element ? matchupText(d.element) : 'Normal arrows hit with the bow’s element.'),
       checkbox('Never run out (shown as ∞; one in the bag is enough; can’t be sold or dropped)', !!a.infinite, (v) => { a.infinite = v || undefined; rerender(); }),
       inflictsField(() => d.inflicts, (v) => { if (v) d.inflicts = v; else delete d.inflicts; }, rerender, 'Ailments these arrows can give (with the bow’s)'),
       a.infinite ? h('span') : field('Stack', numberInput(d.stack ?? 64, (v) => { const n = Math.max(1, Math.min(999, Math.round(v))); d.stack = n === 64 ? undefined : n; }, { step: 1, min: 1 }), 'How many fit in one bag slot (64 by default).'),

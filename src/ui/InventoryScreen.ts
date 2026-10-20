@@ -69,6 +69,9 @@ export interface InventoryActions {
   /** Shards: where the shard in slot i can go (heroes, then weapons and armor), as keys for placeShard. */
   shardTargets?(i: number): { label: string; value: string; disabled?: boolean }[];
   placeShard?(i: number, key: string): string | null;
+  /** Element stones: fusing them into the next kind ("Fuse 25 into a Fire Shard"), once or as many as there are. */
+  fuseOptions?(i: number): { label: string; disabled?: boolean; all: boolean }[];
+  fuse?(i: number, all: boolean): string | null;
   /** Shards tab: who holds a shard: each hero (readied), and armor and weapons with one set in them. */
   holders?(): ShardHolder[];
   /** What a holder's shard can be switched with (shards in the bag, other holders' shards), as `value`s for holderApply. */
@@ -261,6 +264,8 @@ export class InventoryScreen {
     const def = inv.def(s.id);
     // Shards (any tab): Space chooses where it goes: a hero (readied as their spell) or a weapon or armor.
     if (!all && def?.slot === 'magic' && this.actions.shardTargets) { this.shardWhere(); return; }
+    // Element stones: wear one (a hero's Primary or Secondary Element slot), or fuse them.
+    if (def?.essence && this.actions.shardTargets) { this.shardWhere(); return; }
     if (!all && this.filter === 'shard' && def?.slot === 'magic') {
       const who = this.actions.readyTargets?.(this.sel) ?? [];
       if (who.length > 1) { this.readyFor(who); return; }
@@ -322,6 +327,7 @@ export class InventoryScreen {
     const i = this.sel, list = this.actions.shardTargets?.(i) ?? [];
     const after = (msg: string | null) => { this.message = msg ?? ''; this.mode = { kind: 'grid' }; this.actions.changed(); this.render(); };
     const options: { label: string; run: () => void; disabled?: boolean }[] = list.map((t) => ({ label: t.label, disabled: t.disabled, run: () => after(this.actions.placeShard!(i, t.value)) }));
+    for (const f of this.actions.fuseOptions?.(i) ?? []) options.push({ label: f.label, disabled: f.disabled, run: () => after(this.actions.fuse!(i, f.all)) });
     const user = this.actions.usedBy?.(i);
     if (user && this.actions.takeOff) options.unshift({ label: user.startsWith('In ') ? `Take it out of ${user.slice(3)}` : `Take it off ${user}`, run: () => after(this.actions.takeOff!(i)) });
     options.push({ label: 'Cancel', run: () => this.cancel() });
@@ -468,7 +474,7 @@ export class InventoryScreen {
         </div>
       </div>
       <div class="menu-note">${this.filter === 'shard' && this.hfocus ? '↑ ↓ ← → choose · Space: take out or switch · Esc: back to the shards'
-        : `Arrows move${this.filter === 'shard' && this.actions.holders ? ' (→ past the last column: who holds shards)' : ''} · Space: ${this.filter === 'shard' ? 'equip to a hero or set in gear' : this.filter === 'gear' ? 'equip (choose who)' : 'use / equip'} · Y or R: more (${this.filter === 'gear' || this.filter === 'shard' ? 'take off, ' : ''}move, drop)${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: back`}</div>
+        : `Arrows move${this.filter === 'shard' && this.actions.holders ? ' (→ past the last column: who holds shards)' : ''} · Space: ${this.filter === 'shard' ? 'ready a spell, wear an element stone, or fuse stones' : this.filter === 'gear' ? 'equip (choose who)' : 'use / equip'} · Y or R: more (${this.filter === 'gear' || this.filter === 'shard' ? 'take off, ' : ''}move, drop)${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: back`}</div>
     </div>`;
     wireTabs(this.root, this.tabs);
     this.root.querySelector('.inv-slot.sel')?.scrollIntoView({ block: 'nearest' });

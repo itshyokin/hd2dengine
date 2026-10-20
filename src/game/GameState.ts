@@ -160,7 +160,9 @@ export class GameState {
     this.weather.clear();
     this.records.clear();
     this.forge.clear();
-    for (const [k, v] of Object.entries(d.forge ?? {})) if (v && typeof v === 'object') this.forge.set(k, { ...(v.level ? { level: Math.max(0, Math.round(Number(v.level) || 0)) } : {}), ...(typeof v.shard === 'string' ? { shard: v.shard } : {}) });
+    // Shards aren't set in gear any more (heroes wear element stones instead): only upgrades are kept; a shard that was
+    // set in something is simply free in the bag again.
+    for (const [k, v] of Object.entries(d.forge ?? {})) if (v && typeof v === 'object' && v.level) this.forge.set(k, { level: Math.max(0, Math.round(Number(v.level) || 0)) });
     for (const [k, v] of Object.entries(d.records ?? {})) if (Number.isFinite(Number(v))) this.records.set(k, Number(v));
     for (const [m, w] of Object.entries(d.weather ?? {})) if (w && typeof w.kind === 'string') this.weather.set(m, { kind: w.kind, amount: w.amount, wind: w.wind, ...(w.spell !== undefined ? { spell: w.spell } : {}) });
     this.clock = Math.max(0, d.clock ?? 0);

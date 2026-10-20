@@ -112,6 +112,8 @@ export interface Battler {
   /** How much its hits vary either side (0.1 = ±10%, the default). */
   spread?: number;
   defence: ElementalDefence;
+  /** Heroes' element stones: percent more to hits of each element, and to spells of their own elements. */
+  affinity?: { bonus: Partial<Record<Element, number>>; elements: Element[]; sameType: number };
   spells: BattleSpell[];
   /** CTB: ticks until this fighter's next turn. */
   ct: number;
@@ -294,7 +296,7 @@ function heatFactor(element: Element, target: Battler): number {
 }
 
 /** One hit: element, a little spread, a critical, defence (or magic defence), guarding, then the damage scale. */
-export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'> & Partial<Pick<Battler, 'accuracy' | 'sure'>> & { spellAccuracy?: number; spellSure?: boolean }, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
+export function strike(power: number, element: Element, magic: boolean, by: Pick<Battler, 'crit' | 'spread'> & Partial<Pick<Battler, 'accuracy' | 'sure' | 'affinity'>> & { spellAccuracy?: number; spellSure?: boolean }, target: Battler, scale = 1, rng: () => number = Math.random): HitResult {
   // Hits can miss: a weapon's accuracy against the target's evasion; a spell's against their spell evasion (Magic
   // Defence). "Never misses" skips it.
   if (!magic && !by.sure && rng() * 100 >= hitChance(by.accuracy ?? BASE_ACCURACY, target.evasion ?? 0)) return { kind: 'miss', amount: 0, crit: false, label: null };
@@ -303,6 +305,9 @@ export function strike(power: number, element: Element, magic: boolean, by: Pick
   if (el.kind === 'immune') return { kind: 'immune', amount: 0, crit: false, label: null };
   const sp = Math.max(0, Math.min(0.9, by.spread ?? 0.1));
   let dmg = power * scale * (1 - sp + rng() * 2 * sp) * climateFactor(element, target);
+  // Element stones: hits of the hero's elements are stronger, and spells of them stronger again.
+  const aff = by.affinity;
+  if (aff && element !== 'neutral') { dmg *= 1 + (aff.bonus[element] ?? 0) / 100; if (magic && aff.elements.includes(element)) dmg *= 1 + aff.sameType / 100; }
   if (el.kind === 'absorb' && !target.status.zombie) return { kind: 'absorb', amount: finalDamage(dmg), crit: false, label: null };
   const mult = el.kind === 'hit' ? el.mult : 1;
   dmg *= mult;

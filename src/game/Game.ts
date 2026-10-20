@@ -82,7 +82,9 @@ import { applyTheme } from '../world/mapThemes';
 import { loadCanvas } from '../shared/images';
 import { builtinIcon, builtinIconName } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './inventory';
-import { forgeRules, forgedDef, settableShard, upgradable, enchantable, upgradeCost } from './forge';
+import { forgeRules, forgedDef, upgradable, upgradeCost } from './forge';
+import { typeChartHtml } from '../ui/typeChart';
+import { affinity, affinityText, essenceItem, fuseCount, nextTier, type Affinity } from './essence';
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, STYLE_NAMES, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, speedMultiplier } from './attributes';
@@ -102,7 +104,7 @@ import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from 
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
-import { ELEMENT_LIST, ELEMENT_NAMES, elementResult } from './elements';
+import { ELEMENT_COLORS, ELEMENT_LIST, ELEMENT_NAMES, elementResult } from './elements';
 import type { Element as Elem } from '../world/types';
 import { PartyScreen, type PartyAction, type PartyMemberView } from '../ui/PartyScreen';
 import { PauseShell } from '../ui/PauseShell';
@@ -153,7 +155,7 @@ const INVENTORY_TABS: { id: BagFilter; label: string }[] = [
 /** The key the shared outdoor weather is kept under (events' changes, in the save). */
 const WORLD_WEATHER = '@world';
 /** The Journal's tabs. */
-const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['records', 'Records']];
+const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['records', 'Records']];
 const INTERACT_RANGE = 1.3;
 
 type Start = { x: number; z: number; dir?: Dir };
@@ -740,12 +742,12 @@ export class Game {
       takeOff: (i) => this.takeOffSlot(i),
       shardTargets: (i) => this.shardTargets(i),
       placeShard: (i, key) => this.placeShard(i, key),
+      fuseOptions: (i) => this.fuseOptions(i),
+      fuse: (i, all) => this.fuse(i, all),
       changed: () => this.refreshRing(),
       icon: (id) => this.itemIcon(id),
       drop: (i, n) => this.dropItem(i, n),
       quickLabel: (k) => this.input.label(`quick${k + 1}` as Action),
-      shardIn: (gear) => { const sh = this.state.forge.get(gear)?.shard; return sh ? { id: sh, name: this.baseItems.get(sh)?.name ?? sh, icon: this.itemIcon(sh) } : null; },
-      setShard: (gear, sid) => this.setShard(gear, sid),
     }, () => pauseLabel(this.db.menus, 'items'));
     this.hud.onQuick = (k) => { if (this.fieldFree()) this.useQuick(k); };
     this.shop = new ShopScreen(this.ui, this.input, () => this.inventory, (id) => this.itemIcon(id), () => { this.refreshRing(); this.refreshEvents(); });
@@ -1184,8 +1186,9 @@ export class Game {
       levelled: (def, range) => this.levelled(def, range),
       swingMissed: () => { if (!this.mineAhead()) this.cutAhead(0, true); },
       proficient: (cls) => this.proficient(cls),
-      // Worn gear with a shard set in it halves that element.
-      heroElements: () => ({ ...mainHero(this.db), halve: this.wornGear().flatMap((g) => g?.wards ?? []) }),
+      // Their element stones' elements (else the Database's); worn gear that wards an element off halves it.
+      heroElements: () => this.heroDefence(0),
+      heroAffinity: () => this.heroAffinity(0),
       heroResists: () => [...(mainHero(this.db).resists ?? []), ...this.wornGear().flatMap((g) => g?.protects ?? [])],
       crouchHold: () => this.settings.crouch === 'hold',
       iconCanvas: (id, fallback) => (id && this.iconCanvases.get(id)) || builtinIcon(fallback),
@@ -1222,6 +1225,18 @@ export class Game {
     return Math.max(ambient, this.lights.lightAt(x, z));
   }
 
+  /** An enemy with elements drops Fragments of them (Database → Combat → Elements: the chance and how many). */
+  private fragmentDrops(d: EnemyDef): [string, number][] {
+    const r = this.combatCfg.essence, out: [string, number][] = [];
+    if (!r.dropCount) return out;
+    for (const e of (d.elements ?? []).slice(0, 2)) {
+      if (e === 'neutral' || Math.random() * 100 >= r.dropChance) continue;
+      const it = essenceItem(this.items.values(), e, 'fragment');
+      if (it) out.push([it.id, r.dropCount]);
+    }
+    return out;
+  }
+
   /** Experience, gold and loot for a beaten enemy, then its page's commands (if any). */
   private enemyDefeated(e: Enemy): void {
     const d = e.def;
@@ -1235,6 +1250,7 @@ export class Game {
       if (Math.random() >= drop.chance || !this.items.has(drop.item)) continue;
       items.push({ id: drop.item, count: Math.max(1, drop.count ?? 1) });
     }
+    for (const [id, n] of this.fragmentDrops(d)) items.push({ id, count: n });
     this.pickups?.drop(e.x, e.y, e.z, Math.max(0, d.xp), gold, items);
     // Party members standing when it fell get its EXP once the fight is over (the orbs are the hero's to collect).
     for (const a of this.fighters) if (!a.down && d.xp > 0) a.data.pendingXp = (a.data.pendingXp ?? 0) + d.xp;
@@ -2663,8 +2679,10 @@ export class Game {
     const out: { label: string; who: string; off: () => void }[] = [];
     const heroName = mainHero(this.db).name;
     for (const slot of EQUIP_SLOTS) if (this.inventory.equip[slot] === id) out.push({ label: heroName, who: 'hero:0', off: () => { delete this.inventory.equip[slot]; } });
+    this.inventory.elements.forEach((x, k) => { if (x === id) out.push({ label: heroName, who: 'hero:0', off: () => { this.inventory.elements[k] = null; } }); });
     this.members().forEach((m, k) => {
       for (const slot of EQUIP_SLOTS) if (m.data.equip[slot] === id) out.push({ label: m.def.name, who: `hero:${k + 1}`, off: () => { delete m.data.equip[slot]; } });
+      (m.data.elements ?? []).forEach((x, j) => { if (x === id) out.push({ label: m.def.name, who: `hero:${k + 1}`, off: () => { m.data.elements![j] = null; } }); });
     });
     for (const [gid, e] of this.state.forge) if (e.shard === id) out.push({ label: `In ${this.items.get(gid)?.name ?? gid}`, who: `gear:${gid}`, off: () => {
       const n = { ...e }; delete n.shard;
@@ -2690,7 +2708,7 @@ export class Game {
   /** Copies left the bag (dropped, sold, taken): whoever used one that's gone takes it off. */
   private reconcileWorn(): void {
     let changed = false;
-    const ids = new Set<string>([...EQUIP_SLOTS.map((s) => this.inventory.equip[s]), ...this.members().flatMap((m) => Object.values(m.data.equip)), ...[...this.state.forge.values()].map((e) => e.shard)].filter((x): x is string => !!x));
+    const ids = new Set<string>([...EQUIP_SLOTS.map((s) => this.inventory.equip[s]), ...this.inventory.elements, ...this.members().flatMap((m) => [...Object.values(m.data.equip), ...(m.data.elements ?? [])]), ...[...this.state.forge.values()].map((e) => e.shard)].filter((x): x is string => !!x));
     for (const id of ids) {
       const w = this.wearers(id);
       for (let k = w.length - 1; k >= this.inventory.count(id); k--) { w[k].off(); changed = true; }
@@ -2700,7 +2718,7 @@ export class Game {
 
   /** Everything worn has its copy in the bag (older saves kept worn things out of it; joining heroes bring their gear). */
   private ensureWornInBag(): void {
-    const ids = new Set<string>([...EQUIP_SLOTS.map((s) => this.inventory.equip[s]), ...this.members().flatMap((m) => Object.values(m.data.equip)), ...[...this.state.forge.values()].map((e) => e.shard)].filter((x): x is string => !!x && this.items.has(x)));
+    const ids = new Set<string>([...EQUIP_SLOTS.map((s) => this.inventory.equip[s]), ...this.inventory.elements, ...this.members().flatMap((m) => [...Object.values(m.data.equip), ...(m.data.elements ?? [])]), ...[...this.state.forge.values()].map((e) => e.shard)].filter((x): x is string => !!x && this.items.has(x)));
     for (const id of ids) {
       const missing = this.wearers(id).length - this.inventory.count(id);
       if (missing > 0) this.inventory.add(id, missing);
@@ -2711,9 +2729,16 @@ export class Game {
   /** Equipment: the slots; pick one to change what's in it. */
   /** The equipment screen's view of the hero: slots, what fits them, and the numbers with a change tried on. */
   private equipHost(): EquipHost {
-    const NAMES: Record<EquipSlotId, string> = { weapon: 'Weapon', shield: 'Shield', ranged: 'Bow', magic: 'Spell shard', armor: 'Armor', accessory: 'Accessory', ammo: 'Arrows' };
+    const NAMES: Record<EquipSlotId, string> = { weapon: 'Weapon', shield: 'Shield', ranged: 'Bow', magic: 'Spell shard', armor: 'Armor', accessory: 'Accessory', ammo: 'Arrows', element1: 'Element: Primary', element2: 'Element: Secondary' };
+    // The Element slots: element stones (Primary: the element of their basic attacks).
+    const elemSlot = (h: number, k: 0 | 1) => {
+      const ids = h ? this.members()[h - 1]?.data.elements ?? [] : this.inventory.elements, id = ids[k];
+      return { slot: (k ? 'element2' : 'element1') as EquipSlotId, label: NAMES[k ? 'element2' : 'element1'], item: id ? choice(id) : null,
+        none: k ? '(none: a second element, or the same one for more)' : '(Normal: their basic attacks hit with this one)' };
+    };
     const choice = (id: string, count?: number): EquipChoice => {
       const d = this.items.get(id);
+      if (d?.essence) { const r = this.combatCfg.essence[d.essence.tier]; return { id, name: d.name, icon: this.itemIcon(id), color: ELEMENT_COLORS[d.essence.element], detail: `${ELEMENT_NAMES[d.essence.element]} hits +${r.damage}% · its weaknesses ×${r.weak}`, count }; }
       const detail = d?.weapon ? `${d.weapon.damage} damage${d.weapon.class !== 'bow' ? ` · ${d.weapon.class}` : ''}` : d?.spell ? `${d.spell.damage} damage · ${d.spell.mp} MP` : d?.ammo ? `+${d.ammo.damage} damage${d.ammo.infinite ? ' · never run out' : ''}`
         : d?.defense || d?.magicDefense ? `${d.defense ? `+${d.defense} defence` : ''}${d.defense && d.magicDefense ? ' · ' : ''}${d.magicDefense ? `+${d.magicDefense} magic defence` : ''}` : d?.spell?.power ? `${POWER_NAMES[d.spell.power]} · ${d.spell.mp ? `${d.spell.mp} MP to start · ` : ''}${d.spell.mpPerSecond ?? 0} MP/s` : d?.description;
       const sh = this.state.forge.get(id)?.shard;
@@ -2737,13 +2762,15 @@ export class Game {
           ...this.members().map((m) => ({ id: m.def.id, name: m.def.name, level: m.data.level, portrait: this.memberPortrait(m.def) }))];
       },
       // Spell shards are readied in the bag's Shards tab, not here.
-      slots: (h) => h ? WORN.map((slot) => { const m = this.members()[h - 1]?.data, id = m?.equip[slot]; return { slot: slot as EquipSlotId, label: NAMES[slot], item: id ? choice(id) : null }; }) : [...WORN.map((slot) => ({ slot: slot as EquipSlotId, label: NAMES[slot], item: this.inventory.equip[slot] ? choice(this.inventory.equip[slot]!) : null })),
-        { slot: 'ammo' as EquipSlotId, label: NAMES.ammo, item: this.inventory.arrow() ? choice(this.inventory.arrow()!, this.inventory.count(this.inventory.arrow()!)) : null }],
+      slots: (h) => h ? [...WORN.map((slot) => { const m = this.members()[h - 1]?.data, id = m?.equip[slot]; return { slot: slot as EquipSlotId, label: NAMES[slot], item: id ? choice(id) : null }; }), elemSlot(h, 0), elemSlot(h, 1)] : [...WORN.map((slot) => ({ slot: slot as EquipSlotId, label: NAMES[slot], item: this.inventory.equip[slot] ? choice(this.inventory.equip[slot]!) : null })),
+        { slot: 'ammo' as EquipSlotId, label: NAMES.ammo, item: this.inventory.arrow() ? choice(this.inventory.arrow()!, this.inventory.count(this.inventory.arrow()!)) : null }, elemSlot(0, 0), elemSlot(0, 1)],
       choices: (h, slot) => {
         const seen = new Map<string, number>();
         for (const st of this.inventory.slots) {
           const d = st && this.items.get(st.id);
-          if (!d || !st || !canUse(h, st.id, slot)) continue;
+          if (!d || !st) continue;
+          if (slot === 'element1' || slot === 'element2') { if (d.essence) seen.set(st.id, (seen.get(st.id) ?? 0) + st.n); continue; }
+          if (!canUse(h, st.id, slot)) continue;
           if (slot === 'ammo' ? d.kind === 'ammo' && st.id !== this.inventory.arrow() : d.kind === 'equipment' && d.slot === slot) seen.set(st.id, (seen.get(st.id) ?? 0) + st.n);
         }
         // Only copies nobody is using (worn things stay in the bag, in use).
@@ -2764,6 +2791,8 @@ export class Game {
         });
       },
       view: (h, change) => {
+        // Element stones don't change the numbers shown here (their effect is on elements: see the slot's line).
+        if (change && (change.slot === 'element1' || change.slot === 'element2')) change = undefined;
         const mem = h ? this.members()[h - 1] : null;
         if (mem) {
           const gear = { ...mem.data.equip };
@@ -2792,8 +2821,17 @@ export class Game {
         return { value: want, options: (Object.keys(STYLE_NAMES) as AllyStyle[]).map((k) => [k, STYLE_NAMES[k]] as [string, string]),
           note: real !== want ? `${why[want]}: fights with ${STYLE_NAMES[real].toLowerCase()} for now` : undefined };
       },
+      elements: (h) => affinityText(this.heroAffinity(h)),
       setStyle: (h, v) => { const mem = h ? this.members()[h - 1] : null; if (mem) mem.data.style = v as AllyStyle; },
       equip: (h, slot, id) => {
+        if (slot === 'element1' || slot === 'element2') {
+          const key = `elem:${h}:${slot === 'element2' ? 1 : 0}`;
+          if (!id) { const was = this.holderShard(key); this.setHolderShard(key, null); this.refreshRing(); return was ? `${this.items.get(was)?.name ?? was} taken off.` : null; }
+          if (!this.items.get(id)?.essence) return null;
+          if (this.holderShard(key) !== id && this.inventory.free(id) < 1) return 'All of those are in use.';
+          this.setHolderShard(key, id); this.refreshRing(); this.audio.play('skill');
+          return `${this.items.get(id)?.name ?? id}: ${slot === 'element1' ? 'Primary' : 'Secondary'} element.`;
+        }
         if (id && !canUse(h, id, slot)) return `They can’t use ${this.items.get(id)?.name ?? id}.`;
         const mem = h ? this.members()[h - 1] : null;
         if (mem) return this.equipMember(mem.data, slot as EquipSlot, id);
@@ -3332,17 +3370,7 @@ export class Game {
       { label: 'Smelt ore', detail: 'Ore into ingots', pick: smelt },
       { label: 'Upgrade', detail: 'More damage or defence, for ingots', pick: upgrade },
       { label: 'Leave', pick: () => this.menu.close() },
-    ], { note: 'Upgrades apply to every copy of an item. (Shards are set in gear from the bag: pick a shard → Set in…)' });
-  }
-
-  /** Weapons and armor that can hold a shard: worn by the hero, by party members (named), then in the bag; each kind once. */
-  private gearAround(): { id: string; who?: string }[] {
-    const out: { id: string; who?: string }[] = [], seen = new Set<string>();
-    const add = (id: string | undefined, who?: string) => { if (id && !seen.has(id) && enchantable(this.baseItems.get(id))) { seen.add(id); out.push({ id, who }); } };
-    for (const id of Object.values(this.inventory.equip)) add(id);
-    for (const m of this.members()) for (const id of Object.values(m.data.equip)) add(id, m.def.name);
-    for (const s of this.inventory.slots) add(s?.id);
-    return out;
+    ], { note: 'Upgrades apply to every copy of an item.' });
   }
 
   // ---------------------------------------------------------------- shard holders (the bag's Shards tab)
@@ -3351,16 +3379,21 @@ export class Game {
     const id = this.inventory.slots[i]?.id;
     if (!id) return [];
     const name = (x: string | null) => (x ? this.baseItems.get(x)?.name ?? x : '');
-    const out: { label: string; value: string; disabled?: boolean }[] = this.equipHost().heroes().map((x, k) => {
+    // Element stones: a hero's Primary or Secondary Element slot.
+    if (this.baseItems.get(id)?.essence) {
+      const out: { label: string; value: string; disabled?: boolean }[] = [];
+      this.equipHost().heroes().forEach((x, k) => {
+        for (const j of [0, 1]) {
+          const cur = this.holderShard(`elem:${k}:${j}`);
+          out.push({ label: `${x.name}: ${j ? 'Secondary' : 'Primary'}${cur ? ` (now ${name(cur)})` : ''}`, value: `elem:${k}:${j}`, disabled: cur === id });
+        }
+      });
+      return out;
+    }
+    return this.equipHost().heroes().map((x, k) => {
       const cur = this.holderShard(`hero:${k}`);
       return { label: `Ready for ${x.name}${cur ? ` (now ${name(cur)})` : ''}`, value: `hero:${k}`, disabled: cur === id };
     });
-    const ok = settableShard(this.baseItems.get(id));
-    for (const { id: gid, who } of this.gearAround()) {
-      const cur = this.state.forge.get(gid)?.shard ?? null;
-      out.push({ label: `Set in ${this.items.get(gid)?.name ?? gid}${who ? ` (${who})` : ''}${cur ? ` (now ${name(cur)})` : ''}${ok ? '' : ': only elemental shards'}`, value: `gear:${gid}`, disabled: !ok || cur === id });
-    }
-    return out;
   }
 
   /** Put the shard in bag slot i on a hero (readied) or in a piece of gear. With every copy in use, this one moves. */
@@ -3372,8 +3405,36 @@ export class Game {
     this.setHolderShard(key, id);
     this.applyForge(); this.refreshRing();
     this.audio.play('skill');
-    const where = key.startsWith('hero:') ? `readied by ${this.equipHost().heroes()[Number(key.slice(5))]?.name ?? ''}` : `set in ${this.items.get(key.slice(5))?.name ?? ''}`;
+    const where = key.startsWith('elem:') ? `now ${this.equipHost().heroes()[Number(key.split(':')[1])]?.name ?? ''}'s ${key.endsWith(':1') ? 'Secondary' : 'Primary'} element` : key.startsWith('hero:') ? `readied by ${this.equipHost().heroes()[Number(key.slice(5))]?.name ?? ''}` : `set in ${this.items.get(key.slice(5))?.name ?? ''}`;
     return `${this.baseItems.get(id)?.name ?? id} ${where}.`;
+  }
+
+  /** Element stones in bag slot i: fusing them into the next kind (those worn don't count). */
+  private fuseOptions(i: number): { label: string; disabled?: boolean; all: boolean }[] {
+    const id = this.inventory.slots[i]?.id, d = id ? this.baseItems.get(id) : undefined, r = this.combatCfg.essence;
+    const nt = d?.essence ? nextTier(d.essence.tier) : null;
+    if (!id || !d?.essence || !nt) return [];
+    const into = essenceItem(this.baseItems.values(), d.essence.element, nt);
+    if (!into) return [];
+    const { make, need } = fuseCount(d.essence.tier, this.inventory.free(id), r);
+    const out: { label: string; disabled?: boolean; all: boolean }[] = [{ label: `Fuse ${need} into a ${into.name}${make ? '' : ` (you have ${this.inventory.free(id)})`}`, disabled: !make, all: false }];
+    if (make > 1) out.push({ label: `Fuse all: ${make} × ${into.name}`, all: true });
+    return out;
+  }
+
+  private fuse(i: number, all: boolean): string | null {
+    const id = this.inventory.slots[i]?.id, d = id ? this.baseItems.get(id) : undefined, r = this.combatCfg.essence;
+    const nt = d?.essence ? nextTier(d.essence.tier) : null, into = d?.essence && nt ? essenceItem(this.baseItems.values(), d.essence.element, nt) : undefined;
+    if (!id || !d?.essence || !into) return null;
+    const { make, need } = fuseCount(d.essence.tier, this.inventory.free(id), r), n = all ? make : Math.min(1, make);
+    if (!n) return `Needs ${need} ${d.name}s.`;
+    if (this.inventory.room(into.id) < n) return 'Your bag is full.';
+    this.inventory.remove(id, n * need);
+    this.inventory.add(into.id, n);
+    this.audio.play('levelUp');
+    this.state.tally('fused', n);
+    this.log.add(`Fused ${n * need} ${d.name}s into ${n > 1 ? `${n} × ` : 'a '}${into.name}`, 'loot');
+    return `${n * need} ${d.name}s fused into ${n > 1 ? `${n} × ` : 'a '}${into.name}!`;
   }
 
   /** Whoever uses the copy in bag slot i lets go of it (it stays in the bag). */
@@ -3390,6 +3451,7 @@ export class Game {
   private holderShard(key: string): string | null {
     const [kind, rest] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
     if (kind === 'hero') { const h = Number(rest); return (h ? this.members()[h - 1]?.data.equip.magic : this.inventory.equip.magic) ?? null; }
+    if (kind === 'elem') { const [h, j] = rest.split(':').map(Number); return (h ? this.members()[h - 1]?.data.elements?.[j] : this.inventory.elements[j]) ?? null; }
     return this.state.forge.get(rest)?.shard ?? null;
   }
 
@@ -3402,6 +3464,12 @@ export class Game {
       if (sid) eq.magic = sid; else delete eq.magic;
       return;
     }
+    if (kind === 'elem') {
+      const [h, j] = rest.split(':').map(Number);
+      const list = h ? (this.members()[h - 1] ? (this.members()[h - 1].data.elements ??= [null, null]) : null) : this.inventory.elements;
+      if (list) list[j] = sid;
+      return;
+    }
     const e = { ...this.state.forge.get(rest) };
     if (sid) e.shard = sid; else delete e.shard;
     if (e.level || e.shard) this.state.forge.set(rest, e); else this.state.forge.delete(rest);
@@ -3409,22 +3477,10 @@ export class Game {
 
   /** Can this shard go in this holder? (Gear only takes elemental shards; heroes ready any.) */
   private holderTakes(key: string, sid: string | null): boolean {
-    return !sid || key.startsWith('hero:') || settableShard(this.baseItems.get(sid));
+    const d = sid ? this.baseItems.get(sid) : undefined;
+    if (key.startsWith('elem:')) return !sid || !!d?.essence;
+    return !sid || (key.startsWith('hero:') && !d?.essence);
   }
-
-  /** Set a shard (from the bag) in a piece of gear, or take its shard out (null). The old one goes back in the bag. */
-  private setShard(gear: string, sid: string | null): string | null {
-    const cur = this.state.forge.get(gear)?.shard, name = (id: string) => this.baseItems.get(id)?.name ?? id;
-    if (!sid) {
-      if (!cur) return null;
-      this.setHolderShard(`gear:${gear}`, null);
-      this.applyForge(); this.refreshRing();
-      return `${name(cur)} taken out of ${this.items.get(gear)?.name ?? gear}.`;
-    }
-    const at = this.inventory.slots.findIndex((st) => st?.id === sid);
-    return at < 0 ? null : this.placeShard(at, `gear:${gear}`);
-  }
-
 
   // ---------------------------------------------------------------- fishing
   /** The cast in progress: casting out, waiting for a bite, or a bite to react to. */
@@ -4411,14 +4467,14 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked,
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements,
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down,
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements,
     };
   }
 
@@ -4529,6 +4585,7 @@ export class Game {
     if (id === 'quests') this.questScreen.show(title, this.quests, { item: (i) => this.items.get(i)?.name ?? i }, onClose, tabs);
     else if (id === 'log') this.logScreen.show(title, this.log.history, onClose, tabs);
     else if (id === 'bestiary') this.bestiaryScreen.show(title, this.bestiary(), onClose, tabs);
+    else if (id === 'types') this.recordsScreen.show(title, { html: typeChartHtml(this.combatCfg.essence) }, onClose, tabs);
     else this.recordsScreen.show(title, this.records(), onClose, tabs);
   }
 
@@ -4778,6 +4835,19 @@ export class Game {
     return st;
   }
 
+  /** What a hero's Element slots add up to (0: the hero, 1…: party members). */
+  heroAffinity(who: number): Affinity {
+    const ids = who ? this.members()[who - 1]?.data.elements ?? [] : this.inventory.elements;
+    return affinity([0, 1].map((k) => (ids[k] ? this.items.get(ids[k]!) : undefined)), this.combatCfg.essence);
+  }
+
+  /** A hero's elements in battle: their element stones' (with their weaknesses), else the Database's; gear's wards. */
+  private heroDefence(who: number): import('./elements').ElementalDefence {
+    const m = who ? this.members()[who - 1] : undefined, def = m ? m.def : mainHero(this.db), aff = this.heroAffinity(who);
+    return { elements: aff.elements.length ? aff.elements : def.elements, immune: def.immune, absorb: def.absorb, weak: aff.weak,
+      halve: this.wornGear(m ? m.data.equip : undefined).flatMap((g) => g?.wards ?? []) };
+  }
+
   /** The hero's or a party member's numbers for a battle: attack, spells, defences, agility. */
   private partyBattler(who: number): { battler: Battler; view: FighterView; fig: { look: CharacterDef | undefined; equip: Partial<Record<EquipSlot, string>>; bow: boolean; lift?: number } } | null {
     const pct = (sk: Skills, k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
@@ -4792,20 +4862,20 @@ export class Game {
       const useBow = !w && bow > melee;
       const a = this.progress.abilities;
       const spells = this.battleSpells(a, powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), this.spellThrift);
-      const look = this.db.characters[this.db.player];
+      const look = this.db.characters[this.db.player], aff0 = this.heroAffinity(0);
       this.portraitUrl ??= this.sprites.portrait('hero', look, 48).toDataURL();
       return {
         battler: {
           key: 'p0', side: 'party', name: hero.name, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp,
-          attack: useBow ? bow : melee, attackElement: (useBow ? bowDef?.element : w?.element) ?? 'neutral', attackMagic: false,
+          attack: useBow ? bow : melee, attackElement: aff0.primary ?? (useBow ? bowDef?.element : w?.element) ?? 'neutral', attackMagic: false, affinity: aff0,
           armour: t.armour, magicArmour: t.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: t.crit,
           ...this.aimOf(useBow ? bowDef : w, t.attrs.dex), evasion: evasionOf(t.attrs.agi), spellEvasion: evasionOf(t.attrs.mdf), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: sk.get('guardHeal'),
-          defence: { ...hero, halve: this.wornGear().flatMap((g) => g?.wards ?? []) }, spells, ct: 0, guarding: false,
+          defence: this.heroDefence(0), spells, ct: 0, guarding: false,
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
           additions: this.battleAdditions(a), addition: a.addition,
         },
         view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0), face: hero.face ? this.resolveFile(hero.face) : undefined,
-          level: this.progress.level, xp: { have: this.progress.xp, next: this.progress.maxed ? 0 : this.progress.toNext }, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame('battle:hero', look, 'up', 0) : undefined },
+          level: this.progress.level, xp: { have: this.progress.xp, next: this.progress.maxed ? 0 : this.progress.toNext }, elements: aff0.elements.length ? aff0.elements : undefined, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame('battle:hero', look, 'up', 0) : undefined },
         fig: { look, equip: gear, bow: useBow, lift: mainHero(this.db).battleOffset },
       };
     }
@@ -4819,21 +4889,21 @@ export class Game {
       spells.unshift({ id: 'heal', name: 'Heal', kind: 'heal', element: 'neutral', color: '#9dffb0', targets: 'one', ranks: [{ rank: 1, name: 'Heal', power: n.heal, mp: HEAL_MP, charge: 0 }] });
     const useBow = !m.data.equip.weapon && n.bow > n.melee;
     const look = this.db.characters[m.def.look ?? ''] ?? this.db.characters[this.db.player];
-    const key = `p${who}`;
+    const key = `p${who}`, aff = this.heroAffinity(who);
     return {
       battler: {
         key, side: 'party', name: m.def.name, hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp,
-        attack: useBow ? n.bow : n.melee, attackElement: useBow ? n.bowElement : n.meleeElement, attackMagic: false,
+        attack: useBow ? n.bow : n.melee, attackElement: aff.primary ?? (useBow ? n.bowElement : n.meleeElement), attackMagic: false, affinity: aff,
         armour: n.armour, magicArmour: n.magicArmour, agility: t.attrs.agi, baseAgility: t.attrs.agi, crit: n.crit,
         ...this.aimOf(this.items.get((useBow ? m.data.equip.ranged : m.data.equip.weapon) ?? ''), t.attrs.dex), evasion: evasionOf(t.attrs.agi), spellEvasion: evasionOf(t.attrs.mdf), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: msk.get('guardHeal'),
-        defence: { elements: m.def.elements, immune: m.def.immune, absorb: m.def.absorb, halve: this.wornGear(m.data.equip).flatMap((g) => g?.wards ?? []) },
+        defence: this.heroDefence(who),
         spells, ct: 0, guarding: false,
         status: new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]),
         inflicts: useBow ? undefined : n.meleeInflicts,
         additions: this.battleAdditions(ab), addition: ab.addition,
       },
       view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who), face: m.def.face ? this.resolveFile(m.def.face) : undefined,
-        level: m.data.level, xp: { have: m.data.xp, next: xpToNext(this.combatCfg, m.data.level) }, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'up', 0) : undefined },
+        level: m.data.level, xp: { have: m.data.xp, next: xpToNext(this.combatCfg, m.data.level) }, elements: aff.elements.length ? aff.elements : undefined, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'up', 0) : undefined },
       fig: { look, equip: m.data.equip, bow: useBow, lift: m.def.battleOffset },
     };
   }
@@ -5271,6 +5341,7 @@ export class Game {
       xp += Math.max(0, d.xp);
       gold += d.gold ? Math.round(d.gold[0] + Math.random() * Math.max(0, d.gold[1] - d.gold[0])) : 0;
       for (const drop of d.drops ?? []) if (Math.random() < drop.chance && this.items.has(drop.item)) got.set(drop.item, (got.get(drop.item) ?? 0) + Math.max(1, drop.count ?? 1));
+      for (const [id, n] of this.fragmentDrops(d)) got.set(id, (got.get(id) ?? 0) + n);
       if (b.enemy) {
         this.combat.beatenInBattle(b.enemy);
         const ev = b.enemy.key as GameEvent;
@@ -5494,10 +5565,12 @@ export class Game {
     if (this.calmFor > 2.5) for (const a of this.fighters) if (a.data.pendingXp) this.allyXp(a);
     // Condensed hero bars (Settings → HUD): the hero's card leads the party's.
     const pr = this.progress;
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false }] : [];
+    const heroEls = this.heroAffinity(0).elements;
+    this.hud.setHeroElements(heroEls);
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls }] : [];
     // The party's cards: the others of the three fighting (whoever leads the map).
     const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
-    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down }; })]);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */

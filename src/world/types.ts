@@ -923,6 +923,9 @@ export interface Database {
 
 export type ItemKind = 'consumable' | 'equipment' | 'key' | 'ammo' | 'material';
 /** weapon: melee (key 1); ranged: a bow (key 2); magic: the spell shard cast with key 3. */
+/** Element stones, weakest to strongest. */
+export type EssenceTier = 'fragment' | 'shard' | 'heart';
+
 export type EquipSlot = 'weapon' | 'shield' | 'ranged' | 'magic' | 'armor' | 'accessory';
 export const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'shield', 'ranged', 'magic', 'armor', 'accessory'];
 /** Older databases and saves: the Ring slot (rings are accessories now). */
@@ -1052,6 +1055,12 @@ export interface ItemDef {
   protects?: Ailment[];
   /** Weapons, bows, arrows and spell shards: the element they hit with (arrows override the bow's). */
   element?: Element;
+  /**
+   * Element stones (the Shards pocket): a Fragment, Shard or Heart Stone of an element, worn in a hero's Element
+   * slots. It gives the hero that element (its weaknesses too) and stronger hits of it. Fragments fuse into a Shard,
+   * Shards into a Heart Stone (Database → Combat → Elements).
+   */
+  essence?: { element: Element; tier: EssenceTier };
   /** Spell shards (magic slot): the spell. Its icon is held in the hero's hands while it's readied. */
   spell?: SpellDef;
   /** Weapons: class and damage. */
@@ -1415,6 +1424,8 @@ export interface CombatData {
   campSafe?: number;
   /** EXP bonuses (percent of the foe's EXP). */
   exp?: Partial<ExpBonus>;
+  /** Element stones: what each tier gives, fusing, drops (see EssenceRules). */
+  essence?: Partial<import('../game/essence').EssenceRules>;
   /** Enemies above (or below) their own level: how much each level adds to their numbers, in percent. */
   enemyGrowth?: Partial<EnemyGrowth>;
   /** Experience to reach level 2, and how much more each level after needs (1.3 = 30% more). */

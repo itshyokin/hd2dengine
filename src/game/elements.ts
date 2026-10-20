@@ -10,7 +10,7 @@ export const ELEMENT_LIST: Element[] = ['neutral', 'water', 'fire', 'nature', 'e
 export const TYPED_ELEMENTS: Element[] = ELEMENT_LIST.filter((e) => e !== 'neutral');
 
 export const ELEMENT_NAMES: Record<Element, string> = {
-  neutral: 'Non-elemental', water: 'Water', fire: 'Fire', nature: 'Nature', earth: 'Earth', shock: 'Shock', light: 'Light', dark: 'Dark',
+  neutral: 'Normal', water: 'Water', fire: 'Fire', nature: 'Nature', earth: 'Earth', shock: 'Shock', light: 'Light', dark: 'Dark',
 };
 export const ELEMENT_COLORS: Record<Element, string> = {
   neutral: '#e9e2d2', water: '#5ab4ff', fire: '#ff7a3a', nature: '#6fd05a', earth: '#c8964e', shock: '#ffe04a', light: '#fff4c2', dark: '#a77cff',
@@ -41,8 +41,11 @@ export function matchups(e: Element): { strong: Element[]; weak: Element[] } {
 }
 
 /** A defender's elements and specials. */
-/** `halve`: elements whose damage is halved (worn gear with a shard set in it). */
-export interface ElementalDefence { elements?: Element[]; immune?: Element[]; absorb?: Element[]; halve?: Element[] }
+/**
+ * `halve`: elements whose damage is halved (worn gear that wards it off). `weak`: how hard each of their elements'
+ * weaknesses hit (a hero's element stones: a Fragment's are milder, two Shards' harsher), instead of ×2.
+ */
+export interface ElementalDefence { elements?: Element[]; immune?: Element[]; absorb?: Element[]; halve?: Element[]; weak?: Partial<Record<Element, number>> }
 
 export type ElementResult =
   | { kind: 'absorb' }
@@ -55,7 +58,7 @@ export function elementResult(attack: Element | undefined, d: ElementalDefence |
   if (d?.absorb?.includes(a)) return { kind: 'absorb' };
   if (d?.immune?.includes(a)) return { kind: 'immune' };
   let mult = 1;
-  for (const e of (d?.elements ?? []).slice(0, 2)) mult *= versus(a, e);
+  for (const e of (d?.elements ?? []).slice(0, 2)) { const v = versus(a, e); mult *= v > 1 ? d?.weak?.[e] ?? v : v; }
   if (d?.halve?.includes(a)) mult *= 0.5;
   mult = Math.max(MULT_MIN, Math.min(MULT_MAX, mult));
   return { kind: 'hit', mult, label: mult > 1 ? 'Weak!' : mult < 1 ? 'Resist' : null };

@@ -27,11 +27,12 @@ export class RecordsScreen {
 
   get isOpen(): boolean { return this.open; }
 
-  show(title: string, sections: RecordSection[], onClose: () => void, tabs?: TabGroup): void {
+  /** `sections`, or a page of its own (the Type Chart). */
+  show(title: string, sections: RecordSection[] | { html: string }, onClose: () => void, tabs?: TabGroup): void {
     this.onClose = onClose;
     this.tabs = tabs;
     this.open = true;
-    const body = sections.map((s) => `<section class="rec-section"><h3>${esc(s.title)}</h3>${
+    const body = 'html' in sections ? sections.html : sections.map((s) => `<section class="rec-section"><h3>${esc(s.title)}</h3>${
       s.rows.length ? `<dl class="rec-rows">${s.rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : `<p class="rec-empty">${esc(s.empty ?? 'Nothing yet.')}</p>`
     }</section>`).join('');
     this.root.innerHTML = `<div class="inv-box rec-box"><div class="menu-title">${esc(title)}</div>${tabStrip(tabs)}

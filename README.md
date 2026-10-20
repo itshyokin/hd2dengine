@@ -758,13 +758,26 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   arrows), *Shards*, *Materials*, *Key items*; *All* shows everything at once. Use, Equip, Quick slot, Move, Drop one /
   Drop all; nothing is ever thrown away. Older saves sort their items into the tabs when loaded.
   - **Worn things stay in the bag**, like arrows: weapons, armor and shards that someone has on show **in use** in
-    their tab, and the details say who (*Equipped by Mira*) or, for a shard set in gear, where (*Set in Short Sword*);
-    an enchanted weapon or armor says *Enchanted with …*. Things in use can't be dropped or sold (take them off
+    their tab, and the details say who (*Equipped by Mira*). Things in use can't be dropped or sold (take them off
     first: **Y / R → Take it off**). Older saves put what was worn back in the bag, marked in use.
   - **Gear** (Space on a weapon, armor or arrows): choose who puts it on (with a party; those who can't use it are
     greyed out). If every copy is in use, it moves from whoever had it.
-  - **Shards** (Space on a shard): **Ready for** a hero (their spell, cast with B / F) or **Set in** any weapon or armor
-    (elemental shards only). What it replaces simply stays in the bag, free again.
+  - **Shards** (Space on a shard): **Ready for** a hero (their spell, cast with B / F). What it replaces simply stays
+    in the bag, free again.
+  - **Element stones** (the Shards tab too): Space on one puts it in a hero's **Primary** or **Secondary** Element
+    slot, or **fuses** them: 25 Fragments into a Shard, 10 Shards of one element into a Heart Stone (*Fuse all* does
+    as many as there are; worn ones aren't used up).
+- **Element stones** (Fragments, Shards and Heart Stones of Water, Fire, Nature, Earth, Shock, Light and Dark; the 21
+  are added to Database → Items as `ess_…`, to rename or price): each hero has two **Element slots** (Equipment, or the
+  bag). A stone gives them its element, with its weaknesses, and makes their hits of it stronger: a Fragment +10%
+  (its weaknesses milder, ×1.5), a Shard +25%, a Heart Stone +50% (neither worse than the usual ×2). Two of one
+  element add up (the second gives 60% of its bonus, +10% more for the pair), but two Shards' weaknesses hit ×2.25.
+  The **Primary** slot's element is what their basic attacks hit with (on the map too); spells of their own element
+  get +20% more. With no stones a hero is **Normal** (their Database elements, if any). Enemies with elements drop
+  Fragments of them (60%). All the numbers are in Database → Combat → *Element stones*. Their elements show as pills
+  (**FIRE** on orange) on their cards, in battle and on the HUD (small circles with the element's symbol).
+- **Type Chart** (Journal → Type Chart): every element against every other (green ×2, red ½), each one's strengths
+  and weaknesses, and what the stones give.
 - **Status** (Party → a hero → Status): their gauges and numbers on the left, what they're wearing in the middle, and
   on the right their name, **About** (Database → Heroes → About), any ailments and, for party members, their
   **Fighting style** (Melee, Archery, Magic, Healing, each with a line on what it does): the weapon they mainly use.
@@ -1295,11 +1308,9 @@ they cost no magic. Set them up in **Database → Items**: Kind *Key / quest ite
   - *Upgrade*: weapons and armor are made of a **material** (an ingot: Database → Items → *Material*). Each upgrade
     takes ingots of it (+1: one, +2: two…) and adds a few percent of damage or defence (Database → Combat →
     *Forges*: how many upgrades, and the percent). The item shows as *Longsword +2*.
-  - *Enchanting* is done from the bag now (a shard → Set in…): an elemental shard in a weapon (every hit takes its element, a little more damage, and
-    its ailments) or in armor, a shield or an accessory (that element's damage is halved). Take it out any time.
-    An enchanted weapon glows softly in the element's colour and its swings leave a trail of it; enchanted
-    gear has a coloured halo in the bag.
-  - Upgrades and shards apply to every copy of an item, and are saved with the game.
+  - Shards aren't set in gear any more: heroes wear element stones instead (older saves take any set shard back out,
+    free in the bag).
+  - Upgrades apply to every copy of an item, and are saved with the game.
 - Fire (a fire spell, arrow or weapon) **burns away** cuttable props (vines, saplings), giving nothing: they catch
   fire, blacken and crumble, with *Burnt!* over them and a line in the adventure log, so it's clear why nothing dropped.
 - **Weapon proficiency**: light weapons are ready from the start; medium and heavy weapons swing slowly until the

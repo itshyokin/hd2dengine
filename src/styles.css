@@ -1883,3 +1883,24 @@ body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-q
 @keyframes pb-lvup { 0%, 100% { transform: none; color: #ffd38a; } 30% { transform: scale(1.35); color: #fff; text-shadow: 0 0 10px #ffd27a; } }
 /* Controls opened from Settings: the Settings list behind it doesn't show through. */
 body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
+/* Element pills ("FIRE" on orange) and circles (the symbol in black), wherever elements are shown. */
+.el-pill { display: inline-block; padding: 1px 7px 0; border-radius: 999px; font-family: var(--f-display, inherit); font-size: 0.72em; font-weight: 800; letter-spacing: 0.08em; line-height: 1.5;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.45); white-space: nowrap; vertical-align: middle; text-shadow: none !important; }
+.el-dot { width: 14px; height: 14px; image-rendering: pixelated; vertical-align: middle; }
+.el-pills { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.pb-els { display: inline-flex; gap: calc(var(--u, 10px) * 0.5); margin-right: calc(var(--u, 10px) * 0.6); }
+.pb .el-pill { font-size: calc(var(--u, 10px) * 1.15); }
+.hud-ally-name .el-dot, .hud-level .el-dot { width: 12px; height: 12px; margin-left: 2px; }
+/* The Journal's Type Chart. */
+.tc-wrap { overflow-x: auto; }
+.type-chart { border-collapse: separate; border-spacing: 3px; margin: 4px 0 8px; }
+.type-chart th { text-align: left; font-weight: 400; padding: 0 4px; }
+.type-chart th .el-dot { width: 20px; height: 20px; display: block; margin: 0 auto; }
+.type-chart td { width: 34px; height: 26px; text-align: center; border-radius: 6px; font-weight: 800; font-size: 13px; background: rgba(255, 255, 255, 0.05); }
+.type-chart .tc-strong { background: #3cae4a; color: #08240c; }
+.type-chart .tc-weak { background: #c8463a; color: #2a0806; }
+.tc-corner small { font-size: 10px; opacity: 0.7; }
+.tc-line { display: flex; gap: 8px; align-items: center; padding: 3px 0; flex-wrap: wrap; }
+.tc-line > span { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.rec-section.tc-full { grid-column: 1 / -1; }
+.tc-full .rec-rows { max-width: 640px; }

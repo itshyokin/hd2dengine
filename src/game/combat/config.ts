@@ -6,6 +6,7 @@ export const SINGLE_MAX = 4;
  * Combat tuning with defaults filled in. Database → Combat stores only what differs.
  * No three.js, so it can be tested on its own.
  */
+import { DEFAULT_ESSENCE, essenceRules, type EssenceRules } from '../essence';
 import { ATTRS, ATTR_MAX, ATTR_POINTS_PER_LEVEL, type Attrs, attrsFrom, baseAttrs, finalDamage, throughFraction } from '../attributes';
 import type { AbilityData, CombatData, Database, EncounterPick, EnemyGrowth, ExpBonus, TurnOrder, WeaponClass } from '../../world/types';
 import { abilityJSON } from '../abilities';
@@ -67,6 +68,8 @@ export interface CombatConfig {
   enemyGrowth: EnemyGrowth;
   /** EXP bonuses, percent of the foe's EXP. */
   exp: ExpBonus;
+  /** Element stones (Fragments, Shards, Heart Stones). */
+  essence: EssenceRules;
 }
 
 export const DEFAULT_COMBAT: CombatConfig = {
@@ -92,6 +95,7 @@ export const DEFAULT_COMBAT: CombatConfig = {
   bestiary: { stats: 1, elements: 3, drops: 5 },
   enemyGrowth: { hp: 12, attack: 7, defense: 6, xp: 12, gold: 8 },
   exp: { finish: 25, weak: 10, strike: 4, complete: 10, noKo: 10 },
+  essence: DEFAULT_ESSENCE,
 };
 
 /** Base time of one melee swing (at speed 1), in seconds. */
@@ -125,6 +129,7 @@ export function combatConfig(data?: CombatData): CombatConfig {
     bestiary: { ...d.bestiary, ...s.bestiary },
     enemyGrowth: { ...d.enemyGrowth, ...s.enemyGrowth },
     exp: { ...d.exp, ...s.exp },
+    essence: essenceRules(s.essence),
   };
 }
 

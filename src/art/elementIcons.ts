@@ -5,7 +5,6 @@
 import { Pix, ell, segD } from '../core/pixel';
 import type { Element } from '../world/types';
 
-const S = 12;
 type Shape = (x: number, y: number) => boolean;
 
 const SHAPES: Record<Element, { shape: Shape; ramp: [string, string, string] }> = {
@@ -21,19 +20,33 @@ const SHAPES: Record<Element, { shape: Shape; ramp: [string, string, string] }> 
 
 const cache = new Map<Element, string>();
 
-/** An element's icon as a data URL (cached). */
+/** The element's colour, the circle behind the symbol. */
+const CIRCLE: Record<Element, [string, string]> = {
+  water: ['#7cc6ff', '#3a8ee0'], fire: ['#ffa05a', '#e0562a'], nature: ['#8ee070', '#4aa83a'], earth: ['#dcae6a', '#a87638'],
+  shock: ['#ffe86a', '#d8b42a'], light: ['#fff6cc', '#e8cf7a'], dark: ['#bf9cff', '#7a52d8'], neutral: ['#efe8da', '#b8b0a0'],
+};
+
+/**
+ * An element's icon as a data URL (cached): a circle of its colour with its symbol in black (a drop, a flame, a
+ * leaf, a rock, a bolt, a sun, a moon; a diamond for Normal). For small spaces; elsewhere its coloured pill.
+ */
 export function elementIconUrl(e: Element): string {
   let u = cache.get(e);
   if (u) return u;
-  const p = new Pix(S, S), { shape, ramp } = SHAPES[e] ?? SHAPES.neutral;
-  for (let y = 0; y < S; y++)
-    for (let x = 0; x < S; x++) {
-      if (!shape(x + 0.5, y + 0.5)) continue;
-      const t = (x + y) / (2 * S);
-      p.set(x, y, ramp[t < 0.36 ? 0 : t < 0.62 ? 1 : 2]);
+  const N = 14, p = new Pix(N, N), { shape } = SHAPES[e] ?? SHAPES.neutral, [hi, lo] = CIRCLE[e] ?? CIRCLE.neutral;
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) {
+      const dx = x + 0.5 - N / 2, dy = y + 0.5 - N / 2;
+      if (dx * dx + dy * dy > (N / 2 - 1.1) ** 2) continue;
+      // The symbol: the 12 × 12 shape shrunk into the middle of the circle.
+      const sx = 6 + (x + 0.5 - N / 2) / 0.7, sy = 6 + (y + 0.5 - N / 2) / 0.7;
+      p.set(x, y, shape(sx, sy) ? '#14101a' : (x + y) / (2 * N) < 0.45 ? hi : lo);
     }
   p.outline('#1a1420');
   u = p.canvas().toDataURL();
   cache.set(e, u);
   return u;
 }
+
+/** Text colour on an element's pill (dark on the bright ones). */
+export const PILL_INK: Record<Element, string> = { water: '#06223c', fire: '#3a1004', nature: '#0a2a06', earth: '#2e1a06', shock: '#2e2400', light: '#3a2e08', dark: '#ffffff', neutral: '#2a2620' };

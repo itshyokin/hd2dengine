@@ -35,6 +35,8 @@ export interface MemberData {
   /** Experience earned in the fight going on (handed out when it's over). */
   pendingXp?: number;
   equip: Partial<Record<EquipSlot, string>>;
+  /** Their Element slots (Primary, Secondary): element stones (item ids). */
+  elements?: (string | null)[];
   /** Their own skill tree: ranks learned, and skill points to spend (from levels). */
   skills?: Record<string, number>;
   skillPoints?: number;
@@ -53,11 +55,11 @@ export class PartyState {
   get(id: string): MemberData | undefined { return this.members.find((m) => m.id === id); }
   get full(): boolean { return this.members.length >= MAX_PARTY; }
 
-  toJSON(): MemberData[] { return this.members.map((m) => ({ ...m, stats: { ...m.stats }, equip: { ...m.equip }, ...(m.skills ? { skills: { ...m.skills } } : {}), ...(m.abilities ? { abilities: abilityJSON(m.abilities) } : {}) })); }
+  toJSON(): MemberData[] { return this.members.map((m) => ({ ...m, stats: { ...m.stats }, equip: { ...m.equip }, ...(m.elements ? { elements: [...m.elements] } : {}), ...(m.skills ? { skills: { ...m.skills } } : {}), ...(m.abilities ? { abilities: abilityJSON(m.abilities) } : {}) })); }
   load(d: MemberData[] | undefined): void {
     this.members = (d ?? []).filter((m) => m && typeof m.id === 'string').slice(0, MAX_PARTY).map((m) => ({
       id: m.id, stats: { ...baseAttrs(), ...m.stats }, statPoints: 0, ...(m.statRanks ? { statRanks: { ...m.statRanks } } : {}), level: Math.max(1, Math.round(Number(m.level) || 1)), xp: Math.max(0, Number(m.xp) || 0),
-      ...(m.pendingXp ? { pendingXp: m.pendingXp } : {}), equip: { ...m.equip },
+      ...(m.pendingXp ? { pendingXp: m.pendingXp } : {}), equip: { ...m.equip }, ...(m.elements?.some(Boolean) ? { elements: [m.elements[0] ?? null, m.elements[1] ?? null] } : {}),
       ...(m.skills ? { skills: { ...m.skills } } : {}), ...(m.style ? { style: m.style } : {}), ...(m.skillPoints !== undefined ? { skillPoints: Math.max(0, Math.round(Number(m.skillPoints) || 0)) } : {}),
       hp: Number(m.hp) || 0, mp: Number(m.mp) || 0, sp: Number(m.sp) || 0, ...(m.down ? { down: true } : {}),
       ...(m.abilities ? { abilities: abilityJSON(m.abilities) } : {}),

@@ -22,6 +22,8 @@ import { toast } from './dom';
 import { tintCanvas } from '../render/tint';
 import { combatPreviewRow } from './combatPreview';
 import type { EditorStore } from './store';
+import { TIER_NAMES, type EssenceRules } from '../game/essence';
+import type { EssenceTier } from '../world/types';
 
 const num = (v: number, set: (n: number) => void, step = 1, min = 0, label = '') =>
   numberInput(v, (n) => set(Math.max(min, n)), { step, min, 'aria-label': label, class: 'db-num' });
@@ -107,9 +109,9 @@ export function combatTab(data: CombatData): HTMLElement[] {
     h('section', { class: 'db-section' }, h('h3', {}, 'Forges (anvils)'),
       h('div', { class: 'field-row' },
         field('Upgrades per item', num(data.forge?.maxLevel ?? 5, (v) => ((data.forge ??= {}).maxLevel = Math.max(1, Math.round(v))), 1, 1, 'Forge max level')),
-        field('Each upgrade adds %', num(data.forge?.percent ?? 8, (v) => ((data.forge ??= {}).percent = Math.max(0, v)), 1, 0, 'Forge upgrade percent')),
-        field('A set shard adds % damage', num(data.forge?.enchantPercent ?? 10, (v) => ((data.forge ??= {}).enchantPercent = Math.max(0, v)), 1, 0, 'Enchant percent'))),
-      h('p', { class: 'note' }, 'At an anvil (the Anvil prop, or any prop marked as a forge) the player smelts ore into ingots, upgrades weapons and armor with ingots of their material (+1 takes 1 ingot, +2 takes 2…: damage or defence goes up by the percent above each time), and sets an elemental spell shard in them: weapons hit with its element, armor halves damage of it.')),
+        field('Each upgrade adds %', num(data.forge?.percent ?? 8, (v) => ((data.forge ??= {}).percent = Math.max(0, v)), 1, 0, 'Forge upgrade percent'))),
+      h('p', { class: 'note' }, 'At an anvil (the Anvil prop, or any prop marked as a forge) the player smelts ore into ingots and upgrades weapons and armor with ingots of their material (+1 takes 1 ingot, +2 takes 2…: damage or defence goes up by the percent above each time). Elements come from element stones now (below), not shards set in gear.')),
+    elementStones(c, data),
     h('section', { class: 'db-section' }, h('h3', {}, 'Stealth and levels'),
       field('Campfire safe ground (tiles)', num(c.campSafe, (v) => (data.campSafe = Math.max(0, v)), 0.5, 0, 'Campfire safe radius'),
         'No enemy comes within this many tiles of a lit campfire (a fire that’s also a respawn point), or attacks a hero inside it. 0: off.'),
@@ -427,4 +429,26 @@ function impactSection(d: EnemyDef, rerender: () => void): HTMLElement {
       h('button', { type: 'button', class: 'btn small', onclick: () => playSound(info.sound) }, '▶ Hear it'),
       d.impactFx ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete d.impactFx; rerender(); } }, 'Use the material’s effects') : h('span')),
     h('p', { class: 'note' }, 'Blood can be recoloured for ooze, sap or ichor. Critical hits shake the screen with a big CRITICAL; weak or immune hits land with a soft thump and a big WEAK.'));
+}
+
+/** Database → Combat → Element stones: what Fragments, Shards and Heart Stones give, fusing and drops. */
+function elementStones(c: ReturnType<typeof combatConfig>, data: CombatData): HTMLElement {
+  const e = c.essence, put = <K extends keyof EssenceRules>(k: K, v: EssenceRules[K]) => { (data.essence ??= {})[k] = v; };
+  const tier = (t: EssenceTier) => [
+    field(`${TIER_NAMES[t]}: damage +%`, num(e[t].damage, (v) => put(t, { ...(data.essence?.[t] ?? e[t]), damage: Math.max(0, Math.round(v)) }), 1, 0, `${t} damage`)),
+    field(`${TIER_NAMES[t]}: weaknesses ×`, num(e[t].weak, (v) => put(t, { ...(data.essence?.[t] ?? e[t]), weak: Math.max(1, v) }), 0.05, 1, `${t} weakness`)),
+  ];
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Element stones'),
+    h('div', { class: 'field-row' }, ...tier('fragment'), ...tier('shard'), ...tier('heart')),
+    h('div', { class: 'field-row' },
+      field('Two Shards: weaknesses ×', num(e.doubleWeak, (v) => put('doubleWeak', Math.max(1, v)), 0.05, 1, 'Double shard weakness')),
+      field('Second stone adds % of its bonus', num(e.stack, (v) => put('stack', Math.max(0, Math.min(100, Math.round(v)))), 5, 0, 'Stack percent')),
+      field('Both slots one element: +%', num(e.pair, (v) => put('pair', Math.max(0, Math.round(v))), 1, 0, 'Pair bonus')),
+      field('Spell of your own element: +%', num(e.sameType, (v) => put('sameType', Math.max(0, Math.round(v))), 1, 0, 'Same type bonus'))),
+    h('div', { class: 'field-row' },
+      field('Fragments to a Shard', num(e.fuseFragments, (v) => put('fuseFragments', Math.max(2, Math.round(v))), 1, 2, 'Fuse fragments')),
+      field('Shards to a Heart Stone', num(e.fuseShards, (v) => put('fuseShards', Math.max(2, Math.round(v))), 1, 2, 'Fuse shards')),
+      field('Fragment drop chance %', num(e.dropChance, (v) => put('dropChance', Math.max(0, Math.min(100, Math.round(v)))), 5, 0, 'Fragment drop chance')),
+      field('Fragments dropped', num(e.dropCount, (v) => put('dropCount', Math.max(0, Math.round(v))), 1, 0, 'Fragments dropped'))),
+    h('p', { class: 'note' }, 'Each hero has two Element slots (Equipment, or Bag → Shards): Primary and Secondary. A Fragment, Shard or Heart Stone there gives them its element, so its weaknesses too, and makes their hits of it stronger. The Primary slot’s element is what their basic attacks hit with; with none, they’re Normal. Enemies with elements drop Fragments of them; the bag fuses Fragments into a Shard and Shards of one element into a Heart Stone. The stones are items (Database → Items, “ess_…”): rename them or change their icons and prices there.'));
 }
