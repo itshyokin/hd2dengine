@@ -4984,8 +4984,10 @@
     "titleText": "Titamas",
     "subtitle": "Chapter 1. Arcturus",
     "titleBackground": {
-      "kind": "image"
-    }
+      "kind": "image",
+      "image": "assets/title/title_mvh3gpiw.webp"
+    },
+    "uiTheme": "retro"
   },
   "troops": [
     {
