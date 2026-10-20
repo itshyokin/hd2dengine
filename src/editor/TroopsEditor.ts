@@ -28,7 +28,7 @@ export function troopsTab(list: TroopDef[], enemies: EnemyDef[], audioFiles: str
   if (!t) form.append(h('p', { class: 'note' }, 'No troops yet. A troop is a group of enemies that fight together, like “2–3 slimes” or “two bandits and an archer”. Add troops here, then paint encounter zones on a map (the Spawns layer) and choose which troops come in each zone.'));
   else {
     const opts = enemies.map((e) => [e.id, e.name] as [string, string]);
-    const n = (v: number, set: (x: number) => void, label: string) => numberInput(v, (x) => { set(Math.max(0, Math.min(8, Math.round(x)))); rerender(); }, { step: 1, min: 0, max: 8, 'aria-label': label, class: 'db-num' });
+    const n = (v: number, set: (x: number) => void, label: string) => numberInput(v, (x) => { set(Math.max(0, Math.min(4, Math.round(x)))); rerender(); }, { step: 1, min: 0, max: 4, 'aria-label': label, class: 'db-num' });
     const total = t.members.reduce((s, m) => s + Math.max(m.min ?? 1, m.max ?? m.min ?? 1), 0);
     form.append(
       h('div', { class: 'field-row' },
@@ -45,7 +45,7 @@ export function troopsTab(list: TroopDef[], enemies: EnemyDef[], audioFiles: str
           field('At most', n(m.max ?? m.min ?? 1, (v) => { m.max = Math.max(v, m.min ?? 1); }, `Enemy ${k + 1} at most`)),
           h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove enemy ${k + 1}`, onclick: () => { t.members.splice(k, 1); rerender(); } }, '✕'))),
         opts.length ? h('button', { type: 'button', class: 'btn', onclick: () => { t.members.push({ enemy: opts[0][0], min: 1, max: 1 }); rerender(); } }, '+ Add enemy') : h('span'),
-        h('p', { class: 'note' }, `Each battle picks how many of each between “at least” and “at most” (up to ${total} in all). A group battle holds at most 3; Single mode’s One at random and One at a time take up to 8.`)),
+        h('p', { class: 'note' }, `Each battle picks how many of each between “at least” and “at most” (up to ${total} in all). A group battle holds at most 3; Single mode’s One at random and One at a time take up to 4.`)),
       h('section', { class: 'db-section' }, h('h3', {}, 'Battle'),
         field('Battle music', select([['', 'The usual (map override, else the game’s)'], ...loopChoices('music', audioFiles).filter(([v]) => v)], t.music ?? '', (v) => { if (v) t.music = v; else delete t.music; })),
         checkbox('The party can’t run from this troop', !!t.noRun, (v) => { if (v) t.noRun = true; else delete t.noRun; }),

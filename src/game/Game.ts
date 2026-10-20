@@ -40,7 +40,7 @@ import { type BuiltWorld, buildWorld, hideProp } from '../world/WorldBuilder';
 import { Rings } from './rings';
 import { Bursts } from '../render/Bursts';
 import { Combat, type CombatHost } from './combat/Combat';
-import { type CombatConfig, MAX_FOES, Progression, SWING_TIME, combatFromDb, xpToNext } from './combat/config';
+import { type CombatConfig, MAX_FOES, SINGLE_MAX, Progression, SWING_TIME, combatFromDb, xpToNext } from './combat/config';
 import type { Enemy } from './combat/Enemy';
 import { BattleStage, type StageFighterSpec } from './battle/BattleStage';
 import { FlatSprite } from './FlatSprite';
@@ -800,7 +800,7 @@ export class Game {
       battle: (c) => {
         const defs = new Map((this.db.enemies ?? []).map((x) => [x.id, x]));
         // Single mode: a wild encounter, a trainer battle or a swarm (the event's choice, else the map's default).
-        const pick = this.pickFor(c.pick), cap = this.combatCfg.turnBased.mode === 'single' && pick !== 'full' ? 8 : MAX_FOES;
+        const pick = this.pickFor(c.pick), cap = this.combatCfg.turnBased.mode === 'single' && pick !== 'full' ? SINGLE_MAX : MAX_FOES;
         const list = c.enemies.map((id) => defs.get(id)).filter((d): d is EnemyDef => !!d).slice(0, cap).map((def) => ({ def, hp: def.hp, enemy: null }));
         if (!list.length) return;
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined, pick });
@@ -4626,7 +4626,7 @@ export class Game {
     // Single mode, by the map's default: a wild encounter is just the one bumped into; one at a time, it comes out first
     // and its friends follow; all at once, a group fight.
     const single = tb.mode === 'single', pick = this.pickFor();
-    const group = single && pick === 'random' ? [e] : [e, ...near].slice(0, single && pick === 'oneByOne' ? 8 : Math.min(MAX_FOES, tb.maxEnemies));
+    const group = single && pick === 'random' ? [e] : [e, ...near].slice(0, single && pick === 'oneByOne' ? SINGLE_MAX : Math.min(MAX_FOES, tb.maxEnemies));
     this.startBattle(group.map((en) => ({ def: en.def, hp: en.hp, enemy: en })), opening, single ? { pick: pick === 'random' ? 'full' : pick } : {});
     return true;
   }
@@ -4667,7 +4667,7 @@ export class Game {
       if (!troop) return;
       const list: { def: EnemyDef; hp: number; enemy: null }[] = [];
       // Single mode takes up to eight from a troop (one at a time, or one picked at random).
-      const tp = this.pickFor(troop.pick), cap = this.combatCfg.turnBased.mode === 'single' && tp !== 'full' ? 8 : MAX_FOES;
+      const tp = this.pickFor(troop.pick), cap = this.combatCfg.turnBased.mode === 'single' && tp !== 'full' ? SINGLE_MAX : MAX_FOES;
       for (const mem of troop.members) {
         const def = defs.get(mem.enemy);
         if (!def) continue;
@@ -4804,7 +4804,8 @@ export class Game {
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
           additions: this.battleAdditions(a), addition: a.addition,
         },
-        view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0), face: hero.face ? this.resolveFile(hero.face) : undefined },
+        view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0), face: hero.face ? this.resolveFile(hero.face) : undefined,
+          level: this.progress.level, xp: { have: this.progress.xp, next: this.progress.maxed ? 0 : this.progress.toNext }, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame('battle:hero', look, 'up', 0) : undefined },
         fig: { look, equip: gear, bow: useBow, lift: mainHero(this.db).battleOffset },
       };
     }
@@ -4831,7 +4832,8 @@ export class Game {
         inflicts: useBow ? undefined : n.meleeInflicts,
         additions: this.battleAdditions(ab), addition: ab.addition,
       },
-      view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who), face: m.def.face ? this.resolveFile(m.def.face) : undefined },
+      view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who), face: m.def.face ? this.resolveFile(m.def.face) : undefined,
+        level: m.data.level, xp: { have: m.data.xp, next: xpToNext(this.combatCfg, m.data.level) }, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'up', 0) : undefined },
       fig: { look, equip: m.data.equip, bow: useBow, lift: m.def.battleOffset },
     };
   }
@@ -5025,6 +5027,8 @@ export class Game {
     this.endStage();
     const map = new TileMap(data, this.tiles);
     const stage = new BattleStage(data, (x, z) => map.standY(x, z));
+    // Pocket Handheld: the camera starts behind the hero, the foe up and across from them.
+    stage.pocket = this.combatCfg.turnBased.layout === 'pocket';
     const built = buildWorld(stage.group, map, data, this.sprites, this.tileTextures);
     tagAOMeshes(stage.group);
     const lights = new Lights(stage.group, data, map, this.sprites);

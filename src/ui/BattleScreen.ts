@@ -14,6 +14,10 @@ export interface QteStrike { button: FaceButton | 'any'; time: number; window: n
 export type QteResult = 'perfect' | 'good' | 'miss';
 /** How a spell addition went: buttons right of all of them, and the share of the time left (0 … 1). */
 export interface SeqResult { correct: number; total: number; left: number }
+/** One of the four spheres on a Pocket Handheld block: still to fight (or fighting), knocked out, or no one. */
+export type Sphere = 'up' | 'ko' | 'empty';
+/** A Pocket Handheld block (Pokémon-style): name and level, health bar (and a hero's numbers, MP orb and EXP). */
+interface PocketBlock { el: HTMLElement; hp: HTMLElement; num: HTMLElement | null; orb: HTMLElement | null; orbText: HTMLElement | null }
 
 interface Qte {
   target: string;
@@ -36,8 +40,12 @@ export interface FighterView {
   key: string;
   side: 'party' | 'enemy';
   name: string;
-  /** Enemies: their level, when they have one (shown beside the name). */
+  /** Their level, when they have one (shown beside the name; heroes in the Pocket Handheld layout). */
   level?: number;
+  /** Heroes (Pocket Handheld layout): EXP towards the next level. */
+  xp?: { have: number; next: number };
+  /** Heroes (Pocket Handheld layout, flat screen): seen from behind. */
+  back?: HTMLCanvasElement;
   /** Full-body picture, and a small one for the turn order (party: their face). */
   picture: HTMLCanvasElement;
   icon: string;
@@ -145,11 +153,13 @@ export class BattleScreen {
   private readonly statusEl: HTMLElement;
   private readonly resultEl: HTMLElement;
   private readonly flashEl: HTMLElement;
-  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string; card: HTMLElement | null }>();
+  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string; card: HTMLElement | null; pb: PocketBlock }>();
+  /** Pocket Handheld: each side's spheres (shown on that side's first block). */
+  private spheres: Record<'party' | 'enemy', Sphere[]> = { party: [], enemy: [] };
   private readonly camEl: HTMLElement;
   private readonly cardsEl: HTMLElement;
   private readonly descEl: HTMLElement;
-  private layout: 'dragon' | 'fantasy' = 'dragon';
+  private layout: 'dragon' | 'fantasy' | 'pocket' = 'dragon';
   private readonly blocksEl: HTMLElement;
   private readonly logEl: HTMLElement;
   private readonly logLines: HTMLElement;
@@ -208,6 +218,7 @@ export class BattleScreen {
       </div>
       <div class="battle-desc" hidden></div>
       <div class="battle-blocks" aria-label="Foes"></div>
+      <div class="pocket-foes" aria-label="Foes"></div><div class="pocket-heroes" aria-label="Party"></div>
       <div class="battle-log" role="log" aria-label="Battle log"><div class="battle-log-lines"></div><div class="battle-log-hint">Y: battle log</div></div>
       <div class="battle-result" hidden></div>`;
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
@@ -274,6 +285,9 @@ export class BattleScreen {
     this.cardsEl.replaceChildren();
     this.blocksEl.replaceChildren();
     this.blocks.clear();
+    this.root.querySelector('.pocket-foes')!.replaceChildren();
+    this.root.querySelector('.pocket-heroes')!.replaceChildren();
+    this.spheres = { party: [], enemy: [] };
     this.logLines.replaceChildren();
     this.focusLog(false);
     this.resultEl.hidden = true;
@@ -347,8 +361,10 @@ export class BattleScreen {
     el.style.setProperty('--n', String(n));
     el.setAttribute('aria-label', v.name);
     const img = document.createElement('canvas');
-    img.width = v.picture.width; img.height = v.picture.height;
-    img.getContext('2d')!.drawImage(v.picture, 0, 0);
+    // Pocket Handheld (flat screen): the party seen from behind, facing the foe.
+    const pic = this.layout === 'pocket' && v.side === 'party' && v.back ? v.back : v.picture;
+    img.width = pic.width; img.height = pic.height;
+    img.getContext('2d')!.drawImage(pic, 0, 0);
     img.className = 'bf-pic';
     // A crowd is drawn smaller so it fits (more than 3 in the party, more than 4 enemies).
     const crowd = v.side === 'party' ? (n > 3 ? 3.3 / n : 1) : n > 4 ? 4.6 / n : 1;
@@ -401,7 +417,45 @@ export class BattleScreen {
       (card.querySelector('.dl-name') as HTMLElement).textContent = v.name;
       card.addEventListener('click', () => this.tapFighter(v.key));
     }
-    this.fighters.set(v.key, { view: v, el, img, bar, row, icons, rowIcons: row?.querySelector('.bstat-status') as HTMLElement | null, statusKey: '', card });
+    const pb = this.pocketBlock(v);
+    this.root.querySelector(v.side === 'enemy' ? '.pocket-foes' : '.pocket-heroes')!.append(pb.el);
+    this.fighters.set(v.key, { view: v, el, img, bar, row, icons, rowIcons: row?.querySelector('.bstat-status') as HTMLElement | null, statusKey: '', card, pb });
+  }
+
+  /** A Pocket Handheld block: the foe's (name, level, element, health) or a hero's (and numbers, MP orb, EXP). */
+  private pocketBlock(v: FighterView): PocketBlock {
+    const el = document.createElement('div');
+    el.className = `pb ${v.side === 'enemy' ? 'foe' : 'hero'}`;
+    if (v.color) el.style.setProperty('--hero', v.color);
+    const els = v.side === 'enemy' && v.elements?.length ? v.elements.slice(0, 2) : [];
+    el.innerHTML = `<div class="pb-top"><span class="pb-name"></span><span class="pb-lv"></span></div>
+      <div class="pb-line"><span class="pb-k">HP</span><div class="pb-bar"><span></span></div></div>
+      ${v.side === 'party' ? '<div class="pb-num"></div>' : ''}
+      <div class="pb-foot"><div class="pb-balls"></div>${v.side === 'party' ? '<div class="pb-xp"><span></span></div>' : '<div class="pb-bracket"></div>'}</div>
+      ${v.side === 'party' ? '<div class="pb-orb"><b>MP<span></span></b></div>' : ''}`;
+    (el.querySelector('.pb-name') as HTMLElement).textContent = v.name;
+    const lv = el.querySelector('.pb-lv') as HTMLElement;
+    lv.textContent = v.level ? `Lv ${v.level}` : '';
+    for (const e of els) { const im = document.createElement('img'); im.src = elementIconUrl(e); im.alt = ELEMENT_NAMES[e]; im.title = ELEMENT_NAMES[e]; lv.prepend(im); }
+    const xp = el.querySelector('.pb-xp span') as HTMLElement | null;
+    if (xp && v.xp) xp.style.width = `${v.xp.next > 0 ? Math.max(0, Math.min(100, (v.xp.have / v.xp.next) * 100)) : 100}%`;
+    el.addEventListener('click', () => this.tapFighter(v.key));
+    return { el, hp: el.querySelector('.pb-bar span') as HTMLElement, num: el.querySelector('.pb-num'), orb: el.querySelector('.pb-orb'), orbText: el.querySelector('.pb-orb span') };
+  }
+
+  /** Pocket Handheld: the four spheres on a side's first block (up to fight, knocked out with a red ✕, or empty). */
+  setSpheres(side: 'party' | 'enemy', list: Sphere[]): void {
+    this.spheres[side] = Array.from({ length: 4 }, (_, i) => list[i] ?? 'empty');
+    this.drawSpheres(side);
+  }
+
+  private drawSpheres(side: 'party' | 'enemy'): void {
+    const box = this.root.querySelector(side === 'enemy' ? '.pocket-foes' : '.pocket-heroes')!;
+    const blocks = [...box.querySelectorAll<HTMLElement>('.pb')];
+    blocks.forEach((b, i) => {
+      const balls = b.querySelector('.pb-balls') as HTMLElement;
+      balls.replaceChildren(...(i === 0 ? this.spheres[side] : []).map((s) => { const x = document.createElement('i'); x.className = `pb-ball ${s}`; x.title = s === 'up' ? 'Ready' : s === 'ko' ? 'Knocked out' : 'No one'; return x; }));
+    });
   }
 
   /** A party member swapped in where another stood: their picture, card and row take the old one's place. */
@@ -412,6 +466,8 @@ export class BattleScreen {
     this.addFighter(v, Number(old.el.style.getPropertyValue('--i')) || 0, n);
     const f = this.fighters.get(v.key)!;
     old.el.replaceWith(f.el);
+    old.pb.el.replaceWith(f.pb.el);
+    this.drawSpheres(v.side);
     if (old.row && f.row) old.row.replaceWith(f.row);
     if (old.card && f.card) old.card.replaceWith(f.card);
     f.el.style.cssText = old.el.style.cssText;
@@ -440,6 +496,19 @@ export class BattleScreen {
       f.rowIcons?.replaceChildren(...make());
     }
     if (f.bar) f.bar.style.width = `${Math.max(0, Math.min(100, (v.hp / Math.max(1, v.maxHp)) * 100))}%`;
+    // Pocket Handheld: the bar goes green, yellow, red; heroes' numbers and MP orb.
+    const pb = f.pb;
+    pb.hp.style.width = `${Math.max(0, Math.min(100, share * 100))}%`;
+    pb.el.classList.toggle('mid', share <= 0.5 && share > 0.2);
+    pb.el.classList.toggle('low', share <= 0.2);
+    pb.el.classList.toggle('down', down);
+    if (pb.num) pb.num.textContent = `${Math.ceil(Math.max(0, v.hp))} / ${v.maxHp}`;
+    if (pb.orb) {
+      pb.orb.style.setProperty('--mp', String(v.maxMp ? Math.max(0, Math.min(1, v.mp / v.maxMp)) : 0));
+      pb.orb.classList.toggle('none', !v.maxMp);
+      pb.orbText!.textContent = String(Math.floor(v.mp));
+      pb.orb.title = `MP ${Math.floor(v.mp)} / ${v.maxMp}`;
+    }
     const b = this.blocks.get(key);
     if (b) {
       b.hp.style.width = `${Math.max(0, Math.min(100, share * 100))}%`;
@@ -470,11 +539,14 @@ export class BattleScreen {
   }
 
   /** The battle screen's look: Dragon Legend (default) or Forbidden Fantasy. */
-  setLayout(l: 'dragon' | 'fantasy'): void {
+  setLayout(l: 'dragon' | 'fantasy' | 'pocket'): void {
     this.layout = l;
     this.root.classList.toggle('layout-dragon', l === 'dragon');
     this.root.classList.toggle('layout-fantasy', l === 'fantasy');
+    this.root.classList.toggle('layout-pocket', l === 'pocket');
   }
+
+  get pocket(): boolean { return this.layout === 'pocket'; }
 
   /** Whose turn it is (highlighted), and the turn order after them. */
   setOrder(keys: string[], active: string | null): void {
@@ -539,6 +611,9 @@ export class BattleScreen {
 
   /** A line in the battle log (left side). */
   logLine(text: string): void {
+    // Pocket Handheld shows messages in the log too: the same words twice in a row ("steps in!", "steps in") once.
+    const same = (a: string) => a.trim().replace(/[.!]+$/, '');
+    if (this.layout === 'pocket' && same(this.logLines.lastElementChild?.textContent ?? '') === same(text)) return;
     const p = document.createElement('div');
     p.textContent = text;
     this.logLines.append(p);
@@ -606,10 +681,14 @@ export class BattleScreen {
 
   /** A line at the top. Without `hold` it fades after a moment. */
   message(text: string, hold = false): void {
+    // Pocket Handheld: messages go in the text box at the bottom (the battle log).
+    if (this.layout === 'pocket' && text && text !== this.lastPocketLine) { this.lastPocketLine = text; this.logLine(text); }
     this.msgEl.textContent = text;
     this.msgEl.classList.toggle('on', !!text);
     this.msgTimer = hold ? Infinity : 2.2;
   }
+
+  private lastPocketLine = '';
 
   /** A number or word rising from a fighter. */
   popup(key: string, text: string, kind: 'dmg' | 'crit' | 'heal' | 'info' | 'mp' | 'big' | 'critBig' = 'dmg', color?: string): void {
@@ -782,13 +861,13 @@ export class BattleScreen {
     const m = this.mode;
     this.clearTargets();
     if (m.kind !== 'target') return;
-    m.keys.forEach((k, i) => { const f = this.fighters.get(k); f?.el.classList.toggle('targeted', m.all || i === m.index); f?.card?.classList.toggle('targeted', m.all || i === m.index); this.blocks.get(k)?.el.classList.toggle('targeted', m.all || i === m.index); });
+    m.keys.forEach((k, i) => { const f = this.fighters.get(k); f?.el.classList.toggle('targeted', m.all || i === m.index); f?.pb.el.classList.toggle('targeted', m.all || i === m.index); f?.card?.classList.toggle('targeted', m.all || i === m.index); this.blocks.get(k)?.el.classList.toggle('targeted', m.all || i === m.index); });
     this.stage?.highlight(m.all ? m.keys : [m.keys[m.index]]);
     const f = this.fighters.get(m.keys[m.index]);
     this.message(m.all ? (f?.view.side === 'party' ? 'The whole party' : 'Every foe') : f ? f.view.name : '', true);
   }
 
-  private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted', 'turn'); f.card?.classList.remove('targeted'); } for (const b of this.blocks.values()) b.el.classList.remove('targeted'); this.stage?.highlight([]); }
+  private clearTargets(): void { for (const f of this.fighters.values()) { f.el.classList.remove('targeted', 'turn'); f.card?.classList.remove('targeted'); f.pb.el.classList.remove('targeted'); } for (const b of this.blocks.values()) b.el.classList.remove('targeted'); this.stage?.highlight([]); }
 
   private tapFighter(key: string): void {
     const m = this.mode;
@@ -838,8 +917,10 @@ export class BattleScreen {
         this.renderList();
         m.hover?.(m.index);
       };
-      if (i.consume('down') || (m.bar && i.consume('right'))) step(1);
-      if (i.consume('up') || (m.bar && i.consume('left'))) step(-1);
+      // Pocket Handheld's commands are a 3 × 2 grid: up / down move a row.
+      const grid = m.bar && this.layout === 'pocket' ? 3 : 1;
+      if (i.consume('down')) step(grid); else if (m.bar && i.consume('right')) step(1);
+      if (i.consume('up')) step(-grid); else if (m.bar && i.consume('left')) step(-1);
       if (i.consume('ok')) { const it = m.items[m.index]; if (it && !it.disabled) { uiSound('menuOk'); this.idle(); m.pick(m.index); } }
       else if (i.consume('cancel') && m.back) { uiSound('menuBack'); this.idle(); m.back(); }
     } else if (m.kind === 'target') {

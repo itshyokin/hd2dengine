@@ -12,7 +12,7 @@ import { BUFF_INFO, DEBUFFS, buffLabel } from '../status';
 import type { TurnBasedConfig } from '../combat/config';
 import { ELEMENT_COLORS } from '../elements';
 import { statusIconUrl } from '../../art/statusIcons';
-import type { QteResult } from '../../ui/BattleScreen';
+import type { QteResult, Sphere } from '../../ui/BattleScreen';
 import type { FaceButton } from '../../world/types';
 import {
   type BattleAddition, type Battler, type BattleSpell, type Opening, RANK, type SpellRank, advanceTo, enemyChoice, fleeChance, forecast, healAmount, isUp, nextUp,
@@ -141,6 +141,7 @@ export class TurnBattle {
     for (const e of entries) if (!cfg.statBlocks || !e.view.overdrive) e.battler.overdrive = undefined;
     this.screen.open(entries.map((e) => e.view));
     this.refreshAll();
+    this.updateSpheres();
     startCounters(this.battlers, opening);
     this.screen.flash();
     this.screen.setWeather(this.weatherText());
@@ -240,6 +241,18 @@ export class TurnBattle {
     if (pause) this.later(pause, go); else go();
   }
 
+  /**
+   * Pocket Handheld: the spheres. Foes: those beaten (knocked out), those fighting and those still to come; the party:
+   * everyone who can fight (the reserves too), up to four.
+   */
+  private updateSpheres(): void {
+    if (!this.screen.pocket) return;
+    const foes = [...this.gone.map((e) => e.battler), ...this.foes, ...this.waiting.map((e) => e.battler)];
+    this.screen.setSpheres('enemy', foes.map((b) => (isUp(b) ? 'up' : 'ko')));
+    const party: Sphere[] = [...this.party.map((b): Sphere => (isUp(b) ? 'up' : 'ko')), ...(this.host.reserves?.() ?? []).map((r): Sphere => (r.down ? 'ko' : 'up'))];
+    this.screen.setSpheres('party', party);
+  }
+
   /** Single mode: the hero on the field chooses this round's action (it happens in its place in the round). */
   private planRound(h: Battler): void {
     this.planning = h;
@@ -275,6 +288,7 @@ export class TurnBattle {
     this.screen.replaceFighter(old.battler.key, e.view);
     this.host.foeIn?.(old.battler.key, e);
     this.refresh(e.battler);
+    this.updateSpheres();
     this.queue = [];
     this.phase = 'busy';
     this.screen.message(`${e.battler.name} steps in!`, true);
@@ -315,7 +329,7 @@ export class TurnBattle {
     const canFlee = this.rules.canRun !== false && !this.foes.some((f) => isUp(f) && f.boss);
     const silenced = b.status.silenced;
     // Legend of Dragoon style: a row of pictures.
-    const cmds: (ChoiceItem & { run: () => void })[] = [
+    let cmds: (ChoiceItem & { run: () => void })[] = [
       { label: 'Attack', icon: 'attack', rank: RANK.attack, right: this.attackLabel(b), detail: 'Strike a foe (or anyone)', run: () => this.attackMenu(b) },
       { label: 'Guard', icon: 'guard', rank: RANK.guard, detail: this.cfg.guardHeal > 0 ? `Half damage, +${this.cfg.guardHeal}% HP, no ailments` : 'Half damage, no ailments', run: () => this.doGuard(b) },
       { label: 'Magic', icon: 'magic', rank: RANK.magic, disabled: !b.spells.length || silenced, detail: silenced ? 'Silenced' : b.spells.length ? 'Cast a spell' : 'No spells learned', run: () => this.magicMenu(b) },
@@ -323,6 +337,8 @@ export class TurnBattle {
       ...(this.host.reserves?.().length ? [{ label: 'Swap', icon: 'swap', disabled: !this.host.reserves!().some((r) => !r.down), detail: this.single ? 'Bring in someone else (goes first; they take this round’s hits)' : 'Bring in someone from the party (no turn used: they take this one)', run: () => this.swapMenu(b) }] : []),
       { label: 'Escape', icon: 'escape', rank: RANK.flee, disabled: !canFlee, detail: canFlee ? 'Try to run away' : 'Can’t run from this fight', run: () => this.doFlee(b) },
     ];
+    // Pocket Handheld: a 3 × 2 grid, the actions on top (Attack, Magic, Items), the rest under them.
+    if (this.screen.pocket) { const order = ['Attack', 'Magic', 'Items', 'Guard', 'Swap', 'Escape']; cmds = [...cmds].sort((x, y) => order.indexOf(x.label) - order.indexOf(y.label)); }
     this.screen.message(`${b.name}’s turn`, true);
     this.screen.choose(b.name, cmds, (i) => { this.lastCommand = i; this.screen.message(''); cmds[i].run(); }, undefined, (i) => this.showOrder(cmds[i].rank), this.lastCommand, true);
   }
@@ -349,6 +365,7 @@ export class TurnBattle {
     this.refresh(n);
     this.host.sound('menuOk');
     this.say(`${b.name} swaps out for ${n.name}`);
+    this.updateSpheres();
     this.screen.message(`${n.name} steps in!`);
     this.actor = n;
     this.showOrder();
@@ -996,6 +1013,7 @@ export class TurnBattle {
     setTimeout(() => this.screen.animate(t.key, 'faint'), 260);
     if (t.side === 'enemy') { this.host.sound('defeat'); this.say(`${t.name} defeated`); this.foeEarned(t); }
     else { this.partyFell = true; this.say(`${t.name} is knocked out`); }
+    this.updateSpheres();
   }
 
   private endTurn(b: Battler, rank: number, pause: number): void {

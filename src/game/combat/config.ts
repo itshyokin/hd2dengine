@@ -1,5 +1,7 @@
 /** Battles are three a side at most: the hero and two party members, and three enemies. */
 export const MAX_FOES = 3;
+/** Single battle mode: heroes who can be swapped in, and foes in a trainer battle, at most (the four spheres). */
+export const SINGLE_MAX = 4;
 /**
  * Combat tuning with defaults filled in. Database → Combat stores only what differs.
  * No three.js, so it can be tested on its own.
@@ -22,7 +24,7 @@ export interface TurnBasedConfig {
   additions: 'set' | 'choose';
   additionTiming: 'press' | 'auto';
   /** The battle screen: Dragon Legend (faces and numbers in a row, lists in the middle) or Forbidden Fantasy (bars in a box, lists at the side). */
-  layout: 'dragon' | 'fantasy';
+  layout: 'dragon' | 'fantasy' | 'pocket';
   /** The hero always fights (can't be swapped onto the bench). */
   heroLocked: boolean;
   /** Party members walk behind the hero on the map (off: only the hero is shown; the party appears in battles). */
@@ -104,7 +106,7 @@ export function combatConfig(data?: CombatData): CombatConfig {
     turnBased: {
       ...tb, order: tb.order === 'rounds' ? 'rounds' : 'ctb',
       flee: Math.max(0, Math.min(100, tb.flee)), joinRadius: Math.max(0, tb.joinRadius), maxEnemies: Math.max(1, Math.min(MAX_FOES, Math.round(tb.maxEnemies))),
-      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press', layout: tb.layout === 'fantasy' ? 'fantasy' : 'dragon', heroLocked: !!tb.heroLocked, statBlocks: !!tb.statBlocks, mode: tb.mode === 'single' ? 'single' : 'group', singleParty: Math.max(1, Math.min(8, Math.round(tb.singleParty ?? 3))), singlePick: tb.singlePick === 'full' || tb.singlePick === 'oneByOne' ? tb.singlePick : 'random',
+      partyDamage: Math.max(0.1, tb.partyDamage), enemyDamage: Math.max(0.1, tb.enemyDamage), grace: Math.max(0, tb.grace), guardHeal: Math.max(0, Math.min(100, tb.guardHeal)), additions: tb.additions === 'choose' ? 'choose' : 'set', additionTiming: tb.additionTiming === 'auto' ? 'auto' : 'press', layout: tb.layout === 'fantasy' || tb.layout === 'pocket' ? tb.layout : 'dragon', heroLocked: !!tb.heroLocked, statBlocks: !!tb.statBlocks, mode: tb.mode === 'single' ? 'single' : 'group', singleParty: Math.max(1, Math.min(4, Math.round(tb.singleParty ?? 3))), singlePick: tb.singlePick === 'full' || tb.singlePick === 'oneByOne' ? tb.singlePick : 'random',
     },
     unarmedDamage: s.unarmedDamage ?? d.unarmedDamage,
     classes,

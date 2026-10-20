@@ -77,6 +77,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `dismount`, `updateHorse`, `horseArrive`; Stable / Horse event commands; PlayerMotion `noSwim` and `leap`).
 - 76: griffin flights (Griffin roost command; `GameState.roosts`; WorldMapScreen `pickSpot`; Game's `startFlight`,
   `flightGround`, `updateFlight`, `startFlyAway`; `griffinSheet` in horseArt.ts; Database → Travel).
+- 77: Pocket Handheld layout (`turnBased.layout: 'pocket'`): BattleScreen `pocketBlock`, `setSpheres` (TurnBattle's
+  `updateSpheres`), `.layout-pocket` CSS; BattleStage `pocket` and `pocketCamera` (searches for a spot putting the
+  hero lower left and the foe upper right); heroes get a `back` picture; `SINGLE_MAX = 4` in combat/config.ts.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

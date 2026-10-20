@@ -91,6 +91,8 @@ const CAMERA_PRESETS = [
   { name: 'Wide, from the left', yaw: 0.6, dist: 1.25, height: 1.15, side: 0, look: 0.5, lookUp: 0, fit: 'all' },
   { name: 'Wide, from the right', yaw: -0.6, dist: 1.25, height: 1.15, side: 0, look: 0.5, lookUp: 0, fit: 'all' },
 ] as const;
+/** Pocket Handheld's camera: low behind the hero's right shoulder, the hero big at the bottom left, the foe up and right. */
+const POCKET_PRESET = { name: 'Handheld', yaw: 0, dist: 0.6, height: 0.5, side: 0, look: 0.6, lookUp: 0, fit: 'all', lookSide: 0 } as const;
 
 let glowTexture: THREE.Texture | null = null;
 /** A soft round glow (spell flares, hit sparks). */
@@ -128,6 +130,8 @@ export class BattleStage implements StageHooks {
   private elapsed = 0;
   /** Field of view the game's camera had before the battle. */
   savedFov = 0;
+  /** Pocket Handheld layout: start (and stay, unless changed) on the handheld camera. */
+  pocket = false;
 
   /**
    * `stand(x, z)`: the ground height there. `data`: the battle map (its markers and camera).
@@ -163,10 +167,28 @@ export class BattleStage implements StageHooks {
 
   addFighters(list: StageFighterSpec[]): void {
     const counts = { party: 0, enemy: 0 };
-    for (const s of list) this.makeFighter(s, this.spot(s.side, counts[s.side]++));
+    for (const s of list) this.makeFighter(s, this.pocketSpot(s.side, this.spot(s.side, counts[s.side]++)));
     // Everyone faces the other side (all the same way, so their frames match).
     for (const f of this.fighters.values()) this.faceFoes(f);
     this.frameCamera();
+  }
+
+  /**
+   * Pocket Handheld: the two sides stand a little further apart and off to either side (the hero to the left, the foe
+   * to the right), so the camera behind the hero sees them across the screen from each other.
+   */
+  private pocketSpot(side: 'party' | 'enemy', p: THREE.Vector3): THREE.Vector3 {
+    if (!this.pocket) return p;
+    const pc = this.party[0] ?? this.spot('party', 0), ec = this.enemies[0] ?? this.spot('enemy', 0);
+    const along = new THREE.Vector3().subVectors(ec, pc).setY(0);
+    if (along.lengthSq() < 0.01) along.set(0, 0, -1);
+    along.normalize();
+    const right = new THREE.Vector3(-along.z, 0, along.x);
+    const q = p.clone().addScaledVector(right, side === 'party' ? -0.8 : 1.2).addScaledVector(along, side === 'party' ? 0.6 : 1.4);
+    q.x = THREE.MathUtils.clamp(q.x, 0.5, this.data.width - 0.5);
+    q.z = THREE.MathUtils.clamp(q.z, 0.5, this.data.height - 0.5);
+    q.y = this.stand(q.x, q.z);
+    return q;
   }
 
   /** A party member swapped in: they stand where the one leaving stood. */
@@ -222,11 +244,12 @@ export class BattleStage implements StageHooks {
     const baseYaw = THREE.MathUtils.clamp(Math.atan2(back0.x, back0.z), -0.6, 0.6);
     const probe = new THREE.PerspectiveCamera(s.fov, innerWidth / Math.max(1, innerHeight), 0.3, 200);
     const p = new THREE.Vector3();
-    this.presets = CAMERA_PRESETS.map((pr) => {
+    const list = this.pocket ? [POCKET_PRESET, ...CAMERA_PRESETS] : CAMERA_PRESETS;
+    this.presets = list.map((pr) => {
       const yaw = THREE.MathUtils.clamp(baseYaw + pr.yaw, -0.65, 0.65);
       const back = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
       const right = new THREE.Vector3().crossVectors(UP, back).normalize();
-      const look = pc.clone().lerp(ec, pr.look);
+      const look = pc.clone().lerp(ec, pr.look).addScaledVector(right, 'lookSide' in pr ? pr.lookSide : 0);
       look.y = Math.max(pc.y, ec.y) + 0.7 + pr.lookUp;
       const dist0 = s.distance * pr.dist, height = s.height * pr.height;
       const place = (d: number) => {
@@ -236,6 +259,7 @@ export class BattleStage implements StageHooks {
         probe.updateMatrixWorld();
       };
       let dist = dist0;
+      if (pr === POCKET_PRESET) return this.pocketCamera(probe, pc, ec, back, right, dist0, height, pr.name);
       for (let k = 0; k < 14; k++) {
         place(dist);
         let fits = true;
@@ -254,7 +278,7 @@ export class BattleStage implements StageHooks {
       return { name: pr.name, pos: probe.position.clone(), look };
     });
     // Each battle starts from a camera chosen at random, most often the one behind the party.
-    this.preset = Math.random() < 0.5 ? 0 : 1 + Math.floor(Math.random() * (this.presets.length - 1));
+    this.preset = this.pocket ? 0 : Math.random() < 0.5 ? 0 : 1 + Math.floor(Math.random() * (this.presets.length - 1));
     const first = this.presets[this.preset];
     this.cam.basePos.copy(first.pos);
     this.cam.baseLook.copy(first.look);
@@ -262,6 +286,39 @@ export class BattleStage implements StageHooks {
     this.cam.pos.copy(first.pos).add(new THREE.Vector3(0, 5, 0)).addScaledVector(new THREE.Vector3(Math.sin(baseYaw), 0, Math.cos(baseYaw)), 4);
     this.cam.look.copy(ec).setY(ec.y + 0.5);
     this.cam.t = 0;
+  }
+
+  /**
+   * The handheld camera: it always turns so the foe sits at the upper right, then tries spots behind and beside the
+   * hero and keeps the one that shows the hero big at the lower left.
+   */
+  private pocketCamera(probe: THREE.PerspectiveCamera, pc: THREE.Vector3, ec: THREE.Vector3, back: THREE.Vector3, right: THREE.Vector3, _dist0: number, _height: number, name: string) {
+    const hero = [...this.fighters.values()].find((f) => f.side === 'party'), foe = [...this.fighters.values()].find((f) => f.side === 'enemy');
+    const feet = (hero?.home ?? pc).clone(), tall = hero ? hero.tall * hero.scale : 2;
+    // The character frame has room above the head: the hero's head is about half way up it.
+    const mid = feet.clone().setY(feet.y + tall * 0.25), head = feet.clone().setY(feet.y + tall * 0.47);
+    const ep = (foe?.home ?? ec).clone().setY((foe?.home.y ?? ec.y) + (foe ? foe.tall * foe.scale * 0.5 : 0.6));
+    const tanV = Math.tan(THREE.MathUtils.degToRad(probe.fov / 2)), tanH = tanV * probe.aspect;
+    const turn = Math.atan(0.42 * tanH), tip = Math.atan(0.34 * tanV);
+    const p = new THREE.Vector3(), dir = new THREE.Vector3(), best = { score: Infinity, pos: new THREE.Vector3(), look: new THREE.Vector3() };
+    for (let b = 1.2; b <= 6; b += 0.3)
+      for (let r = -2.5; r <= 2.5; r += 0.25)
+        for (let h = 0.6; h <= 3.6; h += 0.2) {
+          probe.position.copy(feet).addScaledVector(back, b).addScaledVector(right, r);
+          probe.position.y = feet.y + h;
+          probe.lookAt(ep);
+          // Turn left and tip down, so the foe moves to the upper right of the view.
+          probe.rotateY(turn);
+          probe.rotateX(-tip);
+          probe.updateMatrixWorld();
+          p.copy(mid).project(probe);
+          if (p.z > 1) continue;
+          let score = (p.x + 0.45) ** 2 + 0.5 * (p.y + 0.5) ** 2;
+          p.copy(head).project(probe);
+          score += (p.y + 0.4) ** 2;
+          if (score < best.score) { best.score = score; best.pos.copy(probe.position); best.look.copy(probe.position).add(probe.getWorldDirection(dir).multiplyScalar(6)); }
+        }
+    return { name, pos: best.pos, look: best.look };
   }
 
   private presets: { name: string; pos: THREE.Vector3; look: THREE.Vector3 }[] = [];
@@ -542,12 +599,14 @@ export class BattleStage implements StageHooks {
       this.faceCamera(camera);
       return c.look;
     }
-    const sway = Math.sin(this.elapsed * 0.35) * 0.35, bob = Math.sin(this.elapsed * 0.5) * 0.12;
+    // The handheld camera sits close to the hero, so it barely drifts and doesn't lean towards whoever acts.
+    const calm = this.pocket && this.preset === 0 ? 0.15 : 1;
+    const sway = Math.sin(this.elapsed * 0.35) * 0.35 * calm, bob = Math.sin(this.elapsed * 0.5) * 0.12 * calm;
     const pos = this.v.copy(c.basePos);
     pos.x += sway; pos.y += bob;
     const look = this.w.copy(c.baseLook);
     const f = this.focusKey && this.focusT > 0 ? this.fighters.get(this.focusKey) : undefined;
-    if (f) {
+    if (f && calm === 1) {
       // Lean towards the one acting: a party member pulls the camera behind them; an enemy draws the eye.
       const k = Math.min(1, this.focusT);
       if (f.side === 'party') pos.x += (f.home.x - this.centre('party').x) * 0.35 * k;

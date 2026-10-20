@@ -90,6 +90,10 @@ Kept in the project so they travel with the code. Tick them off as they're built
       distance. Only roosts unlocked by talking to their griffin master. The griffin flies the route over the World
       layout's maps (lighter versions) with the camera following, unmapped stretches filled with forest / theme
       scenery, at one speed (long flights take longer, no skip), then lands, drops the player off and flies away.
+- [x] Pocket Handheld battle layout (update 77; Pokémon Gold / Silver style): foe block top left, hero block right with
+      HP numbers, EXP bar and a violet MP orb; four spheres per side (orange to fight, dark with a red ✕ when KO'd,
+      empty); commands as a 3 × 2 word grid; the log as a bottom text box; the handheld camera (hero from behind at
+      the lower left, foe upper right). Single mode now fights at most 4 (party pool and trainer foes).
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

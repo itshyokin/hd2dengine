@@ -1372,7 +1372,7 @@ export interface TurnBasedData {
   /** Additions' timing: pressed by the player, or automatic (every strike lands; for accessibility). */
   additionTiming?: 'press' | 'auto';
   /** The battle screen's look: 'dragon' (default; Legend of Dragoon-like) or 'fantasy' (Final Fantasy-like). */
-  layout?: 'dragon' | 'fantasy';
+  layout?: 'dragon' | 'fantasy' | 'pocket';
   /** The hero always fights: can't be swapped onto the bench (default: anyone can). */
   heroLocked?: boolean;
   /** Party members follow the hero on the map (default on). Off: only the hero walks the map. */

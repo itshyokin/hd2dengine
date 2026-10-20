@@ -931,6 +931,12 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   gold frame marks whose turn it is; a silver card is the one being chosen for a spell or item. Items and Magic open
   in the middle of the screen with their pictures and costs, and what the chosen one does in a box at the top.
   **Forbidden Fantasy**: health and magic bars in a box at the bottom right, lists at the side.
+  **Pocket Handheld** (Pokémon Gold / Silver style, best with Single mode): the foe's block at the top left (name,
+  level, health bar) and the hero's at the right (name, level, health bar with the numbers, a thin blue EXP bar, and
+  a violet **MP orb** that empties as magic is spent). Under each block are four **spheres**: orange for each fighter
+  still to come, dark with a red ✕ for each one knocked out, empty for no one. The commands are a 3 × 2 grid of
+  words under the hero's block, the battle log is the text box along the bottom, and the camera starts low behind the
+  hero (seen from the back, at the lower left) looking at the foe (upper right). The other cameras still work.
 - **Choosing a target**: enemies are one row and the party another. Left / right move along the row; up / down
   change rows.
 - **Commands** (Legend of Dragoon style): a row of pictures, Attack, Guard, Magic, Items and Escape; left / right
@@ -986,9 +992,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   Haste and Slow decide; the log says who moves first); there's no turn order bar. **Swap** brings in another hero:
   it goes first, and the newcomer takes that round's hits. Items, Guard and Escape also go first. When the hero is
   knocked out, the player picks who steps in at once; the party falls when everyone who can fight is down (passing
-  out and respawning, as usual). *Heroes who fight (Single)* sets how many of the lineup can be swapped in (1 – 8).
+  out and respawning, as usual). *Heroes who fight (Single)* sets how many of the lineup can be swapped in (1 – 4).
   How foes come out: a **wild encounter** (one of them, picked at random; an enemy bumped into on the map fights
-  alone), a **trainer battle** (one at a time, the next stepping in as each falls, up to 8) or a **swarm** (all at
+  alone), a **trainer battle** (one at a time, the next stepping in as each falls, up to 4) or a **swarm** (all at
   once, as a group fight, three at most). Each battle uses the first of these that's set: the troop's *In Single
   battle mode* (Database → Troops) or the Start battle event's *In Single battle mode*; then the map's *Single mode:
   battles here are* (Map Properties → Battles); then Database → Combat → *Single mode: battles are* (a wild encounter
