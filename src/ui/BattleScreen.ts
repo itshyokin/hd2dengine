@@ -138,7 +138,12 @@ type Mode =
   | { kind: 'list'; title: string; items: ChoiceItem[]; index: number; pick: (i: number) => void; back?: () => void; hover?: (i: number) => void; bar?: boolean }
   /** Choosing who: `rows` are the enemies' row and the party's (left to right as on screen); `keys` is the row in use. */
   | { kind: 'target'; keys: string[]; index: number; pick: (key: string) => void; back: () => void; all?: boolean; rows: string[][] }
-  | { kind: 'wait'; done: () => void };
+  | { kind: 'wait'; done: () => void }
+  /** Pocket Handheld: whom an item is for, from lists side by side (the party, the foes). */
+  | { kind: 'lists'; lists: PickList[]; col: number; rows: number[]; pick: (key: string) => void; back: () => void };
+
+/** A list of fighters to choose from (Pocket Handheld's item targets). `gold`: the one out fighting. */
+export interface PickList { title: string; rows: { key: string; name: string; hp: number; maxHp: number; mp?: number; maxMp?: number; down?: boolean; gold?: boolean; disabled?: boolean }[] }
 
 /** The command bar's pictures (Legend of Dragoon style): small white line drawings. */
 export const COMMAND_ICONS: Record<string, string> = {
@@ -859,6 +864,36 @@ export class BattleScreen {
     this.renderTarget();
   }
 
+  /**
+   * Pocket Handheld: choose whom from lists side by side (left / right between them, up / down along one), a ▶ on
+   * the choice; `start`: the list the cursor begins in.
+   */
+  pickFromLists(lists: PickList[], start: number, pick: (key: string) => void, back: () => void): void {
+    const firstOk = (l: PickList) => Math.max(0, l.rows.findIndex((r) => !r.disabled));
+    this.mode = { kind: 'lists', lists, col: Math.max(0, Math.min(lists.length - 1, start)), rows: lists.map(firstOk), pick, back };
+    this.cmdEl.hidden = true;
+    this.descEl.hidden = true;
+    this.renderLists();
+  }
+
+  private renderLists(): void {
+    const m = this.mode;
+    let box = this.root.querySelector<HTMLElement>('.pocket-pick');
+    if (m.kind !== 'lists') { box?.remove(); return; }
+    if (!box) { box = document.createElement('div'); box.className = 'pocket-pick'; this.root.append(box); }
+    const bar = (a: number, b: number) => `<span class="pp-bar"><i style="width:${b > 0 ? Math.max(0, Math.min(100, (a / b) * 100)) : 0}%"></i></span>`;
+    box.innerHTML = m.lists.map((l, c) => `<div class="pp-col${c === m.col ? ' on' : ''}"><h4>${esc(l.title)}</h4>${l.rows.map((r, k) => `<button type="button" class="pp-row${r.gold ? ' gold' : ''}${r.down ? ' down' : ''}${c === m.col && k === m.rows[c] ? ' sel' : ''}" data-c="${c}" data-k="${k}"${r.disabled ? ' disabled' : ''}>
+      <b>${esc(r.name)}</b><small>HP ${Math.round(r.hp)} / ${r.maxHp}${r.maxMp ? ` · MP ${Math.round(r.mp ?? 0)} / ${r.maxMp}` : ''}${r.down ? ' · KO' : ''}</small>${bar(r.hp, r.maxHp)}</button>`).join('') || '<p class="pp-none">No one</p>'}</div>`).join('');
+    box.querySelectorAll<HTMLElement>('.pp-row').forEach((el) => el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mm = this.mode;
+      if (mm.kind !== 'lists') return;
+      const c = Number(el.dataset.c), k = Number(el.dataset.k), r = mm.lists[c].rows[k];
+      if (!r || r.disabled) return;
+      uiSound('menuOk'); this.idle(); mm.pick(r.key);
+    }));
+  }
+
   /** Change to the enemies' row (up) or the party's (down), landing on whoever is nearest on screen. */
   private changeRow(m: Extract<Mode, { kind: 'target' }>, side: 'enemy' | 'party'): boolean {
     const row = m.rows.find((r) => this.fighters.get(r[0])?.view.side === side);
@@ -875,7 +910,7 @@ export class BattleScreen {
   waitForOk(done: () => void): void { this.mode = { kind: 'wait', done }; this.cmdEl.hidden = true; }
 
   /** Nothing to answer (enemies acting, animations). */
-  idle(): void { this.mode = { kind: 'idle' }; this.cmdEl.hidden = true; this.descEl.hidden = true; this.root.classList.remove('bar-mode', 'list-mode'); this.clearTargets(); }
+  idle(): void { this.mode = { kind: 'idle' }; this.root.querySelector('.pocket-pick')?.remove(); this.cmdEl.hidden = true; this.descEl.hidden = true; this.root.classList.remove('bar-mode', 'list-mode'); this.clearTargets(); }
 
   /** The victory panel: a heading and lines (EXP, gold, items, level-ups). */
   result(title: string, lines: string[]): void {
@@ -1044,6 +1079,17 @@ export class BattleScreen {
       else if (i.consume('cancel')) { uiSound('menuBack'); this.idle(); this.message(''); m.back(); }
     } else if (m.kind === 'wait') {
       if (i.consume('ok') || i.consume('cancel')) this.finishWait();
+    } else if (m.kind === 'lists') {
+      const list = m.lists[m.col], n = list.rows.length;
+      const step = (d: number) => { if (!n) return; let k = m.rows[m.col]; for (let t = 0; t < n; t++) { k = (k + d + n) % n; if (!list.rows[k].disabled) break; } m.rows[m.col] = k; };
+      let moved = false;
+      if (i.consume('down')) { step(1); moved = true; }
+      if (i.consume('up')) { step(-1); moved = true; }
+      if (i.consume('right') && m.col < m.lists.length - 1 && m.lists[m.col + 1].rows.length) { m.col++; moved = true; }
+      if (i.consume('left') && m.col > 0 && m.lists[m.col - 1].rows.length) { m.col--; moved = true; }
+      if (moved) { uiSound('menuMove'); this.renderLists(); }
+      if (i.consume('ok')) { const r = m.lists[m.col].rows[m.rows[m.col]]; if (r && !r.disabled) { uiSound('menuOk'); this.idle(); m.pick(r.key); } }
+      else if (i.consume('cancel')) { uiSound('menuBack'); this.idle(); m.back(); }
     }
   }
 

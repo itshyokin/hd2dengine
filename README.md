@@ -976,7 +976,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   target. Like the handheld games, the **text box** types the battle out a line at a time: a move is announced
   ("Jordan attacks with Double Slash!", "Green Slime attacks!") and, after a short pause, happens (no button); what
   follows waits for OK (▼): "A critical hit!", "It's super effective!", "It's not very effective…", "Green Slime
-  was defeated!". Damage numbers show on the fighters only (and the EXP bar fills as each foe falls). The end of a
+  was defeated!". **Items** open two lists side by side: the party (the one out in gold at the top, then the bench, so
+  benched heroes can be healed too) and the foes; harmful items list the foes first. Left / right between them, up /
+  down to choose. Damage numbers show on the fighters only (and the EXP bar fills as each foe falls). The end of a
   battle: "Victory!" with the fanfare (the victory tune follows), then each hero's EXP in one window (what they earned,
   and under it the bonus), the loot, and each level up with a ding and a box of what it brought. A hero who reached a
   new form transforms after the screen fades out, before the map fades back in. The box moves to the

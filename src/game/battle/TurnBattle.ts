@@ -6,7 +6,7 @@
  * the screen shows it.
  */
 import type { Sfx } from '../../audio/sfx';
-import type { BattleScreen, ChoiceItem, FighterView, VictoryReport } from '../../ui/BattleScreen';
+import type { BattleScreen, ChoiceItem, FighterView, PickList, VictoryReport } from '../../ui/BattleScreen';
 import type { Ailment, BattleWeather, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
 import { BUFF_INFO, DEBUFFS, buffLabel } from '../status';
 import type { TurnBasedConfig } from '../combat/config';
@@ -480,8 +480,47 @@ export class TurnBattle {
     if (!items.length) { this.commandMenu(b); return; }
     this.screen.choose('Items', items.map((it) => ({ label: it.name, iconUrl: it.icon, icon: 'items', right: `×${it.count}`, detail: it.detail, rank: RANK.item })), (i) => {
       const it = items[i];
+      if (this.screen.pocket) { this.itemLists(b, it); return; }
       this.pickTarget(this.anyone(this.sideOf(b), b), (t) => this.doItem(b, it, t), () => this.itemMenu(b), b);
     }, () => this.commandMenu(b), () => this.showOrder(RANK.item));
+  }
+
+  /**
+   * Pocket Handheld: whom an item is for, from two lists: the party (the one out first, in gold, then the bench) and
+   * the foes. Items that harm (debuffs) put the foes first and start there; the rest start on the party.
+   */
+  private itemLists(b: Battler, it: BattleItem): void {
+    const harms = !!it.buffs?.some((g) => DEBUFFS.has(g.buff));
+    const party: PickList = { title: 'Party', rows: [
+      ...this.party.map((p) => ({ key: p.key, name: p.name, hp: p.hp, maxHp: p.maxHp, mp: p.mp, maxMp: p.maxMp, down: !isUp(p), gold: p === b })),
+      ...(this.host.reserves?.() ?? []).map((r) => ({ key: `res:${r.who}`, name: r.name, hp: r.hp, maxHp: r.maxHp, mp: r.mp, maxMp: r.maxMp, down: r.down })),
+    ] };
+    const foes: PickList = { title: 'Foes', rows: this.foes.filter(isUp).map((f) => ({ key: f.key, name: f.name, hp: f.hp, maxHp: f.maxHp })) };
+    const lists = harms ? [foes, party] : [party, foes];
+    this.screen.message(`Use ${it.name} on whom?`, true);
+    this.screen.pickFromLists(lists, 0, (key) => {
+      this.phase = 'busy';
+      if (key.startsWith('res:')) { this.itemOnBench(b, it, Number(key.slice(4))); return; }
+      const t = this.all.find((e) => e.battler.key === key)?.battler;
+      if (t) this.doItem(b, it, t);
+    }, () => this.itemMenu(b));
+  }
+
+  /** An item on a party member waiting on the bench (Single mode): it works on them, and it's the turn. */
+  private itemOnBench(b: Battler, it: BattleItem, who: number): void {
+    if (this.defer(b, () => this.itemOnBench(b, it, who), true)) return;
+    const name = this.host.reserves?.().find((r) => r.who === who)?.name ?? 'them';
+    this.screen.animate(b.key, 'toss');
+    this.later(0.45, () => {
+      const r = this.host.useItem(it.slot, who, []);
+      if (!r?.used) { this.screen.message(r?.text || 'It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
+      this.host.sound('item');
+      const msg = r.text || `${b.name} uses ${it.name} on ${name}.`;
+      this.say(msg);
+      this.tell(msg);
+      this.updateSpheres();
+      this.endTurn(b, RANK.item, 0.6);
+    });
   }
 
   /** Everyone standing, the usual side first (its weakest first), then the other side. */
@@ -750,7 +789,7 @@ export class TurnBattle {
     this.host.sound('item');
     this.screen.animate(t.key, 'heal', '#9dffb0');
     const msg = cured.length && !/cured/i.test(r.text) ? `${r.text.replace(/\.$/, '')}: cured ${cured.map(ailmentName).join(', ')}.` : r.text;
-    this.screen.message(msg);
+    if (this.screen.pocket) this.tell(msg); else this.screen.message(msg);
     this.say(msg);
     this.endTurn(b, RANK.item, 0.9);
   }

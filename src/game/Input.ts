@@ -116,7 +116,14 @@ export class Input {
     this.setBindings(DEFAULT_BINDINGS);
     window.addEventListener('keydown', (e) => {
       const t = e.target as HTMLElement | null;
-      if (t && FORM_TAGS.has(t.tagName) && !this.capture) return; // let the debug panel keep its keys
+      if (t && t !== document.body && !this.capture && (FORM_TAGS.has(t.tagName) || t.isContentEditable)) {
+        // A box being typed in (the debug panel's) keeps its keys; anything else that kept the focus after a click (a
+        // menu button, a checkbox, a hidden field) lets go of it, so Enter, Space and the rest reach the game again.
+        const type = (t as HTMLInputElement).type ?? '';
+        const typing = (t.tagName === 'INPUT' && !['button', 'checkbox', 'radio', 'range', 'color', 'submit', 'reset', 'file'].includes(type)) || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable;
+        if (typing && t.offsetParent !== null) return;
+        t.blur();
+      }
       this.lastDevice = 'keyboard';
       if (this.capture) {
         e.preventDefault();

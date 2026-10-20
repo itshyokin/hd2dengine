@@ -115,6 +115,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       in one window, loot, level ups with stats; transformations play in the dark before the map fades in.
       83b/c: the hero block: name, HP bar with its numbers under it, EXP bar and spheres in a column (the element pill
       ending with the bars), the MP orb beside them inside the block.
+- [x] Update 84: Pocket Use Item picks from two lists (party with the one out in gold and the bench, and the foes; harmful
+      items list the foes first), so benched members can be healed; the empty top HUD panel (condensed HUD) no longer
+      draws a window in themes; keys reach the game again when a clicked button or hidden field kept the focus.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

@@ -216,7 +216,7 @@ const LOOKS: Record<Exclude<UiThemeId, 'ember'>, ThemeLook> = {
 /** Big windows (menus, the pause frame, text boxes, results). */
 const FRAMES = ['.pause-shell', '.menu-box', '.inv-box', '.sk-box', '.ctl-box', '.cr-box', '.log-box', '.quest-box', '.mk-box', '.st-box', '.eq-box', '.rec-box', '.sv-box', '.pt-box', '.battle-victory', '.msg-box', '.mk-confirm'];
 /** Small HUD and battle panels. */
-const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp', '.pb', '.pocket-text', '.pt-stats', '.layout-pocket .battle-cmd.bar'];
+const SMALL = ['.hud-top', '.hud-side', '.hud-ally', '.hud-gold', '.hud-wslot', '.hud-pslot', '.battle-msg', '.hud-quest', '.dl-card', '.bcmd-tile', '.notice', '.loot-feed .loot', '.ach-pill', '.bstat', '.cs-stats', '.pt-card', '.ip-card', '.mk-choice', '.mk-row', '.mk-slot', '.hud-xp', '.pb', '.pocket-text', '.pt-stats', '.layout-pocket .battle-cmd.bar', '.pp-col'];
 /** Windows inside the pause frame (it already has one). */
 const INNER = ['body.pause-open .inv > .inv-box', 'body.pause-open .menu > .menu-box', 'body.pause-open .inv > *'];
 
@@ -329,6 +329,8 @@ ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selec
 ${T} .bcmd-tile[aria-selected="true"] { filter: drop-shadow(0 0 8px ${L.accent}); }
 ${T} :is(.pt-card.sel, .ip-card.sel, .mk-row.sel, .mk-slot.sel, .mk-choice[aria-selected="true"]) { outline: 2px solid ${L.accent}; outline-offset: -2px; }
 ${T} .hud-minimap { border-color: ${L.accent} !important; }
+/* The condensed HUD (stats on the party cards) leaves the top panel empty: no window drawn for it. */
+${T} .hud-top.hud-compact { background: none !important; border: 0 !important; border-image: none !important; box-shadow: none !important; }
 /* Pocket Handheld: the command words aren't windows of their own; the chosen one gets a ▶ and a soft box. */
 ${T} .layout-pocket .bcmd-tile { border: 0 !important; border-image: none !important; background: none !important; filter: none !important; }
 ${T} .layout-pocket .bcmd-tile[aria-selected="true"] { background: ${L.light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'} !important; }
@@ -372,6 +374,7 @@ function emberCss(st: WindowStyle): string {
   const op = Math.max(0, Math.min(1, (st.opacity ?? 100) / 100));
   const textSel = ['span', 'b', 'strong', 'small', 'p', 'div', 'label', 'li', 'em', 'button', 'td', 'th', 'output'];
   return [
+    `${T} .hud-top.hud-compact { background: none !important; border-color: transparent !important; box-shadow: none !important; }`,
     st.accent ? `${all} { --ember: ${st.accent}; }` : '',
     st.color || op < 1 ? `${all} { background: ${rgba(st.color || '#0e111c', op * 0.95)} !important; ${op < 1 ? 'backdrop-filter: none !important;' : ''} }` : '',
     st.text ? `${all} { color: ${st.text} !important; }\n${[...FRAMES, ...SMALL].map((f) => textSel.map((x) => `${T} ${f} ${x}:not([style*="color"]):not([class*="bar"]):not(.menu-title):not(.el-pill):not(:is(.ps-tab, .tab, .sk-tab, [aria-selected="true"]) *):not(.ps-tab, .tab, .sk-tab)`).join(',')).join(',\n')} { color: ${st.text} !important; }` : '',
