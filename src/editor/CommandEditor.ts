@@ -786,6 +786,20 @@ export function soundField(label: string, value: string | undefined, set: (v: st
   let cur = value ?? '';
   return field(label, h('div', { class: 'field-row audio-row' }, select(opts, cur, (v) => { cur = v; set(v || undefined); }), previewButton(() => { if (cur) previewSound(cur); })), hint);
 }
+/** Choices for a prop's walk sound: the ground's, a ground sound, or any sound file or effect. */
+export function walkSoundOptions(): [string, string][] {
+  const ground: [string, string][] = [['wood', 'Wood'], ['stone', 'Stone'], ['metal', 'Metal'], ['carpet', 'Carpet / rug'], ['grass', 'Grass'], ['dirt', 'Dirt'], ['sand', 'Sand'], ['snow', 'Snow'], ['water', 'Water (splashing)']];
+  return [['', 'The ground’s (bridges: their wood or stone)'], ...ground.map(([v, l]) => [v, `Footsteps: ${l}`] as [string, string]),
+    ...audioFiles().map((f) => [f, f.startsWith('audio/') ? f.slice(6) : f.split('/').pop()!] as [string, string]),
+    ...SFX_NAMES.map((n) => [n, `${SFX_LABELS[n]} (built-in)`] as [string, string])];
+}
+/** A prop's walk sound field, with a ▶ to hear it. */
+export function walkSoundField(value: string | undefined, set: (v: string | undefined) => void): HTMLElement {
+  let cur = value ?? '';
+  const hear = (v: string) => (/^(wood|stone|metal|carpet|grass|dirt|sand|snow|water)$/.test(v) ? `step${v[0].toUpperCase()}${v.slice(1)}` : v);
+  return field('Walk sound', h('div', { class: 'field-row audio-row' }, select(walkSoundOptions(), cur, (v) => { cur = v; set(v || undefined); }), previewButton(() => { if (cur) previewSound(hear(cur)); })),
+    'The hero’s footsteps on it (a bridge, a rug, a wooden floor). The Footsteps ones use the ground sounds (Database → Audio can swap in your own, like foot_step_wood); or pick any sound file.');
+}
 const soundName = (src: string) => (SFX_LABELS as Record<string, string>)[src] ?? src.split('/').pop() ?? src;
 function loopName(src: string): string {
   const b = src.startsWith('builtin:') ? src.slice(8) : '';

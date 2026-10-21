@@ -145,6 +145,12 @@ export interface PropDef {
    * default; turn off for props that must sort with the ground as they stand (tall platforms whose legs show through).
    */
   frontOfTiles?: boolean;
+  /**
+   * The hero's footsteps on it: a ground sound ('wood', 'stone', 'metal', 'carpet', 'grass', 'dirt', 'sand', 'snow',
+   * 'water') or a sound of its own (an imported file or a built-in effect). Unset: the ground's (bridges: their wood
+   * or stone).
+   */
+  walkSound?: string;
   /** Doesn't lean back toward the map camera (stays upright): bridges and flat pieces that look wrong tilted. */
   noTilt?: boolean;
   /** On a wall: stretched to the wall's height wherever it's placed (ladders, vines, waterfalls of ivy). */

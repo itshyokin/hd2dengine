@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 21, 2026, after Update 96)
+# Handoff: where the project stands (Oct 21, 2026, after Update 96b)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -207,6 +207,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   (max `deckAt` over the footprint) and standing ones at that height; Game `findWetProps` skips decks; PropDef
   `noTilt` (sprites.ts sets `noLean` like wall props); importer "Drawn as" art / artStand and "Camera tilt"; batch
   edit `tilt`; Palette `.prop-sticky` wraps everything above the Built-in list.
+- 96b: PropDef `walkSound` (a FootMaterial name or a sound file / effect); Game `walkSounds` (tile → sound, built
+  with findWetProps; decks default to their style) used by `footstep` (decks only while `onDeck`); CommandEditor
+  `walkSoundOptions` / `walkSoundField` (importer Behaviour tab, batch edit).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
