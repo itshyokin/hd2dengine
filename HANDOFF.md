@@ -251,6 +251,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   (ModelRig `battleScale`, default 0.5; BattleStage multiplies the fighter's scale and uses the rig's height);
   Stat order moved to its own Database tab (Game → Stat order, DbTab 'stats'). vite.config.ts: never write `**/`
   inside a /* */ comment (it ends the comment and the dev server won't start).
+- 102c: loadCharacterModel renames generic actions (GENERIC regex) after their file, skips actions already seen
+  (same name and length) and names already listed, scales extra files' position tracks by the median bone-offset
+  ratio to the main skeleton, and loads extra FBX files with a LoadingManager that blanks textures (also any
+  texture path on another computer, C:/…). CharacterModel `trim` per slot ({ from, to } frames at MODEL_FPS 30;
+  `trimClip` via AnimationUtils.subclip, cached).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

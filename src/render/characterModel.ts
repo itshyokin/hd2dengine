@@ -17,7 +17,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { patchAreaTint } from './areaTint';
 import { modelExt } from './models';
-import type { CharacterModel, Database, Dir, ModelLook, ModelSlot } from '../world/types';
+import type { CharacterModel, ClipTrim, Database, Dir, ModelLook, ModelSlot } from '../world/types';
 
 /** How 3D characters are drawn: the look, and whether they have a dark outline. */
 export interface ModelStyle { look: ModelLook; outline: boolean }
@@ -65,19 +65,74 @@ export interface LoadedCharModel { scene: THREE.Object3D; clips: THREE.Animation
 /** An action's name as shown: without the "Armature|" prefix Blender adds. */
 export const clipName = (c: THREE.AnimationClip): string => c.name.replace(/^.*\|/, '');
 
-async function readFile(buf: ArrayBuffer, name: string): Promise<{ scene: THREE.Object3D; clips: THREE.AnimationClip[] }> {
+/** A blank pixel, for textures an FBX names on the computer it was made on (C:/…): there's nothing to fetch. */
+const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
+
+async function readFile(buf: ArrayBuffer, name: string, actionsOnly = false): Promise<{ scene: THREE.Object3D; clips: THREE.AnimationClip[] }> {
   const ext = modelExt(name);
-  if (ext === 'fbx') { const g = new FBXLoader().parse(buf, ''); return { scene: g, clips: g.animations ?? [] }; }
+  if (ext === 'fbx') {
+    // Files of actions don't need their textures; others can't reach textures saved as paths on another computer.
+    const manager = new THREE.LoadingManager();
+    manager.setURLModifier((url) => (actionsOnly && !url.startsWith('data:')) || /^[a-z]:[\\/]|^\\\\/i.test(url) ? BLANK_PNG : url);
+    const g = new FBXLoader(manager).parse(buf, '');
+    return { scene: g, clips: g.animations ?? [] };
+  }
   const gltf = await new GLTFLoader().parseAsync(buf, '');
   return { scene: gltf.scene, clips: gltf.animations ?? [] };
 }
 
 /** Read a character's model and the actions in it (and in its extra files). `read` fetches a file's bytes. */
+/** Action names that say nothing (Mixamo's "mixamo.com", "Take 001", "Action.002"): named after their file instead. */
+const GENERIC = /^(?:mixamo\.com|take\s*\d*|action|animation|anim|default|clip|armatureaction)?(?:[._ -]?\d+)?$/i;
+/** Actions' names as they were in their files (slots saved before renaming still find them). */
+const originalName = new WeakMap<THREE.AnimationClip, string>();
+/** A file's name without its folder and extension ("assets/…/Jumping.fbx" → "Jumping"). */
+const fileBase = (path: string): string => path.split('/').pop()!.replace(/\.[^.]+$/, '');
+
+/** Each bone's local offset from its parent, by name: comparing skeletons tells their units apart (cm vs m). */
+function boneOffsets(scene: THREE.Object3D): Map<string, number> {
+  const out = new Map<string, number>();
+  scene.traverse((n) => { if ((n as THREE.Bone).isBone && (n.parent as THREE.Bone | null)?.isBone) out.set(n.name, n.position.length()); });
+  return out;
+}
+
+/** Read a character's model and the actions in it (and in its extra files). `read` fetches a file's bytes. */
 export async function loadCharacterModel(def: CharacterModel, read: (path: string) => Promise<ArrayBuffer>): Promise<LoadedCharModel> {
   const main = await readFile(await read(def.file), def.file);
-  const clips = [...main.clips];
+  const mainBones = boneOffsets(main.scene);
+  const clips: THREE.AnimationClip[] = [];
+  // Actions already taken, by their name in their file and length: a file exported with every action in the
+  // project (Blender does that) adds only the ones that are new.
+  const seen = new Set<string>();
+  const sig = (name: string, c: THREE.AnimationClip) => `${name}|${c.duration.toFixed(3)}`;
+  const add = (list: THREE.AnimationClip[], file: string) => {
+    const fresh = list.filter((c) => !seen.has(sig(c.name, c)));
+    for (const c of list) seen.add(sig(c.name, c));
+    const blanks = fresh.filter((c) => GENERIC.test(clipName(c).trim())).length;
+    let generic = 0;
+    for (const c of fresh) {
+      originalName.set(c, c.name);
+      // Generic names ("mixamo.com") take the file's: "Jumping" ("Jumping 2" when a file has several).
+      if (GENERIC.test(clipName(c).trim())) { generic++; c.name = blanks > 1 && generic > 1 ? `${fileBase(file)} ${generic}` : fileBase(file); }
+      else c.name = clipName(c);
+      // A name already in the list is a copy of that action (from another file): kept once.
+      if (clips.some((o) => o.name === c.name)) continue;
+      clips.push(c);
+    }
+  };
+  add(main.clips, def.file);
   for (const f of def.extra ?? []) {
-    try { clips.push(...(await readFile(await read(f), f)).clips); } catch { /* a missing extra file: its actions are missing */ }
+    try {
+      const x = await readFile(await read(f), f, true);
+      // Another file's skeleton may be in other units (Mixamo FBX: centimetres): its movements are scaled to match.
+      const theirs = boneOffsets(x.scene);
+      const ratios: number[] = [];
+      for (const [name, len] of theirs) { const mine = mainBones.get(name); if (mine && len > 1e-6) ratios.push(mine / len); }
+      ratios.sort((p, q) => p - q);
+      const k = ratios.length ? ratios[Math.floor(ratios.length / 2)] : 1;
+      if (Math.abs(k - 1) > 0.02) for (const c of x.clips) for (const t of c.tracks) if (t.name.endsWith('.position')) for (let i = 0; i < t.values.length; i++) t.values[i] *= k;
+      add(x.clips, f);
+    } catch { /* a missing extra file: its actions are missing */ }
   }
   // Keep each action in place: the root bone's sideways and forward travel is dropped (its height kept).
   const roots = new Set<string>();
@@ -91,11 +146,30 @@ export async function loadCharacterModel(def: CharacterModel, read: (path: strin
   return { scene: main.scene, clips };
 }
 
+/** Frames per second for trimming (Mixamo and Blender's usual rate). */
+export const MODEL_FPS = 30;
+/** How many frames an action has. */
+export const clipFrames = (c: THREE.AnimationClip): number => Math.max(1, Math.round(c.duration * MODEL_FPS));
+
+const trimmed = new WeakMap<THREE.AnimationClip, Map<string, THREE.AnimationClip>>();
+/** An action cut to frames from … to (either missing: its start or end). */
+export function trimClip(c: THREE.AnimationClip, range: ClipTrim | undefined): THREE.AnimationClip {
+  if (!range) return c;
+  const n = clipFrames(c), a = Math.max(0, Math.min(n - 1, range.from ?? 0)), b = Math.max(a + 1, Math.min(n, range.to ?? n));
+  if (a === 0 && b >= n) return c;
+  const key = `${a}-${b}`;
+  let m = trimmed.get(c);
+  if (!m) { m = new Map(); trimmed.set(c, m); }
+  let out = m.get(key);
+  if (!out) { out = THREE.AnimationUtils.subclip(c, `${c.name} [${a}–${b}]`, a, b, MODEL_FPS); m.set(key, out); }
+  return out;
+}
+
 /** The action a slot plays: the one named for it, or (left to guess) the first whose name fits. Null: none. */
 export function clipFor(m: LoadedCharModel, def: CharacterModel, slot: ModelSlot): THREE.AnimationClip | null {
   const want = def.anims?.[slot];
   if (want === '') return null;
-  if (want) return m.clips.find((c) => clipName(c) === want || c.name === want) ?? null;
+  if (want) return m.clips.find((c) => c.name === want || originalName.get(c) === want || clipName(c) === want) ?? null;
   // Guessing: an action used by an earlier slot that fits better isn't taken twice (Walk doesn't steal "Run").
   return m.clips.find((c) => GUESS[slot].test(clipName(c)) && !(slot === 'walk' && GUESS.run.test(clipName(c)))) ?? null;
 }
@@ -232,8 +306,9 @@ export class ModelRig {
     }
     this.mixer = new THREE.AnimationMixer(obj);
     for (const s of MODEL_SLOTS) {
-      const c = clipFor(m, def, s.id);
-      if (!c) continue;
+      const c0 = clipFor(m, def, s.id);
+      if (!c0) continue;
+      const c = trimClip(c0, def.trim?.[s.id]);
       const a = this.mixer.clipAction(c);
       if (!LOOPS.has(s.id)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
       this.actions.set(s.id, a);

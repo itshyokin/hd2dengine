@@ -4,7 +4,7 @@
  * assets/models/characters/party/katrina/katrina.glb, or imported here into assets/models/characters/).
  */
 import * as THREE from 'three';
-import { MODEL_SLOTS, type LoadedCharModel, ModelRig, type ModelStyle, clipFor, clipName, loadCharacterModel } from '../render/characterModel';
+import { MODEL_SLOTS, type LoadedCharModel, ModelRig, type ModelStyle, clipFor, clipFrames, clipName, loadCharacterModel } from '../render/characterModel';
 import { modelExt } from '../render/models';
 import type { CharacterDef, CharacterModel, ModelSlot } from '../world/types';
 import { field, h, numberInput, openModal, select, textInput, toast } from './dom';
@@ -142,11 +142,25 @@ export function openCharacterModel(store: EditorStore, id: string, c: CharacterD
           field('Size in battle', select([['0.35', 'Small (35%)'], ['0.5', 'Half (default)'], ['0.65', '65%'], ['0.8', '80%'], ['1', 'Full size']], String([0.35, 0.5, 0.65, 0.8, 1].reduce((a, b) => (Math.abs(b - (m.battleScale ?? 0.5)) < Math.abs(a - (m.battleScale ?? 0.5)) ? b : a))),
             (v) => { const n = Number(v); if (n === 0.5) delete m.battleScale; else m.battleScale = n; }), 'The battle stage is seen up close.')),
         h('div', { class: 'char-model-count' }, `${names.length} action${names.length === 1 ? '' : 's'} in ${1 + (m.extra?.length ?? 0)} file${m.extra?.length ? 's' : ''}`),
-        h('div', { class: 'section-label' }, 'Animation slots'),
+        h('div', { class: 'char-model-slot char-model-slot-head' }, h('span'), h('span', { class: 'section-label' }, 'Animation slots'), h('span'), h('span', { class: 'hint' }, 'Start'), h('span', { class: 'hint' }, 'End')),
         h('div', { class: 'char-model-slots' }, ...MODEL_SLOTS.map((s) => {
           const guess = clipFor(model!, { ...m, anims: { ...m.anims, [s.id]: undefined } }, s.id);
           const cur = m.anims?.[s.id];
           const opts: [string, string][] = [['\u0000guess', guess ? `Guess: ${clipName(guess)}` : 'Guess: none (uses Idle)'], ['', 'None (uses Idle)'], ...names.map((n) => [n, n] as [string, string])];
+          // Trim: play only frames from … to (blank: the start, the end).
+          const chosen = clipFor(model!, m, s.id), total = chosen ? clipFrames(chosen) : 0, tr = m.trim?.[s.id];
+          const setTrim = (k: 'from' | 'to', raw: string) => {
+            const t = { ...(m.trim?.[s.id] ?? {}) }, n = raw.trim() === '' ? undefined : Math.max(0, Math.round(Number(raw)));
+            if (n === undefined || Number.isNaN(n) || (k === 'from' && n === 0) || (k === 'to' && n >= total)) delete t[k]; else t[k] = n;
+            const all = { ...(m.trim ?? {}) };
+            if (t.from === undefined && t.to === undefined) delete all[s.id]; else all[s.id] = t;
+            if (Object.keys(all).length) m.trim = all; else delete m.trim;
+            showRig();
+          };
+          const frameBox = (k: 'from' | 'to') => h('input', { type: 'number', class: 'char-model-frame', min: '0', max: String(total), step: '1', disabled: !chosen,
+            value: tr?.[k] !== undefined ? String(tr[k]) : '', placeholder: k === 'from' ? '0' : String(total),
+            title: chosen ? `${k === 'from' ? 'First' : 'Last'} frame to play (of ${total}; 30 a second). Blank: ${k === 'from' ? 'its start' : 'its end'}.` : 'No action for this slot',
+            'aria-label': `${s.name}: ${k === 'from' ? 'start' : 'end'} frame`, onchange: (e: Event) => setTrim(k, (e.target as HTMLInputElement).value) });
           return h('div', { class: 'char-model-slot' + (s.enemy ? ' enemy' : '') },
             h('button', { type: 'button', class: 'btn small' + (previewSlot === s.id ? ' on' : ''), title: `Preview ${s.name}`, 'aria-pressed': String(previewSlot === s.id), onclick: () => { play(s.id); render(); } }, '▶'),
             h('span', { class: 'char-model-slot-name', title: s.hint }, s.name, s.enemy ? h('small', {}, ' · enemies') : null),
@@ -154,8 +168,12 @@ export function openCharacterModel(store: EditorStore, id: string, c: CharacterD
               const a = { ...(m.anims ?? {}) };
               if (v === '\u0000guess') delete a[s.id]; else a[s.id] = v;
               if (Object.keys(a).length) m.anims = a; else delete m.anims;
+              // A different action: its trim no longer applies.
+              if (m.trim?.[s.id]) { delete m.trim[s.id]; if (!Object.keys(m.trim).length) delete m.trim; }
               showRig();
-            }, { 'aria-label': `${s.name} action` }));
+              render();
+            }, { 'aria-label': `${s.name} action` }),
+            frameBox('from'), frameBox('to'));
         })),
         h('div', { class: 'section-label' }, 'More actions from other files'),
         ...(m.extra ?? []).map((f, i) => h('div', { class: 'toolrow small' }, h('code', {}, f),

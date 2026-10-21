@@ -116,8 +116,13 @@ model file…* (saved to `assets/models/characters/<id>/`). The window shows the
   action (Blender actions, Mixamo takes); each slot plays one, picked from the list. Left on **Guess**, a slot takes
   the first action whose name fits (*Walk_Cycle* → Walk, *Death* → KO, *Attack1* → Attack); the dropdown shows which.
   *None* or nothing found: the slot uses Idle (Run and Swim use Walk first). ▶ previews a slot.
+- **Start / End** beside each slot: play only those frames of its action (30 a second; blank: its start or end), to cut
+  a few wonky frames off. Choosing another action clears them.
 - **More actions from other files**: extra GLB / FBX files with actions for the same skeleton (same bone names), such
-  as Mixamo animations downloaded without skin.
+  as Mixamo animations. Actions with names that say nothing (Mixamo's *mixamo.com*, *Take 001*) are named after
+  their file (*Jumping.fbx* → *Jumping*). An action already in the list isn't added again (a file exported with
+  every action of the project only brings its new ones). Files in other units (Mixamo FBX in centimetres) are
+  scaled to the model's skeleton, and their textures aren't loaded (only their actions are used).
 - **Height** (tiles, default 1.6) and **Faces** (turn it if the model was made facing another way).
 - **Size in battle**: the battle stage is seen up close, so models stand at half their height there by default
   (35% to full size).

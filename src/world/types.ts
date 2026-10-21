@@ -846,7 +846,12 @@ export interface CharacterModel {
   rot?: number;
   /** Its size on the battle stage, as a share of its height (default 0.5: the stage is seen up close). */
   battleScale?: number;
+  /** Slots that play only part of their action (frames, 30 per second). */
+  trim?: Partial<Record<ModelSlot, ClipTrim>>;
 }
+
+/** Part of an action: from frame `from` to frame `to` (either missing: its start or end). */
+export interface ClipTrim { from?: number; to?: number }
 
 /** How a new game's hero gets their stats (Database → Heroes). */
 export interface CreationSettings {
