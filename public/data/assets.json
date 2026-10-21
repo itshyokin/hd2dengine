@@ -656,26 +656,6 @@
       "image": "assets/props/tuft.png"
     },
     {
-      "id": "pine",
-      "name": "Pine tree",
-      "w": 1,
-      "h": 2,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "collide": "flat",
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "sway": 0.8,
-      "image": "assets/props/pine.png"
-    },
-    {
       "id": "oak",
       "name": "Oak tree",
       "w": 1,
@@ -711,24 +691,6 @@
       "filter": "point",
       "sway": 0.5,
       "image": "assets/props/bush.png"
-    },
-    {
-      "id": "bridge_wood_h",
-      "name": "Wooden bridge (east–west)",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "."
-        ]
-      },
-      "block": [],
-      "filter": "point",
-      "castShadow": false,
-      "frontOfTiles": false,
-      "image": "assets/props/bridge_wood_h.png"
     },
     {
       "id": "bridge_wood_v",
@@ -855,6 +817,49 @@
       "castShadow": false,
       "frontOfTiles": false,
       "image": "assets/props/platform_stone.png"
+    },
+    {
+      "id": "pine",
+      "name": "Pine tree",
+      "w": 3,
+      "h": 3,
+      "foot": {
+        "w": 3,
+        "d": 1,
+        "solid": [
+          ".#."
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 0.8,
+      "image": "assets/props/pine.png"
+    },
+    {
+      "id": "bridge_wood_h",
+      "name": "Wooden bridge (east–west)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "deck": {
+        "style": "wood",
+        "dir": "h",
+        "art": true
+      },
+      "image": "assets/props/bridge_wood_h.png"
     }
   ],
   "tiles": [
@@ -1108,7 +1113,7 @@
       "name": "Grass",
       "span": 1,
       "filter": "point",
-      "skin": true,
+      "skin": false,
       "flat": true,
       "image": "assets/tiles/grass.png"
     },
@@ -1118,7 +1123,7 @@
       "name": "Path",
       "span": 1,
       "filter": "point",
-      "skin": true,
+      "skin": false,
       "flat": true,
       "image": "assets/tiles/path.png"
     }

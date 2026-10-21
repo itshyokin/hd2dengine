@@ -4988,8 +4988,8 @@
       "stats": {
         "str": 16,
         "dex": 12,
-        "def": 14,
         "mag": 8,
+        "def": 14,
         "mdf": 14
       }
     },
@@ -5001,8 +5001,8 @@
       "stats": {
         "str": 8,
         "dex": 8,
-        "def": 11,
         "mag": 19,
+        "def": 11,
         "mdf": 17
       },
       "elements": [
@@ -5020,8 +5020,8 @@
       "stats": {
         "str": 14,
         "dex": 18,
-        "def": 13,
         "mag": 13,
+        "def": 13,
         "mdf": 7
       },
       "elements": [
@@ -5042,8 +5042,8 @@
       "stats": {
         "str": 13,
         "dex": 16,
-        "def": 8,
         "mag": 12,
+        "def": 8,
         "mdf": 8
       }
     },
@@ -5055,8 +5055,8 @@
       "stats": {
         "str": 16,
         "dex": 16,
-        "def": 15,
         "mag": 8,
+        "def": 15,
         "mdf": 8
       },
       "elements": [
@@ -5141,7 +5141,39 @@
       "kind": "image",
       "image": "assets/title/title_mvh3gpiw.webp"
     },
-    "uiTheme": "retro"
+    "partyLayout": {
+      "panels": [
+        {
+          "x": 7.9,
+          "y": 0,
+          "w": 37.2,
+          "h": 32.4,
+          "size": "medium"
+        },
+        {
+          "x": 46.3,
+          "y": 5.5,
+          "w": 37.2,
+          "h": 28,
+          "size": "medium"
+        },
+        {
+          "x": 46,
+          "y": 35.9,
+          "w": 37.2,
+          "h": 28,
+          "size": "medium"
+        },
+        {
+          "x": 46.3,
+          "y": 66.9,
+          "w": 37.2,
+          "h": 28,
+          "size": "medium"
+        }
+      ]
+    },
+    "staminaSteady": true
   },
   "troops": [
     {
@@ -6370,10 +6402,6 @@
       "layout": "pocket"
     }
   },
-  "overworldCamera": {
-    "pitch": 65,
-    "lean": 66
-  },
   "abilities": {
     "crawl": false
   },
@@ -6382,7 +6410,7 @@
       "id": "class_titan",
       "name": "Titan",
       "trees": [
-        "might"
+        "tree_2"
       ],
       "description": "You hail from Old Earth, knowing little of magic---but your technological skills are vastly superior to most born on Titamas.",
       "bonus": {
@@ -6407,5 +6435,19 @@
         "shield": "untrained"
       }
     }
-  ]
+  ],
+  "statOrder": [
+    "str",
+    "dex",
+    "end",
+    "mag",
+    "def",
+    "mdf",
+    "agi"
+  ],
+  "overworldCamera": {
+    "pitch": 42.4,
+    "distance": 15.6,
+    "lean": 0
+  }
 }
