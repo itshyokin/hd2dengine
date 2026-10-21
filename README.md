@@ -1486,6 +1486,11 @@ Tropical sea, Muddy pond, Swamp, Poison goo, Lava. Each style sets:
 - *Editor mark*: a symbol (~, -, ≈…) drawn on its water in the map editor only, to tell styles of the same colour apart.
 - *Colour* and *Clarity* (crystal clear … muddy / thick), *Surface* (glassy … rough), *Current* (still … a fast
   river) with the direction it flows (it carries the ripples along).
+- *Look*: **Toon** (the default for water, like the handheld games: a flat colour with short pixel wave lines that
+  drift and breathe, carried along by the current; a pale foam outline along every shore; a darker ring hugging each
+  rock or prop standing in it) or **Realistic** (lit ripples and soft glints; the default for glowing styles). Toon
+  water has *Wave lines* (none … packed; a rougher *Surface* adds a few more) and *Shore foam* (on or off). The wave
+  lines are a lighter tint of the water's colour and the foam near white, so recolouring a style recolours them too.
 - *Glows*: lava and goo shine in the dark (brightly veined, with light seams drifting with the current).
 - *Being in it gives*: an ailment with a chance every half second (Lava burns, Poison goo poisons). Water Walk
   keeps the hero above it.

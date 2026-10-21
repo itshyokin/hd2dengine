@@ -14,7 +14,7 @@ import type { V3 } from './terrainGeometry';
 import { normalMapFrom } from '../core/pixel';
 import { rng } from '../core/math';
 import { patchAreaTint, setBuildOrigin } from '../render/areaTint';
-import { patchWaterEdge, waterMask } from '../render/waterEdge';
+import { patchToonWater, patchWaterEdge, waterMask } from '../render/waterEdge';
 import { blendMask, patchTileBlend } from '../render/tileBlend';
 import { SpriteLibrary, withSpriteShadows } from '../render/sprites';
 import { blockedTiles, footTiles, propBoxes, stepOf } from './props';
@@ -25,7 +25,7 @@ import type { TileMap } from './TileMap';
 import { QuadList, buildTerrainGeometry, cornerRounding, cornerSliver } from './terrainGeometry';
 import { BRICKS } from './tiles';
 import type { BorderKind, MapData, PropData, PropDef } from './types';
-import { waterStyles } from './waterStyles';
+import { isToonWater, waterStyles } from './waterStyles';
 import { patchSeason } from '../render/season';
 import { propSeason } from './seasons';
 
@@ -319,9 +319,11 @@ function buildWater(scene: THREE.Object3D, map: TileMap, data: MapData, edgeWate
     if (murk < 0.5) color.lerp(new THREE.Color('#d6f0f6'), (0.5 - murk) * 0.35);
     // A soft, mostly matte surface: small glints, no glare.
     const bump = 0.32 * Math.max(0, Math.min(2.5, st.bumpy ?? 1));
+    // Toon water is flat: no ripples or glints, just its colour (with the lines and foam drawn on in the shader).
+    const toon = isToonWater(st);
     const mat = new THREE.MeshStandardMaterial({
-      color: linearColor('#' + color.getHexString()), roughness: 0.5 + 0.1 * Math.min(1, bump), metalness: 0, transparent: opacity < 0.995, opacity,
-      normalMap: tex(g.style), normalScale: new THREE.Vector2(bump, bump), depthWrite: false,
+      color: linearColor('#' + color.getHexString()), roughness: toon ? 1 : 0.5 + 0.1 * Math.min(1, bump), metalness: 0, transparent: opacity < 0.995, opacity,
+      ...(toon ? {} : { normalMap: tex(g.style), normalScale: new THREE.Vector2(bump, bump) }), depthWrite: false,
     });
     if (glow > 0) {
       // Lava and goo: a darker crust, glowing brightest along shifting seams (carried by the current too).
@@ -334,7 +336,20 @@ function buildWater(scene: THREE.Object3D, map: TileMap, data: MapData, edgeWate
       mat.emissiveIntensity = 0.4 + glow * 1.1;
     }
     softenSpecular(mat);
-    const water = new THREE.Mesh(geo, patchWaterEdge(patchAreaTint(mat), mask));
+    const edged = patchWaterEdge(patchAreaTint(mat), mask);
+    if (toon) {
+      // Lines a lighter tint of the water (rougher water: more of them), foam near white; both drift with the current.
+      const base = new THREE.Color(st.color || '#3f86b0');
+      const fd = THREE.MathUtils.degToRad(st.flowDir ?? 0), fl = st.flow ?? 0;
+      patchToonWater(edged, {
+        line: linearColor('#' + base.clone().lerp(new THREE.Color('#ffffff'), g.kind === 'deep' ? 0.3 : 0.42).getHexString()),
+        foam: linearColor('#' + base.clone().lerp(new THREE.Color('#ffffff'), 0.82).getHexString()),
+        lines: Math.max(0, Math.min(1, (st.lines ?? 0.5) * (0.7 + 0.3 * Math.min(2, st.bumpy ?? 1)))),
+        foamOn: !st.noFoam,
+        drift: new THREE.Vector2(0.18 + Math.cos(fd) * fl, 0.04 + Math.sin(fd) * fl),
+      });
+    }
+    const water = new THREE.Mesh(geo, edged);
     water.receiveShadow = true;
     water.renderOrder = 1;
     scene.add(water);

@@ -31,3 +31,6 @@ export function waterStyle(map: Pick<MapData, 'waterStyles' | 'waterLook'>, i: n
   const all = waterStyles(map);
   return all[i] ?? all[0];
 }
+
+/** Whether a style is drawn toon (flat, wave lines, shore foam) rather than with lit ripples. */
+export const isToonWater = (st: WaterStyle): boolean => (st.look ?? ((st.glow ?? 0) > 0 ? 'real' : 'toon')) === 'toon';

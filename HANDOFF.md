@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 21, 2026, after Update 99)
+# Handoff: where the project stands (Oct 21, 2026, after Update 100)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Update 100 (toon water), then the 3D pipeline (101–105). The game targets PC now.
+- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Update 101 (3D props), then the 3D pipeline (101–105). The game targets PC now.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -227,12 +227,17 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   wallAnchor) and `StepFn` / `stepOf(map)`; footTiles / blockedTiles / propBoxes take the step function (Game and
   WorldBuilder pass `stepOf(map)`, the editor `store.propStep`); marks `blocks()` ('#' or 'X') and `behind()` ('*');
   PropImporter grid `Mark` cycles X → O → ★.
+- 100: WaterStyle `look` / `lines` / `noFoam` (`isToonWater(st)` in waterStyles.ts: toon unless it glows);
+  waterEdge.ts `patchToonWater` (applied after patchWaterEdge: wave dashes from world pixels, foam from the shoreline
+  mask, whose border now repeats the edge cells) and `toonWaterTime` (Game sets it to `elapsed`); toon water has no
+  normal map and roughness 1; Game `wetProps[].ring` (pixel ring decal, pulses, hidden when the prop is gone);
+  Palette water form: Look, Wave lines, Shore foam.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. The Roadmap (planned Oct 21) at the top of NOTES.md: Update 100 onwards.
+1. The Roadmap (planned Oct 21) at the top of NOTES.md: Update 101 onwards.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

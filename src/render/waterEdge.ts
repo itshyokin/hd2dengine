@@ -21,7 +21,8 @@ export function waterMask(map: TileMap): THREE.DataTexture {
   const data = new Uint8Array(W * H * 4);
   for (let z = 0; z < H; z++)
     for (let x = 0; x < W; x++) {
-      const v = map.waterAt(x - 1, z - 1) ? 255 : 0;
+      // The border repeats the edge cells: water running off the map carries on (no foam line along the map edge).
+      const v = map.waterAt(Math.max(0, Math.min(map.w - 1, x - 1)), Math.max(0, Math.min(map.h - 1, z - 1))) ? 255 : 0;
       const i = (z * W + x) * 4;
       data[i] = data[i + 1] = data[i + 2] = v;
       data[i + 3] = 255;
@@ -75,5 +76,81 @@ export function patchWaterEdge<T extends THREE.Material>(mat: T, mask: THREE.Dat
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);
   mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|hdWaterEdge';
+  return mat;
+}
+
+/** Seconds, for toon water's drifting lines and breathing foam (Game advances it). */
+export const toonWaterTime = { value: 0 };
+
+export interface ToonWater {
+  /** Wave lines and foam, in linear colour. */
+  line: THREE.Color;
+  foam: THREE.Color;
+  /** How many wave lines, 0 … 1. */
+  lines: number;
+  foamOn: boolean;
+  /** Which way and how fast the lines drift (tiles per second). */
+  drift: THREE.Vector2;
+}
+
+const TOON_HEAD = `
+uniform float uToonTime;
+uniform vec3 uToonLine;
+uniform vec3 uToonFoam;
+uniform float uToonLines;
+uniform float uToonFoamOn;
+uniform vec2 uToonDrift;
+/** 1 on a wave line: short pixel dashes with a step in the middle (a flattened ~), staggered, drifting, breathing. */
+float hdToonWave(vec2 w) {
+  vec2 p = floor(w * ${PIXELS}.0 - uToonDrift * uToonTime * ${PIXELS}.0);
+  float row = floor(p.y / 9.0);
+  float x = p.x + row * 13.0;
+  vec2 cell = vec2(floor(x / 26.0), row);
+  float h = hdWaterHash(cell), h2 = hdWaterHash(cell + 17.3), h3 = hdWaterHash(cell + 41.9);
+  if (h > uToonLines) return 0.0;
+  float breathe = 0.55 + 0.45 * sin(uToonTime * (1.1 + h2) + h3 * 6.2832);
+  float len = floor((5.0 + h2 * 6.0) * breathe);
+  if (len < 2.0) return 0.0;
+  float start = floor(h3 * (24.0 - len));
+  float lx = x - cell.x * 26.0 - start, ly = p.y - row * 9.0;
+  if (lx < 0.0 || lx >= len) return 0.0;
+  return ly == (lx < floor(len * 0.5) ? 5.0 : 4.0) ? 1.0 : 0.0;
+}
+/** 1 in the foam band along the shore (the mask falls off near dry cells). */
+float hdToonFoam(vec2 w) {
+  vec2 q = (floor(w * ${PIXELS}.0) + 0.5) / ${PIXELS}.0;
+  float m = texture2D(uHdWaterMask, (q + 1.0) / uHdWaterSize).r;
+  float edge = 0.64 + 0.05 * sin(uToonTime * 1.8 + hdWaterNoise(q * 2.3) * 6.2832);
+  return m < edge ? 1.0 : 0.0;
+}
+`;
+
+/**
+ * Toon water (like the handheld games): a flat colour with drifting wave lines and a foam outline along the shore.
+ * Call after `patchWaterEdge` (it uses the shoreline mask).
+ */
+export function patchToonWater<T extends THREE.Material>(mat: T, t: ToonWater): T {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    prev?.call(mat, shader, renderer);
+    shader.uniforms.uToonTime = toonWaterTime;
+    shader.uniforms.uToonLine = { value: t.line };
+    shader.uniforms.uToonFoam = { value: t.foam };
+    shader.uniforms.uToonLines = { value: t.lines };
+    shader.uniforms.uToonFoamOn = { value: t.foamOn ? 1 : 0 };
+    shader.uniforms.uToonDrift = { value: t.drift };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', TOON_HEAD + 'void main() {')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+  {
+    float hdFoam = uToonFoamOn * hdToonFoam(vHdWorld);
+    float hdWave = hdToonWave(vHdWorld) * (1.0 - hdFoam);
+    diffuseColor.rgb = mix(diffuseColor.rgb, uToonLine, hdWave);
+    diffuseColor.rgb = mix(diffuseColor.rgb, uToonFoam, hdFoam);
+    diffuseColor.a = mix(diffuseColor.a, max(diffuseColor.a, 0.92), max(hdFoam, hdWave * 0.6));
+  }`);
+  };
+  const prevKey = mat.customProgramCacheKey?.bind(mat);
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|hdToon';
   return mat;
 }

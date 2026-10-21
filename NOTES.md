@@ -14,8 +14,10 @@ decide things; the tablet editor keeps working.
       stops the player in front of the vines, not behind them. Old props converted. (The grid 3D props will use.)
       Done: wall props' footprints reach back from the wall they hang on (props.ts `footZ`); the importer grid
       cycles X / O / ★ (saved '#', '.', '*'); ★ walks like O until 3D props.
-- [ ] Update 100: toon water like the GBA references: flat colour, drifting wave-line pattern, a light foam outline
+- [x] Update 100: toon water like the GBA references: flat colour, drifting wave-line pattern, a light foam outline
       along shores, a darker ring round rocks and props in it; water styles and recolouring kept.
+      Done: WaterStyle `look` ('toon' default, 'real' for glowing styles), `lines`, `noFoam`; waterEdge.ts
+      `patchToonWater` (lines and foam in the shader, `toonWaterTime`); Game rings round wet props.
 - [ ] Update 101: 3D props (GLB first, FBX best-effort), sized on the prop grid.
 - [ ] Update 102: 3D characters and enemies: Sprite or 3D model per hero / character / enemy; animation slots picked
       from the file's clips: Idle, Walk, Run, Jump, Swim, Climb, Sit, Injured, KO, Attack, Spellcast (enemies: Idle,

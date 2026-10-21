@@ -20,7 +20,7 @@ import { openLpcLibrary } from './LpcLibrary';
 import type { BuildingTool, EditorStore, HeightTool, LightType, Mode, ObjectTool, TerrainTool } from './store';
 import type { WaterKind } from '../world/heights';
 import type { FishZone, WaterStyle } from '../world/types';
-import { WATER_PRESETS, WATER_SYMBOLS, waterStyles } from '../world/waterStyles';
+import { WATER_PRESETS, WATER_SYMBOLS, isToonWater, waterStyles } from '../world/waterStyles';
 import { defaultZone } from '../world/fishing';
 import { PASSAGE_FLAGS, type PassageFlag } from '../world/passage';
 import { passageThumb } from './passageIcons';
@@ -505,6 +505,10 @@ export class Palette {
         h('label', { class: 'field' }, h('span', {}, 'Colour'), color),
         h('label', { class: 'field' }, h('span', {}, 'Editor mark'), select(WATER_SYMBOLS.map((k) => [k, k ? `${k}` : 'None'] as [string, string]), st.symbol ?? '', (v) => set('symbol', v || undefined, true), { 'aria-label': 'Mark shown on this water in the editor' })),
         h('label', { class: 'field' }, h('span', {}, 'Clarity'), select([['0', 'Crystal clear'], ['0.25', 'Clear'], ['0.5', 'Normal'], ['0.75', 'Murky'], ['1', 'Muddy / thick']], near(st.murk ?? 0.5, [0, 0.25, 0.5, 0.75, 1]), (v) => set('murk', Number(v) === 0.5 ? undefined : Number(v)))),
+        h('label', { class: 'field' }, h('span', {}, 'Look'), select([['toon', 'Toon (flat, wave lines, foam)'], ['real', 'Realistic (ripples, glints)']], isToonWater(st) ? 'toon' : 'real',
+          (v) => set('look', (v === ((st.glow ?? 0) > 0 ? 'real' : 'toon') ? undefined : v) as WaterStyle['look'], true))),
+        isToonWater(st) ? h('label', { class: 'field' }, h('span', {}, 'Wave lines'), select([['0', 'None'], ['0.25', 'A few'], ['0.5', 'Some'], ['0.75', 'Lots'], ['1', 'Packed']], near(st.lines ?? 0.5, [0, 0.25, 0.5, 0.75, 1]), (v) => set('lines', Number(v) === 0.5 ? undefined : Number(v)))) : null,
+        isToonWater(st) ? h('label', { class: 'field' }, h('span', {}, 'Shore foam'), select([['on', 'Foam outline along the shore'], ['off', 'None']], st.noFoam ? 'off' : 'on', (v) => set('noFoam', v === 'off' ? true : undefined))) : null,
         h('label', { class: 'field' }, h('span', {}, 'Surface'), select([['0.3', 'Glassy'], ['0.6', 'Calm'], ['1', 'Normal'], ['1.6', 'Choppy'], ['2.2', 'Rough']], near(st.bumpy ?? 1, [0.3, 0.6, 1, 1.6, 2.2]), (v) => set('bumpy', Number(v) === 1 ? undefined : Number(v)))),
         h('label', { class: 'field' }, h('span', {}, 'Current'), select([['0', 'Still (a pond, a lake)'], ['0.12', 'Barely (lava)'], ['0.4', 'Slow'], ['1', 'A stream'], ['2', 'A fast river']], near(st.flow ?? 0, [0, 0.12, 0.4, 1, 2]), (v) => set('flow', Number(v) || undefined, true))),
         (st.flow ?? 0) > 0 ? h('label', { class: 'field' }, h('span', {}, 'Flowing towards'), select([['0', 'East →'], ['45', 'South-east ↘'], ['90', 'South ↓'], ['135', 'South-west ↙'], ['180', 'West ←'], ['225', 'North-west ↖'], ['270', 'North ↑'], ['315', 'North-east ↗']],
