@@ -145,6 +145,8 @@ export interface PropDef {
    * default; turn off for props that must sort with the ground as they stand (tall platforms whose legs show through).
    */
   frontOfTiles?: boolean;
+  /** Doesn't lean back toward the map camera (stays upright): bridges and flat pieces that look wrong tilted. */
+  noTilt?: boolean;
   /** On a wall: stretched to the wall's height wherever it's placed (ladders, vines, waterfalls of ivy). */
   stretch?: boolean;
   /** Fires that burn out: starts unlit the first time the player comes (light it with fuel or a fire attack). */

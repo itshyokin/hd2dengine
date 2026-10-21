@@ -392,8 +392,12 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
    **Walk on top (bridge or platform)**: makes the prop a bridge running east–west or north–south, or a platform /
    dock walked any way. It never blocks; every tile of its footprint is walked on at one deck height (a row of pieces
    shares the highest bank they touch), and bridges keep walkers on them like the built-in ones (along the bridge,
-   on and off at the ends). **Drawn as**: its own picture, or built in 3D like the built-in bridges (wooden planks,
-   rope or stone).
+   on and off at the ends). **Drawn as**: its own picture **lying flat** on the deck (like a floor seen from above,
+   covering its footprint, the top of the picture to the north), its picture **standing up**, or built in 3D like the
+   built-in bridges (wooden planks, rope or stone). Pictures sit at the deck's height (the banks it joins), not down
+   on the ground or water under it, and no ripples ring them.
+   **Camera tilt** (on by default): the prop leans back toward the map camera like the characters. Turn it off to keep
+   it upright (flat pieces and pictures that look wrong tilted).
 9. **Shape**: *Flat* (one picture), *Solid block* (pushed back so it looks like a block), *Cross ×* (two copies at
    45°), *Cross +* (one side-on), and for tall grass and thick plants: *Star ✳* (Cross × plus one facing the
    camera), *Rows ≡* (three staggered rows across the footprint, each offset, sized and mirrored) and *Thicket*
@@ -1615,7 +1619,8 @@ placed prop (Select tool) shows an edit button in the inspector. Edits change ev
   one's own* where they differ; only what you change is given to all of them (for example, three trees and a bush
   all set to *Cross ×*), and each keeps its own picture, size, footprint, light and everything else. Built-ins
   edited this way become customised (Reset to original still works).
-- The palette stays where you scrolled while you open, close and save props.
+- The palette stays where you scrolled while you open, close and save props, and its top (the tools, the chosen
+  prop with its buttons, the ticked bar and the import buttons) stays in view while you scroll the lists.
 
 ## Controls
 

@@ -17,14 +17,14 @@ import { patchAreaTint, setBuildOrigin } from '../render/areaTint';
 import { patchWaterEdge, waterMask } from '../render/waterEdge';
 import { blendMask, patchTileBlend } from '../render/tileBlend';
 import { SpriteLibrary, withSpriteShadows } from '../render/sprites';
-import { blockedTiles, propBoxes } from './props';
+import { blockedTiles, footTiles, propBoxes } from './props';
 import { type BuiltBuilding, buildBuildings } from './buildings';
 import type { TileTexture } from '../render/tileTextures';
 import { linearColor, makeTexture, registerNormalMap } from '../render/textures';
 import type { TileMap } from './TileMap';
 import { QuadList, buildTerrainGeometry, cornerRounding, cornerSliver } from './terrainGeometry';
 import { BRICKS } from './tiles';
-import type { BorderKind, MapData, PropData } from './types';
+import type { BorderKind, MapData, PropData, PropDef } from './types';
 import { waterStyles } from './waterStyles';
 import { patchSeason } from '../render/season';
 import { propSeason } from './seasons';
@@ -645,6 +645,31 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
   // are already in front. Two props on the very same spot keep their order too.
   const span = map.w + 8, NUDGE = 0.03 / span;
   const nudge = (p: PropData) => Math.max(0, Math.min(span, span - (p.x + 4))) * NUDGE;
+  // Bridges and platforms drawn as their own picture: at the deck's height (the bank they meet), not down on the
+  // ground under them; lying flat like a floor unless set to stand up.
+  const deckY = (p: PropData, d: PropDef) => {
+    const tiles = d.foot ? footTiles(d, p.x, p.z, p.s ?? 1) : [[Math.floor(p.x), Math.floor(p.z - 0.01)] as [number, number]];
+    const ys = tiles.map(([x, z]) => map.deckAt(x, z)).filter((y): y is number => y !== null);
+    return ys.length ? Math.max(...ys) : null;
+  };
+  for (const [type, list] of [...groups]) {
+    const d = sprites.def(type);
+    if (!d?.deck?.art || d.deck.stand) continue;
+    groups.delete(type);
+    const a = sprites.get(type), tex = (a.material as THREE.MeshStandardMaterial).map;
+    const mat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, roughness: 0.92, side: THREE.DoubleSide });
+    const fw = d.foot?.w ?? Math.max(1, Math.round(d.w)), fd = d.foot?.d ?? 1;
+    const geo = new THREE.PlaneGeometry(fw, fd).rotateX(-Math.PI / 2);
+    for (const p of list) {
+      const s = p.s ?? 1, y = deckY(p, d) ?? propBase(map, p, d).y;
+      const mesh = new THREE.Mesh(geo, mat);
+      // The footprint's front edge is at p.z; it reaches back (north) d tiles. Just above the deck, so it isn't lost in it.
+      mesh.position.set(p.x, y + 0.012, p.z - (fd * s) / 2);
+      mesh.scale.set(s, 1, s);
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+    }
+  }
   for (const [type, list] of groups) {
     const a = sprites.get(type), pdef = sprites.def(type), onWall = !!pdef?.wall;
     // Leaves follow the seasons (bare or snowy in winter), unless the prop says it doesn't change.
@@ -657,6 +682,7 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     list.forEach((p, i) => {
       const s = p.s ?? 1;
       const at = propBase(map, p, pdef);
+      if (pdef?.deck?.art) { const dy = deckY(p, pdef); if (dy !== null) at.y = dy; }
       m.makeScale(s, onWall && pdef?.stretch ? stretchTo(map, p, at, pdef.h) : s, s);
       if (onWall) m.setPosition(p.x, at.y, at.z + nudge(p) * 0.3);
       else m.setPosition(p.x, at.y, p.z + nudge(p));

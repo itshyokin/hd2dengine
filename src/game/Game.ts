@@ -206,7 +206,8 @@ export class Game {
     this.wetProps = [];
     for (const prop of this.mapData.props) {
       const d = this.sprites.def(prop.type);
-      if (!d || d.wall || d.h < 0.25) continue;
+      // Bridges and platforms stand over the water, not in it.
+      if (!d || d.wall || d.deck || d.h < 0.25) continue;
       const w = this.map.waterAt(Math.floor(prop.x), Math.floor(prop.z - 0.01));
       if (!w) continue;
       this.wetProps.push({ prop, y: w.surface, size: Math.max(0.7, Math.min(2.4, d.w * (prop.s ?? 1) * 0.9)), color: this.rippleColor(w.style) });

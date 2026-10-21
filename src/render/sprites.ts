@@ -342,7 +342,7 @@ export class SpriteLibrary {
     const shaped = d && picture ? shapeGeometry(picture, d, SPRITE_NORMAL) : null;
     if (shaped) { a.geometry.dispose(); a.geometry = shaped; }
     // Props flat on a wall don't lean back with the camera (they'd sink into the rock).
-    if (d?.wall) for (const m of [a.material, a.depthMaterial, a.distanceMaterial]) if (m) m.userData.noLean = true;
+    if (d?.wall || d?.noTilt) for (const m of [a.material, a.depthMaterial, a.distanceMaterial]) if (m) m.userData.noLean = true;
     // Not drawn in front of tiles (tall platforms whose legs would show through the cliff in front of them).
     if (d?.frontOfTiles === false) a.material.userData.hdBack = true;
     // Trees, bushes and grass sway in the wind (the shadow too).

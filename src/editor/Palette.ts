@@ -292,6 +292,7 @@ export class Palette {
           h('span', { class: 'swatch-note' }, NOTES[a])))),
         h('p', { class: 'note' }, 'Turn one off to unlock it later with the “Change ability” event command (climbing gloves, a crawl-through-vents skill…).'));
     } else if (s.mode === 'props') {
+      const stickFrom = body.length;
       body.push(this.tools(PROP_TOOLS, s.propTool, (t) => (s.propTool = t)));
       if (s.propTool === 'scatter') body.push(this.brush());
       const defs = paletteProps();
@@ -363,11 +364,15 @@ export class Palette {
         const all = list.every((d) => picks.has(d.id));
         return h('button', { type: 'button', class: 'mini-link', onclick: () => { for (const d of list) if (all) picks.delete(d.id); else picks.add(d.id); this.render(); } }, all ? 'Untick all' : 'Tick all');
       };
+      const builtinLabel = h('div', { class: 'section-label' }, 'Built-in', tickAll(builtins));
       body.push(
-        h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openPropImporter(s) }, '+ Import prop from image…'),
-        h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openLpcLibrary(s, 'prop') }, '+ Add from the LPC library…'),
-        h('div', { class: 'section-label' }, 'Built-in', tickAll(builtins)),
+        h('button', { type: 'button', class: 'btn import-btn', title: 'Import a prop from an image', onclick: () => void openPropImporter(s) }, '+ From an image…'),
+        h('button', { type: 'button', class: 'btn import-btn', title: 'Add props from the LPC library', onclick: () => void openLpcLibrary(s, 'prop') }, '+ LPC library…'),
+        builtinLabel,
         h('div', { class: 'sprites' }, ...builtins.map((d) => card(d.id, d.name, !!d.light))));
+      // Everything above the lists (tools, the chosen prop, ticks, import) stays in view while scrolling them.
+      const at = body.indexOf(builtinLabel);
+      if (at > stickFrom) body.splice(stickFrom, at - stickFrom, h('div', { class: 'prop-sticky' }, ...body.slice(stickFrom, at)));
       body.push(h('div', { class: 'section-label' }, `Imported (${imported.length})`, imported.length ? tickAll(imported) : null),
         imported.length
           ? h('div', { class: 'sprites' }, ...imported.map((d) => card(d.id, d.name, !!d.light)))

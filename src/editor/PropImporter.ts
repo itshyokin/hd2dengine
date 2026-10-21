@@ -55,7 +55,9 @@ interface State {
   /** Walked on (a bridge or platform): '' no; the way it runs. */
   deck: '' | 'h' | 'v' | 'any';
   /** How a bridge or platform is drawn: its own picture, or built 3D pieces. */
-  deckLook: 'art' | 'wood' | 'rope' | 'stone';
+  deckLook: 'art' | 'artStand' | 'wood' | 'rope' | 'stone';
+  /** Leans back toward the map camera like other props (off: stays upright). */
+  tilt: boolean;
   /** Footprint: tiles deep, and which are solid (rows from the back row to the front, columns left to right). */
   d: number;
   solid: boolean[][];
@@ -97,7 +99,8 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     rustle: existing?.rustle === undefined ? '' : existing.rustle ? 'yes' : 'no',
     front: existing?.frontOfTiles !== false,
     deck: existing?.deck ? existing.deck.dir ?? 'any' : '',
-    deckLook: existing?.deck ? (existing.deck.art ? 'art' : existing.deck.style) : 'art',
+    deckLook: existing?.deck ? (existing.deck.art ? (existing.deck.stand ? 'artStand' : 'art') : existing.deck.style) : 'art',
+    tilt: !existing?.noTilt,
     d: existing?.foot?.d ?? 1, solid: [],
     shape: existing?.shape ?? 'flat', thickness: existing?.thickness ?? 0, collide: existing?.collide ?? 'solid',
     flameOn: !!existing?.flame, flame: existing?.flame ? { ...existing.flame } : { x: 0, y: Math.round((existing?.h ?? 2) * 0.75 * 10) / 10, w: 0.5, h: 0.75, embers: true },
@@ -422,8 +425,9 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       field('Walk on top (bridge or platform)', select([['', 'No'], ['h', 'Bridge running east–west (left–right)'], ['v', 'Bridge running north–south (up–down)'], ['any', 'Platform or dock (walk any way)']],
         st.deck, (v) => { st.deck = v as State['deck']; renderForm(); }),
         'Walked on at a deck height over water, chasms or lower ground, never blocking. A row of pieces shares one height (the highest bank they touch). Bridges keep walkers on them: along the bridge only, getting on and off at the ends.'),
-      ...(st.deck ? [field('Drawn as', select([['art', 'Its picture (this image)'], ['wood', 'Built in 3D: wooden planks'], ['rope', 'Built in 3D: rope bridge'], ['stone', 'Built in 3D: stone']],
-        st.deckLook, (v) => (st.deckLook = v as State['deckLook'])), 'Built in 3D pieces lie flat with rails and posts down to the ground, like the built-in bridges (the picture is then only the palette icon).')] : []),
+      ...(st.deck ? [field('Drawn as', select([['art', 'Its picture, lying flat on the deck (seen from above)'], ['artStand', 'Its picture, standing up at the deck’s height'], ['wood', 'Built in 3D: wooden planks'], ['rope', 'Built in 3D: rope bridge'], ['stone', 'Built in 3D: stone']],
+        st.deckLook, (v) => (st.deckLook = v as State['deckLook'])), 'Lying flat, the picture covers the footprint like a floor at the height of the banks it joins (top of the picture to the north). Built in 3D pieces have rails and posts down to the ground, like the built-in bridges (the picture is then only the palette icon).')] : []),
+      checkbox('Camera tilt: leans back toward the map camera like the characters (turn off to keep it upright)', st.tilt, (v) => (st.tilt = v)),
       field('Rustles when walked through', select([['', 'Tall grass shapes that don’t block'], ['yes', 'Yes (shakes and swishes)'], ['no', 'No']], st.rustle, (v) => (st.rustle = v as State['rustle']))),
       checkbox('Is respawn point (using it, the player comes back here after losing all health)', st.respawn, (v) => (st.respawn = v)),
       checkbox('Is a forge (an anvil): smelt ore, upgrade weapons and armor, set shards in them', st.forge, (v) => (st.forge = v)),
@@ -570,10 +574,12 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       if (st.wall && st.stretch) def.stretch = true;
       if (st.rustle) def.rustle = st.rustle === 'yes';
       if (!st.front) def.frontOfTiles = false;
+      if (!st.tilt) def.noTilt = true;
       if (st.deck) {
-        const style = st.deckLook === 'art' ? existing?.deck?.style ?? 'wood' : st.deckLook;
+        const pic = st.deckLook === 'art' || st.deckLook === 'artStand';
+        const style = pic ? existing?.deck?.style ?? 'wood' : st.deckLook as 'wood' | 'rope' | 'stone';
         def.deck = { style, ...(st.deck !== 'any' ? { dir: st.deck } : {}) };
-        if (st.deckLook === 'art') def.deck.art = true;
+        if (pic) { def.deck.art = true; if (st.deckLook === 'artStand') def.deck.stand = true; }
         else if (existing?.deck?.rails !== undefined) def.deck.rails = existing.deck.rails;
         else if (st.deck !== 'any' && style !== 'rope') def.deck.rails = true;
         def.block = [];
