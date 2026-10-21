@@ -17,7 +17,15 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { patchAreaTint } from './areaTint';
 import { modelExt } from './models';
-import type { CharacterModel, Dir, ModelLook, ModelSlot } from '../world/types';
+import type { CharacterModel, Database, Dir, ModelLook, ModelSlot } from '../world/types';
+
+/** How 3D characters are drawn: the look, and whether they have a dark outline. */
+export interface ModelStyle { look: ModelLook; outline: boolean }
+/** The game's 3D character style (Database → Characters → 3D characters). The outline comes with Legend of Dragoon unless turned off. */
+export function modelStyle(db: Pick<Database, 'modelLook' | 'modelOutline'>): ModelStyle {
+  const look = db.modelLook ?? 'lod';
+  return { look, outline: db.modelOutline ?? look === 'lod' };
+}
 
 /** The slots, in the order the editor shows them. `enemy`: the ones enemies use. */
 export const MODEL_SLOTS: { id: ModelSlot; name: string; hint: string; enemy?: boolean }[] = [
@@ -174,7 +182,15 @@ export class ModelRig {
   private yaw = 0;
   private targetYaw = 0;
 
-  constructor(m: LoadedCharModel, def: CharacterModel, look: ModelLook, castShadow = true) {
+  /** How tall it stands (tiles). */
+  readonly height: number;
+  /** Its size on the battle stage (a share of its height). */
+  readonly battleScale: number;
+
+  constructor(m: LoadedCharModel, def: CharacterModel, style: ModelStyle, castShadow = true) {
+    const look = style.look;
+    this.height = def.height ?? 1.6;
+    this.battleScale = def.battleScale ?? 0.5;
     const obj = cloneSkinned(m.scene);
     obj.updateMatrixWorld(true);
     // Stand `height` tiles tall, feet on the ground, centred.
@@ -199,7 +215,7 @@ export class ModelRig {
       mesh.receiveShadow = true;
       // Skinned bounds are the rest pose's: never culled while an action moves it out of them.
       mesh.frustumCulled = false;
-      if (look === 'lod' && mesh.parent) {
+      if (style.outline && mesh.parent) {
         const ws = mesh.getWorldScale(new THREE.Vector3()).x || 1;
         const om = outlineMaterial(0.022 / ws);
         const sk = mesh as THREE.SkinnedMesh;
@@ -334,8 +350,9 @@ let picRenderer: THREE.WebGLRenderer | null = null;
  * A picture of a character model, standing in its Idle pose and facing `dir`: the whole body (`part` 'full', for
  * battle pictures and save slots) or the head and shoulders ('head', for faces in menus). `px` tall.
  */
-export function renderCharacterPicture(m: LoadedCharModel, def: CharacterModel, look: ModelLook, dir: Dir, part: 'full' | 'head', px: number): HTMLCanvasElement {
-  const rig = new ModelRig(m, def, look, false);
+export function renderCharacterPicture(m: LoadedCharModel, def: CharacterModel, style: ModelStyle, dir: Dir, part: 'full' | 'head', px: number): HTMLCanvasElement {
+  const look = style.look;
+  const rig = new ModelRig(m, def, style, false);
   rig.face(dir); rig.snapFacing();
   rig.update(0.4);
   rig.root.updateMatrixWorld(true);

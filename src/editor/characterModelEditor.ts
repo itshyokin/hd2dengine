@@ -4,9 +4,9 @@
  * assets/models/characters/party/katrina/katrina.glb, or imported here into assets/models/characters/).
  */
 import * as THREE from 'three';
-import { MODEL_SLOTS, type LoadedCharModel, ModelRig, clipFor, clipName, loadCharacterModel } from '../render/characterModel';
+import { MODEL_SLOTS, type LoadedCharModel, ModelRig, type ModelStyle, clipFor, clipName, loadCharacterModel } from '../render/characterModel';
 import { modelExt } from '../render/models';
-import type { CharacterDef, CharacterModel, ModelLook, ModelSlot } from '../world/types';
+import type { CharacterDef, CharacterModel, ModelSlot } from '../world/types';
 import { field, h, numberInput, openModal, select, textInput, toast } from './dom';
 import type { EditorStore } from './store';
 
@@ -31,7 +31,8 @@ export function editorCharModel(store: EditorStore, m: CharacterModel, fresh = f
 }
 
 /** Open the 3D model window for one character (changes go to `c`, the Database window's copy). */
-export function openCharacterModel(store: EditorStore, id: string, c: CharacterDef, look: ModelLook, done: () => void): void {
+export function openCharacterModel(store: EditorStore, id: string, c: CharacterDef, style: ModelStyle, done: () => void): void {
+  const look = style.look;
   const body = h('div', { class: 'char-model' });
   let model: LoadedCharModel | null = null, error = '';
   let previewSlot: ModelSlot = 'idle';
@@ -63,7 +64,7 @@ export function openCharacterModel(store: EditorStore, id: string, c: CharacterD
     rig?.dispose(); rig = null;
     if (!model || !c.model) return;
     try {
-      rig = new ModelRig(model, c.model, look, false);
+      rig = new ModelRig(model, c.model, style, false);
       scene.add(rig.root);
       const tall = c.model.height ?? 1.6;
       cam.position.set(0, tall * 0.62, tall * 2.6);
@@ -138,7 +139,9 @@ export function openCharacterModel(store: EditorStore, id: string, c: CharacterD
         h('div', { class: 'field-row three' },
           field('Height (tiles)', numberInput(m.height ?? 1.6, (v) => { m.height = Math.max(0.3, Math.min(8, Math.round(v * 20) / 20)); if (m.height === 1.6) delete m.height; showRig(); }, { min: 0.3, max: 8, step: 0.05 })),
           field('Faces', select([['0', 'As modelled'], ['90', 'Turned right 90°'], ['180', 'Turned round'], ['270', 'Turned left 90°']], String(m.rot ?? 0), (v) => { const n = Number(v); if (n) m.rot = n; else delete m.rot; showRig(); })),
-          h('div', { class: 'char-model-count' }, `${names.length} action${names.length === 1 ? '' : 's'} in ${1 + (m.extra?.length ?? 0)} file${m.extra?.length ? 's' : ''}`)),
+          field('Size in battle', select([['0.35', 'Small (35%)'], ['0.5', 'Half (default)'], ['0.65', '65%'], ['0.8', '80%'], ['1', 'Full size']], String([0.35, 0.5, 0.65, 0.8, 1].reduce((a, b) => (Math.abs(b - (m.battleScale ?? 0.5)) < Math.abs(a - (m.battleScale ?? 0.5)) ? b : a))),
+            (v) => { const n = Number(v); if (n === 0.5) delete m.battleScale; else m.battleScale = n; }), 'The battle stage is seen up close.')),
+        h('div', { class: 'char-model-count' }, `${names.length} action${names.length === 1 ? '' : 's'} in ${1 + (m.extra?.length ?? 0)} file${m.extra?.length ? 's' : ''}`),
         h('div', { class: 'section-label' }, 'Animation slots'),
         h('div', { class: 'char-model-slots' }, ...MODEL_SLOTS.map((s) => {
           const guess = clipFor(model!, { ...m, anims: { ...m.anims, [s.id]: undefined } }, s.id);
@@ -163,7 +166,7 @@ export function openCharacterModel(store: EditorStore, id: string, c: CharacterD
         h('p', { class: 'hint' }, 'Files of actions must use the same skeleton (the same bone names), e.g. Mixamo animations downloaded without skin.'),
       );
     }
-    body.replaceChildren(h('div', { class: 'char-model-grid' }, h('div', { class: 'char-model-left' }, canvas, h('p', { class: 'hint' }, `Look: ${look === 'lod' ? 'Legend of Dragoon (low-res, outlined)' : 'Final Fantasy X (smooth)'}; set for every character above the list.`)), h('div', { class: 'char-model-form' }, ...parts)));
+    body.replaceChildren(h('div', { class: 'char-model-grid' }, h('div', { class: 'char-model-left' }, canvas, h('p', { class: 'hint' }, `Look: ${look === 'lod' ? 'Legend of Dragoon' : 'Final Fantasy X'}, ${style.outline ? 'outlined' : 'no outline'}: set for every 3D character above the list (3D characters).`)), h('div', { class: 'char-model-form' }, ...parts)));
   }
 
   render();

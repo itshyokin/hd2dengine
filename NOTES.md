@@ -239,7 +239,7 @@ decide things; the tablet editor keeps working.
   - [x] Props: a "Camera tilt" setting (off: the prop stays upright instead of leaning toward the map camera).
   - [x] Props palette: the tools, chosen prop and import buttons stay at the top while the lists scroll.
 - [x] Owner's list (Oct 20, 11:35 pm) (update 95):
-  - [x] Stat order (Database → Heroes): reorder STR, DEX… once; every list in the game and the Database follows it.
+  - [x] Stat order (Database → Game → Stat order): reorder STR, DEX… once; every list in the game and the Database follows it.
   - [x] "Weight" renamed "Armor type", with an Armor types window (add, rename, remove; untrained costs per type).
   - [x] Items split into tabs: Items, Weapons, Gear (armor, shields, accessories), Shards (spell shards and element
         stones), Key items.

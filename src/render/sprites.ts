@@ -14,14 +14,14 @@ import { DEFAULT_PALETTE, PLACEHOLDER_SPRITES, characterSheet } from '../art/pla
 import { normalMapFrom } from '../core/pixel';
 import { loadCanvas, maskToGlow, missingImage } from '../shared/images';
 import type { PropCatalog } from '../world/props';
-import type { CharacterAnimLayout, CharacterDef, CharacterModel, CharacterPalette, ModelLook, PropDef, WeaponSpriteDef, WeaponSpriteManifest } from '../world/types';
+import type { CharacterAnimLayout, CharacterDef, CharacterModel, CharacterPalette, PropDef, WeaponSpriteDef, WeaponSpriteManifest } from '../world/types';
 
 import { WEAPON_MANIFEST_PATH as WEAPON_MANIFEST } from '../game/combat/weaponSprites';
 import { cutIcon, weaponIconRect } from '../art/weaponIcon';
 import { weaponMaskCanvas } from './weaponMask';
 import { completeLayout } from './sheetCheck';
 import { type BakedModel, bakeModel, modelExt, parseModel } from './models';
-import { type LoadedCharModel, loadCharacterModel, renderCharacterPicture } from './characterModel';
+import { type LoadedCharModel, type ModelStyle, loadCharacterModel, renderCharacterPicture } from './characterModel';
 import { patchAreaTint } from './areaTint';
 import { linearColor, makeTexture, registerNormalMap } from './textures';
 
@@ -41,7 +41,7 @@ export interface SpriteAsset {
    */
   anim?: { layout: CharacterAnimLayout; width: number; height: number };
   /** A 3D character (render/characterModel.ts): drawn instead of the sheet, which stays as the fallback. */
-  rigged?: { model: LoadedCharModel; def: CharacterModel; look: ModelLook };
+  rigged?: { model: LoadedCharModel; def: CharacterModel; style: ModelStyle };
 }
 
 /** Pixels per tile for animated (LPC) sheets: a 64 × 64 frame covers 2 × 2 tiles. */
@@ -227,8 +227,8 @@ export class SpriteLibrary {
   /** Use this model for a prop (the editor, after importing one). */
   setModel(id: string, m: BakedModel | undefined): void { if (m) this.models.set(id, m); else this.models.delete(id); }
 
-  /** How 3D characters are drawn (Database → Characters → 3D look). */
-  modelLook: ModelLook = 'lod';
+  /** How 3D characters are drawn (Database → Characters → 3D characters). */
+  modelStyle: ModelStyle = { look: 'lod', outline: true };
   /** 3D characters' models, by their file (and extra files). */
   private readonly charModels = new Map<string, LoadedCharModel>();
   private static modelKey(m: CharacterModel): string { return [m.file, ...(m.extra ?? [])].join('|'); }
@@ -254,7 +254,7 @@ export class SpriteLibrary {
   /** A character's own sprite asset: its imported sheet, else its palette over the built-in look. */
   forCharacter(def: CharacterDef | undefined): SpriteAsset {
     const model = this.charModel(def);
-    if (model && def?.model) return { ...this.forCharacter({ ...def, model: undefined }), rigged: { model, def: def.model, look: this.modelLook } };
+    if (model && def?.model) return { ...this.forCharacter({ ...def, model: undefined }), rigged: { model, def: def.model, style: this.modelStyle } };
     const sheet = def?.sheet ? this.sheets.get(def.sheet) : undefined;
     if (sheet && def?.anim) return this.animated(def.sheet!, sheet, def.anim);
     if (sheet) return this.sheet(sheet);
@@ -277,7 +277,7 @@ export class SpriteLibrary {
     // A 3D character: the model in its Idle pose, rendered.
     const model = this.charModel(def);
     if (model && def?.model) {
-      const pic = renderCharacterPicture(model, def.model, this.modelLook, dir, 'full', (scale || 2) * 56);
+      const pic = renderCharacterPicture(model, def.model, this.modelStyle, dir, 'full', (scale || 2) * 56);
       this.standing.set(k, pic);
       return pic;
     }
@@ -327,7 +327,7 @@ export class SpriteLibrary {
     if (out) return out;
     const model = this.charModel(def);
     if (model && def?.model) {
-      const head = renderCharacterPicture(model, def.model, this.modelLook, 'down', 'head', size);
+      const head = renderCharacterPicture(model, def.model, this.modelStyle, 'down', 'head', size);
       out = document.createElement('canvas');
       out.width = out.height = size;
       out.getContext('2d')!.drawImage(head, Math.round((size - head.width) / 2), 0);

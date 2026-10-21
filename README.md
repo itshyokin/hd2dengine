@@ -119,8 +119,11 @@ model file…* (saved to `assets/models/characters/<id>/`). The window shows the
 - **More actions from other files**: extra GLB / FBX files with actions for the same skeleton (same bone names), such
   as Mixamo animations downloaded without skin.
 - **Height** (tiles, default 1.6) and **Faces** (turn it if the model was made facing another way).
-- **3D look**, above the list, for every 3D character: **Legend of Dragoon** (crisp low-res textures, flat shading, a
-  dark outline) or **Final Fantasy X** (smooth).
+- **Size in battle**: the battle stage is seen up close, so models stand at half their height there by default
+  (35% to full size).
+- **3D characters** box, above the list, for every 3D character: the **Look**, **Legend of Dragoon** (crisp low-res
+  textures, flat shading) or **Final Fantasy X** (smooth), and a **Dark outline** (on with Legend of Dragoon, off with
+  FFX, unless set).
 
 In the game the model is drawn everywhere the sheet was: the player and party on the map (walking, running, swimming,
 climbing, jumping, turning smoothly to the exact way they move, diagonals included), events, enemies whose look is
@@ -546,7 +549,7 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   % a point of AGI over 10, up to 40%), never below 20%; spells always land. Each point of DEX over 10 adds a
   quarter of a % to critical hits; each point of END over 10 adds 1.5% to the chance of shrugging off an ailment
   (up to 60%). Saves from before seven stats give Agility and Endurance 10.
-- **Stat order** (Database → Heroes, at the top): move the stats up and down with ▲ ▼ to set the order every list
+- **Stat order** (Database → Game → Stat order): move the stats up and down with ▲ ▼ to set the order every list
   shows them in, in the game (Status, Equipment, level ups, the dice table) and in the Database (heroes, classes,
   gear bonuses, buffs). *Back to the usual order* resets it.
 - **Growth ranks**: each hero's seven stats have a level 1 value

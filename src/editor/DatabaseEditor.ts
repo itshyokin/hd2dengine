@@ -67,7 +67,7 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera' | 'stats';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
@@ -77,7 +77,7 @@ const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Items', [['items', 'Items', 'potion'], ['weapons', 'Weapons', 'sword'], ['gear', 'Gear: armor, shields, accessories', 'armor'], ['shards', 'Shards: spells and element stones', 'gem'], ['keyItems', 'Key items', 'key'], ['inventory', 'Starting inventory', 'bag']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
   ['World', [['camera', 'Camera', 'eye'], ['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Travel: horses and griffins', 'horse']]],
-  ['Game', [['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
+  ['Game', [['stats', 'Stat order', 'bars'], ['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
   person: '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
@@ -105,6 +105,7 @@ const ICON_PATHS: Record<string, string> = {
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-1.3-1-1.7-1-2.7 0-1 .8-1.5 1.8-1.5H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/>',
   note: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
   disk: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
+  bars: '<path d="M5 6h14M5 12h10M5 18h6"/><path d="M19 15v6M16.5 18.5L19 21l2.5-2.5"/>',
   menu: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>',
   bubble: '<path d="M4 5h16v11H10l-4 4v-4H4z"/><path d="M8 9h8M8 12h5"/>',
   mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M7.5 10.5l1.5 1.5 1.5-1.5"/>',
@@ -135,7 +136,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const saving = { anywhere: store.db.saving?.anywhere !== false, autosave: store.db.saving?.autosave !== false };
   const abilities = Object.fromEntries(ABILITIES.map((a) => [a, store.db.abilities?.[a] ?? true])) as Record<string, boolean>;
   const body = h('div', { class: 'db-editor' });
-  const people: CharactersWork = { chars: JSON.parse(JSON.stringify(store.db.characters)), player: store.db.player, look: store.db.modelLook };
+  const people: CharactersWork = { chars: JSON.parse(JSON.stringify(store.db.characters)), player: store.db.player, look: store.db.modelLook, outline: store.db.modelOutline };
   const credits: CreditEntry[] = JSON.parse(JSON.stringify(store.db.credits ?? []));
   const quests: QuestDef[] = JSON.parse(JSON.stringify(store.db.quests ?? []));
   const questState = { sel: 0 };
@@ -335,7 +336,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       h('p', { class: 'note' }, 'Every list of stats follows this order: Status and Equipment in the game, level-up and dice screens, and the Database (heroes, classes, gear bonuses, buffs).'));
   };
   const renderTab = () => {
-    if (tab === 'heroes') { content.replaceChildren(statOrderSection(), ...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
+    if (tab === 'stats') { content.replaceChildren(statOrderSection()); return; }
+    if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
     if (tab === 'characters') { content.replaceChildren(...charactersTab(store, people, render)); return; }
     if (tab === 'credits') { content.replaceChildren(...creditsTab(credits, people.chars, render, [...store.assets.props, ...store.assets.tiles].map((d) => d.credits ?? []))); return; }
     if (tab === 'quests') { content.replaceChildren(...questsTab(store, quests, { items: work.items, enemies }, questState, render)); return; }
@@ -638,7 +640,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(itemsOut) === JSON.stringify(db.items?.length ? db.items : null) && JSON.stringify(invOut ?? null) === JSON.stringify(db.inventory ?? null) &&
         JSON.stringify(combatOut) === JSON.stringify(db.combat ?? null) && JSON.stringify(enemiesOut) === JSON.stringify(db.enemies?.length ? db.enemies : null) &&
         JSON.stringify(audioOut) === JSON.stringify(db.audio ?? null) && JSON.stringify(skillsOut) === JSON.stringify(db.skills ?? null) &&
-        JSON.stringify(people.chars) === JSON.stringify(db.characters) && people.player === db.player && people.look === db.modelLook &&
+        JSON.stringify(people.chars) === JSON.stringify(db.characters) && people.player === db.player && people.look === db.modelLook && people.outline === db.modelOutline &&
         JSON.stringify(cleanCredits(credits) ?? null) === JSON.stringify(db.credits ?? null) && JSON.stringify(questsOut) === JSON.stringify(db.quests?.length ? db.quests : null) &&
         JSON.stringify(heroesOut) === JSON.stringify(db.heroes?.length ? db.heroes : null) &&
         JSON.stringify(spellsOut) === JSON.stringify(db.spells ?? null) && JSON.stringify(additionsOut) === JSON.stringify(db.additions ?? null) &&
@@ -682,6 +684,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (climateOut) db.climate = C(climateOut) as typeof db.climate; else delete db.climate;
       db.characters = C(people.chars);
       if (people.look) db.modelLook = people.look; else delete db.modelLook;
+      if (people.outline !== undefined) db.modelOutline = people.outline; else delete db.modelOutline;
       const cr = cleanCredits(credits);
       if (cr) db.credits = C(cr); else delete db.credits;
       if (people.chars[people.player]) db.player = people.player;
