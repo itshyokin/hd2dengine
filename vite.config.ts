@@ -48,6 +48,17 @@ function editorApi(): Plugin {
       // Saving from the editor shouldn't make Vite reload the editor page.
       server.watcher.unwatch(DATA_DIR);
       server.watcher.unwatch(path.resolve('public/assets'));
+      // Prop models saved this session: Vite only knows the public files it saw at start (and the assets folder
+      // isn't watched), so serve them straight from disk.
+      server.middlewares.use(async (req, res, next) => {
+        const m = /^\/assets\/props\/([A-Za-z0-9_.-]+\.(?:glb|fbx))(?:\?.*)?$/.exec(req.url ?? '');
+        if (!m) return next();
+        try {
+          const data = await fs.readFile(path.resolve('public/assets/props', m[1]));
+          res.setHeader('Content-Type', m[1].endsWith('.glb') ? 'model/gltf-binary' : 'application/octet-stream');
+          res.end(data);
+        } catch { next(); }
+      });
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith('/__editor/')) return next();
         try {
