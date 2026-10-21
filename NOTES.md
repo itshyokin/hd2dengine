@@ -183,6 +183,11 @@ Kept in the project so they travel with the code. Tick them off as they're built
         element).
   - [x] Battle start: health bars start at the hero's current health (no drain down from full). If needed, build
         the scene first and fade in once the bars are set.
+- [x] Owner's list (Oct 21, morning) (update 96):
+  - [x] Picture bridges drawn at the deck's height (where the banks meet), not down at the ground or water; lying
+        flat on the deck by default (or standing up); no water ripples round them.
+  - [x] Props: a "Camera tilt" setting (off: the prop stays upright instead of leaning toward the map camera).
+  - [x] Props palette: the tools, chosen prop and import buttons stay at the top while the lists scroll.
 - [x] Owner's list (Oct 20, 11:35 pm) (update 95):
   - [x] Stat order (Database → Heroes): reorder STR, DEX… once; every list in the game and the Database follows it.
   - [x] "Weight" renamed "Armor type", with an Armor types window (add, rename, remove; untrained costs per type).

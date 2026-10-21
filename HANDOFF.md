@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 21, 2026, after Update 95)
+# Handoff: where the project stands (Oct 21, 2026, after Update 96)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** waiting on the owner's playtest of Update 95 (Database: stat order, armor types, item tabs, icons and tint, spell icons, class skill tree picker).
+- **Next work:** waiting on the owner's playtest of Update 96 (picture bridges at deck height and lying flat, Camera tilt, sticky prop tools) and 95 (Database: stat order, armor types, item tabs, icons, spell icons, class trees).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -203,12 +203,16 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   ItemsEditor `iconGrid` / `tintRow`. SpellEntry / BattleSpell `icon` + `iconTint` (TurnBattle magicMenu).
   Classes: AbilitiesEditor `classTrees` (dropdowns; checkboxes were swept to the top by formLayout) and
   SkillsEditor `treePreview`.
+- 96: DeckDef `stand` (art decks lie flat unless set); WorldBuilder draws flat art decks as planes at `deckY`
+  (max `deckAt` over the footprint) and standing ones at that height; Game `findWetProps` skips decks; PropDef
+  `noTilt` (sprites.ts sets `noLean` like wall props); importer "Drawn as" art / artStand and "Camera tilt"; batch
+  edit `tilt`; Palette `.prop-sticky` wraps everything above the Built-in list.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. Whatever the owner reports from playtesting Update 95.
+1. Whatever the owner reports from playtesting Update 96.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

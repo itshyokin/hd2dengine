@@ -56,9 +56,15 @@ const SETTINGS: Setting[] = [
       delete d.noDeck;
       d.block = [];
     } },
-  { key: 'deckLook', label: 'Bridge or platform drawn as', hint: 'Only for props that are walked on.', options: [['art', 'Its picture'], ['wood', 'Built in 3D: wooden planks'], ['rope', 'Built in 3D: rope bridge'], ['stone', 'Built in 3D: stone']],
-    get: (d) => (d.deck ? (d.deck.art ? 'art' : d.deck.style) : ''),
-    set: (d, v) => { if (!d.deck) return; if (v === 'art') d.deck.art = true; else { delete d.deck.art; d.deck.style = v as 'wood' | 'rope' | 'stone'; } } },
+  { key: 'deckLook', label: 'Bridge or platform drawn as', hint: 'Only for props that are walked on.', options: [['art', 'Its picture, lying flat'], ['artStand', 'Its picture, standing up'], ['wood', 'Built in 3D: wooden planks'], ['rope', 'Built in 3D: rope bridge'], ['stone', 'Built in 3D: stone']],
+    get: (d) => (d.deck ? (d.deck.art ? (d.deck.stand ? 'artStand' : 'art') : d.deck.style) : ''),
+    set: (d, v) => {
+      if (!d.deck) return;
+      if (v === 'art' || v === 'artStand') { d.deck.art = true; if (v === 'artStand') d.deck.stand = true; else delete d.deck.stand; }
+      else { delete d.deck.art; delete d.deck.stand; d.deck.style = v as 'wood' | 'rope' | 'stone'; }
+    } },
+  { key: 'tilt', label: 'Camera tilt (leans back toward the map camera)', options: yesNo,
+    get: (d) => (d.noTilt ? 'no' : 'yes'), set: (d, v) => { if (v === 'no') d.noTilt = true; else delete d.noTilt; } },
   { key: 'respawn', label: 'Is a respawn point', options: yesNo, ...flag('respawn') },
   { key: 'forge', label: 'Is a forge (anvil)', options: yesNo, ...flag('forge') },
 ];

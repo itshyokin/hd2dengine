@@ -19,6 +19,8 @@ export interface DeckDef {
   style: DeckStyle; /** Runs east–west ('h') or north–south ('v'); platforms: either. */ dir?: 'h' | 'v'; rails?: boolean;
   /** Drawn as the prop's own picture (an imported bridge or platform) instead of the built 3D pieces. */
   art?: boolean;
+  /** The picture stands up at the deck's height (unset: it lies flat on the deck, seen from above like a floor). */
+  stand?: boolean;
 }
 
 interface DeckCell { x: number; z: number; p: PropData; def: DeckDef; y: number }
