@@ -2,6 +2,7 @@
  * The game: loads data, builds the scene, and runs the frame loop.
  * Systems are kept in their own modules; this file wires them together.
  */
+import { partyLayout } from '../ui/partyLayout';
 import { UI_THEMES, applyUiTheme } from '../ui/themes';
 import * as THREE from 'three';
 import { tileCursor } from '../art/placeholderArt';
@@ -621,6 +622,7 @@ export class Game {
       actions: (who) => this.partyActions(who),
       run: (who, id, back) => this.partyRun(who, id, back),
       swap: (a, b) => this.swapLineup(a, b),
+      layout: () => partyLayout(this.db.menus?.partyLayout),
     });
     this.pauseShell = new PauseShell(this.ui, () => {
       const where = this.mapData?.name || this.mapName;
@@ -884,6 +886,7 @@ export class Game {
     tagAOMeshes(level);
     this.groundMeshes = built.ground;
     this.propSlots = built.props;
+    this.findRustlers();
     this.buildings = built.buildings;
     this.bursts.attach(level);
     this.lights = new Lights(level, data, this.map, this.sprites);
@@ -5727,6 +5730,7 @@ export class Game {
       get leader() { return g.player.position as unknown as { x: number; y: number; z: number }; },
       get calm() { return g.calmFor > 3; },
       get regenHp() { return !g.stats.cfg.noRegen.hp; },
+      get regenMp() { return !g.stats.cfg.noRegen.mp; },
       numbers: (m, def) => this.allyNumbers(m, def),
       float: (t, x, y, z, k) => this.overlay.float(t, x, y, z, k),
       sound: (n, x, z) => this.audio.play(n === 'swing' ? 'swing' : n === 'heal' ? 'ringOn' : n, x, z),
@@ -5888,12 +5892,67 @@ export class Game {
     ], { note: 'Settings are yours: they stay the same whichever save is loaded.', ...opts });
   }
 
+  // ---------------------------------------------------------------- tall grass rustling
+  /** Props that rustle, by tile; each with its upright matrix and how long it's still shaking. */
+  private rustlers = new Map<number, { slot: { mesh: THREE.InstancedMesh; index: number }; pos: THREE.Vector3; scale: THREE.Vector3; t: number }[]>();
+  private shaking = new Set<{ slot: { mesh: THREE.InstancedMesh; index: number }; pos: THREE.Vector3; scale: THREE.Vector3; t: number }>();
+  private rustleTiles = new Map<string, number>();
+  private rustleCool = 0;
+
+  private findRustlers(): void {
+    this.rustlers.clear(); this.shaking.clear(); this.rustleTiles.clear();
+    const GRASS = new Set(['crossX', 'crossStar', 'rows', 'thicket']);
+    for (const [p, slot] of this.propSlots) {
+      const d = this.sprites.def(p.type);
+      if (!d) continue;
+      const rustles = d.rustle ?? (GRASS.has(d.shape ?? '') && !(d.block?.length) && !d.foot?.solid?.some((r) => r.includes('#')));
+      if (!rustles) continue;
+      const m = new THREE.Matrix4(), pos = new THREE.Vector3(), q = new THREE.Quaternion(), scale = new THREE.Vector3();
+      slot.mesh.getMatrixAt(slot.index, m); m.decompose(pos, q, scale);
+      const k = Math.floor(p.z) * this.map.w + Math.floor(p.x), list = this.rustlers.get(k) ?? [];
+      list.push({ slot, pos, scale, t: 0 }); this.rustlers.set(k, list);
+    }
+  }
+
+  /** Whoever steps into a tile of tall grass: it shakes and swishes. */
+  private updateRustle(dt: number): void {
+    this.rustleCool = Math.max(0, this.rustleCool - dt);
+    if (this.rustlers.size) {
+      const walkers: [string, number, number][] = [['hero', this.motion.x, this.motion.z], ...this.allies.map((a, i) => [`ally${i}`, a.x, a.z] as [string, number, number])];
+      for (const [id, x, z] of walkers) {
+        const k = Math.floor(z) * this.map.w + Math.floor(x);
+        if (this.rustleTiles.get(id) === k) continue;
+        this.rustleTiles.set(id, k);
+        const list = this.rustlers.get(k);
+        if (!list) continue;
+        const cur = new THREE.Matrix4();
+        // Cut down (shrunk to nothing): it stays gone.
+        for (const r of list) { r.slot.mesh.getMatrixAt(r.slot.index, cur); if (Math.abs(cur.elements[5]) < 1e-6) continue; r.t = 0.55; this.shaking.add(r); }
+        if (this.rustleCool <= 0) { this.audio.play('rustle', x, z); this.rustleCool = 0.12; }
+      }
+    }
+    if (!this.shaking.size) return;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), Z = new THREE.Vector3(0, 0, 1);
+    for (const r of this.shaking) {
+      r.t = Math.max(0, r.t - dt);
+      const a = Math.sin((0.55 - r.t) * 28) * 0.16 * (r.t / 0.55);
+      m.compose(r.pos, q.setFromAxisAngle(Z, a), r.scale);
+      r.slot.mesh.setMatrixAt(r.slot.index, m);
+      r.slot.mesh.instanceMatrix.needsUpdate = true;
+      if (r.t <= 0) this.shaking.delete(r);
+    }
+  }
+
   /** Push the settings into the renderer, lights and message window. */
   private applySettings(): void {
     const st = this.settings;
     // The window theme, with the game's touches and then the player's.
     const gw = this.db.menus?.window ?? {};
     applyUiTheme(st.uiTheme || this.db.menus?.uiTheme, { opacity: st.windowOpacity < 100 ? st.windowOpacity : gw.opacity, color: st.windowColor || gw.color, text: st.windowText || gw.text, accent: st.windowAccent || gw.accent });
+    // Bar colours (Database → Menus → Bars), everywhere.
+    const bars = this.db.menus?.bars ?? {}, root = document.documentElement.style;
+    for (const k of ['hp', 'mp', 'xp', 'sp'] as const) { if (bars[k]) root.setProperty(`--c-${k}`, bars[k]!); else root.removeProperty(`--c-${k}`); }
+    this.hud.staminaSteady = !!this.db.menus?.staminaSteady;
     // Potato: everything costly is off, whatever the switches below say.
     const potato = st.quality === 'potato' && !this.stage;
     this.post.settings.bloom = st.bloom && !potato;
@@ -6275,6 +6334,7 @@ export class Game {
     this.updateWeather(dt);
     const night = this.time.night;
     this.lights.update(dt, this.elapsed, night, this.state);
+    this.updateRustle(dt);
     if (this.stage) {
       this.stage.lights.update(dt, this.elapsed, night, this.state);
       for (const f of this.stage.built.waterFlows) {

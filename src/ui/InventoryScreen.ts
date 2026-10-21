@@ -3,6 +3,7 @@
  * with the selected item's details, gold, and an action list (Use, Equip, Quick slot, Move, Drop). The Shards tab
  * readies a shard as a hero's spell and sets shards in weapons and armor. Arrow keys / Space / Esc, or mouse and touch.
  */
+import { COIN_SVG } from './StatusBars';
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
 import { type Inventory, type Pocket } from '../game/inventory';
@@ -472,7 +473,7 @@ export class InventoryScreen {
     const actions = m.kind === 'actions'
       ? `<div class="inv-actions" role="listbox">${m.options.map((o, k) => `<button type="button" class="menu-item" data-a="${k}" aria-selected="${k === m.index}" ${o.disabled ? 'disabled' : ''}><span class="menu-label">${esc(o.label)}</span></button>`).join('')}</div>` : '';
     this.root.innerHTML = `${this.partyPanel()}<div class="inv-box">
-      <div class="inv-head"><span class="menu-title">${esc(this.title())}</span>${this.actions.openEquip && !this.tabs ? '<button type="button" class="btn-link inv-equip">Equipment</button>' : ''}<span class="inv-gold">${inv.gold.toLocaleString()} G</span></div>
+      <div class="inv-head"><span class="menu-title">${esc(this.title())}</span>${this.actions.openEquip && !this.tabs ? '<button type="button" class="btn-link inv-equip">Equipment</button>' : ''}<span class="inv-gold">${COIN_SVG}${inv.gold.toLocaleString()} G</span></div>
       ${tabStrip(this.tabs)}
       <div class="inv-main">
         ${this.filter === 'gear' ? `<div class="inv-gearwrap"><div class="inv-gearhead"><span>Weapons</span><span>Armor</span></div><div class="inv-grid gear-split" style="--cols:${COLS}">${grid}</div></div>` : `<div class="inv-grid" style="--cols:${COLS}">${grid}</div>`}

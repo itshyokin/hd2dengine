@@ -2077,3 +2077,43 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .pr-row.bench { opacity: 0.92; }
 .pr-list > .pr-sep { display: none; }
 .pr-row .pr-face { background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--hero, #ffb04a) 35%, transparent), transparent 70%) !important; }
+
+.inv-gold { display: inline-flex; align-items: center; gap: 6px; } .inv-gold svg { width: 1.25em; height: 1.25em; }
+/* Pause tabs: the icon follows the tab's words (dark on the chosen tab, light on the others), themes included. */
+.ps-tab .menu-icon { color: inherit !important; opacity: 0.9; }
+.ps-tab[aria-selected="true"] .menu-icon { opacity: 1; }
+/*
+ * Bar colours, the same everywhere (Database → Menus → Bar colours changes them): health green, magic violet, EXP
+ * light blue, stamina green. Health still turns yellow at half and red when low where the bar shows that.
+ */
+:root { --c-hp: #3cb05a; --c-mp: #8a4fd0; --c-xp: #3a9ad8; --c-sp: #6aa83c; }
+:root { --g-hp: linear-gradient(color-mix(in srgb, var(--c-hp) 55%, #fff), var(--c-hp)); --g-mp: linear-gradient(color-mix(in srgb, var(--c-mp) 55%, #fff), var(--c-mp));
+  --g-xp: linear-gradient(color-mix(in srgb, var(--c-xp) 55%, #fff), var(--c-xp)); --g-sp: linear-gradient(color-mix(in srgb, var(--c-sp) 55%, #fff), var(--c-sp)); }
+.hud-row.hp .hud-fill, .hud-gauge.hp .hud-fill, .st-gauge.hp i, .hud-ally-bar.hp i, .pt-bar.hp i, .ip-bar.hp i, .cs-bar.hp i, .bstat-bar.hp span, .pc-bar.hp i,
+.mb-bar.hp span, .pr-bar.hp i, .ip-row .ip-bar.hp i, .pb-bar span { background: var(--g-hp) !important; }
+.hud-row.mp .hud-fill, .hud-gauge.mp .hud-fill, .st-gauge.mp i, .hud-ally-bar.mp i, .pt-bar.mp i, .ip-bar.mp i, .cs-bar.mp i, .bstat-bar.mp span, .pc-bar.mp i,
+.mb-bar.mp span, .pr-bar.mp i, .ip-row .ip-bar.mp i { background: var(--g-mp) !important; }
+.hud-xp-fill, .hud-gauge.xp .hud-fill, .hud-gauge.xp .hud-ghost, .hud-ally-bar.xp i, .pt-bar.xp i, .cs-bar.xp i, .pc-bar.xp i, .pb-xp span, .pr-bar.xp i { background: var(--g-xp) !important; }
+.st-gauge.sp i, .hud-ally-bar.sp i, .cs-bar.sp i { background: var(--g-sp) !important; }
+.hs-fill { stroke: var(--c-sp) !important; }
+.hud-stamina.low .hs-fill { stroke: #d6e04f !important; } .hud-stamina.exhausted .hs-fill { stroke: #c9823a !important; }
+.pb-orb { background: conic-gradient(var(--c-mp) calc(var(--mp) * 360deg), #2a2440 0) !important; }
+.pb.mid .pb-bar span, .pr-bar.hp.mid i, .ip-row .ip-bar.hp.mid i, .mblock.low .mb-bar.hp span { background: linear-gradient(#ffe27a, #e0a82a) !important; }
+.pb.low .pb-bar span, .pr-bar.hp.low i, .ip-row .ip-bar.hp.low i { background: linear-gradient(#ff8a7a, #d0402a) !important; }
+/* The stamina wheel kept on screen (Database → Menus: it doesn't fade when full). */
+.hud-stamina.steady.idle { opacity: 1 !important; visibility: visible !important; }
+/* The Party page laid out freely: each member's panel placed in percent of the page (Database → Menus). */
+.pr-main.pr-free { position: relative; display: block; overflow-y: auto; overflow-x: hidden; }
+.pr-panel { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; min-height: 0; overflow: hidden; }
+.pr-panel .pr-art { flex: 1 1 auto; min-height: 0; max-height: none; }
+.pr-panel .pr-gap { flex: 1 1 auto; }
+.pr-panel .pr-name { flex: none; }
+.pr-panel .pr-line { flex: none; }
+.pr-panel .pr-num { min-width: 7.5ch; font-size: 12px; }
+.pr-panel .pr-els { margin-left: auto; }
+.pr-panel.size-big { font-size: 15px; } .pr-panel.size-big .pr-name { font-size: 20px; } .pr-panel.size-big .pr-bar { height: 10px; } .pr-panel.size-big .pr-num { font-size: 13.5px; }
+.pr-panel.size-medium .pr-name { font-size: 15px; } .pr-panel.size-medium .pr-bar { height: 8px; }
+.pr-panel.size-small { padding: 6px 8px; gap: 2px; } .pr-panel.size-small .pr-name { font-size: 12px; } .pr-panel.size-small .pr-bar { height: 5px; } .pr-panel.size-small .pr-num { font-size: 10px; } .pr-panel.size-small .pr-k { font-size: 9px; }
+.pr-panel.bench { opacity: 0.92; }
+.pr-panel .pt-badge { top: 8px; right: 8px; left: auto; z-index: 1; }
+.pr-panel .pr-art { border-radius: 9px; background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--hero, #ffb04a) 35%, transparent), transparent 70%); }

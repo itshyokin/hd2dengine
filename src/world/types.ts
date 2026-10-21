@@ -131,8 +131,15 @@ export interface PropDef {
   respawn?: boolean;
   /** Sways in the wind: how much (1 for a tree, more for grass, 0 or missing: stays still). The base doesn't move. */
   sway?: number;
+  /**
+   * Rustles (a shake and a swish) when someone walks through it. Unset: tall-grass shapes (Cross ×, Star, Rows,
+   * Thicket) that don't block do, the rest don't.
+   */
+  rustle?: boolean;
   /** Sits flat against the cliff face behind it (cave mouths, doorways, doors, wall banners) instead of standing in its tile. */
   wall?: boolean;
+  /** On a wall: stretched to the wall's height wherever it's placed (ladders, vines, waterfalls of ivy). */
+  stretch?: boolean;
   /** Fires that burn out: starts unlit the first time the player comes (light it with fuel or a fire attack). */
   startsOut?: boolean;
   /** Weapons cut it down (vines, thin trees); fire burns it away (giving nothing). */
@@ -168,8 +175,10 @@ export interface TileDef {
   name: string;
   /** Texture path relative to public/, e.g. "assets/tiles/cobble.png". Built-in tiles have none. */
   image?: string;
-  /** Optional normal map. Generated from the texture when missing. */
+  /** Optional normal map. Generated from the texture when missing (unless `flat`). */
   normal?: string;
+  /** No generated normal map: the texture lies flat under the lights (pixel-art tiles look cleaner). */
+  flat?: boolean;
   /** How many tiles across one copy of the texture covers (1 = every tile shows the whole texture). */
   span: number;
   /** "point" keeps pixels crisp (like Unity's "Point (no filter)"); "smooth" filters them. */
@@ -1166,6 +1175,12 @@ export interface MenuConfig {
   uiTheme?: string;
   /** The game's touches on its window theme (players can change them in Settings). */
   window?: import('../ui/themes').WindowStyle;
+  /** Bar colours everywhere (HUD, menus, battle): health, magic, EXP and the stamina wheel (unset: the defaults). */
+  bars?: { hp?: string; mp?: string; xp?: string; sp?: string };
+  /** The stamina wheel stays on screen when full (default: it fades away once full). */
+  staminaSteady?: boolean;
+  /** The Party page's member panels: where they sit, how big, what they show (see ui/partyLayout.ts). */
+  partyLayout?: import('../ui/partyLayout').PartyLayout;
   /** Big text on the title screen (defaults to the game's title) and a line under it. */
   titleText?: string;
   subtitle?: string;

@@ -27,6 +27,13 @@ function texture(canvas: HTMLCanvasElement, def: TileDef, linear: boolean): THRE
   return t;
 }
 
+/** A normal map that changes nothing (straight up). */
+function flatNormal(): HTMLCanvasElement {
+  const c = document.createElement('canvas'); c.width = c.height = 4;
+  const g = c.getContext('2d')!; g.fillStyle = '#8080ff'; g.fillRect(0, 0, 4, 4);
+  return c;
+}
+
 /** Load the textures of every imported tile. Missing files become a visible chequerboard. */
 export async function loadTileTextures(catalog: TileCatalog, resolve: (path: string) => string, problems: string[]): Promise<Map<string, TileTexture>> {
   const out = new Map<string, TileTexture>();
@@ -39,7 +46,7 @@ export async function loadTileTextures(catalog: TileCatalog, resolve: (path: str
       try { nm = await loadCanvas(resolve(def.normal)); }
       catch { problems.push(`Tile ${def.name}: normal map “${def.normal}” is missing`); }
     }
-    nm ??= normalMapFrom(img, { strength: 2, wrap: true });
+    nm ??= def.flat ? flatNormal() : normalMapFrom(img, { strength: 2, wrap: true });
     out.set(def.key, { def, map: texture(img, def, false), normal: texture(nm, def, true) });
   }));
   return out;

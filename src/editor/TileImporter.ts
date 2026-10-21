@@ -35,6 +35,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     /** Cliff walls under this tile: '' map default, 'self' this tile, or a look key. */
     cliff: existing ? (store.tiles.cliffChoice(existing.key) === existing.key ? 'self' : store.tiles.cliffChoice(existing.key) ?? '') : '',
     flipGreen: false,
+    flat: !!existing?.flat,
     grid: true,
     image: undefined as Src | undefined,
     normal: undefined as Src | undefined,
@@ -160,6 +161,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       slot('normal', 'Normal map', 'Adds bumps that react to lights. Without one, a normal map is generated from the texture.'),
     );
     if (st.normal) parts.push(checkbox('Flip green channel (DirectX-style normal map)', st.flipGreen, (v) => (st.flipGreen = v)));
+    else parts.push(checkbox('Make a normal map from the texture (off: flat under the lights; cleaner for pixel art)', !st.flat, (v) => (st.flat = !v)));
     form.replaceChildren(...parts);
   }
 
@@ -183,6 +185,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       if (skinOf) def.skin = true;
       if (existing?.credits) def.credits = existing.credits;
       if (st.blocks) def.blocks = true;
+      if (st.flat && !st.normal) def.flat = true;
       if (await commitTile(store, def, images, processed)) {
         const look = st.cliff === 'self' ? key : st.cliff || undefined;
         if (!skinOf && look !== store.tiles.cliffChoice(key)) await setTileCliff(store, key, look);

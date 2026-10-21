@@ -387,7 +387,7 @@
       "image": "assets/props/campfire.png"
     },
     {
-      "id": "lpcr_ladder_1",
+      "id": "lpcr_ladder_1", "stretch": true,
       "name": "Ladder 1",
       "w": 1,
       "h": 2,

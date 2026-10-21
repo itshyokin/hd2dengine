@@ -151,15 +151,12 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [ ] Lingering ailments as pills on the HUD party cards.
 - [x] Update 91 (part 1): Party tab boxes 60% wide, centred, three to the column's height, with EXP bar and numbers;
       Items: the party strip beside the bag is gone; using an item opens a "Use X on whom?" pop-up like the battle's.
-- [ ] Owner's list (Oct 20 evening): sprites/props drawn over bevels and cliffs (depth bias), ladder stretches to
-      its wall, rest of the party's EXP after the first hero's, tall-grass rustle, really tall grass (wheat/corn),
-      pause tab icon dark when selected, low-HP alert chime in battle, no MP regen on the map, Database colours for
-      HP/MP/EXP bars and the stamina wheel (and wheel fade on/off), per-tile switch for generated normal maps.
-- [ ] Gold coin icon back beside the gold count on the Items page.
-- [ ] Database → Menus → "Party page layout" editor (like the HUD arranger): place and size the four member panels
-      (Player 1 = the lead / first in battle, Players 2–4) in percentages of the page; a Big / Medium / Small size per
-      panel; show or hide each part (picture, name, level, ailment, elements, HP, MP, EXP bar, EXP numbers). Only the
-      Party page needs it.
+- [x] Update 91 (part 2): sprites and props drawn over bevels and cliff walls (they keep the depth they'd have
+      standing upright); wall props don't lean; ladders stretch to their wall; tall grass rustles; built-in Tall
+      grass, Really tall grass and Wheat; everyone who fought a foe shares its EXP (shown after the first hero's);
+      low-HP alert in battle; MP no longer comes back on the map (hero and party); pause tab icons follow the tab's
+      text; coin beside the bag's gold; Database → Title & menus: Bars (health, magic, EXP, stamina colours; HP green
+      everywhere by default), stamina wheel steady option, Party page layout editor; per-tile "make a normal map".
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

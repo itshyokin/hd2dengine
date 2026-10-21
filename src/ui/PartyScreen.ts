@@ -7,6 +7,7 @@
  * Keys: ↑ ↓ choose (← → between the lead and the list) · Space opens · Esc back · LB / RB other tabs.
  */
 import { elementPill } from './elementPill';
+import { partyLayout, type PanelPart, type PartyLayout } from './partyLayout';
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
 import { esc } from './InventoryScreen';
@@ -44,6 +45,8 @@ export interface PartyHost {
   run(who: number, action: string, back: () => void): void;
   /** Trade places in the lineup. */
   swap(a: number, b: number): void;
+  /** Where the member panels go (Database → Menus → Party page layout). */
+  layout?(): PartyLayout;
 }
 
 type Mode = { kind: 'pick' } | { kind: 'actions'; index: number } | { kind: 'swap'; to: number };
@@ -191,32 +194,24 @@ export class PartyScreen {
       const c = all[k], target = m.kind === 'swap' && m.to === k;
       return `${k === this.sel ? ' sel' : ''}${target ? ' target' : ''}${m.kind === 'swap' && !this.canSwapWith(k) && k !== this.sel ? ' dim' : ''}${c.down ? ' down' : ''}`;
     };
-    const lead = all[0];
-    const leadCard = lead ? `<div class="pr-lead pr-slot${slotCls(0)}" data-k="0" role="option" aria-selected="${this.sel === 0}"${lead.color ? ` style="--hero:${lead.color}"` : ''}>
-        ${lead.skillPoints > 0 ? '<span class="pt-badge">LEVEL UP</span>' : ''}
-        <div class="pr-art"><img src="${lead.art}" alt=""></div>
-        <div class="pr-name"><b>${esc(lead.name)}</b>${lv(lead)}${ail(lead)}</div>
-        ${lead.elements?.length ? `<div class="pr-els">${lead.elements.map((e) => elementPill(e)).join('')}</div>` : ''}
-        <div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(lead)}"><i style="width:${pct(lead.hp[0], lead.hp[1])}%"></i></div></div>
-        <div class="pr-num">${Math.round(lead.hp[0])} / ${Math.round(lead.hp[1])}</div>
-        <div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(lead.mp[0], lead.mp[1])}%"></i></div></div>
-        <div class="pr-num">${Math.round(lead.mp[0])} / ${Math.round(lead.mp[1])}</div>
-        <div class="pr-line"><span class="pr-k">EXP</span><div class="pr-bar xp"><i style="width:${lead.xp.next === null ? 100 : pct(lead.xp.have, lead.xp.next)}%"></i></div></div>
-        <div class="pr-num">${lead.xp.next === null ? 'MAX' : `${lead.xp.have} / ${lead.xp.next}`}</div>
-      </div>` : '';
-    const rows = all.slice(1).map((c, j) => {
-      const k = j + 1, first = k === this.host.active;
-      return `${first ? '<div class="pr-sep">Reserve</div>' : ''}<div class="pr-row pr-slot${slotCls(k)}${k >= this.host.active ? ' bench' : ''}" data-k="${k}" role="option" aria-selected="${this.sel === k}"${c.color ? ` style="--hero:${c.color}"` : ''}>
-        <div class="pr-art pr-face"><img src="${c.art}" alt=""></div>
-        <div class="pr-row-main">
-          <div class="pr-row-top"><b>${esc(c.name)}</b>${lv(c)}${ail(c)}${c.skillPoints > 0 ? '<span class="pr-up">LEVEL UP</span>' : ''}${c.elements?.length ? `<span class="pr-els">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>
-          <div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(c)}"><i style="width:${pct(c.hp[0], c.hp[1])}%"></i></div><span class="pr-num">${Math.round(c.hp[0])} / ${Math.round(c.hp[1])}</span></div>
-          <div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(c.mp[0], c.mp[1])}%"></i></div><span class="pr-num">${Math.round(c.mp[0])} / ${Math.round(c.mp[1])}</span></div>
-          <div class="pr-line thin"><span class="pr-k">EXP</span><div class="pr-bar xp"><i style="width:${c.xp.next === null ? 100 : pct(c.xp.have, c.xp.next)}%"></i></div></div>
-          <div class="pr-xpnum">${c.xp.next === null ? 'MAX' : `${c.xp.have} / ${c.xp.next}`}</div>
-        </div>
+    // Each member's panel where the layout puts it (Database → Menus → Party page layout); the reserve take Player
+    // 4's panel, one under another.
+    const L = this.host.layout?.() ?? partyLayout();
+    const panel = (c: PartyMemberView, k: number) => {
+      const P = L.panels[Math.min(k, 3)], extra = Math.max(0, k - 3), show = (part: PanelPart) => !P.hide?.includes(part);
+      const box = `left:${P.x}%;top:${P.y + extra * P.h * 1.04}%;width:${P.w}%;height:${P.h}%;`;
+      const xp = c.xp.next === null ? 100 : pct(c.xp.have, c.xp.next);
+      return `<div class="pr-panel pr-slot size-${P.size}${slotCls(k)}${k >= this.host.active ? ' bench' : ''}" data-k="${k}" role="option" aria-selected="${this.sel === k}" style="${box}${c.color ? `--hero:${c.color};` : ''}">
+        ${show('levelUp') && c.skillPoints > 0 ? '<span class="pt-badge">LEVEL UP</span>' : ''}
+        ${show('picture') ? `<div class="pr-art"><img src="${c.art}" alt=""></div>` : '<div class="pr-gap"></div>'}
+        ${show('name') || show('level') || show('ailment') || show('elements') ? `<div class="pr-name">${show('name') ? `<b>${esc(c.name)}</b>` : ''}${show('level') ? lv(c) : ''}${show('ailment') ? ail(c) : ''}${show('elements') && c.elements?.length ? `<span class="pr-els">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>` : ''}
+        ${show('hp') ? `<div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(c)}"><i style="width:${pct(c.hp[0], c.hp[1])}%"></i></div><span class="pr-num">${Math.round(c.hp[0])} / ${Math.round(c.hp[1])}</span></div>` : ''}
+        ${show('mp') ? `<div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(c.mp[0], c.mp[1])}%"></i></div><span class="pr-num">${Math.round(c.mp[0])} / ${Math.round(c.mp[1])}</span></div>` : ''}
+        ${show('exp') ? `<div class="pr-line thin"><span class="pr-k">EXP</span><div class="pr-bar xp"><i style="width:${xp}%"></i></div>${show('expNumbers') ? `<span class="pr-num">${c.xp.next === null ? 'MAX' : `${c.xp.have} / ${c.xp.next}`}</span>` : ''}</div>`
+          : show('expNumbers') ? `<div class="pr-xpnum">EXP ${c.xp.next === null ? 'MAX' : `${c.xp.have} / ${c.xp.next}`}</div>` : ''}
       </div>`;
-    }).join('');
+    };
+    const panels = all.map(panel).join('');
     const acts = m.kind === 'actions' ? this.actionList() : null;
     const act = acts ? acts[(m as { index: number }).index] : null;
     const msg = m.kind === 'pick' ? (all.length > 1 ? 'Choose a party member.' : `${esc(me?.name ?? '')} is on their own.`)
@@ -225,10 +220,7 @@ export class PartyScreen {
     const note = m.kind === 'pick' ? '↑ ↓ ← → choose · Space: open · Esc: close'
       : m.kind === 'actions' ? '↑ ↓ choose · Space: open · Esc: back' : '↑ ↓ ← → choose · Space: swap · Esc: back';
     this.root.innerHTML = `<div class="inv-box pr-box">
-      <div class="pr-main">
-        <div class="pr-left">${leadCard}</div>
-        <div class="pr-list" role="listbox">${rows || '<p class="pr-empty">Nobody else has joined yet.</p>'}</div>
-      </div>
+      <div class="pr-main pr-free" role="listbox">${panels}</div>
       <div class="pr-foot">
         <div class="pr-msg">${msg}</div>
         ${acts ? `<div class="pr-menu" role="listbox">${acts.map((a, p) => `<button type="button" class="menu-item" data-p="${p}" ${a.disabled ? 'disabled' : ''} aria-selected="${p === (m as { index: number }).index}"><span class="menu-label">${esc(a.label)}</span></button>`).join('')}</div>` : ''}

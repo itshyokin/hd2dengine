@@ -32,11 +32,24 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
   const prev = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
     prev?.call(mat, shader, renderer);
+    // Flat on a wall (ladders, wall torches, windows): stays upright against it.
+    if (mat.userData.noLean) return;
     Object.assign(shader.uniforms, uniforms);
+    // Drawn leaning, but at the depth it would have standing up: terrain behind a sprite (a cliff wall, a bevel)
+    // never cuts through its leaned-back top, while anything really in front of it still hides it.
     shader.vertexShader = 'uniform float uHdLean;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-  { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }`);
+  vec3 hdUpright = transformed;
+  { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }`).replace('#include <project_vertex>', `#include <project_vertex>
+  if (uHdLean > 0.0) {
+    vec4 hdUp = vec4(hdUpright, 1.0);
+    #ifdef USE_INSTANCING
+    hdUp = instanceMatrix * hdUp;
+    #endif
+    hdUp = projectionMatrix * (modelViewMatrix * hdUp);
+    gl_Position.z = hdUp.z / hdUp.w * gl_Position.w;
+  }`);
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|lean';
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + (mat.userData.noLean ? '|nolean' : '|lean');
   return mat;
 }

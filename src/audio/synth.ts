@@ -14,7 +14,7 @@ export const SFX_NAMES = [
   'lootGold', 'lootPotion', 'lootKey', 'lootMaterial', 'lootGear', 'lootItem',
   'achievement', 'thunder',
   'hitFlesh', 'hitPlant', 'hitMetal', 'hitStone', 'hitWood', 'hitBone', 'hitLiquid', 'hitGel', 'hitCrystal', 'hitSpirit', 'hitCloth',
-  'critBig', 'thump',
+  'critBig', 'thump', 'rustle', 'lowHp',
 ] as const;
 export type SfxName = typeof SFX_NAMES[number];
 
@@ -34,7 +34,7 @@ export const SFX_LABELS: Record<SfxName, string> = {
   lootGold: 'Loot: gold', lootPotion: 'Loot: potion / consumable', lootKey: 'Loot: key item', lootMaterial: 'Loot: material', lootGear: 'Loot: weapon / armour', lootItem: 'Loot: other item', achievement: 'Achievement unlocked',
   hitFlesh: 'Hit: flesh', hitPlant: 'Hit: plant', hitMetal: 'Hit: metal', hitStone: 'Hit: stone', hitWood: 'Hit: wood', hitBone: 'Hit: bone',
   hitLiquid: 'Hit: liquid', hitGel: 'Hit: gel / slime', hitCrystal: 'Hit: crystal', hitSpirit: 'Hit: spirit', hitCloth: 'Hit: cloth',
-  critBig: 'Battle: CRITICAL crack', thump: 'Battle: weak / immune thump',
+  critBig: 'Battle: CRITICAL crack', thump: 'Battle: weak / immune thump', rustle: 'Tall grass rustle', lowHp: 'Battle: low health alert',
 };
 
 /** Effects heard as part of the interface (menus, text), on the UI volume. */
@@ -132,6 +132,8 @@ export function makeSfx(name: SfxName): Float32Array {
     // A CRITICAL: a sharp crack and a deep rumble under it.
     case 'critBig': return make(0.9, (t) => noise() * 0.7 * env(t, 0.0005, 0.02) + Math.sin(2 * Math.PI * sweep(t, 90, 38, 0.6) * t) * 0.6 * env(t, 0.01, 0.3) + noise() * 0.18 * env(t, 0.02, 0.25) * Math.sin(t * 40));
     // Weak or immune: a soft, low thump.
+    case 'rustle': return highpass(lowpass(make(0.32, (t) => noise() * (env(t, 0.02, 0.07) * 0.5 + env(Math.max(0, t - 0.09), 0.02, 0.08) * (t > 0.09 ? 0.45 : 0) + env(Math.max(0, t - 0.18), 0.02, 0.06) * (t > 0.18 ? 0.3 : 0))), 5200), 1400);
+    case 'lowHp': return make(0.32, (t) => (t < 0.11 ? Math.sign(Math.sin(2 * Math.PI * 988 * t)) * 0.18 * env(t, 0.004, 0.09) : t > 0.16 && t < 0.27 ? Math.sign(Math.sin(2 * Math.PI * 784 * t)) * 0.18 * env(t - 0.16, 0.004, 0.09) : 0));
     case 'thump': return lowpass(make(0.35, (t) => Math.sin(2 * Math.PI * sweep(t, 110, 45, 0.15) * t) * 0.8 * env(t, 0.003, 0.09) + noise() * 0.15 * env(t, 0.002, 0.02)), 900);
     case 'coin': return make(0.3, (t) => tone(t, t < 0.06 ? 988 : 1319, 'square') * env(t, 0.002, 0.09) * 0.25);
     // A soft rising chime: a sine glide with a little shimmer.

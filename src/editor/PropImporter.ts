@@ -49,6 +49,8 @@ interface State {
   sway: number;
   /** Sits flat against the wall behind it. */
   wall: boolean;
+  stretch: boolean;
+  rustle: '' | 'yes' | 'no';
   /** Footprint: tiles deep, and which are solid (rows from the back row to the front, columns left to right). */
   d: number;
   solid: boolean[][];
@@ -86,6 +88,8 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     startsOut: !!existing?.startsOut,
     sway: existing?.sway ?? 0,
     wall: !!existing?.wall,
+    stretch: !!existing?.stretch,
+    rustle: existing?.rustle === undefined ? '' : existing.rustle ? 'yes' : 'no',
     d: existing?.foot?.d ?? 1, solid: [],
     shape: existing?.shape ?? 'flat', thickness: existing?.thickness ?? 0, collide: existing?.collide ?? 'solid',
     flameOn: !!existing?.flame, flame: existing?.flame ? { ...existing.flame } : { x: 0, y: Math.round((existing?.h ?? 2) * 0.75 * 10) / 10, w: 0.5, h: 0.75, embers: true },
@@ -405,6 +409,8 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
         ['leaves', 'Leaves change colour; keeps them in winter, with snow on (pines, flowers)'], ['bare', 'Leaves change colour; bare in winter (oaks, bushes)'], ['off', 'Doesn’t change with the seasons']],
         st.season, (v) => (st.season = v as State['season'])), 'Green parts follow the season outdoors: fresh in spring, green-gold in summer, orange and red in autumn.'),
       checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => (st.wall = v)),
+      checkbox('Stretches to the height of the wall it’s placed against (ladders, hanging vines)', st.stretch, (v) => (st.stretch = v)),
+      field('Rustles when walked through', select([['', 'Tall grass shapes that don’t block'], ['yes', 'Yes (shakes and swishes)'], ['no', 'No']], st.rustle, (v) => (st.rustle = v as State['rustle']))),
       checkbox('Is respawn point (using it, the player comes back here after losing all health)', st.respawn, (v) => (st.respawn = v)),
       checkbox('Is a forge (an anvil): smelt ore, upgrade weapons and armor, set shards in them', st.forge, (v) => (st.forge = v)),
       field('Can be broken', select([['', 'No'], ['cut', 'Cut down by a weapon (vines, saplings); fire burns it away'], ['mine', 'Mined with a pickaxe or hammer (boulders, ore veins)']],
@@ -547,6 +553,8 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       if (!st.castShadow) def.castShadow = false;
       if (st.sway > 0) def.sway = st.sway;
       if (st.wall) def.wall = true;
+      if (st.wall && st.stretch) def.stretch = true;
+      if (st.rustle) def.rustle = st.rustle === 'yes';
       if (st.season) def.season = st.season;
       if (st.respawn) def.respawn = true;
       if (st.forge) def.forge = true;

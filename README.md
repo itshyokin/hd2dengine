@@ -383,11 +383,18 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
    It fades in at dusk and out at dawn, in the colour you choose.
 7. **Emits light** (optional): choose *Place light* under the preview and click where the light comes from.
    Set its colour, brightness, reach, flicker, when it's on, and shadows.
-8. **Shape**: *Flat* (one picture), *Solid block* (pushed back so it looks like a block), *Cross ×* (two copies at
+8. **Wall props** (*Sits flat against the wall*) stand upright against it, and *Stretches to the height of the wall*
+   makes one (a ladder, hanging vines) fill whatever wall it's placed on. **Rustles when walked through**: tall
+   grass shakes and swishes as the hero or the party step in (on by default for the tall-grass shapes that don't
+   block). Built-in **Tall grass**, **Really tall grass** (taller than the hero) and **Wheat** are in the Props layer.
+9. **Shape**: *Flat* (one picture), *Solid block* (pushed back so it looks like a block), *Cross ×* (two copies at
    45°), *Cross +* (one side-on), and for tall grass and thick plants: *Star ✳* (Cross × plus one facing the
    camera), *Rows ≡* (three staggered rows across the footprint, each offset, sized and mirrored) and *Thicket*
    (three rows of copies crossing in a shallow V). Props lean back toward the map camera like characters; their
    flames, lights and embers lean with them.
+
+Imported **tiles** have *Make a normal map from the texture*: off, the tile lies flat under the lights (cleaner
+for pixel art); a normal map image of your own is always used.
 
 Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.png`) and the list in
 `public/data/assets.json`.
@@ -544,14 +551,15 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   bag's pockets, the Journal's pages) move with **LT / RT** (Z / C). The bottom line shows where you are, the time
   played and your gold. The HUD steps aside while it's open. Map shows once there's a World layout, Achievements
   once there are achievements; System holds Save, Load and Quit to Title.
-- **Party** (handheld style): the lead (first in the lineup) in a big card on the left with their art, name, a gold
-  level pill, any ailment (PSN…), elements, HP, MP and EXP; everyone else down the right (portrait, name, level,
-  ailment, HP and MP), the **Reserve** after those fighting. A message box along the bottom says what to do. ↑ ↓
-  choose (← to the lead, → back to the list); Space opens a menu at the bottom right: **Status**, **Equipment**,
-  **Skill Tree**, **Addition** (the one Attack performs), **Magic** (healing can be cast from here), **Class** (when
-  they have more than one), **Swap** ("Move Katrina to where?": pick anyone to trade places with) and Cancel.
-  **Database → Combat → The hero always fights** keeps the hero among those fighting. Anyone with skill points to
-  spend shows a **LEVEL UP** badge.
+- **Party** (handheld style): each member in a panel with their picture, name, gold level pill, any ailment (PSN…),
+  elements, HP, MP and EXP (with the numbers). By default the lead (Player 1, first in the lineup and first out in
+  battle) has a big panel on the left and Players 2–4 sit in boxes down the right; the reserve after Player 4 take
+  Player 4's panel, one under another. **Database → Title & menus → Party page layout** moves and sizes each panel
+  (drag it, or its corner; percentages of the page, so it fits any screen), sets its text size (Big / Medium /
+  Small) and what it shows. A message box along the bottom says what to do. ↑ ↓ choose (← to the lead); Space
+  opens a menu at the bottom right: **Status**, **Equipment**, **Skill Tree**, **Addition**, **Magic**, **Class**
+  (when they have more than one), **Swap** ("Move Katrina to where?") and Cancel. Anyone with skill points to spend
+  shows a **LEVEL UP** badge.
 - **Status** (Party → someone → Status), like the handheld games' summary: the hero on the left (picture, name, level
   pill, ailment, elements) and three pages on the right, ← → between them: **Profile** (About and ailments),
   **Stats** (HP, MP, SP; the seven stats with their growth ranks on the left, damage and defence on the right; EXP
@@ -1001,9 +1009,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   drains (the numbers count down with it), and the battle waits for that before the next line. With **Rounds** (and
   Single mode), burn and poison bite at the end of each round, a line each ("Jordan is hurt by poison!"); a fighter
   who can't act says so ("…is fast asleep!"), and one that wears off says that too. EXP is told and the bar filled
-  once, after "Victory!": the total (and how much was bonus), the bar running through any level it passes, then that
+  once, after "Victory!" (everyone who fought a foe shares its EXP, even if swapped out since), each hero in turn: the
+  total (and how much was bonus), the bar running through any level it passes, then that
   hero's level up (nothing moves the bar before "Victory!"). An ailment taking hold gets its own line that waits for
-  OK ("Jordan was poisoned!"). The loot
+  OK ("Jordan was poisoned!"). While a hero out fighting is in the red, a soft two-note alert loops (it stops when
+  the foes are down, they're healed, or they're swapped for someone who isn't). The loot
   lines show the coin or the item's icon ("+10 Gold!"). An **ailment** shows as a pill beside the name and level (PSN on purple, BRN on orange…; Database →
   Combat → Status pills switches to full words, POISONED, and sets each pill's colour, text colour, tag and word);
   only buffs show over the fighter's head. A fighter has **one ailment at a time** in turn-based battles: one that's

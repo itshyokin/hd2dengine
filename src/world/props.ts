@@ -15,6 +15,10 @@ export const BUILTIN_PROPS: PropDef[] = [
   { id: 'rock', name: 'Rock', builtin: 'rock', w: 18 / T, h: 13 / T, block: [0] },
   { id: 'pebble', name: 'Pebble', builtin: 'pebble', w: 10 / T, h: 7 / T, block: [] },
   { id: 'tuft', name: 'Grass tuft', builtin: 'tuft', w: 12 / T, h: 9 / T, block: [], sway: 1.3 },
+  // Tall grass to walk through (it rustles): about a tile tall, taller than the hero, and wheat.
+  { id: 'tall_grass', name: 'Tall grass', builtin: 'tallGrass', w: 1, h: 18 / T, block: [], sway: 1.3, shape: 'rows', foot: { w: 1, d: 1, solid: ['.'] } },
+  { id: 'tall_grass_xl', name: 'Really tall grass', builtin: 'tallGrassXL', w: 1, h: 30 / T, block: [], sway: 1.3, shape: 'thicket', foot: { w: 1, d: 1, solid: ['.'] } },
+  { id: 'wheat', name: 'Wheat', builtin: 'wheat', w: 1, h: 30 / T, block: [], sway: 1.1, shape: 'rows', foot: { w: 1, d: 1, solid: ['.'] } },
   { id: 'flowers', name: 'Flowers', builtin: 'flowers', w: 14 / T, h: 9 / T, block: [], sway: 1.2 },
   { id: 'cactus', name: 'Cactus', builtin: 'cactus', w: 16 / T, h: 26 / T, block: [0], season: 'off' },
   { id: 'dry_bush', name: 'Dry bush (desert)', builtin: 'dry_bush', w: 16 / T, h: 10 / T, block: [], sway: 0.6, season: 'off' },

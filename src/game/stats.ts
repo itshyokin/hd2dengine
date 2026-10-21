@@ -21,7 +21,7 @@ export const DEFAULT_PLAYER: PlayerConfig = {
   max: { hp: 100, mp: 100, sp: 100 },
   regen: { hp: 1, mp: 2, sp: 25 },
   // Health only comes back from items and events; magic and stamina refill on their own.
-  noRegen: { hp: true, mp: false, sp: false },
+  noRegen: { hp: true, mp: true, sp: false },
   speed: { walk: 3.4, run: 6.1, wade: 2.4, swim: 1.9, crawl: 1.5, climb: 1.8 },
   cost: { run: 12, climb: 15, swim: 6, jump: 15 },
   recoverPercent: 30,

@@ -760,3 +760,17 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .db-table.status-pills .st-pill { --u: 11px; justify-self: start; }
 .db-table.status-pills input[type="color"] { width: 34px; height: 26px; padding: 0; }
 .st-pill { display: inline-flex; align-items: center; padding: 1px 8px 0; line-height: 1.5; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.5); }
+/* Database → Menus → Party page layout. */
+.pl-page { position: relative; width: 100%; max-width: 640px; aspect-ratio: 16 / 10; border-radius: 10px; background: #0e111c; border: 1px solid var(--line); touch-action: none; user-select: none; }
+.pl-panel { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; gap: 3px; padding: 6px; border-radius: 8px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.05); cursor: move; overflow: hidden; }
+.pl-panel.sel { border-color: var(--ember, #ffb04a); background: rgba(255, 176, 74, 0.1); }
+.pl-pic { flex: 1 1 auto; min-height: 6px; border-radius: 5px; background: radial-gradient(ellipse at 50% 70%, rgba(255, 176, 74, 0.35), transparent 70%), rgba(255, 255, 255, 0.04); }
+.pl-gap { flex: 1 1 auto; }
+.pl-label { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-panel.size-big .pl-label { font-size: 13px; } .pl-panel.size-small .pl-label { font-size: 9px; }
+.pl-bar { flex: none; height: 4px; border-radius: 2px; }
+.pl-bar.hp { background: #3cb05a; } .pl-bar.mp { background: #8a4fd0; } .pl-bar.exp { background: #3a9ad8; height: 3px; }
+.pl-size { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, var(--ember, #ffb04a) 50%); }
+.pl-controls { display: grid; gap: 8px; max-width: 640px; }
+.pl-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.pl-parts { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }

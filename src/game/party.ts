@@ -128,6 +128,8 @@ export interface AllyHost {
   calm: boolean;
   /** Health comes back on its own (Database → Player: off by default, so a hurt member stays hurt until healed or rested). */
   regenHp: boolean;
+  /** Magic comes back on its own (off by default, like the hero's). */
+  regenMp: boolean;
   numbers(m: MemberData, def: HeroDef): AllyNumbers;
   float(text: string, x: number, y: number, z: number, kind: 'dmg' | 'heal' | 'info' | 'hurt'): void;
   sound(name: 'hurt' | 'swing' | 'heal' | 'save', x: number, z: number): void;
@@ -180,7 +182,7 @@ export class Ally {
     this.hostRef = h;
     const n = h.numbers(this.data, this.def);
     // Magic and health come back slowly, faster out of a fight.
-    this.data.mp = Math.min(n.max.mp, this.data.mp + dt * (h.calm ? 4 : 1));
+    if (h.regenMp) this.data.mp = Math.min(n.max.mp, this.data.mp + dt * (h.calm ? 4 : 1));
     this.data.sp = n.max.sp;
     if (this.down) {
       // Up again a moment after the fight, with a quarter of their health.

@@ -31,6 +31,22 @@ function tentArt(ramp: string[]): HTMLCanvasElement {
   return p.canvas();
 }
 
+/** A clump of grass blades w × h px: each blade curving one way, dark at the root and light at the tip. */
+function grassClump(W: number, H: number, pal: string[], seed: number): HTMLCanvasElement {
+  const p = new Pix(W, H), R = rng(seed);
+  const n = Math.round(W * 1.1);
+  for (let i = 0; i < n; i++) {
+    const bx = Math.floor(R() * W), hgt = Math.round(H * (0.55 + R() * 0.45)), lean = (R() - 0.5) * W * 0.45;
+    for (let j = 0; j < hgt; j++) {
+      const x = Math.round(bx + (lean * j * j) / (hgt * hgt)), f = j / hgt;
+      if (x < 0 || x >= W) continue;
+      p.set(x, H - 1 - j, pal[Math.min(pal.length - 1, Math.floor(f * pal.length + (R() < 0.15 ? 1 : 0)))]);
+    }
+  }
+  p.outline(FOLIAGE_OUTLINE);
+  return p.canvas();
+}
+
 export const PLACEHOLDER_SPRITES: Record<string, () => HTMLCanvasElement> = {
   // Bridges and platforms are built in 3D; these are their pictures from above (palette and editor map).
   bridge_wood_h() { return deckIcon({ style: 'wood', dir: 'h', rails: true }); },
@@ -101,6 +117,24 @@ export const PLACEHOLDER_SPRITES: Record<string, () => HTMLCanvasElement> = {
       }
     }
     p.outline(FOLIAGE_OUTLINE);
+    return p.canvas();
+  },
+  /** Tall grass: a dense clump of blades about a tile tall, leaning this way and that. */
+  tallGrass() { return grassClump(16, 18, ['#2f5a2c', '#3c6b34', '#5d9a45', '#8cc457'], 41); },
+  /** Really tall grass (taller than the hero): long blades in a thick stand. */
+  tallGrassXL() { return grassClump(16, 30, ['#2a5128', '#37652f', '#558f40', '#7fba4f'], 57); },
+  /** Wheat: golden stalks with heavy, drooping heads of grain. */
+  wheat() {
+    const W = 16, H = 30, p = new Pix(W, H), R = rng(77);
+    const stalk = ['#7a5a1c', '#a07a2a', '#c99d3c'], head = ['#9c7420', '#d9ac43', '#f2cf6a', '#fde69a'];
+    for (let i = 0; i < 9; i++) {
+      const bx = 1 + Math.floor(R() * (W - 2)), hgt = H - 4 - Math.floor(R() * 8), lean = (R() - 0.5) * 3;
+      const xAt = (j: number) => Math.round(bx + (lean * j * j) / (hgt * hgt));
+      for (let j = 0; j < hgt - 5; j++) p.set(xAt(j), H - 1 - j, stalk[j < hgt / 3 ? 0 : j < (hgt * 2) / 3 ? 1 : 2]);
+      // The head: a short plump spike of grain, lighter on one side.
+      for (let j = hgt - 6; j < hgt; j++) { const x = xAt(j), y = H - 1 - j; p.set(x, y, head[1 + (j % 2)]); p.set(x + 1, y, head[j % 3 === 0 ? 3 : 2]); if (j % 2 === 0) p.set(x - 1, y, head[0]); }
+    }
+    p.outline('#3a2a0c');
     return p.canvas();
   },
   flowers() {

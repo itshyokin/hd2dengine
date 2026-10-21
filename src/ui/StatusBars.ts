@@ -62,7 +62,12 @@ export interface PartyCard { name: string; level?: number; face?: string; hp: nu
 
 const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
 
+/** The gold coin (the HUD's gold, the bag's gold count). */
+export const COIN_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="8.6" rx="6.2" ry="5.9" fill="#a8741c"/><ellipse cx="8" cy="7.6" rx="6.2" ry="5.9" fill="#f2c64a"/><ellipse cx="8" cy="7.6" rx="4.1" ry="3.8" fill="none" stroke="#c89220" stroke-width="1.2"/><path d="M6.2 5.4h3.4" stroke="#fff3c4" stroke-width="1" stroke-linecap="round"/></svg>';
+
 export class StatusBars {
+  /** The stamina wheel stays on screen when full (Database → Menus). */
+  staminaSteady = false;
   private readonly top = document.createElement('div');
   private readonly side = document.createElement('div');
   private readonly vignette = document.createElement('div');
@@ -186,7 +191,7 @@ export class StatusBars {
 
     this.goldEl.className = 'hud-gold';
     this.goldEl.setAttribute('aria-label', 'Gold');
-    this.goldEl.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><ellipse cx="8" cy="8.6" rx="6.2" ry="5.9" fill="#a8741c"/><ellipse cx="8" cy="7.6" rx="6.2" ry="5.9" fill="#f2c64a"/><ellipse cx="8" cy="7.6" rx="4.1" ry="3.8" fill="none" stroke="#c89220" stroke-width="1.2"/><path d="M6.2 5.4h3.4" stroke="#fff3c4" stroke-width="1" stroke-linecap="round"/></svg><b>0</b><span>Gold</span>';
+    this.goldEl.innerHTML = `${COIN_SVG}<b>0</b><span>Gold</span>`;
 
     this.minimap.className = 'hud-minimap';
     this.minimap.setAttribute('aria-label', 'Mini-map');
@@ -435,6 +440,7 @@ export class StatusBars {
     this.stamina.style.setProperty('--sp', sp.toFixed(3));
     this.staminaFull = sp >= 0.999 ? this.staminaFull + dt : 0;
     this.stamina.classList.toggle('idle', this.staminaFull > 1.2);
+    this.stamina.classList.toggle('steady', this.staminaSteady);
     this.stamina.classList.toggle('exhausted', tired);
     this.stamina.classList.toggle('low', !tired && sp < 0.25);
     this.stamina.classList.toggle('mount', !!mt);

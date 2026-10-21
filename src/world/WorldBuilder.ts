@@ -114,7 +114,17 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
   const geo = buildTerrainGeometry(map, spans, wallLook);
 
   // Ground: every cell's top surface, textured with one image painted from the terrain layer.
-  const gc = groundCanvas(map), groundTex = makeTexture(gc, { mip: true }), groundNormal = makeTexture(normalMapFrom(gc, { strength: 2 }), { linear: true, mip: true });
+  const gc = groundCanvas(map), gn = normalMapFrom(gc, { strength: 2 });
+  // Tiles set to lie flat (no generated normal map): their cells of the painted ground's normal map point straight up.
+  {
+    const flatKeys = new Set(map.tiles.all().filter((t) => t.flat).map((t) => t.key));
+    if (flatKeys.size) {
+      const g = gn.getContext('2d')!, cw = gn.width / map.w, ch = gn.height / map.h;
+      g.fillStyle = '#8080ff';
+      for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) if (flatKeys.has(map.terrain(x, z))) g.fillRect(Math.floor(x * cw), Math.floor(z * ch), Math.ceil(cw), Math.ceil(ch));
+    }
+  }
+  const groundTex = makeTexture(gc, { mip: true }), groundNormal = makeTexture(gn, { linear: true, mip: true });
   const makeGroundMat = () => {
     const m = patchSeason(patchAreaTint(new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1, metalness: 0 })), 'ground');
     registerNormalMap(m, groundNormal);
@@ -560,6 +570,12 @@ function buildEdgeRoads(scene: THREE.Object3D, map: TileMap, sides: Record<Side,
 }
 
 /** Props are drawn instanced per sprite type: a few draw calls for hundreds of objects. */
+/** A stretching wall prop's height scale: from where it stands to the top of the wall behind it. */
+function stretchTo(map: TileMap, p: PropData, at: { y: number; z: number }, h: number): number {
+  const top = map.surfaceY(p.x, Math.floor(at.z - 0.3) + 0.5), tall = top - at.y;
+  return tall > 0.2 ? tall / Math.max(0.1, h) : p.s ?? 1;
+}
+
 function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites: SpriteLibrary): BuiltWorld['props'] {
   const slots: BuiltWorld['props'] = new Map();
   const placed = new Set(data.props);
@@ -631,8 +647,8 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (onWall) mesh.castShadow = false;
     list.forEach((p, i) => {
       const s = p.s ?? 1;
-      m.makeScale(s, s, s);
       const at = propBase(map, p, pdef);
+      m.makeScale(s, onWall && pdef?.stretch ? stretchTo(map, p, at, pdef.h) : s, s);
       if (onWall) m.setPosition(p.x, at.y, at.z + nudge(p) * 0.3);
       else m.setPosition(p.x, at.y, p.z + nudge(p));
       mesh.setMatrixAt(i, m);

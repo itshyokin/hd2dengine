@@ -183,20 +183,20 @@ export class Lights {
       if (d.flame) {
         const f = new THREE.Mesh(spriteGeometry(d.flame.w * s, d.flame.h * s), flameMat);
         f.position.set(p.x + d.flame.x * s, base + d.flame.y * s, pz + 0.03);
-        this.leaners.push({ at: f.position, base, z: pz + 0.03, dy: d.flame.y * s, tilt: f });
+        if (!d.wall) this.leaners.push({ at: f.position, base, z: pz + 0.03, dy: d.flame.y * s, tilt: f });
         scene.add(f);
         flames.push(f);
         if (d.flame.embers) {
           emitter = this.emitters.length;
           this.emitters.push({ origin: new THREE.Vector3(p.x + d.flame.x * s, base + d.flame.y * s + d.flame.h * s * 0.15, pz + 0.05), spread: d.flame.w * s * 0.5, active: true });
-          this.leaners.push({ at: this.emitters[emitter].origin, base, z: pz + 0.05, dy: d.flame.y * s + d.flame.h * s * 0.15 });
+          if (!d.wall) this.leaners.push({ at: this.emitters[emitter].origin, base, z: pz + 0.05, dy: d.flame.y * s + d.flame.h * s * 0.15 });
         }
       }
       if (d.light) {
         const l = d.light;
         const light = new THREE.PointLight(linearColor(l.color), l.intensity, l.radius * Math.sqrt(s), 2);
         light.position.set(p.x + l.x * s, base + l.y * s, pz + PROP_LIGHT_FORWARD);
-        this.leaners.push({ at: light.position, base, z: pz + PROP_LIGHT_FORWARD, dy: l.y * s });
+        if (!d.wall) this.leaners.push({ at: light.position, base, z: pz + PROP_LIGHT_FORWARD, dy: l.y * s });
         this.addLive(scene, light, l.intensity, l.schedule, l.flicker, l.switch, !!l.shadows, flames, emitter);
         this.lives[this.lives.length - 1].prop = p;
         this.budget.point++;

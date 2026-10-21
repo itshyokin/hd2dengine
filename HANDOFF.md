@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 20, 2026, after Update 91 part 1)
+# Handoff: where the project stands (Oct 20, 2026, after Update 91 part 2)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,15 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work (owner approved, in this order):** the open items at the end of NOTES.md's list: gold icon on Items;
-  the Party page layout editor (Database → Menus, percentages, Big/Medium/Small per member panel, show/hide parts);
-  sprites and props drawn over bevels and cliffs (plan: a depth bias toward the camera so they win over terrain
-  where they overlap it); ladder stretches to its wall; the rest of the party's EXP after the first hero's in the
-  battle results; tall-grass rustle (sound + shake when walked through); a really-tall grass prop (wheat/corn);
-  pause tab icon dark when selected; low-HP alert chime in battle (loops while the active fighter is in the red;
-  stops on the foe fainting, healing out of the red, or swapping to someone not in the red); no MP regen on the map;
-  Database colours for HP / MP / EXP bars and the stamina wheel, and a stamina-wheel fade on/off; a per-tile switch
-  for generated normal maps (Database → Tiles).
+- **Waiting on the owner:** playtest feedback after Update 91 (part 2). Nothing queued.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -164,6 +156,14 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `GOT_AILMENT` lines on inflict; propShapes.ts `copy()` and shapes `crossStar`, `rows`, `thicket`.
 - 91 (part 1): PartyScreen rows are tall boxes (`.pr-row` with `.pr-art.pr-face`, EXP bar + `.pr-xpnum`), CSS at the
   end of styles.css; InventoryScreen `partyPanel()` is now the `.ip-pop` "Use X on whom?" pop-up (target mode only).
+- 91 (part 2): render/lean.ts keeps the upright depth (`hdUpright`, gl_Position.z) and skips materials with
+  `userData.noLean` (wall props, set in sprites.ts); PropDef `stretch` (WorldBuilder `stretchTo`), `rustle`
+  (Game `findRustlers` / `updateRustle`, instance wobble); built-in `tall_grass`, `tall_grass_xl`, `wheat`
+  (placeholderArt `grassClump`, `wheat`); sfx `rustle`, `lowHp`; TurnBattle `fought` / `noteFighting` (EXP to every
+  participant), `lowHpAlarm`; stats.ts MP no regen by default, AllyHost `regenMp`; `COIN_SVG`; bar colour CSS
+  variables `--c-hp/mp/xp/sp` (block at the end of styles.css, set from `MenuConfig.bars` in applySettings),
+  `staminaSteady`; `src/ui/partyLayout.ts` + `src/editor/PartyLayoutEditor.ts`, PartyScreen renders `.pr-panel`s
+  from it; TileDef `flat` (tileTextures `flatNormal`, painted ground cells flattened).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

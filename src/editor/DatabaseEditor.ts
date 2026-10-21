@@ -1,3 +1,4 @@
+import { partyLayoutSection } from './PartyLayoutEditor';
 import { organizeForm } from './formLayout';
 import { compactForm } from './dom';
 
@@ -452,7 +453,22 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
 
   const text = (value: string | undefined, placeholder: string, set: (v: string | undefined) => void, label: string) =>
     textInput(value ?? '', (v) => set(v.trim() || undefined), { placeholder, 'aria-label': label });
+  const barColours = () => {
+    const DEF = { hp: '#3cb05a', mp: '#8a4fd0', xp: '#3a9ad8', sp: '#6aa83c' } as const;
+    const one = (k: keyof typeof DEF, label: string) => {
+      const inp = h('input', { type: 'color', value: menus.bars?.[k] || DEF[k], 'aria-label': `${label} colour` }) as HTMLInputElement;
+      inp.addEventListener('input', () => { if (inp.value.toLowerCase() === DEF[k]) { if (menus.bars) delete menus.bars[k]; } else (menus.bars ??= {})[k] = inp.value; if (menus.bars && !Object.keys(menus.bars).length) delete menus.bars; });
+      const reset = h('button', { type: 'button', class: 'btn ghost small', onclick: () => { inp.value = DEF[k]; if (menus.bars) delete menus.bars[k]; if (menus.bars && !Object.keys(menus.bars).length) delete menus.bars; } }, 'Default');
+      return field(label, h('span', { class: 'stack row' }, inp, reset));
+    };
+    return h('section', { class: 'db-section' }, h('h3', {}, 'Bars'),
+      h('div', { class: 'field-row' }, one('hp', 'Health'), one('mp', 'Magic'), one('xp', 'EXP'), one('sp', 'Stamina wheel')),
+      checkbox('The stamina wheel stays on screen when full (off: it fades away once stamina is full)', !!menus.staminaSteady, (v) => { if (v) menus.staminaSteady = true; else delete menus.staminaSteady; }),
+      h('p', { class: 'note' }, 'The same colours everywhere: the HUD, the menus and battles. Health still turns yellow at half and red when low where its bar shows that.'));
+  };
   const menusTab = () => [
+    barColours(),
+    partyLayoutSection(menus),
     h('section', { class: 'db-section' },
       h('h3', {}, 'Window theme'),
       field('Menus, text boxes and the HUD', select(UI_THEMES.map((t) => [t.id, `${t.name}: ${t.note}`] as [string, string]), menus.uiTheme ?? 'ember', (v) => { if (v === 'ember') delete menus.uiTheme; else menus.uiTheme = v; }),

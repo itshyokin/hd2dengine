@@ -140,6 +140,7 @@ export class TurnBattle {
     for (const e of this.waiting) { e.battler.charging = null; e.battler.guarding = false; refreshAgility(e.battler); }
     // Single mode takes turns in rounds (fastest first), with no turn order bar.
     this.cfg = this.single ? { ...cfg, order: 'rounds' } : cfg;
+    this.fought.clear();
     this.opening = opening;
     this.round = 0;
     this.queue = [];
@@ -214,6 +215,7 @@ export class TurnBattle {
   update(dt: number): void {
     if (this.phase === 'off') return;
     this.screen.update(dt);
+    this.lowHpAlarm(dt);
     // Pauses (for an animation to play out) run on while the text box is read, so OK goes straight on to what's next
     // instead of sitting out the rest of the pause after the chime.
     if (this.wait > 0) this.wait -= dt;
@@ -226,10 +228,32 @@ export class TurnBattle {
 
   private later(seconds: number, fn: () => void): void { this.wait = seconds; this.then = fn; }
 
+  private alarmT = 0;
+  /**
+   * A soft two-note alert, looping while a hero out fighting has health in the red (a fifth or less with the handheld
+   * blocks, a quarter otherwise). It stops when the foes are down, the hero is healed out of the red, or the one out
+   * is swapped for someone who isn't in the red.
+   */
+  private lowHpAlarm(dt: number): void {
+    const red = this.screen.pocket ? 0.2 : 0.25;
+    const on = this.phase !== 'over' && this.foes.some(isUp) && this.party.some((b) => isUp(b) && b.hp <= b.maxHp * red);
+    if (!on) { this.alarmT = 0; return; }
+    this.alarmT -= dt;
+    if (this.alarmT <= 0) { this.host.sound('lowHp'); this.alarmT = 0.9; }
+  }
+
   /* ------------------------------------------------------------------ turns */
+
+  /** For each foe, the heroes who have been out fighting it (they share its EXP). */
+  private fought = new Map<string, Set<number>>();
+  private noteFighting(): void {
+    const out = this.party.filter(isUp).map((p) => this.entry(p).who ?? 0);
+    for (const f of this.foes) { if (!isUp(f) && this.fought.has(f.key)) continue; let set = this.fought.get(f.key); if (!set) this.fought.set(f.key, (set = new Set())); for (const w of out) set.add(w); }
+  }
 
   private nextTurn(): void {
     if (this.checkOver()) return;
+    this.noteFighting();
     let who: Battler | null;
     if (this.cfg.order === 'rounds') {
       this.queue = this.queue.filter(isUp);
@@ -1136,7 +1160,11 @@ export class TurnBattle {
 
   /** A foe fell: everyone fighting earns its EXP now (the finishing blow and a weakness a little more). */
   private foeEarned(t: Battler): void {
-    const k = this.striker, fighting = this.party.filter(isUp).map((p) => this.entry(p).who ?? 0);
+    // Everyone who fought this foe shares its EXP (like the handheld games): those out now, and those swapped out
+    // since who are still on their feet.
+    this.noteFighting();
+    const standing = new Set([...this.all, ...this.waiting].filter((e) => e.battler.side === 'party' && e.battler.hp > 0).map((e) => e.who ?? 0));
+    const k = this.striker, fighting = [...(this.fought.get(t.key) ?? [])].filter((w) => standing.has(w));
     const gains = this.host.foeDefeated?.(t.key, k ? this.entry(k.by).who ?? 0 : null, !!k?.weak, fighting) ?? [];
     for (const g of gains) {
       const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);
