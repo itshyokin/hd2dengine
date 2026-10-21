@@ -78,6 +78,22 @@ export async function commitProp(store: EditorStore, def: PropDef, images: PropI
   return true;
 }
 
+/** Save several props' settings at once (their pictures stay as they are): one write of the asset list. */
+export async function saveProps(store: EditorStore, defs: PropDef[]): Promise<boolean> {
+  // Replaced where they are in the list (so the file only changes where the settings did); new ones at the end.
+  const byId = new Map(defs.map((d) => [d.id, d]));
+  const props = store.assets.props.map((d) => byId.get(d.id) ?? d);
+  for (const d of defs) if (!store.assets.props.some((x) => x.id === d.id)) props.push(d);
+  const next = { ...store.assets, props };
+  const p = store.project;
+  if (p.canSave && p.canStoreImages) {
+    try { await p.write('assets.json', formatAssets(next)); }
+    catch (err) { toast(`Couldn’t save the props: ${err instanceof Error ? err.message : String(err)}`, 'error'); return false; }
+  }
+  store.setAssets(next);
+  return true;
+}
+
 /** Remove a prop from the asset list (its image files stay on disk) and from the open map. */
 export async function deleteProp(store: EditorStore, id: string): Promise<void> {
   const next = { ...store.assets, props: store.assets.props.filter((d) => d.id !== id) };

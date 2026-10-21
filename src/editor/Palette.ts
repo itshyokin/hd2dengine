@@ -14,6 +14,7 @@ import { openBlendSettings } from './BlendSettings';
 import type { TileDef } from '../world/types';
 import { BUILTIN_TILES } from '../world/tiles';
 import { LIGHT_PRESETS } from './lightPresets';
+import { openPropBatchEdit } from './PropBatchEdit';
 import { openPropImporter } from './PropImporter';
 import { openLpcLibrary } from './LpcLibrary';
 import type { BuildingTool, EditorStore, HeightTool, LightType, Mode, ObjectTool, TerrainTool } from './store';
@@ -315,7 +316,7 @@ export class Palette {
         `“${name}” will be removed from the prop list and from this map. Its image files stay in your project.`, 'Delete', () => void deleteProp(s, id), true);
       const reset = (id: string, name: string) => confirmModal('Reset to original?',
         `“${name}” goes back to the built-in art and settings, everywhere it’s placed.`, 'Reset', () => void resetProp(s, id));
-      const customised = (id: string) => isBuiltinProp(id) && !!s.catalog.get(id)?.image;
+      const customised = (id: string) => isBuiltinProp(id) && s.assets.props.some((d) => d.id === id);
 
       // The selected prop, with its actions always in view.
       const cur = s.catalog.get(s.propType);
@@ -332,9 +333,24 @@ export class Palette {
             !builtin ? h('button', { type: 'button', class: 'btn small danger', onclick: () => remove(cur.id, cur.name) }, 'Delete') : null)));
       }
 
+      // Ticked props, to edit together.
+      const picks = this.propPicks;
+      for (const id of [...picks]) if (!s.catalog.get(id)) picks.delete(id);
+      const tick = (id: string, name: string) => {
+        const box = h('input', { type: 'checkbox', class: 'sprite-tick', checked: picks.has(id), title: `Tick ${name} to edit it with others`, 'aria-label': `Tick ${name} to edit together`,
+          onchange: () => { if (box.checked) picks.add(id); else picks.delete(id); this.render(); } });
+        return box;
+      };
+      if (picks.size) {
+        body.push(h('div', { class: 'prop-picks' },
+          h('span', { class: 'prop-picks-n' }, `${picks.size} ticked`),
+          h('button', { type: 'button', class: 'btn small primary', disabled: picks.size < 2, title: picks.size < 2 ? 'Tick at least two' : 'Change settings for all the ticked props', onclick: () => openPropBatchEdit(s, [...picks], () => { picks.clear(); this.render(); }) }, 'Edit together…'),
+          h('button', { type: 'button', class: 'btn small ghost', onclick: () => { picks.clear(); this.render(); } }, 'Clear')));
+      }
       const card = (id: string, name: string, lit: boolean) => {
         const pick = () => { s.propType = id; if (s.propTool === 'select') s.propTool = 'place'; s.emit('ui'); };
-        return h('div', { class: 'sprite-card' },
+        return h('div', { class: `sprite-card${picks.has(id) ? ' ticked' : ''}` },
+          tick(id, name),
           h('button', { type: 'button', class: 'sprite-btn', 'aria-pressed': String(s.propType === id), title: name, onclick: pick },
             h('span', { class: 'sprite-frame' }, spriteThumb(propImage(id))),
             h('span', { class: 'sprite-name' }, name),
@@ -343,12 +359,16 @@ export class Palette {
           h('button', { type: 'button', class: 'mini-btn sprite-edit', title: `Edit ${name}`, 'aria-label': `Edit ${name}`, onclick: () => edit(id) }, '✎'));
       };
       const builtins = defs.filter((d) => isBuiltinProp(d.id)), imported = defs.filter((d) => !isBuiltinProp(d.id));
+      const tickAll = (list: { id: string }[]) => {
+        const all = list.every((d) => picks.has(d.id));
+        return h('button', { type: 'button', class: 'mini-link', onclick: () => { for (const d of list) if (all) picks.delete(d.id); else picks.add(d.id); this.render(); } }, all ? 'Untick all' : 'Tick all');
+      };
       body.push(
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openPropImporter(s) }, '+ Import prop from image…'),
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openLpcLibrary(s, 'prop') }, '+ Add from the LPC library…'),
-        h('div', { class: 'section-label' }, 'Built-in'),
+        h('div', { class: 'section-label' }, 'Built-in', tickAll(builtins)),
         h('div', { class: 'sprites' }, ...builtins.map((d) => card(d.id, d.name, !!d.light))));
-      body.push(h('div', { class: 'section-label' }, `Imported (${imported.length})`),
+      body.push(h('div', { class: 'section-label' }, `Imported (${imported.length})`, imported.length ? tickAll(imported) : null),
         imported.length
           ? h('div', { class: 'sprites' }, ...imported.map((d) => card(d.id, d.name, !!d.light)))
           : h('p', { class: 'note' }, 'Props you import from images appear here.'));
@@ -406,8 +426,18 @@ export class Palette {
     }
     body.push(checkbox('Show grid', s.showGrid, (v) => { s.showGrid = v; s.emit('ui'); }));
 
-    this.el.replaceChildren(head, h('div', { class: 'side-body' }, ...body));
+    // Keep the list where it was (editing a prop, picking one, saving): only a different tab starts at the top.
+    const old = this.el.querySelector('.side-body') as HTMLElement | null;
+    const keep = old && this.shownMode === s.mode ? old.scrollTop : 0;
+    const side = h('div', { class: 'side-body' }, ...body);
+    this.el.replaceChildren(head, side);
+    side.scrollTop = keep;
+    this.shownMode = s.mode;
   }
+  /** The tab the panel was last drawn for. */
+  private shownMode = '';
+  /** Props ticked in the palette, to edit together. */
+  private readonly propPicks = new Set<string>();
 
   /**
    * The Water tab: fill, paint, remove or restyle water; its level and kind; and the map's water styles (a pond, a
