@@ -53,3 +53,31 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
   mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + (mat.userData.noLean ? '|nolean' : '|lean');
   return mat;
 }
+
+/** How far terrain is pushed back in depth on the map (world units): characters and props a ledge would hide show. */
+export const GROUND_YIELD = 3.5;
+
+/**
+ * Terrain on the map (ground, cliff walls, water, the scenery round the edge) gives way to characters and props:
+ * it's drawn where it is, but GROUND_YIELD further from the camera in depth, so a sprite just behind a ledge or
+ * against a tall cliff stays in view like the handheld games (nothing hides behind the ground). Off on battle maps
+ * (no lean there). Ground still hides ground, in order, and buildings aren't pushed (walking behind a house hides you).
+ */
+export function patchGroundYield<T extends THREE.Material>(mat: T): T {
+  if (mat.userData.hdYield) return mat;
+  mat.userData.hdYield = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    prev?.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, uniforms);
+    if (!shader.vertexShader.includes('#include <project_vertex>')) return;
+    shader.vertexShader = (shader.vertexShader.includes('uniform float uHdLean;') ? '' : 'uniform float uHdLean;\n') + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+  if (uHdLean > 0.0) {
+    vec4 hdBack = projectionMatrix * vec4(mvPosition.xyz * (1.0 + ${GROUND_YIELD.toFixed(2)} / max(0.001, length(mvPosition.xyz))), 1.0);
+    gl_Position.z = hdBack.z / hdBack.w * gl_Position.w;
+  }`);
+  };
+  const prevKey = mat.customProgramCacheKey?.bind(mat);
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|yield';
+  return mat;
+}

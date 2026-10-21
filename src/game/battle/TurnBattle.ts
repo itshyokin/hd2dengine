@@ -1163,8 +1163,10 @@ export class TurnBattle {
     // Everyone who fought this foe shares its EXP (like the handheld games): those out now, and those swapped out
     // since who are still on their feet.
     this.noteFighting();
-    const standing = new Set([...this.all, ...this.waiting].filter((e) => e.battler.side === 'party' && e.battler.hp > 0).map((e) => e.who ?? 0));
-    const k = this.striker, fighting = [...(this.fought.get(t.key) ?? [])].filter((w) => standing.has(w));
+    // (Someone swapped out is no longer in the battle's lists: their health is read back from the party.)
+    const here = new Map([...this.all, ...this.waiting].filter((e) => e.battler.side === 'party').map((e) => [e.who ?? 0, e.battler.hp] as [number, number]));
+    const up = (w: number) => (here.has(w) ? here.get(w)! > 0 : (this.host.readVitals?.(w)?.hp ?? 0) > 0);
+    const k = this.striker, fighting = [...(this.fought.get(t.key) ?? [])].filter(up);
     const gains = this.host.foeDefeated?.(t.key, k ? this.entry(k.by).who ?? 0 : null, !!k?.weak, fighting) ?? [];
     for (const g of gains) {
       const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);

@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 20, 2026, after Update 91 part 2)
+# Handoff: where the project stands (Oct 20, 2026, after Update 91b)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Waiting on the owner:** playtest feedback after Update 91 (part 2). Nothing queued.
+- **Next work (owner approved):** the "Owner's list (Oct 20, late)" at the end of NOTES.md's list.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -164,6 +164,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   variables `--c-hp/mp/xp/sp` (block at the end of styles.css, set from `MenuConfig.bars` in applySettings),
   `staminaSteady`; `src/ui/partyLayout.ts` + `src/editor/PartyLayoutEditor.ts`, PartyScreen renders `.pr-panel`s
   from it; TileDef `flat` (tileTextures `flatNormal`, painted ground cells flattened).
+- 91b: render/lean.ts `patchGroundYield` (terrain, water and edge scenery pushed `GROUND_YIELD` back in depth while
+  the map camera leans; applied in WorldBuilder to everything built before props and buildings); TurnBattle
+  `foeEarned` reads a swapped-out hero's health from the host (`readVitals`).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

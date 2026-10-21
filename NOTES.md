@@ -157,6 +157,19 @@ Kept in the project so they travel with the code. Tick them off as they're built
       low-HP alert in battle; MP no longer comes back on the map (hero and party); pause tab icons follow the tab's
       text; coin beside the bag's gold; Database → Title & menus: Bars (health, magic, EXP, stamina colours; HP green
       everywhere by default), stamina wheel steady option, Party page layout editor; per-tile "make a normal map".
+- [x] Update 91b: terrain gives way to characters and props in depth on the map (no hiding behind a ledge or a tall
+      cliff, like the handheld games; buildings still hide you); a hero swapped out still gets the EXP of the foes
+      they fought (they were dropped from the battle's lists), told in turn after the first hero's EXP and level up.
+- [ ] Owner's list (Oct 20, late): battle item picker HP bars yellow/red by health; low-HP alert not playing; map /
+      title music sometimes kept playing under the battle music; hero briefly faces the camera when hit; battle
+      depth-of-field blurs the tops of tall enemies; title → New / Load: keep the title picture up through the fade
+      out, then fade in on the right map; steel arrows auto-equipped (the map bow and sword are hidden field tools:
+      no arrows used, nothing equipped); Equipment page top-aligned (gear and stats beside the picture panel);
+      LB / RB on Equipment, Status and Skill Tree switch party member; Swap first in the Party menu; Addition moves
+      into the Equipment page (one equipped at a time), everyone starts with Quick Strike, "plain attack" only for
+      heroes set to No Additions in the Database (with Melee or Ranged: ranged fires the bow without running in);
+      Settings → Restore defaults asks "Are you sure?"; console command reset_achievements; check every pause-menu
+      key/button hint is right.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
