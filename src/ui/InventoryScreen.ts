@@ -93,7 +93,9 @@ const ALL_CELLS = 64;
 export type BagFilter = 'all' | 'consumable' | 'gear' | 'shard' | 'material' | 'key';
 type Mode = { kind: 'grid' } | { kind: 'actions'; index: number; options: { label: string; run: () => void; disabled?: boolean }[] } | { kind: 'move'; from: number }
   /** Using something on someone: the cursor is on the party beside the bag. */
-  | { kind: 'target'; index: number; disabled: boolean[]; run: (k: number) => void };
+  | { kind: 'target'; index: number; disabled: boolean[]; run: (k: number) => void }
+  /** An item just used from the pop-up: the bars fill, then a line saying what it did waits for OK. */
+  | { kind: 'healed'; index: number; before: { hp: [number, number]; mp: [number, number] }[]; text: string; ready: boolean; done: () => void };
 
 export class InventoryScreen {
   private readonly root = document.createElement('div');
@@ -163,6 +165,10 @@ export class InventoryScreen {
   update(): void {
     if (!this.open) return;
     const i = this.input, m = this.mode;
+    if (m.kind === 'healed') {
+      if (m.ready && (i.confirm() || i.consume('cancel'))) { uiSound('menuOk'); m.done(); }
+      return;
+    }
     if (m.kind === 'target') {
       const n = m.disabled.length;
       const step = (d: number) => {
@@ -375,7 +381,22 @@ export class InventoryScreen {
     if (this.actions.party) {
       const disabled = who.map((w) => !!w.disabled);
       this.message = this.actions.useWarning?.(i) ? 'Careful: you’re a zombie, healing hurts you.' : '';
-      this.mode = { kind: 'target', index: Math.max(0, disabled.indexOf(false)), disabled, run: (k) => { after(this.actions.use(i, k)); } };
+      this.mode = { kind: 'target', index: Math.max(0, disabled.indexOf(false)), disabled, run: (k) => {
+        const before = (this.actions.party?.() ?? []).map((x) => ({ hp: [...x.hp] as [number, number], mp: [...x.mp] as [number, number] }));
+        const id = this.inv().slots[i]?.id, had = id ? this.inv().count(id) : 0;
+        const msg = this.actions.use(i, k);
+        // Not used (it would do nothing, or can't help them): say why and stay on the choice.
+        if (!id || this.inv().count(id) >= had) { this.message = msg ?? ''; this.render(); return; }
+        this.actions.changed();
+        const now = (this.actions.party?.() ?? [])[k], was = before[k];
+        const name = this.actions.party?.()[k]?.name ?? '';
+        const hp = now && was ? Math.round(now.hp[0] - was.hp[0]) : 0, mp = now && was ? Math.round(now.mp[0] - was.mp[0]) : 0;
+        const text = hp > 0 && was && was.hp[0] <= 0 ? `${name} is back on their feet with ${Math.round(now!.hp[0])} HP!`
+          : hp > 0 || mp > 0 ? `${name} recovered ${[hp > 0 ? `${hp} HP` : '', mp > 0 ? `${mp} MP` : ''].filter(Boolean).join(' and ')}!` : msg ?? '';
+        this.mode = { kind: 'healed', index: k, before, text, ready: false, done: () => after(null) };
+        this.render();
+        this.playHeal();
+      } };
       this.render();
       return;
     }
@@ -420,20 +441,47 @@ export class InventoryScreen {
    * each with their level, HP (and numbers) and MP. Only shown while choosing.
    */
   private partyPanel(): string {
-    const list = this.actions.party?.() ?? [], m = this.mode;
-    if (!list.length || m.kind !== 'target') return '';
+    const live = this.actions.party?.() ?? [], m = this.mode;
+    if (!live.length || (m.kind !== 'target' && m.kind !== 'healed')) return '';
+    // Just used: drawn with the numbers from before, then filled up to the new ones (playHeal).
+    const list = m.kind === 'healed' && !m.ready ? live.map((x, k) => ({ ...x, hp: m.before[k]?.hp ?? x.hp, mp: m.before[k]?.mp ?? x.mp, down: (m.before[k]?.hp[0] ?? x.hp[0]) <= 0 && x.down })) : live;
+    const dis = m.kind === 'target' ? m.disabled : [];
     const pct = ([v, max]: [number, number]) => Math.max(0, Math.min(100, (v / Math.max(1, max)) * 100));
     const tier = (hp: [number, number]) => { const f = hp[0] / Math.max(1, hp[1]); return f <= 0.2 ? ' low' : f <= 0.5 ? ' mid' : ''; };
     const def = this.inv().def(this.inv().slots[this.sel]?.id ?? '');
     return `<div class="ip-pop" role="dialog" aria-label="Use on whom?"><div class="ip-pop-box">
       <h4>Use ${esc(def?.name ?? 'it')} on whom?</h4>
-      ${list.map((x, k) => `<button type="button" class="ip-row${m.index === k ? ' sel' : ''}${k === 0 ? ' lead' : ''}${x.down ? ' down' : ''}" data-pc="${k}" ${m.disabled[k] ? 'disabled' : ''} style="--hero:${x.color}">
+      ${list.map((x, k) => `<button type="button" class="ip-row${m.index === k ? ' sel' : ''}${k === 0 ? ' lead' : ''}${x.down ? ' down' : ''}" data-pc="${k}" ${dis[k] ? 'disabled' : ''} style="--hero:${x.color}">
         <img class="ip-face" src="${x.portrait}" alt="">
         <span class="ip-main"><span class="ip-name"><b>${esc(x.name)}</b><span class="lv-pill" style="color:#3a2200">Lv ${x.level}</span>${x.down ? '<span class="st-pill" style="background:#5a5a68;color:#f4f4fa">KO</span>' : ''}${x.ailments.map((a) => `<img class="ip-ail" src="${a.icon}" alt="${esc(a.name)}" title="${esc(a.name)}">`).join('')}</span>
-        <span class="ip-line"><span class="ip-k">HP</span><span class="ip-bar hp${tier(x.hp)}"><i style="width:${pct(x.hp)}%"></i></span><span class="ip-num">${Math.round(x.hp[0])} / ${Math.round(x.hp[1])}</span></span>
-        <span class="ip-line"><span class="ip-k">MP</span><span class="ip-bar mp"><i style="width:${pct(x.mp)}%"></i></span><span class="ip-num">${Math.round(x.mp[0])} / ${Math.round(x.mp[1])}</span></span></span>
+        <span class="ip-line"><span class="ip-k">HP</span><span class="ip-bar hp${tier(x.hp)}"><i style="width:${pct(x.hp)}%"></i></span><span class="ip-num" data-g="hp">${Math.round(x.hp[0])} / ${Math.round(x.hp[1])}</span></span>
+        <span class="ip-line"><span class="ip-k">MP</span><span class="ip-bar mp"><i style="width:${pct(x.mp)}%"></i></span><span class="ip-num" data-g="mp">${Math.round(x.mp[0])} / ${Math.round(x.mp[1])}</span></span></span>
       </button>`).join('')}
-      <div class="ip-hint">↑ ↓ choose · Space: use · Esc: back</div></div></div>`;
+      ${m.kind === 'healed' ? `<div class="ip-said${m.ready ? ' ready' : ''}">${esc(m.ready ? m.text : '')}<span class="ip-next">▼</span></div>` : '<div class="ip-hint">↑ ↓ choose · Space: use · Esc: back</div>'}</div></div>`;
+  }
+
+  /** The used-on hero's bars fill to their new numbers (the numbers counting up), then the line appears. */
+  private playHeal(): void {
+    const m = this.mode;
+    if (m.kind !== 'healed') return;
+    const row = this.root.querySelectorAll<HTMLElement>('.ip-row')[m.index], now = (this.actions.party?.() ?? [])[m.index], was = m.before[m.index];
+    const finish = () => { if (this.mode === m) { m.ready = true; this.render(); } };
+    if (!row || !now || !was) { finish(); return; }
+    row.classList.remove('down');
+    const T = 700, t0 = performance.now();
+    const pct = (v: number, max: number) => `${Math.max(0, Math.min(100, (v / Math.max(1, max)) * 100))}%`;
+    const tick = () => {
+      if (this.mode !== m) return;
+      const f = Math.min(1, (performance.now() - t0) / T), e = 1 - (1 - f) * (1 - f);
+      for (const g of ['hp', 'mp'] as const) {
+        const v = was[g][0] + (now[g][0] - was[g][0]) * e;
+        const bar = row.querySelector<HTMLElement>(`.ip-bar.${g} i`), num = row.querySelector<HTMLElement>(`.ip-num[data-g="${g}"]`);
+        if (bar) { bar.style.transition = 'none'; bar.style.width = pct(v, now[g][1]); }
+        if (num) num.textContent = `${Math.round(v)} / ${Math.round(now[g][1])}`;
+      }
+      if (f < 1) requestAnimationFrame(tick); else setTimeout(finish, 150);
+    };
+    requestAnimationFrame(tick);
   }
 
   /** Gear: what it would change for each hero who can use it. */
@@ -505,7 +553,9 @@ export class InventoryScreen {
     this.root.querySelectorAll<HTMLElement>('[data-pc]').forEach((b) => b.addEventListener('click', () => {
       const mm = this.mode, k = Number(b.dataset.pc);
       if (mm.kind === 'target' && !mm.disabled[k]) { if (mm.index === k) { uiSound('menuOk'); mm.run(k); } else { mm.index = k; uiSound('menuMove'); this.render(); } }
+      else if (mm.kind === 'healed' && mm.ready) { uiSound('menuOk'); mm.done(); }
     }));
+    this.root.querySelector<HTMLElement>('.ip-said')?.addEventListener('click', () => { const mm = this.mode; if (mm.kind === 'healed' && mm.ready) { uiSound('menuOk'); mm.done(); } });
     this.root.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) => b.addEventListener('click', () => {
       const mm = this.mode;
       if (mm.kind === 'actions') { const o = mm.options[Number(b.dataset.a)]; if (!o.disabled) { uiSound('menuOk'); o.run(); } }

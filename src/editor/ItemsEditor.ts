@@ -214,6 +214,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       if (n) p[g] = n; else delete p[g];
       if (!Object.keys(p).length) delete d.restorePct;
     }, { step: 1, min: 0, max: 100 }), `Percent of the maximum, added to the amount (10 and 30 % = 10 + 30% of max ${g.toUpperCase()}).`);
+    out.push(checkbox('Revives: brings a knocked-out hero back with what it restores (at least 1 HP); it only works on the knocked out, and other items can’t help them', !!d.revive, (v) => { if (v) d.revive = true; else delete d.revive; }));
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Using it restores'),
       h('div', { class: 'field-row' }, ...(['hp', 'mp', 'sp'] as Gauge[]).flatMap((g) => [
         field(GAUGE_LABEL[g], numberInput(r[g] ?? 0, (v) => { const n = Math.max(0, Math.round(v)); if (n) r[g] = n; else delete r[g]; }, { step: 1, min: 0 })),

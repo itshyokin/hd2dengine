@@ -1170,6 +1170,8 @@ export interface ItemDef {
    * fighters earned; a key item with `all` (EXP All) gives everyone not fighting that much while it's switched on.
    */
   exp?: { share: number; all?: boolean };
+  /** Consumables: brings a knocked-out hero back (with what it restores; at least 1 HP). Only works on the knocked out. */
+  revive?: boolean;
   /** Recolours the icon (built-in or imported): every colour takes this hue, keeping its shading. */
   iconTint?: string;
   /** Armor (the armor slot): its armor type's id (unset: guessed from the name, else the first type). */

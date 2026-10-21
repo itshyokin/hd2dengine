@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 21, 2026, after Update 96b)
+# Handoff: where the project stands (Oct 21, 2026, after Update 97)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** waiting on the owner's playtest of Update 96 (picture bridges at deck height and lying flat, Camera tilt, sticky prop tools) and 95 (Database: stat order, armor types, item tabs, icons, spell icons, class trees).
+- **Next work:** waiting on the owner's playtest of Update 97 (shop scrolling, battle item list and buff arrows, Swap panel, heal animation, KO'd members stay down and hidden, revive items).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -210,12 +210,19 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 96b: PropDef `walkSound` (a FootMaterial name or a sound file / effect); Game `walkSounds` (tile → sound, built
   with findWetProps; decks default to their style) used by `footstep` (decks only while `onDeck`); CommandEditor
   `walkSoundOptions` / `walkSoundField` (importer Behaviour tab, batch edit).
+- 97: ShopScreen `render` keeps scroll + scrollIntoView (`draw` builds); pocket `.list-mode` CSS (taller list, the
+  hero block moves up); items `inlineIcon`; status.ts `buffChip`; BattleScreen `BuffChip`, `buffChipsHtml`, Vitals
+  `buffs` (into `.pb-foot`, none over the head in pocket), PickList rows `buffs`, ChoiceItem `buffs` + `bars` (Swap
+  / Send in list: face, bars from `xpPreview`); TurnBattle `chipsOf`, doItem `announce`s "X used Y!", applyItem
+  `pauseText` then "X recovered N HP!"; InventoryScreen mode `healed` + `playHeal`; party.ts: no auto get-up, KO'd
+  ally hidden until hp ≥ 1; ItemDef `revive` (Game.useItem: KO'd only with a revive, revive only on KO'd; hero too);
+  bag targets no longer disable the KO'd.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. Whatever the owner reports from playtesting Update 96.
+1. Whatever the owner reports from playtesting Update 97.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary
