@@ -22,10 +22,14 @@ decide things; the tablet editor keeps working.
       Done: render/models.ts (parse, bake into one multi-material mesh fitted to the footprint, icon render);
       PropDef `model` / `modelRot`; importer "+ 3D model…" (Faces, refit on Width / Depth); instanced in
       WorldBuilder like sprite props. Rest pose only (animation comes with Update 102).
-- [ ] Update 102: 3D characters and enemies: Sprite or 3D model per hero / character / enemy; animation slots picked
+- [x] Update 102: 3D characters and enemies: Sprite or 3D model per hero / character / enemy; animation slots picked
       from the file's clips: Idle, Walk, Run, Jump, Swim, Climb, Sit, Injured, KO, Attack, Spellcast (enemies: Idle,
       Attack, Spellcast, Dead), missing ones falling back to Idle; battle, map, Bestiary and portraits. A "3D look"
       setting: Legend of Dragoon style (low resolution, outlined) or FFX style (smooth).
+      Done: render/characterModel.ts (ModelRig: slots, guessing by name, root motion kept in place, LoD / FFX look
+      with an outline shell, pictures), CharacterDef `model`, Database `modelLook`; CharacterSprite drives the rig
+      behind the same calls as sheets; Database → Characters → 3D model window with a live preview. Enemies use
+      a 3D character through their Person look. Weapons on models: Update 104.
 - [ ] Update 103: Additions with 3D models: each swing a part of a clip (Attack by default, changeable), the next
       swing starting where the last ended; a missed button stops the chain there.
 - [ ] Update 104: equipment on 3D characters: body types (masculine, feminine, more later) in the Database; armor and

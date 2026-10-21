@@ -107,6 +107,32 @@ The builder's source is in `tools/character-builder/src/`; `python tools/charact
 (The LPC edition below, with the weapon builder, is in `tools/lpc/builder/src/`; `python tools/lpc/builder/build.py`
 rebuilds it into `tools/lpc/builder/site/`.)
 
+### 3D characters (GLB / FBX)
+
+Any character in Database → **Characters** can be a rigged 3D model instead of a sheet: *Use a 3D model…* on its
+card. Type the model's path under `public/` (e.g. `assets/models/characters/party/katrina/katrina.glb`) or *Import a
+model file…* (saved to `assets/models/characters/<id>/`). The window shows the model turning in a live preview:
+- **Animation slots**: Idle, Walk, Run, Jump, Swim, Climb, Sit, Injured, KO, Attack, Spellcast. One file can hold every
+  action (Blender actions, Mixamo takes); each slot plays one, picked from the list. Left on **Guess**, a slot takes
+  the first action whose name fits (*Walk_Cycle* → Walk, *Death* → KO, *Attack1* → Attack); the dropdown shows which.
+  *None* or nothing found: the slot uses Idle (Run and Swim use Walk first). ▶ previews a slot.
+- **More actions from other files**: extra GLB / FBX files with actions for the same skeleton (same bone names), such
+  as Mixamo animations downloaded without skin.
+- **Height** (tiles, default 1.6) and **Faces** (turn it if the model was made facing another way).
+- **3D look**, above the list, for every 3D character: **Legend of Dragoon** (crisp low-res textures, flat shading, a
+  dark outline) or **Final Fantasy X** (smooth).
+
+In the game the model is drawn everywhere the sheet was: the player and party on the map (walking, running, swimming,
+climbing, jumping, turning smoothly to the exact way they move, diagonals included), events, enemies whose look is
+that character, and the battle stage (attacks, spells, flinching, kneeling when weak, KO held on its last frame).
+Faces in menus, battle pictures, save slots and the Bestiary are rendered from the model in its Idle pose. Actions
+that walk the body forward (root motion) are kept in place: the game moves the character. Enemies drawn as a
+3D character use Idle, Attack, Spellcast and KO (their death). Not yet: weapons and armor on the model (Update 104),
+and Additions playing a combo as segments of the Attack action (Update 103).
+
+**Exporting from Blender**: name actions clearly (Idle, Walk, Attack…); push each one down to an NLA track (or give
+it a fake user) so the glTF exporter includes it; apply scale and rotation; export .glb with +Y up (the default).
+
 ### Character Builder, LPC edition
 
 The hosted Character Builder now uses the Liberated Pixel Cup (LPC) sprites: 64 × 64 frames with walk, idle, run,

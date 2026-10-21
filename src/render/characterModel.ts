@@ -94,17 +94,45 @@ export function clipFor(m: LoadedCharModel, def: CharacterModel, slot: ModelSlot
 
 const DIR_YAW: Record<Dir, number> = { down: 0, right: Math.PI / 2, up: Math.PI, left: -Math.PI / 2 };
 
-const OUTLINE_KEY = '|hdOutline';
-/** The outline shell: the model's own shape pushed out along its normals, drawn back faces only, nearly black. */
+const OUTLINE_KEY = '|hdOutline2';
+/**
+ * The outline shell: the model's own shape pushed out along smoothed normals (so hard edges don't split it open),
+ * drawn back faces only, nearly black.
+ */
 function outlineMaterial(width: number): THREE.MeshBasicMaterial {
   const m = new THREE.MeshBasicMaterial({ color: 0x14121c, side: THREE.BackSide });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uHdOutline = { value: width };
-    shader.vertexShader = 'uniform float uHdOutline;\n' + shader.vertexShader.replace('#include <skinning_vertex>',
-      '#include <skinning_vertex>\n#ifdef USE_SKINNING\n  transformed += normalize(objectNormal) * uHdOutline;\n#else\n  transformed += normalize(normal) * uHdOutline;\n#endif');
+    shader.vertexShader = 'uniform float uHdOutline;\nattribute vec3 hdOutlineNormal;\n' + shader.vertexShader.replace('#include <skinning_vertex>',
+      '#include <skinning_vertex>\n#ifdef USE_SKINNING\n  vec3 hdN = normalize((skinMatrix * vec4(hdOutlineNormal, 0.0)).xyz);\n#else\n  vec3 hdN = normalize(hdOutlineNormal);\n#endif\n  transformed += hdN * uHdOutline;');
   };
   m.customProgramCacheKey = () => OUTLINE_KEY + width.toFixed(4);
   return m;
+}
+
+/** The geometry with one normal per corner position (the average of the faces meeting there), for the outline. */
+const outlineGeos = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
+function smoothedForOutline(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  const hit = outlineGeos.get(g);
+  if (hit) return hit;
+  const out = g.clone();
+  outlineGeos.set(g, out);
+  const pos = out.attributes.position as THREE.BufferAttribute;
+  if (!out.attributes.normal) out.computeVertexNormals();
+  const nor = out.attributes.normal as THREE.BufferAttribute;
+  const sums = new Map<string, THREE.Vector3>(), key = (i: number) => `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
+  for (let i = 0; i < pos.count; i++) {
+    const k = key(i), v = sums.get(k) ?? new THREE.Vector3();
+    v.x += nor.getX(i); v.y += nor.getY(i); v.z += nor.getZ(i);
+    sums.set(k, v);
+  }
+  const arr = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const v = sums.get(key(i))!.clone().normalize();
+    arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z;
+  }
+  out.setAttribute('hdOutlineNormal', new THREE.BufferAttribute(arr, 3));
+  return out;
 }
 
 /** A material in the chosen look (FBX gives Phong / Lambert; glTF standard), sharing nothing with the source. */
@@ -176,8 +204,9 @@ export class ModelRig {
         const om = outlineMaterial(0.022 / ws);
         const sk = mesh as THREE.SkinnedMesh;
         let shell: THREE.Mesh;
-        if (sk.isSkinnedMesh) { const s2 = new THREE.SkinnedMesh(mesh.geometry, om); s2.bind(sk.skeleton, sk.bindMatrix); shell = s2; }
-        else shell = new THREE.Mesh(mesh.geometry, om);
+        const og = smoothedForOutline(mesh.geometry);
+        if (sk.isSkinnedMesh) { const s2 = new THREE.SkinnedMesh(og, om); s2.bind(sk.skeleton, sk.bindMatrix); shell = s2; }
+        else shell = new THREE.Mesh(og, om);
         shell.position.copy(mesh.position); shell.quaternion.copy(mesh.quaternion); shell.scale.copy(mesh.scale);
         shell.frustumCulled = false;
         shell.castShadow = false;

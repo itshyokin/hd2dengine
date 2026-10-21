@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 21, 2026, after Update 101)
+# Handoff: where the project stands (Oct 21, 2026, after Update 102)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Update 102 (3D characters and enemies), then the 3D pipeline (101–105). The game targets PC now.
+- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Update 103 (Additions as segments of the Attack action), then the 3D pipeline (101–105). The game targets PC now.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -239,12 +239,20 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   material arrays in the same slots map (hideProp, burnt-out, cutting work unchanged); PropImporter State `model`,
   `remodel()`; PropImages `model`; dev and editor servers accept and serve assets/props/*.glb|fbx (vite.config.ts
   serves prop models from disk, since Vite only knows public files seen at start).
+- 102: render/characterModel.ts: `loadCharacterModel` (main file + `extra` action files; root bones' x/z travel
+  flattened), `clipFor` (named, '' none, or guessed by GUESS regexes), `ModelRig` (SkeletonUtils clone fitted to
+  `height`, `loop` / `once` / `pose` / `release`, `face` with smooth yaw, LoD outline = BackSide shell on smoothed
+  normals `hdOutlineNormal`), `renderCharacterPicture`. SpriteAsset `rigged`; SpriteLibrary `modelLook`,
+  `charModel`, models loaded in `preloadCharacters`; standingFrame / portrait render models. CharacterSprite `rig`
+  (mesh is an invisible holder), SLOT_OF maps sheet names (slash → attack, hurt → ko or a flinch → injured, kneel →
+  injured…); Motion gains swimming / sitting / injured. Editor: characterModelEditor.ts, CharactersWork `look`.
+  Dev / editor servers accept and serve assets/models/**/*.glb|fbx.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. The Roadmap (planned Oct 21) at the top of NOTES.md: Update 102 onwards.
+1. The Roadmap (planned Oct 21) at the top of NOTES.md: Update 103 onwards.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary
