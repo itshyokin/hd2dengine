@@ -453,7 +453,7 @@ export type Element = 'neutral' | 'water' | 'fire' | 'nature' | 'earth' | 'shock
 
 /** Ailments a hit can give (each with a chance), and buffs items can give. */
 export type Ailment = 'burn' | 'poison' | 'chill' | 'paralyze' | 'blind' | 'silence' | 'stagger' | 'sleep' | 'confusion' | 'zombie';
-export type BuffKind = 'crit' | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf' | 'regen' | 'haste' | 'slow' | 'acc' | 'eva' | 'accDown' | 'evaDown';
+export type BuffKind = 'crit' | 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf' | 'regen' | 'haste' | 'slow' | 'acc' | 'eva' | 'accDown' | 'evaDown' | 'statGuard';
 /** A chance (%) for a hit to give an ailment, for `seconds` (0 or missing: its usual time). */
 export interface Inflict { ailment: Ailment; chance: number; seconds?: number }
 /** A buff an item gives: how much (default per kind) for how long. */
@@ -898,6 +898,8 @@ export type AllyStyle = 'fighter' | 'archer' | 'caster' | 'healer';
 export interface OverworldCamera { pitch?: number; distance?: number; fov?: number; lean?: number }
 
 export interface Database {
+  /** Weapon types (missing: the built-in ten). */
+  weaponTypes?: WeaponTypeDef[];
   /** Armor types (missing: Light, Medium and Heavy armor). */
   armorTypes?: ArmorTypeDef[];
   /** The order stats are listed in everywhere (missing: Strength, Dexterity, Agility, Endurance, Defence, Magic, Magic Defence). */
@@ -1016,7 +1018,10 @@ export type WeaponClass = 'light' | 'medium' | 'heavy';
 export const WEAPON_CLASSES: WeaponClass[] = ['light', 'medium', 'heavy'];
 
 /** What kind of weapon it is (classes can be trained with each kind, or kept from it). */
-export type WeaponType = 'sword' | 'dagger' | 'axe' | 'mace' | 'spear' | 'staff' | 'wand' | 'fist' | 'bow' | 'crossbow';
+/** A weapon type's id (Database → Weapon types): built in sword, dagger, axe, mace, spear, staff, wand, fist, bow, crossbow. */
+export type WeaponType = string;
+/** A weapon type: its id, its name in class tables ("Swords"), one weapon of it ("Sword"), and words that pick it automatically from an item's name. */
+export interface WeaponTypeDef { id: string; name: string; one?: string; words?: string }
 /** An armor type's id (Database → Armor types): built in light (cloth, leather), medium (chain, scale), heavy (plate). */
 export type ArmorWeight = string;
 /** An armor type: its name, and what wearing it untrained costs (Agility and Dexterity for the built-in ones). */
@@ -1170,6 +1175,8 @@ export interface ItemDef {
    * fighters earned; a key item with `all` (EXP All) gives everyone not fighting that much while it's switched on.
    */
   exp?: { share: number; all?: boolean };
+  /** Consumables: levels it gives (Rare Candy: exactly the EXP to the next level, once per level). */
+  levelUp?: number;
   /** Consumables: brings a knocked-out hero back (with what it restores; at least 1 HP). Only works on the knocked out. */
   revive?: boolean;
   /** Recolours the icon (built-in or imported): every colour takes this hue, keeping its shading. */
@@ -1574,6 +1581,8 @@ export interface SkillNode {
   spellRankFrom?: number;
   /** Teaches an Addition (Database → Additions). */
   teachesAddition?: string;
+  /** Trains its hero with these weapon types / armor types ("armor:heavy") / shields: Trained whatever their class says. */
+  trains?: GearKind[];
 }
 
 /* ------------------------------------------------------------------ learned spells, Additions, classes */

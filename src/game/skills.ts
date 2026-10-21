@@ -177,16 +177,22 @@ export class Skills {
   /** The Party tree's skills, counted for this hero too (set by the game). */
   shared: Skills | null = null;
 
+  /** Weapon and armor types a learned skill trains this hero with (or the whole party, from the Party tree). */
+  trains(kind: string): boolean { return this.trained.has(kind) || (!!this.shared && this.shared !== this && this.shared.trained.has(kind)); }
+  private trained = new Set<string>();
+
   /** The total of a stat over every skill and rank taken (the hero's own, and the Party tree's). */
   get(stat: SkillStat): number { return (this.totals.get(stat) ?? 0) + (this.shared && this.shared !== this ? this.shared.get(stat) : 0); }
   has(stat: SkillStat): boolean { return this.get(stat) > 0; }
 
   recount(): void {
     this.totals.clear();
+    this.trained.clear();
     for (const [id, r] of Object.entries(this.ranks)) {
       const node = this.node(id);
       if (!node || r <= 0 || isSharedTree(this.data, node.tree) !== this.party) continue;
       const k = Math.min(r, this.maxRank(node));
+      for (const g of node.trains ?? []) this.trained.add(g);
       for (const e of node.effects) this.totals.set(e.stat, (this.totals.get(e.stat) ?? 0) + e.value * k);
     }
   }

@@ -9,9 +9,9 @@ import type { Ailment } from '../world/types';
 import { elementSelect, matchupText } from './elementFields';
 import { ITEM_ICONS, builtinIcon, builtinIconName, iconGroups, tintCanvas } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS } from '../game/inventory';
-import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight, type ArmorTypeDef, type EssenceTier } from '../world/types';
-import { WEAPON_TYPES, WEAPON_TYPE_NAME, armorTypes, armorWeightOf, weaponTypeOf } from '../game/classes';
-import { openArmorTypes } from './armorTypesEditor';
+import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight, type ArmorTypeDef, type WeaponTypeDef, type EssenceTier } from '../world/types';
+import { armorTypes, armorWeightOf, weaponTypeName, weaponTypeOf, weaponTypes } from '../game/classes';
+import { openArmorTypes, openWeaponTypes } from './armorTypesEditor';
 import { FIELD_GLOW, POWER_NAMES, itemColor } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
 import { RANKS, RANK_GAIN, type Rank } from '../game/statRanks';
@@ -94,7 +94,7 @@ function itemId(name: string, taken: (id: string) => boolean): string {
   return id;
 }
 
-export interface ItemsWork { items: ItemDef[]; inventory: InventorySetup; /** The window's armor types (Database → Armor types). */ armorTypes?: ArmorTypeDef[] }
+export interface ItemsWork { items: ItemDef[]; inventory: InventorySetup; /** The window's armor types (Database → Armor types). */ armorTypes?: ArmorTypeDef[]; /** And weapon types. */ weaponTypes?: WeaponTypeDef[] }
 
 /** Items added in this window: their id follows their name until the database is applied. */
 const fresh = new WeakSet<ItemDef>();
@@ -214,6 +214,8 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       if (n) p[g] = n; else delete p[g];
       if (!Object.keys(p).length) delete d.restorePct;
     }, { step: 1, min: 0, max: 100 }), `Percent of the maximum, added to the amount (10 and 30 % = 10 + 30% of max ${g.toUpperCase()}).`);
+    out.push(field('Level up (levels)', numberInput(d.levelUp ?? 0, (v) => { const n = Math.max(0, Math.min(99, Math.round(v))); if (n) d.levelUp = n; else delete d.levelUp; }, { step: 1, min: 0, max: 99 }),
+      'Rare Candy: used from the bag, the hero gains exactly the EXP to their next level (this many times), with the level up as usual. 0: not a level-up item.'));
     out.push(checkbox('Revives: brings a knocked-out hero back with what it restores (at least 1 HP); it only works on the knocked out, and other items can’t help them', !!d.revive, (v) => { if (v) d.revive = true; else delete d.revive; }));
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Using it restores'),
       h('div', { class: 'field-row' }, ...(['hp', 'mp', 'sp'] as Gauge[]).flatMap((g) => [
@@ -246,7 +248,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       })),
       rarityField(d, rerender),
       ...(d.slot === 'weapon' || d.slot === 'ranged' || (d.slot === 'magic' && !d.spell?.power) ? [field('Element', elementSelect(d.element, (e) => { if (e && e !== 'neutral') d.element = e; else delete d.element; rerender(); }), matchupText(d.element))] : []),
-      d.slot === 'weapon' || d.slot === 'ranged' ? weaponForm(d) : d.slot === 'magic' ? spellForm(d, rerender) : defenseForm(d, work, rerender),
+      d.slot === 'weapon' || d.slot === 'ranged' ? weaponForm(d, work, rerender) : d.slot === 'magic' ? spellForm(d, rerender) : defenseForm(d, work, rerender),
       ...(() => { const f = itemSpriteField(store, d, rerender); return f ? [field('Sprite (animated characters)', f, 'What LPC characters hold. Characters without animations show the icon.')] : []; })(),
       ...(d.slot === 'weapon' || d.slot === 'ranged' ? [effectsForm(d)] : []),
       ...(d.slot === 'weapon' ? [checkbox('Breaks rock (a pickaxe, a hammer): mines boulders and ore veins', !!d.mines, (v) => { if (v) d.mines = true; else delete d.mines; })] : []),
@@ -375,14 +377,19 @@ function spellForm(d: ItemDef, rerender: () => void): HTMLElement {
 }
 
 /** A melee weapon's class and damage, or a bow's damage. */
-function weaponForm(d: ItemDef): HTMLElement {
+function weaponForm(d: ItemDef, work: ItemsWork, rerender: () => void): HTMLElement {
   const w = (d.weapon ??= { class: d.slot === 'ranged' ? 'bow' : 'light', damage: 8 });
   const dmg = field('Damage', numberInput(w.damage, (v) => (w.damage = Math.max(0, Math.round(v))), { step: 1, min: 0 }),
     w.class === 'bow' ? 'Plus the arrow’s extra damage, scaled by how far the bow was drawn.' : 'Each swing; the third swing of a combo hits harder.');
   // Its type: what classes are trained with (Database → Classes → Weapons and armor).
-  const guess = weaponTypeOf({ ...d, weapon: { ...w, type: undefined } });
-  const type = field('Type', select([['', `Automatic (${guess ? WEAPON_TYPE_NAME[guess] : 'from the name'})`], ...WEAPON_TYPES.map(([t]) => [t, WEAPON_TYPE_NAME[t]] as [string, string])],
-    w.type ?? '', (v) => { if (v) w.type = v as WeaponType; else delete w.type; }), 'For classes: which weapons each is trained with. Automatic guesses from the name.');
+  const db = { weaponTypes: work.weaponTypes };
+  const guess = weaponTypeOf({ ...d, weapon: { ...w, type: undefined } }, db);
+  const type = field('Type', h('div', { class: 'sw-input' },
+    select([['', `Automatic (${guess ? weaponTypeName(guess, db) : 'from the name'})`], ...weaponTypes(db).map((t) => [t.id, t.one || t.name] as [string, string]),
+      ...(w.type && !weaponTypes(db).some((t) => t.id === w.type) ? [[w.type, `${w.type} (removed: automatic)`] as [string, string]] : [])],
+      w.type ?? '', (v) => { if (v) w.type = v as WeaponType; else delete w.type; }),
+    work.weaponTypes ? h('button', { type: 'button', class: 'mini-btn', title: 'Add, rename or remove weapon types', 'aria-label': 'Edit weapon types', onclick: () => openWeaponTypes(work.weaponTypes!, rerender) }, '☰') : h('span')),
+    'For classes and skills: which weapons each is trained with (☰ edits the types). Automatic guesses from the name.');
   const aim = h('div', { class: 'field-row' },
     field('Accuracy %', numberInput(w.accuracy ?? 100, (v) => { const n = Math.max(10, Math.min(200, Math.round(v))); if (n === 100) delete w.accuracy; else w.accuracy = n; }, { step: 5, min: 10, max: 200 }), 'Turn-based: of the wielder’s aim (from Dexterity). 100 as normal; a dagger might be 105, a great axe 90.'),
     checkbox('Never misses', !!w.sure, (v) => { if (v) w.sure = true; else delete w.sure; }));

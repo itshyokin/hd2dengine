@@ -828,3 +828,7 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .prop-sticky { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .prop-sticky > * { grid-column: 1 / -1; }
 .prop-sticky > .import-btn { grid-column: auto; padding: 6px 6px; font-size: 12px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.armor-type-row > .field-row.weapon-type-fields:first-child { grid-template-columns: 1fr 1fr 1.3fr auto auto; align-items: end; }
+.train-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.train-chips .chip { cursor: pointer; }
+.train-chips .chip[aria-pressed="true"] { border-color: var(--ember); color: var(--ink); background: rgba(255, 176, 74, 0.15); }

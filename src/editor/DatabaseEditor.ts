@@ -55,7 +55,7 @@ import { cleanHeroes, heroesTab, heroesWork } from './HeroesEditor';
 import type { QuestDef } from '../world/types';
 import type { CreditEntry } from '../world/types';
 import { skillsData } from '../game/skills';
-import { DEFAULT_ARMOR_TYPES, armorTypes } from '../game/classes';
+import { DEFAULT_ARMOR_TYPES, DEFAULT_WEAPON_TYPES, armorTypes, gearKinds, weaponTypes } from '../game/classes';
 import { ATTRS, ATTR_INFO, type Attr, DEFAULT_ATTR_ORDER, setAttrOrder } from '../game/attributes';
 import type { SkillsData } from '../world/types';
 
@@ -116,7 +116,7 @@ const dbIcon = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
 export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): void {
   const cfg: PlayerConfig = playerConfig(store.db.stats);
   let tab: DbTab = startTab;
-  const work: ItemsWork = { items: JSON.parse(JSON.stringify(store.db.items ?? [])) as ItemDef[], inventory: JSON.parse(JSON.stringify(store.db.inventory ?? {})), armorTypes: structuredClone(armorTypes(store.db)) };
+  const work: ItemsWork = { items: JSON.parse(JSON.stringify(store.db.items ?? [])) as ItemDef[], inventory: JSON.parse(JSON.stringify(store.db.inventory ?? {})), armorTypes: structuredClone(armorTypes(store.db)), weaponTypes: structuredClone(weaponTypes(store.db)) };
   // The stats' order (every list follows it straight away; Close without applying puts the old one back).
   const statOrder: Attr[] = [...ATTRS];
   const itemState = { sel: 0 }, enemyState = { sel: 0 };
@@ -350,7 +350,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       }));
       return;
     }
-    if (tab === 'skills') { content.replaceChildren(...skillsTab(skills, skillState, render, work.items, { spells, additions })); return; }
+    if (tab === 'skills') { content.replaceChildren(...skillsTab(skills, skillState, render, work.items, { spells, additions, gear: gearKinds({ armorTypes: work.armorTypes, weaponTypes: work.weaponTypes }) })); return; }
     if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audioFiles(store), troopState, render, store.battleMapNames())); return; }
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
     if (tab === 'mapThemes') { content.replaceChildren(...mapThemesTab(themes, themeState, render, audioFiles(store), cliffChoices(store))); return; }
@@ -364,7 +364,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const k = skills.trees.findIndex((t) => t.id === id);
       if (k < 0) return;
       skillState.tree = k; skillState.sel = ''; tab = 'skills'; render();
-    }, work.armorTypes)); return; }
+    }, work.armorTypes, work.weaponTypes)); return; }
     if (tab === 'horses') { content.replaceChildren(...horsesTab(horses, horseState, render, travel)); return; }
     if (tab === 'audio') { content.replaceChildren(...audioTab(store, audio, render)); return; }
     if (tab === 'combat') { content.replaceChildren(...combatTab(combat)); return; }
@@ -630,7 +630,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const camOut = Object.keys(cam).length ? cam : null;
       const statOut = statOrder.join() === DEFAULT_ATTR_ORDER.join() ? null : [...statOrder];
       const armorOut = JSON.stringify(work.armorTypes) === JSON.stringify(DEFAULT_ARMOR_TYPES) && !db.armorTypes ? null : work.armorTypes ?? null;
-      if (JSON.stringify(statOut) === JSON.stringify(db.statOrder ?? null) && JSON.stringify(armorOut) === JSON.stringify(db.armorTypes ?? null) &&
+      const weaponOut = JSON.stringify(work.weaponTypes) === JSON.stringify(DEFAULT_WEAPON_TYPES) && !db.weaponTypes ? null : work.weaponTypes ?? null;
+      if (JSON.stringify(statOut) === JSON.stringify(db.statOrder ?? null) && JSON.stringify(armorOut) === JSON.stringify(db.armorTypes ?? null) && JSON.stringify(weaponOut) === JSON.stringify(db.weaponTypes ?? null) &&
         JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
         JSON.stringify(mOut ?? null) === JSON.stringify(db.menus ?? null) && gameTitle === db.title && JSON.stringify(tFinal) === JSON.stringify(db.time ?? null) &&
         JSON.stringify(Object.keys(ab).length ? ab : null) === JSON.stringify(db.abilities && Object.keys(db.abilities).length ? db.abilities : null) &&
@@ -657,6 +658,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (camOut) db.overworldCamera = C(camOut); else delete db.overworldCamera;
       if (statOut) db.statOrder = statOut; else delete db.statOrder;
       if (armorOut) db.armorTypes = C(armorOut); else delete db.armorTypes;
+      if (weaponOut) db.weaponTypes = C(weaponOut); else delete db.weaponTypes;
       if (itemsOut) db.items = C(itemsOut); else delete db.items;
       if (invOut) db.inventory = C(invOut); else delete db.inventory;
       if (combatOut) db.combat = C(combatOut); else delete db.combat;
