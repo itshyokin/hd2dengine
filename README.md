@@ -396,6 +396,10 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
    covering its footprint, the top of the picture to the north), its picture **standing up**, or built in 3D like the
    built-in bridges (wooden planks, rope or stone). Pictures sit at the deck's height (the banks it joins), not down
    on the ground or water under it, and no ripples ring them.
+   **Walk sound**: the hero's footsteps on the prop: one of the ground sounds (*Footsteps: Wood*, Stone, Metal,
+   Carpet…, which Database → Audio can swap for your own, like `foot_step_wood`) or any sound file or effect. Bridges and
+   platforms without one sound like their wood or stone (only while walking on top, not swimming under them); any
+   other prop with one (a rug, a wooden floor) changes the footsteps on its tiles.
    **Camera tilt** (on by default): the prop leans back toward the map camera like the characters. Turn it off to keep
    it upright (flat pieces and pictures that look wrong tilted).
 9. **Shape**: *Flat* (one picture), *Solid block* (pushed back so it looks like a block), *Cross ×* (two copies at

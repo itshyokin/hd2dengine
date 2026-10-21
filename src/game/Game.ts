@@ -202,8 +202,18 @@ export class Game {
     const st = waterStyle(this.mapData, style);
     return (st.glow ?? 0) > 0.2 ? new THREE.Color(st.color).lerp(new THREE.Color('#ffffff'), 0.45).getHex() : 0xffffff;
   }
+  /** Tiles whose props set the footsteps (bridges, rugs, wooden floors), with that sound, and whether it's a deck. */
+  private walkSounds = new Map<number, { sound: string; deck: boolean }>();
   private findWetProps(): void {
     this.wetProps = [];
+    this.walkSounds.clear();
+    for (const prop of this.mapData.props) {
+      const d = this.sprites.def(prop.type);
+      const sound = d?.walkSound ?? (d?.deck ? (d.deck.style === 'stone' ? 'stone' : 'wood') : undefined);
+      if (!d || !sound) continue;
+      const tiles = d.foot ? footTiles(d, prop.x, prop.z, prop.s ?? 1) : [[Math.floor(prop.x), Math.floor(prop.z - 0.01)] as [number, number]];
+      for (const [x, z] of tiles) if (this.map.inMap(x, z)) this.walkSounds.set(z * this.map.w + x, { sound, deck: !!d.deck });
+    }
     for (const prop of this.mapData.props) {
       const d = this.sprites.def(prop.type);
       // Bridges and platforms stand over the water, not in it.
@@ -1445,8 +1455,12 @@ export class Game {
 
   private footstep(loud: number): void {
     const m = this.motion, cx = Math.floor(m.x), cz = Math.floor(m.z);
-    const water = !m.onWater ? this.map.footWaterAt(cx, cz) : null;
-    const mat = water ? 'water' : this.map.inMap(cx, cz) ? this.tiles.footstep(this.map.terrain(cx, cz)) : 'grass';
+    // A prop underfoot with its own sound (a bridge, only while up on it, not swimming under it).
+    const ws = this.map.inMap(cx, cz) ? this.walkSounds.get(cz * this.map.w + cx) : undefined;
+    const onIt = ws && (!ws.deck || this.map.onDeck(cx, cz, m.y));
+    if (onIt && !FOOT_MATERIALS.has(ws.sound)) { this.audio.play(ws.sound, undefined, undefined, 0.5 * loud * (0.85 + Math.random() * 0.3)); return; }
+    const water = !m.onWater && !onIt ? this.map.footWaterAt(cx, cz) : null;
+    const mat = onIt ? ws.sound : water ? 'water' : this.map.inMap(cx, cz) ? this.tiles.footstep(this.map.terrain(cx, cz)) : 'grass';
     if (mat === 'none') return;
     // The sounds differ in loudness; this evens them out (then a little random variety).
     const even: Record<string, number> = { grass: 1.3, dirt: 0.55, stone: 0.95, wood: 0.55, sand: 1.5, snow: 1.15, water: 1.2, metal: 0.8, carpet: 0.45 };
@@ -6611,3 +6625,6 @@ function weatherLine(k: WeatherKind): string {
   return ({ none: 'The sky clears.', rain: 'It starts to rain.', storm: 'A thunderstorm rolls in.', snow: 'Snow begins to fall.', blizzard: 'A blizzard sweeps in.',
     haze: 'A haze settles over everything.', sandstorm: 'A sandstorm whips up.', pollen: 'Pollen drifts on the air.', dust: 'Dust hangs in the air.', leaves: 'Leaves blow past on the wind.' } as Record<WeatherKind, string>)[k];
 }
+
+/** The ground sounds a prop's walk sound can name (anything else is a sound file or effect played as it is). */
+const FOOT_MATERIALS = new Set(['grass', 'dirt', 'stone', 'wood', 'sand', 'snow', 'water', 'metal', 'carpet']);

@@ -183,6 +183,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
         element).
   - [x] Battle start: health bars start at the hero's current health (no drain down from full). If needed, build
         the scene first and fade in once the bars are set.
+- [x] Props: a Walk sound (ground sounds or any sound file); bridges sound like their wood or stone (update 96b).
 - [x] Owner's list (Oct 21, morning) (update 96):
   - [x] Picture bridges drawn at the deck's height (where the banks meet), not down at the ground or water; lying
         flat on the deck by default (or standing up); no water ripples round them.

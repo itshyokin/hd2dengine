@@ -12,6 +12,7 @@ import { checkbox, field, h, numberInput, openModal, select, textInput, toast } 
 import { builtinArt, customPropImage } from './editorArt';
 import { flameStrip } from '../art/placeholderArt';
 import { lightFields } from './lightForm';
+import { walkSoundField } from './CommandEditor';
 import type { EditorStore } from './store';
 
 type Res = 'keep' | '16' | '24' | '32' | '48' | '64';
@@ -58,6 +59,7 @@ interface State {
   deckLook: 'art' | 'artStand' | 'wood' | 'rope' | 'stone';
   /** Leans back toward the map camera like other props (off: stays upright). */
   tilt: boolean;
+  walkSound?: string;
   /** Footprint: tiles deep, and which are solid (rows from the back row to the front, columns left to right). */
   d: number;
   solid: boolean[][];
@@ -101,6 +103,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     deck: existing?.deck ? existing.deck.dir ?? 'any' : '',
     deckLook: existing?.deck ? (existing.deck.art ? (existing.deck.stand ? 'artStand' : 'art') : existing.deck.style) : 'art',
     tilt: !existing?.noTilt,
+    walkSound: existing?.walkSound,
     d: existing?.foot?.d ?? 1, solid: [],
     shape: existing?.shape ?? 'flat', thickness: existing?.thickness ?? 0, collide: existing?.collide ?? 'solid',
     flameOn: !!existing?.flame, flame: existing?.flame ? { ...existing.flame } : { x: 0, y: Math.round((existing?.h ?? 2) * 0.75 * 10) / 10, w: 0.5, h: 0.75, embers: true },
@@ -427,6 +430,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
         'Walked on at a deck height over water, chasms or lower ground, never blocking. A row of pieces shares one height (the highest bank they touch). Bridges keep walkers on them: along the bridge only, getting on and off at the ends.'),
       ...(st.deck ? [field('Drawn as', select([['art', 'Its picture, lying flat on the deck (seen from above)'], ['artStand', 'Its picture, standing up at the deck’s height'], ['wood', 'Built in 3D: wooden planks'], ['rope', 'Built in 3D: rope bridge'], ['stone', 'Built in 3D: stone']],
         st.deckLook, (v) => (st.deckLook = v as State['deckLook'])), 'Lying flat, the picture covers the footprint like a floor at the height of the banks it joins (top of the picture to the north). Built in 3D pieces have rails and posts down to the ground, like the built-in bridges (the picture is then only the palette icon).')] : []),
+      walkSoundField(st.walkSound, (v) => (st.walkSound = v)),
       checkbox('Camera tilt: leans back toward the map camera like the characters (turn off to keep it upright)', st.tilt, (v) => (st.tilt = v)),
       field('Rustles when walked through', select([['', 'Tall grass shapes that don’t block'], ['yes', 'Yes (shakes and swishes)'], ['no', 'No']], st.rustle, (v) => (st.rustle = v as State['rustle']))),
       checkbox('Is respawn point (using it, the player comes back here after losing all health)', st.respawn, (v) => (st.respawn = v)),
@@ -575,6 +579,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       if (st.rustle) def.rustle = st.rustle === 'yes';
       if (!st.front) def.frontOfTiles = false;
       if (!st.tilt) def.noTilt = true;
+      if (st.walkSound) def.walkSound = st.walkSound;
       if (st.deck) {
         const pic = st.deckLook === 'art' || st.deckLook === 'artStand';
         const style = pic ? existing?.deck?.style ?? 'wood' : st.deckLook as 'wood' | 'rope' | 'stone';

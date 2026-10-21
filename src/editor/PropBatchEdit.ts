@@ -6,6 +6,7 @@
 import { builtinProp, isBuiltinProp } from '../world/props';
 import type { PropDef } from '../world/types';
 import { saveProps } from './assets';
+import { walkSoundOptions } from './CommandEditor';
 import { field, h, openModal, select, toast } from './dom';
 import type { EditorStore } from './store';
 
@@ -63,6 +64,8 @@ const SETTINGS: Setting[] = [
       if (v === 'art' || v === 'artStand') { d.deck.art = true; if (v === 'artStand') d.deck.stand = true; else delete d.deck.stand; }
       else { delete d.deck.art; delete d.deck.stand; d.deck.style = v as 'wood' | 'rope' | 'stone'; }
     } },
+  { key: 'walkSound', label: 'Walk sound', hint: 'The hero’s footsteps on it.', get options() { return walkSoundOptions(); },
+    get: (d) => d.walkSound ?? '', set: (d, v) => { if (v) d.walkSound = v; else delete d.walkSound; } },
   { key: 'tilt', label: 'Camera tilt (leans back toward the map camera)', options: yesNo,
     get: (d) => (d.noTilt ? 'no' : 'yes'), set: (d, v) => { if (v === 'no') d.noTilt = true; else delete d.noTilt; } },
   { key: 'respawn', label: 'Is a respawn point', options: yesNo, ...flag('respawn') },
