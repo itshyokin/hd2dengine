@@ -146,7 +146,7 @@ import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
 import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } from './menus';
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
-import { alignFootProps, blockedTiles, footTiles, propCovers } from '../world/props';
+import { alignFootProps, blockedTiles, footTiles, propCovers, stepOf } from '../world/props';
 import { propKey } from './GameState';
 import { TouchControls } from '../ui/TouchControls';
 
@@ -3044,8 +3044,8 @@ export class Game {
       for (const prop of this.mapData.props) {
         const d = this.sprites.def(prop.type);
         if (!d || !want(d) || !this.propSlots.has(prop) || this.gone(prop)) continue;
-        const tiles = blockedTiles(d, prop.x, prop.z, prop.s ?? 1);
-        const at = d.foot ? footTiles(d, prop.x, prop.z, prop.s ?? 1) : tiles.length ? tiles : [[Math.floor(prop.x), Math.floor(prop.z)] as [number, number]];
+        const tiles = blockedTiles(d, prop.x, prop.z, prop.s ?? 1, stepOf(this.map));
+        const at = d.foot ? footTiles(d, prop.x, prop.z, prop.s ?? 1, false, stepOf(this.map)) : tiles.length ? tiles : [[Math.floor(prop.x), Math.floor(prop.z)] as [number, number]];
         if (at.some(([x, z]) => x === cx && z === cz)) return { prop, tiles };
       }
     }
@@ -3124,7 +3124,7 @@ export class Game {
       if (!d?.cuttable || !this.propSlots.has(prop) || this.gone(prop)) continue;
       if (Math.abs(prop.x - x) > r + d.w * (prop.s ?? 1) * 0.5 || Math.abs(prop.z - 0.3 - z) > r + 0.6) continue;
       this.charProp(prop, d);
-      this.clearProp(prop, blockedTiles(d, prop.x, prop.z, prop.s ?? 1));
+      this.clearProp(prop, blockedTiles(d, prop.x, prop.z, prop.s ?? 1, stepOf(this.map)));
       const y = this.map.surfaceY(prop.x, prop.z);
       this.bursts.spawn(prop.x, y + 0.5, prop.z, { color: '#ff9a3a', n: 22, speed: 1.4, up: 2.6, life: 0.7, size: 0.09, additive: true });
       this.bursts.spawn(prop.x, y + 0.6, prop.z, { color: '#3a3a3a', n: 14, speed: 0.8, up: 2, life: 1.1, size: 0.12, gravity: -0.6 });
@@ -3737,7 +3737,7 @@ export class Game {
     return this.mapData.props.some((q) => {
       if (q === except || this.cutThisVisit.has(propKey(q)) || this.state.isCut(this.mapName, propKey(q))) return false;
       const d = this.sprites.def(q.type);
-      return !!d && blockedTiles(d, q.x, q.z, q.s ?? 1).some(([bx, bz]) => bx === x && bz === z);
+      return !!d && blockedTiles(d, q.x, q.z, q.s ?? 1, stepOf(this.map)).some(([bx, bz]) => bx === x && bz === z);
     });
   }
 

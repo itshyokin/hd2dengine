@@ -1257,14 +1257,14 @@ export class MapView {
     const def = propSprite(type).def;
     if (!def) return;
     ctx.fillStyle = 'rgba(255,90,90,0.28)';
-    for (const [bx, bz] of blockedTiles(def, x, z, scale)) ctx.fillRect(bx * TS, bz * TS, TS, TS);
+    for (const [bx, bz] of blockedTiles(def, x, z, scale, this.store.propStep)) ctx.fillRect(bx * TS, bz * TS, TS, TS);
     // Flat collision: the thin strip along the picture.
     ctx.fillStyle = 'rgba(255,90,90,0.55)';
-    for (const b of propBoxes(def, x, z, scale)) ctx.fillRect(b.x0 * TS, b.z0 * TS, (b.x1 - b.x0) * TS, (b.z1 - b.z0) * TS);
+    for (const b of propBoxes(def, x, z, scale, this.store.propStep)) ctx.fillRect(b.x0 * TS, b.z0 * TS, (b.x1 - b.x0) * TS, (b.z1 - b.z0) * TS);
     // A footprint's walkable tiles: outlined.
     if (def.foot) {
       ctx.strokeStyle = 'rgba(255,176,74,0.7)'; ctx.lineWidth = Math.max(1, 1 / this.zoom);
-      for (const [fx, fz] of footTiles(def, x, z, scale)) ctx.strokeRect(fx * TS + 0.5, fz * TS + 0.5, TS - 1, TS - 1);
+      for (const [fx, fz] of footTiles(def, x, z, scale, false, this.store.propStep)) ctx.strokeRect(fx * TS + 0.5, fz * TS + 0.5, TS - 1, TS - 1);
     }
   }
 

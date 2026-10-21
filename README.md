@@ -373,7 +373,13 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
 2. **Size on the map**: width × height in tiles. The preview shows the image cut into that grid.
    Drag to move the image, scroll or use the slider to zoom. **Fit** frames the visible part of the image
    (transparent margins are ignored), standing on the bottom edge. The blue marker is where the prop touches the ground.
-3. **Blocks movement**: the squares under the preview, one per bottom-row column. Red means that tile blocks.
+3. **Footprint** (seen from above, like RPG Maker's passability): one square per tile it covers, the front row at the
+   bottom, where the picture stands (the blue line). Click a tile to cycle **X** (blocks), **O** (walkable) and **★**
+   (walkable, behind the prop); drag to paint the same mark over more tiles, or use *All X / All O / All ★*. The picture
+   is always at the front of what it blocks, so the player stops in front of it. Wall props (vines, doors, cave
+   mouths) count their front edge from the foot of the wall they hang on, so their tiles reach back into the wall and
+   the player walks right up to them. ★ walks the same as O for flat pictures (a hero on a tile behind the picture
+   is already drawn behind it); it's there for 3D props (Update 101). Older props keep working as they were saved.
 4. **Resolution**: keep the image's detail, or resample to 16–64 px per tile. **Filtering**: *Point* for crisp
    pixels (like Unity's "Point (no filter)"), or *Smooth*. LPC characters and new art: 32 px per tile + Point
    (props up to 192 px are guessed at 32 px per tile when imported).

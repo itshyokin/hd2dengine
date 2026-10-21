@@ -516,7 +516,7 @@ export class Inspector {
     const types = paletteProps().map((d) => [d.id, d.name] as [string, string]);
     if (!def) types.unshift([p.type, `${p.type} (missing)`]);
     const notes: string[] = [];
-    const nb = def ? blockedTiles(def, p.x, p.z, p.s ?? 1).length : 0;
+    const nb = def ? blockedTiles(def, p.x, p.z, p.s ?? 1, s.propStep).length : 0;
     if (def?.foot) notes.push(`Covers ${def.foot.w} × ${def.foot.d} tile${def.foot.w * def.foot.d === 1 ? '' : 's'}; ${nb ? `${nb} solid` : 'all walkable'}.`);
     else if (nb) notes.push(`Blocks ${nb} tile${nb === 1 ? '' : 's'}.`);
     else if (def) notes.push('Doesn’t block movement.');

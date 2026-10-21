@@ -144,37 +144,61 @@ export class PropCatalog {
  * The tiles a prop blocks, given its anchor position. Offsets are in tiles along x from the anchor;
  * the blocked row is the one the anchor stands in.
  */
-export function blockedTiles(def: PropDef, x: number, z: number, scale = 1): [number, number][] {
+export function blockedTiles(def: PropDef, x: number, z: number, scale = 1, step: StepFn | null = null): [number, number][] {
   // Bridges and platforms are walked on.
   if (def.deck) return [];
   // Flat collision blocks no whole tiles, only a strip along the picture (propBoxes).
   if (def.foot && def.collide === 'flat') return [];
-  if (def.foot) return footTiles(def, x, z, scale, true);
-  return def.block.map((dx) => [Math.floor(x + dx * scale), Math.floor(z)] as [number, number]);
+  if (def.foot) return footTiles(def, x, z, scale, true, step);
+  // Older props: the row they stand in (wall props: the row behind the wall line they stand against).
+  const row = def.wall ? Math.floor(footZ(def, x, z, step) - 0.5) : Math.floor(z);
+  return def.block.map((dx) => [Math.floor(x + dx * scale), row] as [number, number]);
+}
+
+/** Heights in steps (null outside the map), to find the wall a wall prop stands against. */
+export type StepFn = (x: number, z: number) => number | null;
+/** A StepFn for a map (the game's TileMap or the editor's store). */
+export const stepOf = (m: { inMap(x: number, z: number): boolean; step(x: number, z: number): number }): StepFn =>
+  (x, z) => (m.inMap(x, z) ? m.step(x, z) : null);
+
+/**
+ * Where a placed prop's footprint starts: the front edge it stands on. Wall props (vines, doors, cave mouths) stand
+ * against the wall behind them, so their footprint reaches back from there: the picture is always at the front of
+ * what it blocks (walk up to the vines, not behind them).
+ */
+export function footZ(def: PropDef, x: number, z: number, step: StepFn | null = null): number {
+  if (!def.wall || !step) return z;
+  const cx = Math.floor(x), cz = Math.floor(def.foot ? z - 0.05 : z), here = step(cx, cz);
+  if (here === null) return z;
+  const n = step(cx, cz - 1), s = step(cx, cz + 1);
+  if (n !== null && n > here) return cz;
+  if (s !== null && s < here) return cz + 1;
+  return cz;
 }
 
 /** A thin blocker along the picture of a prop with flat collision: one per run of solid front-row tiles. */
 export interface PropBox { x0: number; z0: number; x1: number; z1: number }
-export function propBoxes(def: PropDef, x: number, z: number, scale = 1): PropBox[] {
+export function propBoxes(def: PropDef, x: number, zIn: number, scale = 1, step: StepFn | null = null): PropBox[] {
   const f = def.foot;
   if (!f || def.collide !== 'flat' || def.deck) return [];
+  const z = footZ(def, x, zIn, step);
   const row = f.solid[f.d - 1] ?? '', x0 = x - (f.w * scale) / 2, out: PropBox[] = [];
   let c = 0;
   while (c < f.w) {
-    if (row[c] !== '#') { c++; continue; }
-    const c0 = c; while (c < f.w && row[c] === '#') c++;
+    if (!blocks(row[c])) { c++; continue; }
+    const c0 = c; while (c < f.w && blocks(row[c])) c++;
     out.push({ x0: x0 + c0 * scale, x1: x0 + c * scale, z0: z - 0.3 * scale, z1: z + 0.06 });
   }
   return out;
 }
 
 /** The tiles a prop's footprint covers (`solidOnly`: just the solid ones). Props without one: the tile it stands in. */
-export function footTiles(def: PropDef, x: number, z: number, scale = 1, solidOnly = false): [number, number][] {
+export function footTiles(def: PropDef, x: number, z: number, scale = 1, solidOnly = false, step: StepFn | null = null): [number, number][] {
   const f = def.foot;
-  if (!f) return solidOnly ? blockedTiles(def, x, z, scale) : [[Math.floor(x), Math.floor(z)]];
-  const x0 = x - (f.w * scale) / 2, z0 = z - f.d * scale, out: [number, number][] = [];
+  if (!f) return solidOnly ? blockedTiles(def, x, z, scale, step) : [[Math.floor(x), Math.floor(z)]];
+  const x0 = x - (f.w * scale) / 2, z0 = footZ(def, x, z, step) - f.d * scale, out: [number, number][] = [];
   for (let r = 0; r < f.d; r++) for (let c = 0; c < f.w; c++) {
-    if (solidOnly && f.solid[r]?.[c] !== '#') continue;
+    if (solidOnly && !blocks(f.solid[r]?.[c])) continue;
     out.push([Math.floor(x0 + (c + 0.5) * scale), Math.floor(z0 + (r + 0.5) * scale)]);
   }
   return out;
@@ -223,3 +247,10 @@ export function migrateMap(map: MapData): boolean {
   map.lights = kept;
   return changed;
 }
+
+/**
+ * A footprint tile's mark: X blocks ('#' in older files), O is walkable ('.'), ★ is walkable behind the prop ('*':
+ * characters there are drawn behind it).
+ */
+export const blocks = (c: string | undefined): boolean => c === '#' || c === 'X';
+export const behind = (c: string | undefined): boolean => c === '*';

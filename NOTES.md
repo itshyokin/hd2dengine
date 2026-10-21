@@ -9,9 +9,11 @@ decide things; the tablet editor keeps working.
       items (Rare Candy: exactly the EXP to the next level); console `achievements_allow` (achievements again after
       cheats); weapon types editable (add / rename / remove, like Armor types, each with a row in every class's table);
       skill-tree Training (a skill can make its hero Trained with a weapon or armor type, whatever their class says).
-- [ ] Update 99: prop collision seen from above (RPG Maker style): the footprint grid marks each tile X (blocks),
+- [x] Update 99: prop collision seen from above (RPG Maker style): the footprint grid marks each tile X (blocks),
       O (walkable) or ★ (walk behind); flat pictures stand on the front edge of their footprint, so a blocking tile
       stops the player in front of the vines, not behind them. Old props converted. (The grid 3D props will use.)
+      Done: wall props' footprints reach back from the wall they hang on (props.ts `footZ`); the importer grid
+      cycles X / O / ★ (saved '#', '.', '*'); ★ walks like O until 3D props.
 - [ ] Update 100: toon water like the GBA references: flat colour, drifting wave-line pattern, a light foam outline
       along shores, a darker ring round rocks and props in it; water styles and recolouring kept.
 - [ ] Update 101: 3D props (GLB first, FBX best-effort), sized on the prop grid.
