@@ -656,24 +656,6 @@
       "image": "assets/props/pine.png"
     },
     {
-      "id": "tuft",
-      "name": "Grass tuft",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "."
-        ]
-      },
-      "collide": "flat",
-      "block": [],
-      "filter": "point",
-      "sway": 1.3,
-      "image": "assets/props/tuft.png"
-    },
-    {
       "id": "chest",
       "name": "Chest",
       "w": 1,
@@ -710,6 +692,25 @@
       ],
       "filter": "point",
       "image": "assets/props/sign.png"
+    },
+    {
+      "id": "tuft",
+      "name": "Grass tuft",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "shape": "crossX",
+      "collide": "flat",
+      "block": [],
+      "filter": "point",
+      "sway": 1.3,
+      "image": "assets/props/tuft.png"
     }
   ],
   "tiles": [
@@ -958,15 +959,6 @@
       "image": "assets/tiles/lpcr_grass_summer.png"
     },
     {
-      "key": "=",
-      "id": "path",
-      "name": "Path",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "image": "assets/tiles/path.png"
-    },
-    {
       "key": ".",
       "id": "grass",
       "name": "Grass",
@@ -974,6 +966,15 @@
       "filter": "point",
       "skin": true,
       "image": "assets/tiles/grass.png"
+    },
+    {
+      "key": "=",
+      "id": "path",
+      "name": "Path",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "image": "assets/tiles/path.png"
     }
   ],
   "tileBlend": {
