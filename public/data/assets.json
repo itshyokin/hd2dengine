@@ -455,30 +455,6 @@
       "image": "assets/props/wall_lantern.png"
     },
     {
-      "id": "vines",
-      "name": "Vines (cuttable)",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "collide": "flat",
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "castShadow": false,
-      "sway": 0.6,
-      "wall": true,
-      "cuttable": true,
-      "regrows": true,
-      "image": "assets/props/vines.png"
-    },
-    {
       "id": "crystal",
       "name": "Crystal switch",
       "w": 1,
@@ -693,24 +669,6 @@
       "image": "assets/props/bush.png"
     },
     {
-      "id": "bridge_wood_v",
-      "name": "Wooden bridge (north–south)",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "."
-        ]
-      },
-      "block": [],
-      "filter": "point",
-      "castShadow": false,
-      "frontOfTiles": false,
-      "image": "assets/props/bridge_wood_v.png"
-    },
-    {
       "id": "bridge_rope_h",
       "name": "Rope bridge (east–west)",
       "w": 1,
@@ -852,14 +810,59 @@
       },
       "block": [],
       "filter": "point",
-      "castShadow": false,
       "frontOfTiles": false,
       "deck": {
         "style": "wood",
-        "dir": "h",
         "art": true
       },
       "image": "assets/props/bridge_wood_h.png"
+    },
+    {
+      "id": "bridge_wood_v",
+      "name": "Wooden bridge (north–south)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "frontOfTiles": false,
+      "deck": {
+        "style": "wood",
+        "art": true
+      },
+      "image": "assets/props/bridge_wood_v.png"
+    },
+    {
+      "id": "vines",
+      "name": "Vines (cuttable)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "shape": "solid",
+      "thickness": 0.05,
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "castShadow": false,
+      "sway": 0.6,
+      "wall": true,
+      "noTilt": true,
+      "cuttable": true,
+      "regrows": true,
+      "image": "assets/props/vines.png"
     }
   ],
   "tiles": [
