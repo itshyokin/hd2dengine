@@ -1017,6 +1017,13 @@ export class TurnBattle {
     for (const g of list) {
       if (!BUFF_INFO[g.buff]) continue;
       const hostile = DEBUFFS.has(g.buff) && by.side !== t.side;
+      // Stat guard (Guard Spec, Mist): nothing lowers their stats while it lasts; boosts still land.
+      if ((DEBUFFS.has(g.buff) || (g.amount ?? 0) < 0) && t.status.buffs.has('statGuard')) {
+        this.screen.popup(t.key, 'Protected', 'info');
+        this.say(`${t.name}’s stats can’t be lowered`);
+        this.tell(`${t.name}’s stats won’t go down!`);
+        continue;
+      }
       if (hostile && t.status.ward) { this.screen.popup(t.key, 'Warded', 'info'); continue; }
       if (hostile && Math.random() * 100 < (t.resist ?? 0)) { this.screen.popup(t.key, 'Resisted', 'info'); this.say(`${t.name} shrugs off ${BUFF_INFO[g.buff].name}`); continue; }
       const res = t.status.boost(g.buff, g.amount ?? BUFF_INFO[g.buff].amount, g.whole ? Infinity : g.turns ?? BUFF_TURNS);

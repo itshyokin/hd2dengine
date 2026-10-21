@@ -21,6 +21,12 @@ interface Src { canvas: HTMLCanvasElement; name: string }
 const MAX_TILES = 16;
 const MAX_OUTPUT = 4096;
 
+/** A footprint tile's mark, as saved: '#' X blocks, '.' O walkable, '*' ★ walkable behind the prop. */
+type Mark = '#' | '.' | '*';
+const MARKS: Record<Mark, { sym: string; name: string }> = { '#': { sym: 'X', name: 'blocks (X)' }, '.': { sym: 'O', name: 'walkable (O)' }, '*': { sym: '★', name: 'walk behind it (★)' } };
+const NEXT: Record<Mark, Mark> = { '#': '.', '.': '*', '*': '#' };
+const toMark = (c: string | undefined): Mark => (c === '#' || c === 'X' ? '#' : c === '*' ? '*' : '.');
+
 interface State {
   name: string;
   w: number; h: number;
@@ -62,7 +68,7 @@ interface State {
   walkSound?: string;
   /** Footprint: tiles deep, and which are solid (rows from the back row to the front, columns left to right). */
   d: number;
-  solid: boolean[][];
+  solid: Mark[][];
   shape: NonNullable<PropDef['shape']>;
   /** Solid shape: how far back it reaches (tiles; 0 = the footprint's depth). */
   thickness: number;
@@ -109,7 +115,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     flameOn: !!existing?.flame, flame: existing?.flame ? { ...existing.flame } : { x: 0, y: Math.round((existing?.h ?? 2) * 0.75 * 10) / 10, w: 0.5, h: 0.75, embers: true },
     lightOn: !!existing?.light, light: existing?.light ? { ...existing.light } : defaultLight(existing?.h ?? 2), tool: 'move',
   };
-  st.solid = [Array.from({ length: Math.round(st.w) }, () => true)];
+  st.solid = [Array.from({ length: Math.round(st.w) }, (): Mark => '#')];
 
   if (existing) {
     // Imported (or already customised) props edit their saved image; untouched built-ins start from their art.
@@ -125,11 +131,11 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     st.glow = await fromFile(existing.glow);
     const cols = Math.max(1, Math.round(existing.w));
     if (existing.foot) {
-      st.solid = Array.from({ length: existing.foot.d }, (_, r) => Array.from({ length: existing.foot!.w }, (_, c) => existing.foot!.solid[r]?.[c] === '#'));
+      st.solid = Array.from({ length: existing.foot.d }, (_, r) => Array.from({ length: existing.foot!.w }, (_, c) => toMark(existing.foot!.solid[r]?.[c])));
     } else {
       // Older props: one row; each blocking offset goes to the nearest column (built-ins can be a fractional number of tiles wide).
-      st.solid = [Array.from({ length: cols }, () => false)];
-      for (const o of existing.block) st.solid[0][Math.max(0, Math.min(cols - 1, Math.floor(o + cols / 2)))] = true;
+      st.solid = [Array.from({ length: cols }, (): Mark => '.')];
+      for (const o of existing.block) st.solid[0][Math.max(0, Math.min(cols - 1, Math.floor(o + cols / 2)))] = '#';
     }
     // The tile grid needs whole tiles: the frame grows to the next whole tile, the picture keeps its size and stays
     // standing on the bottom edge, centred (so a flame or light set on it stays in place).
@@ -349,12 +355,12 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     layout();
   }
 
-  /** Resize the footprint (new tiles start solid). */
+  /** Resize the footprint (new tiles start X: blocking). */
   function setDepth(d: number): void {
     const old = st.solid;
     st.d = d;
     // Rows are kept from the front: the front row stays the front row.
-    st.solid = Array.from({ length: d }, (_, r) => Array.from({ length: st.w }, (_, c) => old[old.length - d + r]?.[c] ?? true));
+    st.solid = Array.from({ length: d }, (_, r) => Array.from({ length: st.w }, (_, c): Mark => old[old.length - d + r]?.[c] ?? '#'));
     renderTools();
   }
 
@@ -390,12 +396,12 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
         field('Width (tiles)', numberInput(st.w, (v) => { setSize(clampTiles(v), st.h); renderForm(); }, { min: 1, max: MAX_TILES, step: 1 })),
         field('Depth (tiles)', numberInput(st.d, (v) => { setDepth(clampTiles(v)); renderForm(); draw(); }, { min: 1, max: MAX_TILES, step: 1 })),
         field('Height (tiles)', numberInput(st.h, (v) => { setSize(st.w, clampTiles(v)); renderForm(); }, { min: 1, max: MAX_TILES, step: 1 }))),
-      h('p', { class: 'hint' }, 'Width and depth: the tiles it covers on the ground (its footprint, set solid or walkable under the picture). Height: how tall the picture stands. Placed on the map, it covers whole tiles, its picture rising from the footprint’s front edge: a 1 × 1 × 1 block fills its tile exactly.'),
+      h('p', { class: 'hint' }, 'Width and depth: the tiles it covers on the ground (its footprint, each tile marked X, O or ★ in the grid under the picture). Height: how tall the picture stands. Placed on the map, it covers whole tiles, its picture rising from the footprint’s front edge: a 1 × 1 × 1 block fills its tile exactly.'),
       h('div', { class: 'section-label' }, 'Shape and collision'),
       h('div', { class: 'field-row' },
         field('Shape', select([['flat', 'Flat (one picture)'], ['solid', 'Solid block (pushed back)'], ['crossX', 'Cross × (two at 45°)'], ['crossPlus', 'Cross + (one side-on)'], ['crossStar', 'Star ✳ (cross × plus one facing front)'], ['rows', 'Rows ≡ (three staggered rows)'], ['thicket', 'Thicket (rows of crossing pairs)']], st.shape,
           (v) => { st.shape = v as State['shape']; renderForm(); })),
-        field('Collision', select([['solid', 'Solid: its solid footprint tiles'], ['flat', 'Flat: only along the picture']], st.collide,
+        field('Collision', select([['solid', 'Solid: its X tiles block'], ['flat', 'Flat: only along the picture']], st.collide,
           (v) => { st.collide = v as 'solid' | 'flat'; renderTools(); renderForm(); }))),
       ...(st.shape === 'solid' ? [field('Thickness (tiles)', numberInput(st.thickness || st.d, (v) => (st.thickness = Math.max(0.05, Math.round(v * 20) / 20)), { min: 0.05, max: MAX_TILES, step: 0.05 }),
         'How far back the block reaches. The footprint’s depth fills its tiles; less makes a slab (a sign, a fence).')] : []),
@@ -407,7 +413,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
         crossStar: 'Star ✳: Cross × plus a third copy facing the camera through the middle, so it is full from the front too (tall grass, ferns).',
         rows: 'Rows ≡: three copies one behind another across the footprint, each a little offset, sized and mirrored: a thick, layered clump (tall grass, reeds, crops).',
         thicket: 'Thicket: three rows of copies crossing in a shallow V: layered from the front and still full from the side (tall grass, brush).',
-      } as Record<string, string>)[st.shape] + (st.collide === 'flat' ? ' Flat collision: only a thin strip along the picture blocks (the front row’s solid tiles), so the player can walk up behind it.' : ' Solid collision: the solid tiles of the footprint block.')),
+      } as Record<string, string>)[st.shape] + (st.collide === 'flat' ? ' Flat collision: only a thin strip along the picture blocks (the front row’s X tiles), so the player can walk up behind it.' : ' Solid collision: the footprint’s X tiles block.')),
       h('div', { class: 'field-row' },
         field('Resolution', select([['keep', 'Keep image detail'], ['16', '16 px per tile'], ['24', '24 px per tile'], ['32', '32 px per tile'], ['48', '48 px per tile'], ['64', '64 px per tile']], st.res, (v) => { st.res = v as Res; updateFoot(); })),
         field('Filtering', select([['point', 'Point (crisp pixels)'], ['smooth', 'Smooth']], st.filter, (v) => { st.filter = v as 'point' | 'smooth'; draw(); }))),
@@ -422,7 +428,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       field('Seasons', select([['', `Guess from its name (now: ${{ leaves: 'keeps its leaves', bare: 'bare in winter', off: 'doesn’t change' }[propSeason({ name: st.name, id: existing?.id })]})`],
         ['leaves', 'Leaves change colour; keeps them in winter, with snow on (pines, flowers)'], ['bare', 'Leaves change colour; bare in winter (oaks, bushes)'], ['off', 'Doesn’t change with the seasons']],
         st.season, (v) => (st.season = v as State['season'])), 'Green parts follow the season outdoors: fresh in spring, green-gold in summer, orange and red in autumn.'),
-      checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => (st.wall = v)),
+      checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => { st.wall = v; renderTools(); }),
       checkbox('Stretches to the height of the wall it’s placed against (ladders, hanging vines)', st.stretch, (v) => (st.stretch = v)),
       checkbox('Always drawn in front of tiles (a ledge or cliff in front never hides it; turn off for tall platforms or bridges whose legs show through the ground)', st.front, (v) => (st.front = v)),
       field('Walk on top (bridge or platform)', select([['', 'No'], ['h', 'Bridge running east–west (left–right)'], ['v', 'Bridge running north–south (up–down)'], ['any', 'Platform or dock (walk any way)']],
@@ -513,24 +519,32 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       ...(st.flameOn ? [h('button', { type: 'button', 'aria-pressed': String(st.tool === 'flame'), onclick: () => { st.tool = 'flame'; renderTools(); draw(); } }, 'Place flame')] : []),
       ...(st.lightOn ? [h('button', { type: 'button', 'aria-pressed': String(st.tool === 'light'), onclick: () => { st.tool = 'light'; renderTools(); draw(); } }, 'Place light')] : []));
     toolSeg.hidden = !st.lightOn && !st.flameOn;
-    // The footprint seen from above: front row at the bottom, where the picture stands. Click (or drag) to toggle.
-    let paint: boolean | null = null;
-    const grid = h('div', { class: 'foot-grid', role: 'grid', style: `--cols:${st.w}`, 'aria-label': 'Footprint: solid or walkable tiles' },
-      ...st.solid.flatMap((row, r) => row.map((on, c) => {
-        const b = h('button', { type: 'button', class: 'foot-cell', 'aria-pressed': String(on), title: `${r === st.d - 1 ? 'Front row' : `Row ${r + 1} from the back`}, column ${c + 1}: ${on ? 'solid' : 'walkable'}` }, on ? '■' : '');
-        b.addEventListener('pointerdown', (e) => { e.preventDefault(); paint = !st.solid[r][c]; st.solid[r][c] = paint; b.setAttribute('aria-pressed', String(paint)); b.textContent = paint ? '■' : ''; });
-        b.addEventListener('pointerenter', () => { if (paint === null) return; st.solid[r][c] = paint; b.setAttribute('aria-pressed', String(paint)); b.textContent = paint ? '■' : ''; });
+    // The footprint seen from above (like RPG Maker's passability): front row at the bottom, where the picture
+    // stands. Click a tile to cycle X → O → ★; drag to paint the same mark over more tiles.
+    let paint: Mark | null = null;
+    const show = (b: HTMLElement, m: Mark, r: number, c: number) => {
+      b.dataset.mark = m; b.textContent = MARKS[m].sym;
+      b.title = `${r === st.d - 1 ? 'Front row' : `Row ${r + 1} from the back`}, column ${c + 1}: ${MARKS[m].name}`;
+      b.setAttribute('aria-label', b.title);
+    };
+    const grid = h('div', { class: 'foot-grid', role: 'grid', style: `--cols:${st.w}`, 'aria-label': 'Footprint seen from above: X blocks, O walkable, star walk behind' },
+      ...st.solid.flatMap((row, r) => row.map((m, c) => {
+        const b = h('button', { type: 'button', class: 'foot-cell' });
+        show(b, m, r, c);
+        b.addEventListener('pointerdown', (e) => { e.preventDefault(); paint = NEXT[st.solid[r][c]]; st.solid[r][c] = paint; show(b, paint, r, c); });
+        b.addEventListener('pointerenter', () => { if (paint === null) return; st.solid[r][c] = paint; show(b, paint, r, c); });
         return b;
       })));
     const stop = () => { paint = null; };
     grid.addEventListener('pointerup', stop); grid.addEventListener('pointerleave', stop);
+    const all = (m: Mark, label: string) => h('button', { type: 'button', class: 'btn small', onclick: () => { st.solid = st.solid.map((row) => row.map(() => m)); renderTools(); } }, label);
     footGrid.replaceChildren(
-      h('div', { class: 'foot-head' }, h('span', { class: 'block-label' }, `Footprint ${st.w} × ${st.d}`), h('span', { class: 'hint' }, '■ solid · empty: walkable')),
+      h('div', { class: 'foot-head' }, h('span', { class: 'block-label' }, `Footprint ${st.w} × ${st.d}, seen from above`)),
+      h('div', { class: 'foot-legend hint' }, h('b', { 'data-mark': '#' }, 'X'), ' blocks · ', h('b', { 'data-mark': '.' }, 'O'), ' walkable · ', h('b', { 'data-mark': '*' }, '★'), ' walk behind it'),
       grid,
-      h('div', { class: 'foot-front' }, '▲ front (the picture stands here)'),
-      h('div', { class: 'toolrow small' },
-        h('button', { type: 'button', class: 'btn small', onclick: () => { st.solid = st.solid.map((row) => row.map(() => true)); renderTools(); } }, 'All solid'),
-        h('button', { type: 'button', class: 'btn small', onclick: () => { st.solid = st.solid.map((row) => row.map(() => false)); renderTools(); } }, 'All walkable')));
+      h('div', { class: 'foot-front' }, '▲ front edge: the picture stands here'),
+      ...(st.wall ? [h('p', { class: 'hint' }, 'On a wall: the front edge is the foot of the wall it hangs on, so its tiles reach back into the wall and the player walks right up to it.')] : []),
+      h('div', { class: 'toolrow small' }, all('#', 'All X'), all('.', 'All O'), all('*', 'All ★')));
   }
 
   /* ---------------------------------------------------------------- footer */
@@ -564,11 +578,11 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       const def: PropDef = {
         id, name: st.name, w: st.w, h: st.h,
         // The footprint, plus the front row as the older column list (kept for anything that reads only that).
-        foot: { w: st.w, d: st.d, solid: st.solid.map((row) => row.map((on) => (on ? '#' : '.')).join('')) },
+        foot: { w: st.w, d: st.d, solid: st.solid.map((row) => row.join('')) },
         ...(st.shape !== 'flat' ? { shape: st.shape } : {}),
         ...(st.shape === 'solid' && st.thickness && Math.abs(st.thickness - st.d) > 1e-6 ? { thickness: st.thickness } : {}),
         ...(st.collide === 'flat' ? { collide: 'flat' as const } : {}),
-        block: (st.solid[st.d - 1] ?? []).flatMap((on, i) => (on ? [i + 0.5 - st.w / 2] : [])),
+        block: (st.solid[st.d - 1] ?? []).flatMap((m, i) => (m === '#' ? [i + 0.5 - st.w / 2] : [])),
         filter: st.filter,
       };
       if (existing?.credits) def.credits = existing.credits;

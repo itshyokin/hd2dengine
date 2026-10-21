@@ -17,7 +17,7 @@ import { patchAreaTint, setBuildOrigin } from '../render/areaTint';
 import { patchWaterEdge, waterMask } from '../render/waterEdge';
 import { blendMask, patchTileBlend } from '../render/tileBlend';
 import { SpriteLibrary, withSpriteShadows } from '../render/sprites';
-import { blockedTiles, footTiles, propBoxes } from './props';
+import { blockedTiles, footTiles, propBoxes, stepOf } from './props';
 import { type BuiltBuilding, buildBuildings } from './buildings';
 import type { TileTexture } from '../render/tileTextures';
 import { linearColor, makeTexture, registerNormalMap } from '../render/textures';
@@ -596,8 +596,8 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     const def = sprites.def(p.type);
     // Bridges and platforms are walked on, never blocking.
     if (def?.deck) continue;
-    if (def) for (const [x, z] of blockedTiles(def, p.x, p.z, p.s ?? 1)) map.setBlocked(x, z, true);
-    if (def) for (const b of propBoxes(def, p.x, p.z, p.s ?? 1)) map.addBox(b, p);
+    if (def) for (const [x, z] of blockedTiles(def, p.x, p.z, p.s ?? 1, stepOf(map))) map.setBlocked(x, z, true);
+    if (def) for (const b of propBoxes(def, p.x, p.z, p.s ?? 1, stepOf(map))) map.addBox(b, p);
   }
   // Bridges and platforms: walkable at their deck height, built in 3D (not as upright cards).
   buildDecks(scene, map, placeDecks(map, data, (t) => sprites.def(t)));

@@ -2,7 +2,7 @@
 import { setAttrOrder } from '../game/attributes';
 import { type HeightStyle, formatHeightStyles, parseHeightStyles } from '../world/heights';
 import { formatFishing, parseFishing } from '../world/fishing';
-import { PropCatalog, alignFootProps, blockedTiles } from '../world/props';
+import { PropCatalog, alignFootProps, blockedTiles, type StepFn } from '../world/props';
 import type { AssetRegistry, Command, Database, EventData, LightData, MapData } from '../world/types';
 import { TileCatalog } from '../world/tiles';
 import { STEP, type WaterCell, type WaterKind, autoRampDir, cornerMask, formatHeights, formatWater, parseHeights, parseWater, resolveWater } from '../world/heights';
@@ -343,6 +343,9 @@ export class EditorStore {
     return grid;
   }
 
+  /** Heights for the prop footprint helpers (wall props reach back from the wall they stand against). */
+  readonly propStep: StepFn = (x, z) => (this.inMap(x, z) ? this.heightAt(x, z) : null);
+
   heightAt(x: number, z: number): number {
     return this.inMap(x, z) ? this.heights()[z * this.map.width + x] : 0;
   }
@@ -497,7 +500,7 @@ export class EditorStore {
     for (const p of m.props) {
       const def = this.catalog.get(p.type);
       if (!def) continue;
-      for (const [x, z] of blockedTiles(def, p.x, p.z, p.s ?? 1)) if (this.inMap(x, z) && !out[z * w + x]) out[z * w + x] = 'prop';
+      for (const [x, z] of blockedTiles(def, p.x, p.z, p.s ?? 1, this.propStep)) if (this.inMap(x, z) && !out[z * w + x]) out[z * w + x] = 'prop';
     }
     for (const b of m.buildings ?? [])
       for (let z = b.z; z < b.z + b.d; z++) for (let x = b.x; x < b.x + b.w; x++) if (this.inMap(x, z) && !out[z * w + x]) out[z * w + x] = 'building';

@@ -373,7 +373,13 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
 2. **Size on the map**: width × height in tiles. The preview shows the image cut into that grid.
    Drag to move the image, scroll or use the slider to zoom. **Fit** frames the visible part of the image
    (transparent margins are ignored), standing on the bottom edge. The blue marker is where the prop touches the ground.
-3. **Blocks movement**: the squares under the preview, one per bottom-row column. Red means that tile blocks.
+3. **Footprint** (seen from above, like RPG Maker's passability): one square per tile it covers, the front row at the
+   bottom, where the picture stands (the blue line). Click a tile to cycle **X** (blocks), **O** (walkable) and **★**
+   (walkable, behind the prop); drag to paint the same mark over more tiles, or use *All X / All O / All ★*. The picture
+   is always at the front of what it blocks, so the player stops in front of it. Wall props (vines, doors, cave
+   mouths) count their front edge from the foot of the wall they hang on, so their tiles reach back into the wall and
+   the player walks right up to them. ★ walks the same as O for flat pictures (a hero on a tile behind the picture
+   is already drawn behind it); it's there for 3D props (Update 101). Older props keep working as they were saved.
 4. **Resolution**: keep the image's detail, or resample to 16–64 px per tile. **Filtering**: *Point* for crisp
    pixels (like Unity's "Point (no filter)"), or *Smooth*. LPC characters and new art: 32 px per tile + Point
    (props up to 192 px are guessed at 32 px per tile when imported).
@@ -764,7 +770,8 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   `season <name|auto>`, `battle <troop|enemies…>`, `win_battle`, `switch <name> <on|off>`, `var <name> <value>`,
   `debug_menu <show|hide>` (the playtest panel), `fps`, `hud <on|off>` (screenshots), `achievement <id>`,
   `achievements_reset` (or `reset_achievements`; counts kept in the save, like foes defeated, can earn them
-  again), `explore_all`, `where`, `bug <what went wrong>` (notes the map, tile, height, time, party,
+  again), `achievements_allow [on|off]` (achievements unlock on this save even after cheats; off: the next cheat
+  locks them again), `explore_all`, `where`, `bug <what went wrong>` (notes the map, tile, height, time, party,
   level and a small picture, kept in this browser) and `bugs` (downloads every note as a `.json`; `bugs clear` starts
   over): handy for playtesting.
 - **Database → Title & menus → Developer console**: in playtests only (default), always, or never.
@@ -1116,6 +1123,8 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   enemies' page commands. The hero you play, knocked out in a won battle, gets back up with 1 HP; other party members
   stay knocked out (and out of sight on the map, no longer following) until something heals them: a **revive** item,
   resting at an inn or a campfire, or the *Full rest* event command. Health never comes back on its own.
+- **Level-up items** (Database → Items → a consumable → *Level up*): like Rare Candy, used from the bag the hero gains
+  exactly the EXP to their next level (that many times), with the level up as usual.
 - **Revives** (Database → Items → a consumable → *Revives*): bring a knocked-out hero back with what the item restores
   (at least 1 HP), from the bag or in battle. A revive only works on the knocked out, and other items can't help them
   (healing items say "only a revive can help").
@@ -1179,7 +1188,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *or the whole battle* beside the turns, like a Pokémon speed or critical-hit boost), and show as icons with turns
   left ("all battle" for whole-battle ones): raised Strength, Dexterity, Agility, Endurance, Defence, Magic, Magic Defence or critical hits,
   **Regeneration** (health back at the end of each turn), **Haste** (turns come round half again as often) and
-  **Slow** (turns come round much more slowly; a debuff). Haste and Slow cancel each other out. A Slow cast on the
+  **Slow** (turns come round much more slowly; a debuff), and **Stat guard** (like Guard Spec: while it lasts nothing
+  lowers their stats: Slow, Accuracy and Evasion down, or a stat lowered all bounce off as "stats won't go down!";
+  boosts still land). Haste and Slow cancel each other out. A Slow cast on the
   other side can be shrugged off with Endurance or warded off by guarding. They come from **items** (a consumable's
   *Buffs it gives*: seconds on the map, turns in battle), **spells** (*Buffs it gives in battle*; the **Support**
   kind does only that, on the caster's side, the other side, or **either side**: the caster picks, so Haste can
@@ -1267,6 +1278,13 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
     out in Equipment for that hero). A weapon's *Type* is set in Database → Weapons and an armor's **Armor type** in
     Database → Gear, or guessed from the name (Leather Armor is light, Chainmail medium, Plate heavy; a Short Sword
     is a sword).
+  - **Weapon types** (*Edit weapon types…* under the table, or ☰ beside a weapon's Type): built in swords, daggers,
+    axes, maces and hammers, spears, staves, wands, fist weapons, bows and crossbows. Rename them, remove some, or add
+    your own (Katanas, Whips, Guns…) with the words that pick them from an item's name ("katana, nodachi"); every
+    class's table gets a row for each.
+  - **Training in the skill trees** (Database → Skill trees → a skill → **Trains with**): learning the skill makes its
+    hero Trained with those weapon types, armor types or shields, whatever their class says (even "can't use"): Bow
+    Training, Heavy Armor Training. In the Party tree it trains everyone.
   - **Armor types** (*Edit armor types…* under the table, or ☰ beside an armor's Armor type): built in **Light**
     (cloth, leather; untrained −2 AGI), **Medium** (chain, scale; −4 AGI −2 DEX) and **Heavy** (plate; −7 AGI −3 DEX).
     Rename them, change what each costs untrained (any of the seven stats), or add your own (Robes, Mail, Bone…);

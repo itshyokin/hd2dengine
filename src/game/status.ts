@@ -11,7 +11,7 @@
 import type { Ailment, BuffKind } from '../world/types';
 
 export const AILMENTS: Ailment[] = ['burn', 'poison', 'chill', 'paralyze', 'blind', 'silence', 'stagger', 'sleep', 'confusion', 'zombie'];
-export const BUFFS: BuffKind[] = ['crit', 'str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf', 'regen', 'haste', 'slow', 'acc', 'eva', 'accDown', 'evaDown'];
+export const BUFFS: BuffKind[] = ['crit', 'str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf', 'regen', 'haste', 'slow', 'acc', 'eva', 'accDown', 'evaDown', 'statGuard'];
 /** Buffs that make things worse (they just wear off). */
 export const DEBUFFS: ReadonlySet<BuffKind> = new Set(['slow', 'accDown', 'evaDown']);
 
@@ -48,6 +48,7 @@ export const BUFF_INFO: Record<BuffKind, { name: string; unit: string; amount: n
   eva: { name: 'Evasion', unit: '% to dodge', amount: 15, seconds: 60, color: '#a0ffe8' },
   accDown: { name: 'Accuracy down', unit: '% to hit', amount: 20, seconds: 20, color: '#a08a6a' },
   evaDown: { name: 'Evasion down', unit: '% to dodge', amount: 20, seconds: 20, color: '#6a8aa0' },
+  statGuard: { name: 'Stat guard', unit: '', amount: 1, seconds: 60, color: '#e8f4ff' },
 };
 
 /** Chill stacks needed to freeze. */
@@ -222,12 +223,12 @@ export class StatusSet {
 }
 
 /** "Strength up", or just "Haste" / "Slow" for the ones that aren't a raised number. */
-export const buffLabel = (k: BuffKind): string => (k === 'haste' || k === 'slow' ? BUFF_INFO[k].name : `${BUFF_INFO[k].name} up`);
+export const buffLabel = (k: BuffKind): string => (k === 'haste' || k === 'slow' || k === 'statGuard' ? BUFF_INFO[k].name : `${BUFF_INFO[k].name} up`);
 export const effectName = (id: EffectId): string => (id.startsWith('buff:') ? buffLabel(id.slice(5) as BuffKind) : AILMENT_INFO[id as Ailment | 'frozen'].name);
 export const effectColor = (id: EffectId): string => (id.startsWith('buff:') ? BUFF_INFO[id.slice(5) as BuffKind].color : AILMENT_INFO[id as Ailment | 'frozen'].color);
 
 /** Short tags for buffs and debuffs, shown under an arrow (▲ STR, ▼ SPD). */
-const BUFF_TAG: Record<BuffKind, string> = { crit: 'CRT', str: 'STR', dex: 'DEX', agi: 'AGI', end: 'END', def: 'DEF', mag: 'MAG', mdf: 'MDF', regen: 'RGN', haste: 'SPD', slow: 'SPD', acc: 'ACC', eva: 'EVA', accDown: 'ACC', evaDown: 'EVA' };
+const BUFF_TAG: Record<BuffKind, string> = { crit: 'CRT', str: 'STR', dex: 'DEX', agi: 'AGI', end: 'END', def: 'DEF', mag: 'MAG', mdf: 'MDF', regen: 'RGN', haste: 'SPD', slow: 'SPD', acc: 'ACC', eva: 'EVA', accDown: 'ACC', evaDown: 'EVA', statGuard: 'GRD' };
 /** A buff as an arrow and a tag: up for a boost, down for a debuff (Slow, Accuracy down, a lowered stat). */
 export function buffChip(k: BuffKind, amount = 1): { tag: string; up: boolean; name: string } {
   const up = !DEBUFFS.has(k) && amount >= 0;

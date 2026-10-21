@@ -29,7 +29,7 @@ const SWAYS = [0, 0.5, 0.8, 1, 1.3];
 const SETTINGS: Setting[] = [
   { key: 'shape', label: 'Shape', options: [['flat', 'Flat (one picture)'], ['solid', 'Solid block (pushed back)'], ['crossX', 'Cross × (two at 45°)'], ['crossPlus', 'Cross + (one side-on)'], ['crossStar', 'Star ✳ (cross × plus one facing front)'], ['rows', 'Rows ≡ (three staggered rows)'], ['thicket', 'Thicket (rows of crossing pairs)']],
     get: (d) => d.shape ?? 'flat', set: (d, v) => { if (v === 'flat') { delete d.shape; delete d.thickness; } else d.shape = v as NonNullable<PropDef['shape']>; } },
-  { key: 'collide', label: 'Collision', hint: 'For props with a footprint (set up in the importer).', options: [['solid', 'Solid (its solid tiles block)'], ['flat', 'Flat (a thin strip along the picture)']],
+  { key: 'collide', label: 'Collision', hint: 'For props with a footprint (set up in the importer).', options: [['solid', 'Solid (its X tiles block)'], ['flat', 'Flat (a thin strip along the picture)']],
     get: (d) => d.collide ?? 'solid', set: (d, v) => { if (v === 'flat') d.collide = 'flat'; else delete d.collide; } },
   { key: 'filter', label: 'Pixels', options: [['point', 'Sharp (pixel art)'], ['smooth', 'Smooth (painted art)']],
     get: (d) => d.filter ?? 'point', set: (d, v) => { d.filter = v as 'point' | 'smooth'; } },

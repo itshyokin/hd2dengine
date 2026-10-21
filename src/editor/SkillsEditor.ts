@@ -8,7 +8,7 @@ import { checkbox, field, h, numberInput, select, textInput } from './dom';
 
 const CELL = 70;
 
-export function skillsTab(data: SkillsData, state: { tree: number; sel: string }, rerender: () => void, items: ItemDef[] = [], learnable: { spells: SpellEntry[]; additions: AdditionDef[] } = { spells: [], additions: [] }): HTMLElement[] {
+export function skillsTab(data: SkillsData, state: { tree: number; sel: string }, rerender: () => void, items: ItemDef[] = [], learnable: { spells: SpellEntry[]; additions: AdditionDef[]; gear?: [string, string][] } = { spells: [], additions: [] }): HTMLElement[] {
   // Databases from before the Party tree get the built-in one (the game adds it too).
   if (data.nodes.length) addPartyTree(data, true);
   state.tree = Math.min(state.tree, data.trees.length - 1);
@@ -89,7 +89,7 @@ export function skillsTab(data: SkillsData, state: { tree: number; sel: string }
       }) : [h('p', { class: 'note' }, 'Click a skill to edit it, or add one.')]))))];
 }
 
-function nodeForm(data: SkillsData, n: SkillNode, siblings: SkillNode[], items: ItemDef[], learnable: { spells: SpellEntry[]; additions: AdditionDef[] }, rerender: () => void, remove: () => void): HTMLElement[] {
+function nodeForm(data: SkillsData, n: SkillNode, siblings: SkillNode[], items: ItemDef[], learnable: { spells: SpellEntry[]; additions: AdditionDef[]; gear?: [string, string][] }, rerender: () => void, remove: () => void): HTMLElement[] {
   const num = (v: number, set: (x: number) => void, min = 0, step = 1) => numberInput(v, (x) => { set(Math.max(min, x)); rerender(); }, { step, min });
   // "Spell: Fire" is from before spell shards: only offered where it's already used.
   const stats = Object.entries(SKILL_STATS).filter(([k, v]) => (k !== 'spellFire' && !v.old) || n.effects.some((e) => e.stat === k)).map(([k, v]) => [k, `${v.name}${v.flag ? ' (on/off)' : v.unit ? ` (${v.unit})` : ''}`] as [string, string]);
@@ -129,6 +129,17 @@ function nodeForm(data: SkillsData, n: SkillNode, siblings: SkillNode[], items: 
         n.teachesSpell ? field('Rank 1 of this skill teaches spell rank', num(n.spellRankFrom ?? 1, (v) => (n.spellRankFrom = Math.max(1, Math.round(v)) === 1 ? undefined : Math.round(v)), 1), 'Each further rank of the skill raises the spell one rank (Fire, then Fire II…).') : h('span'),
         field('Addition', select([['', '(none)'], ...learnable.additions.map((x) => [x.id, x.name] as [string, string])], n.teachesAddition ?? '', (v) => { if (v) n.teachesAddition = v; else delete n.teachesAddition; rerender(); }))),
       h('p', { class: 'note' }, 'Learning the skill teaches the spell or Addition (Database → Spells, Additions). A skill can teach without giving any other effect.')),
+    h('div', { class: 'db-section' }, h('h3', {}, 'Trains with'),
+      h('div', { class: 'chips train-chips' }, ...(learnable.gear ?? []).map(([k, name]) => {
+        const on = !!n.trains?.includes(k);
+        return h('button', { type: 'button', class: 'chip', 'aria-pressed': String(on), onclick: () => {
+          const list = (n.trains ?? []).filter((x) => x !== k);
+          if (!on) list.push(k);
+          if (list.length) n.trains = list; else delete n.trains;
+          rerender();
+        } }, name);
+      })),
+      h('p', { class: 'note' }, 'Learning it makes its hero Trained with these (full damage, no armor penalty), whatever their class says, even a class that “can’t use” them: Bow Training, Heavy Armor Training… In the Party tree it trains everyone.')),
     h('div', { class: 'item-foot' }, h('button', { type: 'button', class: 'btn danger', onclick: remove }, 'Delete skill')),
   ];
 }

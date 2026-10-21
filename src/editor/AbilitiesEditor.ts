@@ -4,9 +4,9 @@ import { soundField } from './CommandEditor';
  * Additions (strings of timed strikes with button prompts), and classes (the skill trees each one opens).
  * Each tab is a list on the left and a form for the selected entry.
  */
-import type { AdditionDef, AdditionStrike, ArmorTypeDef, ClassDef, FaceButton, GearSkill, SkillsData, SpellEntry } from '../world/types';
+import type { AdditionDef, AdditionStrike, ArmorTypeDef, WeaponTypeDef, ClassDef, FaceButton, GearSkill, SkillsData, SpellEntry } from '../world/types';
 import { gearKinds } from '../game/classes';
-import { openArmorTypes } from './armorTypesEditor';
+import { openArmorTypes, openWeaponTypes } from './armorTypesEditor';
 import { ATTRS, ATTR_INFO } from '../game/attributes';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { elementSelect } from './elementFields';
@@ -144,7 +144,7 @@ export function additionsTab(list: AdditionDef[], state: { sel: number }, rerend
 
 /* ------------------------------------------------------------------ classes */
 
-export function classesTab(list: ClassDef[], skills: SkillsData, state: { sel: number }, rerender: () => void, openTree: (id: string) => void = () => {}, armor?: ArmorTypeDef[]): HTMLElement[] {
+export function classesTab(list: ClassDef[], skills: SkillsData, state: { sel: number }, rerender: () => void, openTree: (id: string) => void = () => {}, armor?: ArmorTypeDef[], weapons?: WeaponTypeDef[]): HTMLElement[] {
   return listLayout<ClassDef>(list, state, 'Class', (id) => ({ id, name: 'New class', trees: skills.trees.slice(0, 1).map((t) => t.id) }), (d) => [
     nameId(list, d, rerender, 'Class'),
     field('Description', textInput(d.description ?? '', (v) => { d.description = v.trim() || undefined; }, { 'aria-label': 'Class description' })),
@@ -156,10 +156,12 @@ export function classesTab(list: ClassDef[], skills: SkillsData, state: { sel: n
       h('p', { class: 'note' }, 'Given once, for good, when a hero joins the class (their starting class counts). A Fighter might get Strength and Endurance, a Mage Magic and Magic Defence.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Weapons and armor'),
       h('div', { class: 'db-table class-gear' }, h('span', { class: 'db-head' }, 'Kind'), h('span', { class: 'db-head' }, 'This class'),
-        ...gearKinds({ armorTypes: armor }).flatMap(([k, name]) => [h('span', { class: 'db-name' }, name), select([['trained', 'Trained (full effect)'], ['untrained', 'Untrained (weaker)'], ['none', 'Can’t use']], d.gear?.[k] ?? 'trained', (v) => {
+        ...gearKinds({ armorTypes: armor, weaponTypes: weapons }).flatMap(([k, name]) => [h('span', { class: 'db-name' }, name), select([['trained', 'Trained (full effect)'], ['untrained', 'Untrained (weaker)'], ['none', 'Can’t use']], d.gear?.[k] ?? 'trained', (v) => {
           if (v === 'trained') { if (d.gear) { delete d.gear[k]; if (!Object.keys(d.gear).length) delete d.gear; } } else (d.gear ??= {})[k] = v as GearSkill;
         }, { 'aria-label': `${d.name}: ${name}` })])),
-      armor ? h('button', { type: 'button', class: 'btn small', onclick: () => openArmorTypes(armor, rerender) }, 'Edit armor types…') : h('span'),
+      h('div', { class: 'field-row' },
+        weapons ? h('button', { type: 'button', class: 'btn small', onclick: () => openWeaponTypes(weapons, rerender) }, 'Edit weapon types…') : h('span'),
+        armor ? h('button', { type: 'button', class: 'btn small', onclick: () => openArmorTypes(armor, rerender) }, 'Edit armor types…') : h('span')),
       h('p', { class: 'note' }, 'Untrained weapons hit for three quarters. Untrained armor costs the stats set for its type (Edit armor types…). “Can’t use” greys it out in Equipment for heroes of this class. A weapon’s type is set in Database → Weapons and an armor’s type in Database → Gear (or guessed from the name). Arms Training in the skill trees still decides medium and heavy weapon training too.')),
     classTrees(d, skills, rerender, openTree),
   ], rerender, 'No classes yet. Without classes, every hero learns from every skill tree. Add classes to give each its own trees; set a hero’s starting class in Database → Heroes, and change or unlock classes with the event command “Change class”.');

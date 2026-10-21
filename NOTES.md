@@ -2,6 +2,36 @@
 
 Kept in the project so they travel with the code. Tick them off as they're built.
 
+## Roadmap (planned Oct 21): PC first, 3D characters
+The game targets PC (a console port, PS1/PS2-style, may come much later as its own project). Tablet limits no longer
+decide things; the tablet editor keeps working.
+- [x] Update 98: "Stats can't be lowered" buff (Guard Spec: blocks lowering only, buffs still land); "Level up"
+      items (Rare Candy: exactly the EXP to the next level); console `achievements_allow` (achievements again after
+      cheats); weapon types editable (add / rename / remove, like Armor types, each with a row in every class's table);
+      skill-tree Training (a skill can make its hero Trained with a weapon or armor type, whatever their class says).
+- [x] Update 99: prop collision seen from above (RPG Maker style): the footprint grid marks each tile X (blocks),
+      O (walkable) or ★ (walk behind); flat pictures stand on the front edge of their footprint, so a blocking tile
+      stops the player in front of the vines, not behind them. Old props converted. (The grid 3D props will use.)
+      Done: wall props' footprints reach back from the wall they hang on (props.ts `footZ`); the importer grid
+      cycles X / O / ★ (saved '#', '.', '*'); ★ walks like O until 3D props.
+- [ ] Update 100: toon water like the GBA references: flat colour, drifting wave-line pattern, a light foam outline
+      along shores, a darker ring round rocks and props in it; water styles and recolouring kept.
+- [ ] Update 101: 3D props (GLB first, FBX best-effort), sized on the prop grid.
+- [ ] Update 102: 3D characters and enemies: Sprite or 3D model per hero / character / enemy; animation slots picked
+      from the file's clips: Idle, Walk, Run, Jump, Swim, Climb, Sit, Injured, KO, Attack, Spellcast (enemies: Idle,
+      Attack, Spellcast, Dead), missing ones falling back to Idle; battle, map, Bestiary and portraits. A "3D look"
+      setting: Legend of Dragoon style (low resolution, outlined) or FFX style (smooth).
+- [ ] Update 103: Additions with 3D models: each swing a part of a clip (Attack by default, changeable), the next
+      swing starting where the last ended; a missed button stops the chain there.
+- [ ] Update 104: equipment on 3D characters: body types (masculine, feminine, more later) in the Database; armor and
+      accessories get a model per body type, rigged to the base skeleton (bones matched by name; rigid pieces such as
+      hats follow a bone); weapons attach to empties named like #right_hand.
+- [ ] Update 105: 3D character builder (its own page): base model, + add parts per category (hat, armor, clothes,
+      accessory, weapon), hair style and colour, skin tone, facial expressions as planes over the face; export the
+      whole character as one GLB (for NPCs mostly).
+- [ ] Later: desktop build (Windows app: Electron or Tauri; saves in a folder, real fullscreen, Steam-ready); an
+      optional "PS2 era" render mode.
+
 ## Next (planned Oct 17)
 - [x] Update 61: active fighter's ring in their Database colour and a glowing outline on their card; self-switches
       (A–D per event, Set self switch command, page condition); a Switches window (+ / − / rename) wherever a switch

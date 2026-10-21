@@ -90,7 +90,7 @@ import { affinity, affinityText, essenceItem, fuseCount, nextTier, type Affinity
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, setAttrOrder, speedMultiplier } from './attributes';
-import { classStatGear, gearSkill } from './classes';
+import { classStatGear, gearKindName, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
@@ -146,7 +146,7 @@ import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
 import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } from './menus';
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
-import { alignFootProps, blockedTiles, footTiles, propCovers } from '../world/props';
+import { alignFootProps, blockedTiles, footTiles, propCovers, stepOf } from '../world/props';
 import { propKey } from './GameState';
 import { TouchControls } from '../ui/TouchControls';
 
@@ -578,6 +578,7 @@ export class Game {
           out.push(`Teaches the spell ${rankName(sp.name, from)}${to > from ? ` (up to ${rankName(sp.name, to)} with more ranks)` : ''}`);
         }
         if (ad) out.push(`Teaches the Addition ${ad.name} (${ad.strikes.length} strike${ad.strikes.length === 1 ? '' : 's'})`);
+        if (n.trains?.length) out.push(`Trains with ${n.trains.map((k) => gearKindName(k, this.db)).join(', ')}`);
         return out.length ? out.join('. ') : null;
       },
       item: (id) => { const d = this.items.get(id); return d ? { name: d.name, color: itemColor(d) } : undefined; },
@@ -606,7 +607,7 @@ export class Game {
         const m = h ? this.members()[h - 1] : null;
         const own = { ...(m ? m.data.stats : this.progress.stats) };
         for (const k of ATTRS) own[k] += extra[k];
-        return m ? heroTotals(own, this.statGear(m.data.equip, m.data.abilities), (k) => this.memberSkills(m.data).get(k)) : heroTotals(own, this.statGear(), (k) => (this.skills?.get(k) ?? 0) + this.combat.heroStatus.buff(k));
+        return m ? heroTotals(own, this.statGear(m.data.equip, m.data.abilities, this.memberSkills(m.data)), (k) => this.memberSkills(m.data).get(k)) : heroTotals(own, this.statGear(), (k) => (this.skills?.get(k) ?? 0) + this.combat.heroStatus.buff(k));
       },
       spend: (h, add) => (h ? spendMember(this.members()[h - 1].data, add) : this.progress.spend(add)),
     });
@@ -2564,6 +2565,7 @@ export class Game {
         if (n > 0) got.push(`+${n} ${g.toUpperCase()}`);
       }
       if (battle) for (const b of d.buffs ?? []) got.push(buffLabel(b.buff));
+      if (d.levelUp && !ko && !battle) { const n = this.levelUpBy(who, d.levelUp); if (n) got.push(`now level ${m.data.level}`); }
       if (ko) { if (m.data.hp < 1) m.data.hp = 1; got.unshift('back on their feet'); }
       if (!got.length) return `${d.name} wouldn’t do anything for ${m.def.name} right now.`;
       this.inventory.removeAt(i, 1);
@@ -2600,11 +2602,33 @@ export class Game {
       if (got > 0) gains.push(`+${got} ${g.toUpperCase()}`);
     }
     for (const b of d.buffs ?? []) { if (!battle) st.boost(b.buff, b.amount, b.seconds); gains.push(buffLabel(b.buff)); }
+    if (d.levelUp && !heroKo && !battle) { const n = this.levelUpBy(0, d.levelUp); if (n) gains.push(`now level ${this.progress.level}`); }
     if (heroKo && this.stats.hp < 1) this.stats.change('hp', 'set', 1);
     if (!gains.length) return `${d.name} wouldn’t do anything right now.`;
     this.inventory.removeAt(i, 1);
     this.state.tally('itemsUsed');
     return `Used ${d.name}: ${gains.join(', ')}.`;
+  }
+
+  /** Rare Candy: up `levels` levels, each by exactly the EXP still needed (level ups as usual). Returns levels gained. */
+  private levelUpBy(who: number, levels: number): number {
+    let gained = 0;
+    for (let k = 0; k < Math.max(1, Math.round(levels)); k++) {
+      if (!who) {
+        if (this.progress.maxed) break;
+        const was = this.progress.level;
+        this.gainXp(Math.max(1, this.progress.toNext - this.progress.xp), false);
+        if (this.progress.level > was) gained++;
+        continue;
+      }
+      const m = this.members()[who - 1];
+      if (!m) break;
+      const need = xpToNext(this.combatCfg, m.data.level), was = m.data.level;
+      if (!need) break;
+      memberGainXp(m.data, Math.max(1, need - m.data.xp), this.combatCfg, this.memberGrowth(m), this.combatCfg.pointsPerLevel);
+      if (m.data.level > was) gained++; else break;
+    }
+    return gained;
   }
 
   private equipItem(i: number): string | null {
@@ -2789,7 +2813,7 @@ export class Game {
       const d = this.items.get(id);
       if (slot === 'ammo' || d?.kind === 'ammo') return h === 0;
       // Their class can't use this kind of weapon or armor.
-      if (gearSkill(this.db, this.abilitiesOf(h), d) === 'none') return false;
+      if (gearSkill(this.db, this.abilitiesOf(h), d, this.skillsOf(h)) === 'none') return false;
       return !d?.users?.length || d.users.includes(heroIds()[h]);
     };
     const WORN = EQUIP_SLOTS.filter((x) => x !== 'magic');
@@ -2836,7 +2860,7 @@ export class Game {
         if (mem) {
           const gear = { ...mem.data.equip };
           if (change && change.slot !== 'ammo') { if (change.id) gear[change.slot as EquipSlot] = change.id; else delete gear[change.slot as EquipSlot]; }
-          const n = this.allyNumbers({ ...mem.data, equip: gear }, mem.def), t = heroTotals(mem.data.stats, this.statGear(gear, mem.data.abilities), (k) => this.memberSkills(mem.data).get(k));
+          const n = this.allyNumbers({ ...mem.data, equip: gear }, mem.def), t = heroTotals(mem.data.stats, this.statGear(gear, mem.data.abilities, this.memberSkills(mem.data)), (k) => this.memberSkills(mem.data).get(k));
           return { ...t, melee: n.melee, bow: n.bow, spell: n.spell };
         }
         const gear = { ...this.inventory.equip };
@@ -3020,8 +3044,8 @@ export class Game {
       for (const prop of this.mapData.props) {
         const d = this.sprites.def(prop.type);
         if (!d || !want(d) || !this.propSlots.has(prop) || this.gone(prop)) continue;
-        const tiles = blockedTiles(d, prop.x, prop.z, prop.s ?? 1);
-        const at = d.foot ? footTiles(d, prop.x, prop.z, prop.s ?? 1) : tiles.length ? tiles : [[Math.floor(prop.x), Math.floor(prop.z)] as [number, number]];
+        const tiles = blockedTiles(d, prop.x, prop.z, prop.s ?? 1, stepOf(this.map));
+        const at = d.foot ? footTiles(d, prop.x, prop.z, prop.s ?? 1, false, stepOf(this.map)) : tiles.length ? tiles : [[Math.floor(prop.x), Math.floor(prop.z)] as [number, number]];
         if (at.some(([x, z]) => x === cx && z === cz)) return { prop, tiles };
       }
     }
@@ -3100,7 +3124,7 @@ export class Game {
       if (!d?.cuttable || !this.propSlots.has(prop) || this.gone(prop)) continue;
       if (Math.abs(prop.x - x) > r + d.w * (prop.s ?? 1) * 0.5 || Math.abs(prop.z - 0.3 - z) > r + 0.6) continue;
       this.charProp(prop, d);
-      this.clearProp(prop, blockedTiles(d, prop.x, prop.z, prop.s ?? 1));
+      this.clearProp(prop, blockedTiles(d, prop.x, prop.z, prop.s ?? 1, stepOf(this.map)));
       const y = this.map.surfaceY(prop.x, prop.z);
       this.bursts.spawn(prop.x, y + 0.5, prop.z, { color: '#ff9a3a', n: 22, speed: 1.4, up: 2.6, life: 0.7, size: 0.09, additive: true });
       this.bursts.spawn(prop.x, y + 0.6, prop.z, { color: '#3a3a3a', n: 14, speed: 0.8, up: 2, life: 1.1, size: 0.12, gravity: -0.6 });
@@ -3713,7 +3737,7 @@ export class Game {
     return this.mapData.props.some((q) => {
       if (q === except || this.cutThisVisit.has(propKey(q)) || this.state.isCut(this.mapName, propKey(q))) return false;
       const d = this.sprites.def(q.type);
-      return !!d && blockedTiles(d, q.x, q.z, q.s ?? 1).some(([bx, bz]) => bx === x && bz === z);
+      return !!d && blockedTiles(d, q.x, q.z, q.s ?? 1, stepOf(this.map)).some(([bx, bz]) => bx === x && bz === z);
     });
   }
 
@@ -3832,6 +3856,13 @@ export class Game {
     return { additions: this.battleAdditions(a), addition: a.addition };
   }
 
+  /** A hero's skills (0: the hero you play). */
+  private skillsOf(who: number): Skills | null {
+    if (!who) return this.skills ?? null;
+    const m = this.members()[who - 1];
+    return m ? this.memberSkills(m.data) : null;
+  }
+
   private abilitiesOf(who: number): AbilityData | null {
     if (!who) return this.progress.abilities;
     const m = this.members()[who - 1];
@@ -3898,15 +3929,15 @@ export class Game {
   }
 
   /** What counts towards a hero's stats: what they wear, plus their class's boosts (less untrained armor's cost). */
-  private statGear(gear: Partial<Record<EquipSlot, string>> = this.inventory.equip, a: AbilityData | null | undefined = this.progress.abilities): StatGear[] {
+  private statGear(gear: Partial<Record<EquipSlot, string>> = this.inventory.equip, a: AbilityData | null | undefined = this.progress.abilities, sk: Skills | null | undefined = this.skills): StatGear[] {
     const armor = gear.armor ? this.items.get(gear.armor) : undefined;
-    return [...this.wornGear(gear).filter((g): g is { slot: EquipSlot } & ItemDef => !!g), { ...classStatGear(this.db, a, armor), slot: 'class' }];
+    return [...this.wornGear(gear).filter((g): g is { slot: EquipSlot } & ItemDef => !!g), { ...classStatGear(this.db, a, armor, sk), slot: 'class' }];
   }
 
   /** A weapon's damage share for this hero: untrained with it (their class, or Arms Training for medium / heavy) hits for ¾. */
   private weaponSkill(sk: Skills, a: AbilityData | null | undefined, w: ItemDef | undefined): number {
     const cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
-    return proficientWith(sk, cls) && gearSkill(this.db, a, w) !== 'untrained' ? 1 : UNTRAINED_DAMAGE;
+    return proficientWith(sk, cls) && gearSkill(this.db, a, w, sk) !== 'untrained' ? 1 : UNTRAINED_DAMAGE;
   }
 
   /** Give or cure an ailment on the hero (events, ailment tiles). */
@@ -4290,7 +4321,7 @@ export class Game {
   /* ---------------------------------------------------------------- developer console */
 
   /** Using a cheat marks the game (achievements stay locked in it). */
-  private cheat(): void { this.state.cheated = true; }
+  private cheat(): void { if (!this.state.allowAchievements) this.state.cheated = true; }
 
   private applyCheats(): void {
     if (this.cheats.deathless && this.stats.hp < 1 && !this.onTitle) this.stats.change('hp', 'set', 1);
@@ -4419,6 +4450,8 @@ export class Game {
           this.requestTransfer(map, to.x < 0 ? { x: 0.5, z: 0.5 } : to, 'black');
           return `Off to ${map}.`; } },
       { name: 'time', args: '<hour>', help: 'Set the time of day (0–23.75)', run: (a) => { this.time.set(Math.max(0, Math.min(23.75, num(a[0], 12))), true); return this.time.label(this.settings.clock12); } },
+      { name: 'achievements_allow', args: '[on|off]', help: 'Let achievements unlock again on this save, even after cheats (off: cheats lock them again)', complete: () => ['on', 'off'],
+        run: (a) => { const on = onOff(a[0], false); this.state.allowAchievements = on; if (on) this.state.cheated = false; return on ? 'Achievements unlock on this save, cheats or not.' : 'Achievements follow the usual rule again (the next cheat locks them).'; } },
       { name: 'audio_chiptune', args: '[true|false]', help: 'Hear the built-in chiptune instead of imported sounds and music (nothing in the Database changes)', complete: () => ['true', 'false'],
         run: (a) => { this.audio.chipTest = onOff(a[0], this.audio.chipTest); return this.audio.chipTest ? 'Chiptune test on: every effect and theme plays its built-in chip version. audio_chiptune false puts your sounds back.' : 'Chiptune test off: your own sounds are back.'; } },
       { name: 'weather', args: '<kind> [amount]', help: 'Change this map’s weather', complete: () => [...WEATHER_KINDS],
@@ -5052,7 +5085,7 @@ export class Game {
       // Untrained with medium or heavy weapons (Arms Training, Heavy Arms): weaker blows.
       const melee = (cls === 'unarmed' ? cfg.unarmedDamage : w!.weapon!.damage) * cfg.classes[cls].damage * powerMultiplier(t.attrs.str) * pct(sk, 'meleeDamage') * classPct * this.weaponSkill(sk, this.progress.abilities, w);
       const bowDef = gear.ranged ? this.items.get(gear.ranged) : undefined, ammo = this.inventory.arrow() ? this.items.get(this.inventory.arrow()!) : undefined;
-      const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.dex) * pct(sk, 'bowDamage') * (gearSkill(this.db, this.progress.abilities, bowDef) === 'untrained' ? UNTRAINED_DAMAGE : 1) : 0;
+      const bow = bowDef?.weapon ? (bowDef.weapon.damage + (ammo?.ammo?.damage ?? 0)) * powerMultiplier(t.attrs.dex) * pct(sk, 'bowDamage') * (gearSkill(this.db, this.progress.abilities, bowDef, sk) === 'untrained' ? UNTRAINED_DAMAGE : 1) : 0;
       const useBow = !w && bow > melee;
       const a = this.progress.abilities;
       const spells = this.battleSpells(a, powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), this.spellThrift);
@@ -5075,7 +5108,7 @@ export class Game {
     }
     const m = this.members()[who - 1];
     if (!m) return null;
-    const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.statGear(m.data.equip, m.data.abilities), (k) => this.memberSkills(m.data).get(k));
+    const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.statGear(m.data.equip, m.data.abilities, this.memberSkills(m.data)), (k) => this.memberSkills(m.data).get(k));
     const style = fightingStyle(m.def, m.data, n), msk = this.memberSkills(m.data), ab = (m.data.abilities ??= {});
     const spells = this.battleSpells(ab, powerMultiplier(t.attrs.mag) * (1 + msk.get('spellDamage') / 100), 1 - Math.min(75, msk.get('spellCost')) / 100);
     // Healers who know no healing spell keep their own Heal.
@@ -5821,7 +5854,7 @@ export class Game {
 
   private allyNumbers(m: MemberData, def: HeroDef): AllyNumbers {
     const sk = this.memberSkills(m), pct = (k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
-    const t = heroTotals(m.stats, this.statGear(m.equip, m.abilities), (k) => sk.get(k));
+    const t = heroTotals(m.stats, this.statGear(m.equip, m.abilities, sk), (k) => sk.get(k));
     const g = (slot: EquipSlot) => (m.equip[slot] ? this.items.get(m.equip[slot]!) : undefined);
     const w = g('weapon'), cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
     const ct = this.combatCfg.classes[cls];
