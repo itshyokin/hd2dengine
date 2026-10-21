@@ -1424,6 +1424,15 @@ export interface WaterStyle {
   flowDir?: number;
   /** Glows by itself (lava, poison goo): 0 … 1. */
   glow?: number;
+  /**
+   * How it's drawn: 'toon' (flat colour, drifting wave lines, a foam outline along its shores and a dark ring round
+   * rocks in it, like the handheld games) or 'real' (lit ripples and glints). Default toon, or real for glowing styles.
+   */
+  look?: 'toon' | 'real';
+  /** Toon: how many wave lines (0 none … 1 lots; default 0.5). */
+  lines?: number;
+  /** Toon: no foam outline along the shore. */
+  noFoam?: boolean;
   /** A mark drawn on its water in the map editor only (~, -, ≈…), to tell styles of the same colour apart. */
   symbol?: string;
   /** Being in it gives this ailment (a % chance every half second): poison goo poisons, lava burns. */

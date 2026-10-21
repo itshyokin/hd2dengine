@@ -27,7 +27,7 @@ import { updateWind, wind } from '../render/wind';
 import { setClouds } from '../render/areaTint';
 import { Ripples } from '../render/Ripples';
 import type { WaterFlow } from '../world/WorldBuilder';
-import { waterStyle } from '../world/waterStyles';
+import { isToonWater, waterStyle } from '../world/waterStyles';
 import { SEASON_NAMES, type Season, realSeason, seasonOn } from '../world/seasons';
 import { setSeason } from '../render/season';
 import { biteDelay, biteWindow, catchSize, fishingGrid, pickCatch } from '../world/fishing';
@@ -146,6 +146,7 @@ import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
 import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } from './menus';
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
+import { toonWaterTime } from '../render/waterEdge';
 import { alignFootProps, blockedTiles, footTiles, propCovers, stepOf } from '../world/props';
 import { propKey } from './GameState';
 import { TouchControls } from '../ui/TouchControls';
@@ -196,7 +197,7 @@ export class Game {
   private ripples!: Ripples;
   private readonly ripAt = new Map<object, { x: number; z: number }>();
   /** This map's props standing in water (for their ripples). */
-  private wetProps: { prop: PropData; y: number; size: number; color: number }[] = [];
+  private wetProps: { prop: PropData; y: number; size: number; color: number; ring?: THREE.Mesh }[] = [];
   /** Ripples on lava and goo glow in their colour; on water they're white. */
   private rippleColor(style: number): number {
     const st = waterStyle(this.mapData, style);
@@ -220,8 +221,41 @@ export class Game {
       if (!d || d.wall || d.deck || d.h < 0.25) continue;
       const w = this.map.waterAt(Math.floor(prop.x), Math.floor(prop.z - 0.01));
       if (!w) continue;
-      this.wetProps.push({ prop, y: w.surface, size: Math.max(0.7, Math.min(2.4, d.w * (prop.s ?? 1) * 0.9)), color: this.rippleColor(w.style) });
+      const size = Math.max(0.7, Math.min(2.4, d.w * (prop.s ?? 1) * 0.9));
+      const st = waterStyle(this.mapData, w.style);
+      // Toon water: a dark ring hugging the rock, like the handheld games.
+      let ring: THREE.Mesh | undefined;
+      if (isToonWater(st)) {
+        const c = new THREE.Color(st.color || '#3f86b0');
+        c.multiplyScalar(0.62);
+        ring = new THREE.Mesh(Game.ringGeo, new THREE.MeshLambertMaterial({ map: Game.ringTex(), color: c, transparent: true, depthWrite: false }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(prop.x, w.surface + 0.015, prop.z - 0.15);
+        ring.scale.setScalar(size * 0.95);
+        ring.renderOrder = 2;
+        this.level?.add(ring);
+      }
+      this.wetProps.push({ prop, y: w.surface, size, color: this.rippleColor(w.style), ring });
     }
+  }
+  private static readonly ringGeo = new THREE.PlaneGeometry(1, 1);
+  private static ringTexCache: THREE.Texture | null = null;
+  /** The ring round a rock in toon water: pixel art, a dark band fading out at its rim (tinted by the material). */
+  private static ringTex(): THREE.Texture {
+    if (Game.ringTexCache) return Game.ringTexCache;
+    const N = 32, c = document.createElement('canvas');
+    c.width = c.height = N;
+    const g = c.getContext('2d')!;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const r = Math.hypot(x + 0.5 - N / 2, (y + 0.5 - N / 2) * 1.15);
+      if (r >= 9.5 && r < 13) g.fillStyle = 'rgba(255,255,255,0.9)';
+      else if (r >= 13 && r < 14.5) g.fillStyle = 'rgba(255,255,255,0.35)';
+      else continue;
+      g.fillRect(x, y, 1, 1);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+    return (Game.ringTexCache = t);
   }
   private readonly waterFlow = new THREE.Vector2();
   private player!: CharacterSprite;
@@ -1449,7 +1483,9 @@ export class Game {
     }
     // Props standing in water (a rock, a fallen trunk): slow rings around them.
     for (const p of this.wetProps) {
+      if (p.ring) p.ring.visible = !this.gone(p.prop);
       if (this.gone(p.prop)) continue;
+      if (p.ring) p.ring.scale.setScalar(p.size * (0.95 + 0.04 * Math.sin(this.elapsed * 1.6 + p.prop.x * 1.7)));
       this.ripples.still(p.prop, p.prop.x, p.y, p.prop.z - 0.15, p.size, dt, p.color);
     }
   }
@@ -6479,6 +6515,7 @@ export class Game {
       f.tex.offset.x += (0.03 - Math.cos(fd) * f.flow * 0.45) * dt;
       f.tex.offset.y += (0.018 - Math.sin(fd) * f.flow * 0.45) * dt;
     }
+    toonWaterTime.value = this.elapsed;
     this.post.exposure = this.time.exposure * 1.1 * this.settings.brightness * (1 + this.lightFlash * 1.8);
     this.updateSky(dt);
   }
