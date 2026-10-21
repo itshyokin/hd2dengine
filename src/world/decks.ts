@@ -10,11 +10,16 @@
 import * as THREE from 'three';
 import type { TileMap } from './TileMap';
 import type { MapData, PropData, PropDef } from './types';
+import { footTiles } from './props';
 import { makeTexture } from '../render/textures';
 import { Pix } from '../core/pixel';
 
 export type DeckStyle = 'wood' | 'rope' | 'stone';
-export interface DeckDef { style: DeckStyle; /** Runs east–west ('h') or north–south ('v'); platforms: either. */ dir?: 'h' | 'v'; rails?: boolean }
+export interface DeckDef {
+  style: DeckStyle; /** Runs east–west ('h') or north–south ('v'); platforms: either. */ dir?: 'h' | 'v'; rails?: boolean;
+  /** Drawn as the prop's own picture (an imported bridge or platform) instead of the built 3D pieces. */
+  art?: boolean;
+}
 
 interface DeckCell { x: number; z: number; p: PropData; def: DeckDef; y: number }
 
@@ -22,11 +27,11 @@ interface DeckCell { x: number; z: number; p: PropData; def: DeckDef; y: number 
 export function placeDecks(map: TileMap, data: MapData, defOf: (type: string) => PropDef | undefined): DeckCell[] {
   const cells = new Map<string, DeckCell>();
   for (const p of data.props) {
-    const d = defOf(p.type)?.deck;
-    if (!d) continue;
-    const x = Math.floor(p.x), z = Math.floor(p.z - 0.01);
-    if (!map.inMap(x, z)) continue;
-    cells.set(`${x},${z}`, { x, z, p, def: d, y: 0 });
+    const def = defOf(p.type), d = def?.deck;
+    if (!def || !d) continue;
+    // Built-in pieces: the one tile they stand in. Imported ones: every tile of their footprint.
+    const tiles: [number, number][] = def.foot ? footTiles(def, p.x, p.z, p.s ?? 1) : [[Math.floor(p.x), Math.floor(p.z - 0.01)]];
+    for (const [x, z] of tiles) if (map.inMap(x, z)) cells.set(`${x},${z}`, { x, z, p, def: d, y: 0 });
   }
   // Joined pieces share one height: the highest land touching the group (or a piece's own y).
   const seen = new Set<string>();
@@ -92,7 +97,9 @@ export function deckIcon(d: DeckDef): HTMLCanvasElement {
 /* ------------------------------------------------------------------ meshes */
 
 /** Build the bridges and platforms (after `placeDecks`). */
-export function buildDecks(scene: THREE.Object3D, map: TileMap, cells: DeckCell[]): void {
+export function buildDecks(scene: THREE.Object3D, map: TileMap, all: DeckCell[]): void {
+  // Pieces drawn as their own picture are left to the props.
+  const cells = all.filter((c) => !c.def.art);
   if (!cells.length) return;
   const box = new THREE.BoxGeometry(1, 1, 1);
   const tex = { h: makeTexture(planks('h'), { repeat: true }), v: makeTexture(planks('v'), { repeat: true }), stone: makeTexture(stone(), { repeat: true }) };

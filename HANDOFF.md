@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 20, 2026, after Update 93)
+# Handoff: where the project stands (Oct 21, 2026, after Update 94)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** waiting on the owner's playtest of Update 93 (the "Owner's list (Oct 20, night)" is done).
+- **Next work:** waiting on the owner's playtest of Update 94 (props: walk-on-top setting, palette scroll kept, edit several together).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -186,12 +186,19 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `PASS = min(12, 5 + hours × 0.55) / skySpeed`, slower than before). Battle spell lists: ChoiceItem `inlineIcon`
   (element icon, or the tinted magic picture for non-elemental; spells have no Database icon of their own). First
   draw of a fighter's bars skips the CSS transition (`.no-anim`, PocketBlock `drawn`), so no drain from full.
+- 94: PropDef `deck` editable in the PropImporter ("Walk on top" + "Drawn as"); DeckDef `art` (drawn as the prop's
+  picture: buildDecks skips it, WorldBuilder keeps its sprite); imported decks cover their footprint (`footTiles` in
+  placeDecks); `blockedTiles` / `propBoxes` return nothing for decks; PropCatalog gives customised built-in bridges
+  saved without a deck the built-in's deck with `art` (unless `noDeck`). Palette keeps `.side-body` scrollTop per tab
+  (`shownMode`); `propPicks` + `.sprite-tick` + `.prop-picks` bar; `src/editor/PropBatchEdit.ts` (settings table,
+  only changed keys applied); assets.ts `saveProps` (one assets.json write, entries replaced in place). Customised
+  built-ins are now "saved in assets.json", not "has an image".
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. Whatever the owner reports from playtesting Update 93.
+1. Whatever the owner reports from playtesting Update 94.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

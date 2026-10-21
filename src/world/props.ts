@@ -123,8 +123,11 @@ export class PropCatalog {
     for (const d of assets.props ?? []) {
       // A saved prop with a built-in's id is a customised version of that built-in: it replaces it,
       // keeping the built-in's flame (which can't be edited).
+      // A customised bridge or platform saved before its deck could be edited keeps working as one, drawn as its picture.
       const builtin = this.byId.get(d.id);
-      this.byId.set(d.id, builtin?.flame && !d.flame ? { ...d, flame: builtin.flame } : d);
+      let def = builtin?.flame && !d.flame ? { ...d, flame: builtin.flame } : d;
+      if (builtin?.deck && !def.deck && !def.noDeck) def = { ...def, deck: { ...builtin.deck, art: true } };
+      this.byId.set(d.id, def);
     }
   }
 
@@ -142,6 +145,8 @@ export class PropCatalog {
  * the blocked row is the one the anchor stands in.
  */
 export function blockedTiles(def: PropDef, x: number, z: number, scale = 1): [number, number][] {
+  // Bridges and platforms are walked on.
+  if (def.deck) return [];
   // Flat collision blocks no whole tiles, only a strip along the picture (propBoxes).
   if (def.foot && def.collide === 'flat') return [];
   if (def.foot) return footTiles(def, x, z, scale, true);
@@ -152,7 +157,7 @@ export function blockedTiles(def: PropDef, x: number, z: number, scale = 1): [nu
 export interface PropBox { x0: number; z0: number; x1: number; z1: number }
 export function propBoxes(def: PropDef, x: number, z: number, scale = 1): PropBox[] {
   const f = def.foot;
-  if (!f || def.collide !== 'flat') return [];
+  if (!f || def.collide !== 'flat' || def.deck) return [];
   const row = f.solid[f.d - 1] ?? '', x0 = x - (f.w * scale) / 2, out: PropBox[] = [];
   let c = 0;
   while (c < f.w) {

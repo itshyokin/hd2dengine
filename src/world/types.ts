@@ -99,6 +99,8 @@ export interface PropDef {
   builtin?: string;
   /** A bridge or platform piece: walked on at a deck height over water, chasms or lower ground (world/decks.ts). */
   deck?: import('./decks').DeckDef;
+  /** A customised built-in bridge or platform set not to be walked on (otherwise it keeps the built-in's deck). */
+  noDeck?: boolean;
   /** Optional normal map (same framing as the image). Generated from the image when missing. */
   normal?: string;
   /** Optional night-glow mask: bright pixels glow at night (lit windows). */

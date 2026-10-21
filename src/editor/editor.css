@@ -242,6 +242,14 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .sprite-badge.left { right: auto; left: 6px; font-size: 9px; color: var(--sky); top: 6px; }
 .mini-btn.sprite-edit { position: absolute; bottom: 4px; right: 4px; min-width: 22px; min-height: 22px; font-size: 12px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
 .mini-btn.sprite-edit:hover { color: var(--ink); border-color: var(--line-strong); }
+.sprite-tick { position: absolute; bottom: 7px; left: 7px; z-index: 1; width: 16px; height: 16px; margin: 0; accent-color: var(--ember); cursor: pointer; opacity: 0.55; }
+.sprite-card:hover .sprite-tick, .sprite-tick:checked, .sprite-tick:focus-visible { opacity: 1; }
+.sprite-card.ticked .sprite-btn { outline: 2px solid var(--ember); outline-offset: -2px; }
+.prop-picks { position: sticky; top: -14px; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--ember); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+.prop-picks-n { flex: 1; font-weight: 600; }
+.section-label .mini-link { float: right; background: none; border: 0; color: var(--sky); cursor: pointer; font: inherit; font-size: 11px; padding: 0; text-transform: none; letter-spacing: 0; }
+.prop-batch .field.batch-changed label { color: var(--ember); }
+.prop-batch .field.batch-changed label::after { content: " • changed"; font-size: 11px; }
 .prop-current { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px 10px; align-items: center; padding: 10px; border: 1px solid rgba(255, 176, 74, 0.35); border-radius: 8px; background: var(--ember-soft); }
 .prop-current-thumb { width: 44px; height: 44px; display: grid; place-items: center; background: var(--bg); border-radius: 6px; }
 .prop-current-info { min-width: 0; }

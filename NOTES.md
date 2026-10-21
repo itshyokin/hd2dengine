@@ -183,6 +183,12 @@ Kept in the project so they travel with the code. Tick them off as they're built
         element).
   - [x] Battle start: health bars start at the hero's current health (no drain down from full). If needed, build
         the scene first and fade in once the bars are set.
+- [x] Owner's list (Oct 20, late night) (update 94):
+  - [x] Props: a "Walk on top (bridge or platform)" setting (east–west, north–south, or a platform any way), drawn as
+        the prop's own picture or built in 3D. Customised built-in bridges that had lost it work as bridges again.
+  - [x] Props palette keeps its scroll position when a prop's window opens and closes (or a prop is picked).
+  - [x] Props palette: tick props (checkbox on each card, Tick all per section) and Edit together: only the settings
+        changed there are given to every ticked prop; each keeps everything else.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

@@ -594,12 +594,14 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (inside(p)) continue;
     add(p);
     const def = sprites.def(p.type);
+    // Bridges and platforms are walked on, never blocking.
+    if (def?.deck) continue;
     if (def) for (const [x, z] of blockedTiles(def, p.x, p.z, p.s ?? 1)) map.setBlocked(x, z, true);
     if (def) for (const b of propBoxes(def, p.x, p.z, p.s ?? 1)) map.addBox(b, p);
   }
   // Bridges and platforms: walkable at their deck height, built in 3D (not as upright cards).
   buildDecks(scene, map, placeDecks(map, data, (t) => sprites.def(t)));
-  for (const t of [...groups.keys()]) if (sprites.def(t)?.deck) groups.delete(t);
+  for (const t of [...groups.keys()]) { const d = sprites.def(t)?.deck; if (d && !d.art) groups.delete(t); }
   // Scenery beyond the map edge, per side. The bottom side (toward the camera) is kept sparse near the
   // edge so it doesn't hide the map.
   const sides = borderSides(data.border), R = rng(data.border?.seed ?? 1);
