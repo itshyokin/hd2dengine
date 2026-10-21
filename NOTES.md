@@ -18,7 +18,10 @@ decide things; the tablet editor keeps working.
       along shores, a darker ring round rocks and props in it; water styles and recolouring kept.
       Done: WaterStyle `look` ('toon' default, 'real' for glowing styles), `lines`, `noFoam`; waterEdge.ts
       `patchToonWater` (lines and foam in the shader, `toonWaterTime`); Game rings round wet props.
-- [ ] Update 101: 3D props (GLB first, FBX best-effort), sized on the prop grid.
+- [x] Update 101: 3D props (GLB first, FBX best-effort), sized on the prop grid.
+      Done: render/models.ts (parse, bake into one multi-material mesh fitted to the footprint, icon render);
+      PropDef `model` / `modelRot`; importer "+ 3D model…" (Faces, refit on Width / Depth); instanced in
+      WorldBuilder like sprite props. Rest pose only (animation comes with Update 102).
 - [ ] Update 102: 3D characters and enemies: Sprite or 3D model per hero / character / enemy; animation slots picked
       from the file's clips: Idle, Walk, Run, Jump, Swim, Climb, Sit, Injured, KO, Attack, Spellcast (enemies: Idle,
       Attack, Spellcast, Dead), missing ones falling back to Idle; battle, map, Bestiary and portraits. A "3D look"
