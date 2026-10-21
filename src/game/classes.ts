@@ -2,7 +2,7 @@
  * What classes give: a one-time stat boost when a hero joins one, and which weapons and armor they're trained with
  * (full effect), untrained with (weaker) or can't use at all.
  */
-import type { AbilityData, ArmorWeight, ClassDef, Database, GearKind, GearSkill, ItemDef, WeaponType } from '../world/types';
+import type { AbilityData, ArmorTypeDef, ArmorWeight, ClassDef, Database, GearKind, GearSkill, ItemDef, WeaponType } from '../world/types';
 import { type Attr, ATTRS } from './attributes';
 
 export const WEAPON_TYPES: [WeaponType, string][] = [
@@ -11,15 +11,21 @@ export const WEAPON_TYPES: [WeaponType, string][] = [
 ];
 /** One weapon of each type, by name. */
 export const WEAPON_TYPE_NAME: Record<WeaponType, string> = { sword: 'Sword', dagger: 'Dagger', axe: 'Axe', mace: 'Mace or hammer', spear: 'Spear', staff: 'Staff', wand: 'Wand', fist: 'Fist weapon', bow: 'Bow', crossbow: 'Crossbow' };
-export const ARMOR_WEIGHTS: [ArmorWeight, string][] = [['light', 'Light armor'], ['medium', 'Medium armor'], ['heavy', 'Heavy armor']];
+/** The built-in armor types (a game can rename them, change their costs, or add its own: Database → Armor types). */
+export const DEFAULT_ARMOR_TYPES: ArmorTypeDef[] = [
+  { id: 'light', name: 'Light armor', note: 'Cloth, leather', untrained: { agi: -2 } },
+  { id: 'medium', name: 'Medium armor', note: 'Chain, scale', untrained: { agi: -4, dex: -2 } },
+  { id: 'heavy', name: 'Heavy armor', note: 'Plate', untrained: { agi: -7, dex: -3 } },
+];
+/** The game's armor types. */
+export const armorTypes = (db?: Pick<Database, 'armorTypes'> | null): ArmorTypeDef[] => (db?.armorTypes?.length ? db.armorTypes : DEFAULT_ARMOR_TYPES);
 /** Every row of a class's Weapons and armor table, with its name. */
-export const GEAR_KINDS: [GearKind, string][] = [...WEAPON_TYPES, ...ARMOR_WEIGHTS.map(([w, n]) => [`armor:${w}`, n] as [GearKind, string]), ['shield', 'Shields']];
-export const gearKindName = (k: GearKind): string => GEAR_KINDS.find(([x]) => x === k)?.[1] ?? k;
+export const gearKinds = (db?: Pick<Database, 'armorTypes'> | null): [GearKind, string][] =>
+  [...WEAPON_TYPES, ...armorTypes(db).map((t) => [`armor:${t.id}`, t.name] as [GearKind, string]), ['shield', 'Shields']];
+export const gearKindName = (k: GearKind, db?: Pick<Database, 'armorTypes'> | null): string => gearKinds(db).find(([x]) => x === k)?.[1] ?? k;
 
 /** An untrained weapon hits for this share of its damage. */
 export const UNTRAINED_WEAPON = 0.75;
-/** Untrained armor: Agility and Dexterity it costs, by weight (heavier is clumsier). */
-export const UNTRAINED_ARMOR: Record<ArmorWeight, Partial<Record<Attr, number>>> = { light: { agi: -2 }, medium: { agi: -4, dex: -2 }, heavy: { agi: -7, dex: -3 } };
 
 const text = (d: ItemDef) => `${d.name} ${d.id} ${d.sprite ?? ''}`.toLowerCase();
 
@@ -40,22 +46,26 @@ export function weaponTypeOf(d: ItemDef): WeaponType | null {
   return 'sword';
 }
 
-/** Armor's weight: set in the Database, else guessed from its name (light when nothing says). */
-export function armorWeightOf(d: ItemDef): ArmorWeight | null {
+/** Armor's type: set in the Database, else guessed from its name (the first type when nothing says). */
+export function armorWeightOf(d: ItemDef, db?: Pick<Database, 'armorTypes'> | null): ArmorWeight | null {
   if (d.kind !== 'equipment' || d.slot !== 'armor') return null;
-  if (d.armorWeight) return d.armorWeight;
+  const list = armorTypes(db), has = (id: string) => list.some((t) => t.id === id);
+  if (d.armorWeight && has(d.armorWeight)) return d.armorWeight;
   const t = text(d);
-  if (/plate|full ?armou?r|knight|heavy/.test(t)) return 'heavy';
-  if (/chain|mail|scale|brigandine|ring ?armou?r|splint|banded/.test(t)) return 'medium';
-  return 'light';
+  // A type named in the item's name (a "Robe" for a Robes type), then the usual words for the built-in three.
+  const named = list.find((a) => a.name && t.includes(a.name.toLowerCase().replace(/ armou?r$/, '').replace(/s$/, '')));
+  if (named && !['light', 'medium', 'heavy'].includes(named.id)) return named.id;
+  if (/plate|full ?armou?r|knight|heavy/.test(t) && has('heavy')) return 'heavy';
+  if (/chain|mail|scale|brigandine|ring ?armou?r|splint|banded/.test(t) && has('medium')) return 'medium';
+  return has('light') ? 'light' : list[0]?.id ?? 'light';
 }
 
 /** Which row of a class's table this item falls under (null: anything can use it — accessories, shards…). */
-export function gearKindOf(d: ItemDef): GearKind | null {
+export function gearKindOf(d: ItemDef, db?: Pick<Database, 'armorTypes'> | null): GearKind | null {
   // Tools anyone can use: pickaxes and hammers that mine.
   if (d.kind !== 'equipment' || d.mines) return null;
   if (d.slot === 'shield') return 'shield';
-  if (d.slot === 'armor') return `armor:${armorWeightOf(d)!}`;
+  if (d.slot === 'armor') return `armor:${armorWeightOf(d, db)!}`;
   if ((d.slot === 'weapon' || d.slot === 'ranged') && d.weapon) return weaponTypeOf(d);
   return null;
 }
@@ -64,7 +74,7 @@ export const classOf = (db: Database, a: AbilityData | null | undefined): ClassD
 
 /** How the hero's class handles this item (no class, or a row left unset: trained). */
 export function gearSkill(db: Database, a: AbilityData | null | undefined, d: ItemDef | undefined): GearSkill {
-  const k = d && gearKindOf(d);
+  const k = d && gearKindOf(d, db);
   return (k && classOf(db, a)?.gear?.[k]) || 'trained';
 }
 
@@ -90,7 +100,7 @@ export function classBonus(db: Database, a: AbilityData | null | undefined): Par
 export function classStatGear(db: Database, a: AbilityData | null | undefined, armor: ItemDef | undefined): { bonus: Partial<Record<Attr, number>> } {
   const bonus = { ...classBonus(db, a) };
   if (armor && gearSkill(db, a, armor) === 'untrained') {
-    const cost = UNTRAINED_ARMOR[armorWeightOf(armor) ?? 'light'];
+    const type = armorTypes(db).find((t) => t.id === armorWeightOf(armor, db)), cost = type?.untrained ?? {};
     for (const k of ATTRS) if (cost[k]) bonus[k] = (bonus[k] ?? 0) + cost[k]!;
   }
   return { bonus };

@@ -24,7 +24,7 @@ import type { OverworldCamera } from '../world/types';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
 import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
 import type { EditorStore } from './store';
-import { cleanInventory, inventoryTab, itemsTab, type ItemsWork } from './ItemsEditor';
+import { ITEM_CATS, type ItemCat, cleanInventory, inventoryTab, itemCategory, itemsTab, type ItemsWork } from './ItemsEditor';
 import type { CombatData, EnemyDef, ItemDef } from '../world/types';
 import { cleanCombat, combatTab, enemiesTab } from './CombatEditor';
 import { type AudioWork, audioFiles, audioTab, cleanAudio } from './audioEditor';
@@ -55,6 +55,8 @@ import { cleanHeroes, heroesTab, heroesWork } from './HeroesEditor';
 import type { QuestDef } from '../world/types';
 import type { CreditEntry } from '../world/types';
 import { skillsData } from '../game/skills';
+import { DEFAULT_ARMOR_TYPES, armorTypes } from '../game/classes';
+import { ATTRS, ATTR_INFO, type Attr, DEFAULT_ATTR_ORDER, setAttrOrder } from '../game/attributes';
 import type { SkillsData } from '../world/types';
 
 const GAUGES: Gauge[] = ['hp', 'mp', 'sp'];
@@ -65,14 +67,14 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Party', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['classes', 'Classes', 'badge'], ['characters', 'Characters', 'sprite']]],
   ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group']]],
   ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
-  ['Items', [['items', 'Items', 'potion'], ['inventory', 'Starting inventory', 'bag']]],
+  ['Items', [['items', 'Items', 'potion'], ['weapons', 'Weapons', 'sword'], ['gear', 'Gear: armor, shields, accessories', 'armor'], ['shards', 'Shards: spells and element stones', 'gem'], ['keyItems', 'Key items', 'key'], ['inventory', 'Starting inventory', 'bag']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy']]],
   ['World', [['camera', 'Camera', 'eye'], ['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Travel: horses and griffins', 'horse']]],
   ['Game', [['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
@@ -85,6 +87,10 @@ const ICON_PATHS: Record<string, string> = {
   badge: '<circle cx="12" cy="9" r="5"/><path d="M9 13.5L7 21l5-2.5 5 2.5-2-7.5"/>',
   potion: '<path d="M10 3h4M10.5 3v5L6 15.5A4 4 0 0 0 9.5 21h5a4 4 0 0 0 3.5-5.5L13.5 8V3"/><path d="M7.5 14h9"/>',
   bag: '<path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+  sword: '<path d="M19 3l-9.5 9.5M19 3v4l-8 8M19 3h-4l-8 8"/><path d="M6 13l5 5M8.5 15.5L4 20"/>',
+  armor: '<path d="M8 3l4 2 4-2 4 3-2 4v10H6V10L4 6z"/><path d="M12 5v15"/>',
+  gem: '<path d="M6 4h12l3 5-9 12L3 9z"/><path d="M3 9h18M9 4l3 17M15 4l-3 17"/>',
+  key: '<circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M17 17l2-2M15 15l2-2"/>',
   swords: '<path d="M4 4l10 10M14 14l2 2M17 13l-4 4M20 4L10 14M10 14l-2 2M7 13l4 4"/>',
   skull: '<path d="M5 11a7 7 0 0 1 14 0c0 2.5-1.2 3.8-2 4.5V19H7v-3.5C6.2 14.8 5 13.5 5 11z"/><circle cx="9.5" cy="11" r="1.5"/><circle cx="14.5" cy="11" r="1.5"/>',
   group: '<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 19c0-3 2.7-5 6-5s6 2 6 5M12 15c1-.7 2.4-1 4-1 3.3 0 6 2 6 5"/>',
@@ -110,8 +116,13 @@ const dbIcon = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
 export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): void {
   const cfg: PlayerConfig = playerConfig(store.db.stats);
   let tab: DbTab = startTab;
-  const work: ItemsWork = { items: JSON.parse(JSON.stringify(store.db.items ?? [])) as ItemDef[], inventory: JSON.parse(JSON.stringify(store.db.inventory ?? {})) };
+  const work: ItemsWork = { items: JSON.parse(JSON.stringify(store.db.items ?? [])) as ItemDef[], inventory: JSON.parse(JSON.stringify(store.db.inventory ?? {})), armorTypes: structuredClone(armorTypes(store.db)) };
+  // The stats' order (every list follows it straight away; Close without applying puts the old one back).
+  const statOrder: Attr[] = [...ATTRS];
   const itemState = { sel: 0 }, enemyState = { sel: 0 };
+  // One selection per item tab (all five list the same items, by kind).
+  const catState: Record<ItemCat, { sel: number; cur?: ItemDef }> = { items: itemState, weapons: { sel: 0 }, gear: { sel: 0 }, shards: { sel: 0 }, keyItems: { sel: 0 } };
+  const isCat = (t: DbTab): t is ItemCat => ITEM_CATS.some(([c]) => c === t);
   const combat: CombatData = JSON.parse(JSON.stringify(store.db.combat ?? {}));
   const enemies: EnemyDef[] = JSON.parse(JSON.stringify(store.db.enemies ?? []));
   const audio: AudioWork = { files: [...(store.db.audio?.files ?? [])], sfx: { ...(store.db.audio?.sfx ?? {}) }, titleMusic: store.db.audio?.titleMusic, victoryMusic: store.db.audio?.victoryMusic, battleMusic: store.db.audio?.battleMusic, style: store.db.audio?.style };
@@ -199,10 +210,18 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
 
   /* Duplicate, copy and paste in the lists: the copy gets a fresh id and “(copy)” on its name, under the original. */
   type Entry = { id: string; name: string } & Record<string, unknown>;
-  const listOf = (t: DbTab): { list: Entry[]; state: { sel: number }; kind: string; tidy?: (e: Entry, from: number) => void } | null => {
-    const L = (list: unknown[], state: { sel: number }, tidy?: (e: Entry, from: number) => void) => ({ list: list as Entry[], state, kind: t, tidy });
+  type ListInfo = { list: Entry[]; state: { sel: number }; kind: string; tidy?: (e: Entry, from: number) => void; insert?: (e: Entry, at: number) => void };
+  const listOf = (t: DbTab): ListInfo | null => {
+    const L = (list: unknown[], state: { sel: number }, tidy?: (e: Entry, from: number) => void): ListInfo => ({ list: list as Entry[], state, kind: t, tidy });
+    if (isCat(t)) {
+      // The tab shows some of the items: a copy goes into the full list just after the one it sits under.
+      const shown = work.items.filter((d) => itemCategory(d) === t);
+      return { list: shown as unknown as Entry[], state: catState[t], kind: 'items', insert: (e, at) => {
+        const before = shown[at - 1], i = before ? work.items.indexOf(before) + 1 : work.items.length;
+        work.items.splice(i, 0, e as unknown as ItemDef);
+      } };
+    }
     switch (t) {
-      case 'items': return L(work.items, itemState);
       case 'enemies': return L(enemies, enemyState);
       case 'heroes': return L(heroes.heroes, heroState, (e) => { delete e.creation; delete e.startsInParty; });
       case 'quests': return L(quests, questState);
@@ -233,7 +252,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     while (L.list.some((x) => x.name === nm)) nm = `${stem} (copy ${n++})`;
     e.name = nm;
     L.tidy?.(e, at);
-    L.list.splice(at, 0, e);
+    if (L.insert) L.insert(e, at); else L.list.splice(at, 0, e);
     L.state.sel = at;
     render();
     flash(`Added ${e.name}. Remember to Apply.`);
@@ -298,12 +317,39 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     menuEl.addEventListener('keydown', (k) => { if (k.key === 'Escape') { k.stopPropagation(); closeMenu(); } });
   });
   addEventListener('pointerdown', (e) => { if (menuEl && !menuEl.contains(e.target as Node)) closeMenu(); }, true);
+  /** Database → Heroes: the order stats are listed in, everywhere (the game's menus, the editor's forms). */
+  const statOrderSection = () => {
+    const move = (i: number, by: number) => {
+      const j = i + by;
+      if (j < 0 || j >= statOrder.length) return;
+      [statOrder[i], statOrder[j]] = [statOrder[j], statOrder[i]];
+      setAttrOrder(statOrder);
+      render();
+    };
+    return h('section', { class: 'db-section stat-order' }, h('h3', {}, 'Stat order'),
+      h('ol', { class: 'stat-order-list' }, ...statOrder.map((k, i) => h('li', {},
+        h('b', {}, ATTR_INFO[k].short), h('span', {}, ATTR_INFO[k].name),
+        h('button', { type: 'button', class: 'mini-btn', disabled: i === 0, title: 'Move up', 'aria-label': `Move ${ATTR_INFO[k].name} up`, onclick: () => move(i, -1) }, '▲'),
+        h('button', { type: 'button', class: 'mini-btn', disabled: i === statOrder.length - 1, title: 'Move down', 'aria-label': `Move ${ATTR_INFO[k].name} down`, onclick: () => move(i, 1) }, '▼')))),
+      h('button', { type: 'button', class: 'btn small ghost', disabled: statOrder.join() === DEFAULT_ATTR_ORDER.join(), onclick: () => { statOrder.splice(0, statOrder.length, ...DEFAULT_ATTR_ORDER); setAttrOrder(statOrder); render(); } }, 'Back to the usual order'),
+      h('p', { class: 'note' }, 'Every list of stats follows this order: Status and Equipment in the game, level-up and dice screens, and the Database (heroes, classes, gear bonuses, buffs).'));
+  };
   const renderTab = () => {
-    if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
+    if (tab === 'heroes') { content.replaceChildren(statOrderSection(), ...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
     if (tab === 'characters') { content.replaceChildren(...charactersTab(store, people, render)); return; }
     if (tab === 'credits') { content.replaceChildren(...creditsTab(credits, people.chars, render, [...store.assets.props, ...store.assets.tiles].map((d) => d.credits ?? []))); return; }
     if (tab === 'quests') { content.replaceChildren(...questsTab(store, quests, { items: work.items, enemies }, questState, render)); return; }
-    if (tab === 'items') { content.replaceChildren(...itemsTab(store, work, itemState, render)); return; }
+    if (isCat(tab)) {
+      const cat = tab;
+      content.replaceChildren(...itemsTab(store, work, catState[cat], render, cat, (to, d) => {
+        // An item whose kind or slot changed: open its new tab with it selected.
+        catState[to].sel = Math.max(0, work.items.filter((x) => itemCategory(x) === to).indexOf(d));
+        tab = to;
+        flash(`${d.name} is now in ${ITEM_CATS.find(([c]) => c === to)![1]}.`);
+        queueMicrotask(render);
+      }));
+      return;
+    }
     if (tab === 'skills') { content.replaceChildren(...skillsTab(skills, skillState, render, work.items, { spells, additions })); return; }
     if (tab === 'troops') { content.replaceChildren(...troopsTab(troops, enemies, audioFiles(store), troopState, render, store.battleMapNames())); return; }
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
@@ -314,7 +360,11 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'achievements') { content.replaceChildren(...achievementsTab(store, store.db, achievements, achState, render)); return; }
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
     if (tab === 'additions') { content.replaceChildren(...additionsTab(additions, additionState, render)); return; }
-    if (tab === 'classes') { content.replaceChildren(...classesTab(classes, skills, classState, render)); return; }
+    if (tab === 'classes') { content.replaceChildren(...classesTab(classes, skills, classState, render, (id) => {
+      const k = skills.trees.findIndex((t) => t.id === id);
+      if (k < 0) return;
+      skillState.tree = k; skillState.sel = ''; tab = 'skills'; render();
+    }, work.armorTypes)); return; }
     if (tab === 'horses') { content.replaceChildren(...horsesTab(horses, horseState, render, travel)); return; }
     if (tab === 'audio') { content.replaceChildren(...audioTab(store, audio, render)); return; }
     if (tab === 'combat') { content.replaceChildren(...combatTab(combat)); return; }
@@ -578,7 +628,10 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const stylesOut = JSON.stringify(msgStyles) === JSON.stringify(messageStyles(undefined)) ? null : msgStyles;
       const climateOut = cleanClimate(climate) ?? null;
       const camOut = Object.keys(cam).length ? cam : null;
-      if (JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
+      const statOut = statOrder.join() === DEFAULT_ATTR_ORDER.join() ? null : [...statOrder];
+      const armorOut = JSON.stringify(work.armorTypes) === JSON.stringify(DEFAULT_ARMOR_TYPES) && !db.armorTypes ? null : work.armorTypes ?? null;
+      if (JSON.stringify(statOut) === JSON.stringify(db.statOrder ?? null) && JSON.stringify(armorOut) === JSON.stringify(db.armorTypes ?? null) &&
+        JSON.stringify(stats ?? null) === JSON.stringify(db.stats ?? null) && JSON.stringify(svOut) === JSON.stringify(db.saving ?? null) &&
         JSON.stringify(mOut ?? null) === JSON.stringify(db.menus ?? null) && gameTitle === db.title && JSON.stringify(tFinal) === JSON.stringify(db.time ?? null) &&
         JSON.stringify(Object.keys(ab).length ? ab : null) === JSON.stringify(db.abilities && Object.keys(db.abilities).length ? db.abilities : null) &&
         JSON.stringify(itemsOut) === JSON.stringify(db.items?.length ? db.items : null) && JSON.stringify(invOut ?? null) === JSON.stringify(db.inventory ?? null) &&
@@ -602,6 +655,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       db.title = gameTitle;
       if (tFinal) db.time = C(tFinal); else delete db.time;
       if (camOut) db.overworldCamera = C(camOut); else delete db.overworldCamera;
+      if (statOut) db.statOrder = statOut; else delete db.statOrder;
+      if (armorOut) db.armorTypes = C(armorOut); else delete db.armorTypes;
       if (itemsOut) db.items = C(itemsOut); else delete db.items;
       if (invOut) db.inventory = C(invOut); else delete db.inventory;
       if (combatOut) db.combat = C(combatOut); else delete db.combat;
@@ -671,7 +726,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   function confirmClose(): void {
     if (!dirtyCheck()) { close(); return; }
     openModal('Unsaved changes', h('p', { class: 'modal-text' }, 'You have changes in the Database that aren’t applied yet.'), [
-      { label: 'Discard them', danger: true, onClick: () => close() },
+      { label: 'Discard them', danger: true, onClick: () => { setAttrOrder(store.db.statOrder); close(); } },
       { label: 'Keep editing' },
       { label: 'Apply and save', primary: true, onClick: () => { void applyAndSave().then(() => close()); } },
     ]);

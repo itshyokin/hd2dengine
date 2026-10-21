@@ -782,3 +782,42 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .pl-controls { display: grid; gap: 8px; max-width: 640px; }
 .pl-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
 .pl-parts { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+/* Classes → Skill trees: a dropdown per tree and its picture. */
+.class-tree-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: end; padding: 8px 0; border-top: 1px solid var(--line); }
+.class-tree-row:first-of-type { border-top: 0; }
+.class-tree-row .sk-preview { grid-column: 1 / -1; }
+.sk-preview { display: grid; gap: 4px; width: 100%; padding: 8px; text-align: left; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); cursor: pointer; font: inherit; }
+.sk-preview:hover, .sk-preview:focus-visible { border-color: var(--ember); }
+.sk-preview-head { display: flex; gap: 10px; align-items: baseline; font-size: 12px; }
+.sk-preview-head span { color: var(--muted); }
+.sk-preview-map { width: 100%; max-height: 190px; }
+.sk-preview-node text { fill: var(--ink); font-size: 9px; text-anchor: middle; }
+
+/* Database → Heroes → Stat order */
+.stat-order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 340px; counter-reset: so; }
+.stat-order-list li { counter-increment: so; display: grid; grid-template-columns: 22px 44px 1fr auto auto; gap: 6px; align-items: center; padding: 4px 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; }
+.stat-order-list li::before { content: counter(so); color: var(--muted); font-size: 11px; }
+.stat-order-list b { color: var(--ember); }
+/* Armor types window */
+.armor-types { display: grid; gap: 12px; }
+.armor-type-row { display: grid; gap: 6px; padding: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; }
+.armor-type-row > .field-row { align-items: end; }
+.armor-type-id { color: var(--muted); font-size: 11px; font-family: var(--mono, monospace); padding-bottom: 8px; }
+
+/* Icon picker: groups that fold, and the tint row. */
+.icon-groups { display: grid; gap: 4px; max-height: 320px; overflow: auto; padding-right: 4px; }
+.icon-group > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 3px 0; }
+.icon-group[open] > summary { color: var(--ink); }
+.icon-group > .icon-grid { padding: 4px 0 8px; }
+.tint-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tint-row input[type="color"] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--line); background: none; }
+.tint-row input[type="color"]:disabled { opacity: 0.35; }
+.tint-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3); padding: 0; cursor: pointer; }
+.tint-swatch.on { outline: 2px solid var(--ember); outline-offset: 1px; }
+.spell-icon-row { display: flex; align-items: center; gap: 10px; }
+.spell-icon-row img { width: 32px; height: 32px; image-rendering: pixelated; }
+.armor-type-row > .field-row:first-child { grid-template-columns: 1fr 1fr auto auto; }
+.armor-type-row .bonus-row { grid-template-columns: repeat(7, minmax(52px, 1fr)); gap: 6px; }
+.armor-type-row .bonus-row input { width: 100%; }
+.class-tree-row > .mini-btn { align-self: end; margin-bottom: 6px; }

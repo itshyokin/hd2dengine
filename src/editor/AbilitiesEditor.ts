@@ -4,13 +4,18 @@ import { soundField } from './CommandEditor';
  * Additions (strings of timed strikes with button prompts), and classes (the skill trees each one opens).
  * Each tab is a list on the left and a form for the selected entry.
  */
-import type { AdditionDef, AdditionStrike, ClassDef, FaceButton, GearSkill, SkillsData, SpellEntry } from '../world/types';
-import { GEAR_KINDS } from '../game/classes';
+import type { AdditionDef, AdditionStrike, ArmorTypeDef, ClassDef, FaceButton, GearSkill, SkillsData, SpellEntry } from '../world/types';
+import { gearKinds } from '../game/classes';
+import { openArmorTypes } from './armorTypesEditor';
 import { ATTRS, ATTR_INFO } from '../game/attributes';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 import { elementSelect } from './elementFields';
 import { buffsField, inflictsField, weatherField } from './statusFields';
 import { rankName, spellAtRank, spellMaxRank } from '../game/abilities';
+import { treePreview } from './SkillsEditor';
+import { iconGrid, tintRow } from './ItemsEditor';
+import { builtinIcon, builtinIconName } from '../art/itemIcons';
+import { elementIconUrl } from '../art/elementIcons';
 
 const n = (v: number, set: (x: number) => void, step = 1, min = 0, label = '') => numberInput(v, (x) => set(Math.max(min, x)), { step, min, 'aria-label': label, class: 'db-num' });
 
@@ -55,6 +60,7 @@ export function spellsTab(list: SpellEntry[], state: { sel: number }, rerender: 
     return [
       nameId(list, d, rerender, 'Spell'),
       field('Description', textInput(d.description ?? '', (v) => { d.description = v.trim() || undefined; }, { 'aria-label': 'Spell description' })),
+      spellIconField(d, rerender),
       soundField('Call-out', d.sound, (v) => { d.sound = v; }, 'Turn-based: what the caster says as it goes off (“Fire!”). Import voice clips in Database → Audio.'),
       soundField('Chant', d.chant, (v) => { d.chant = v; }, 'Played as they begin a spell that charges (Charges above 0).'),
       h('div', { class: 'field-row' },
@@ -138,7 +144,7 @@ export function additionsTab(list: AdditionDef[], state: { sel: number }, rerend
 
 /* ------------------------------------------------------------------ classes */
 
-export function classesTab(list: ClassDef[], skills: SkillsData, state: { sel: number }, rerender: () => void): HTMLElement[] {
+export function classesTab(list: ClassDef[], skills: SkillsData, state: { sel: number }, rerender: () => void, openTree: (id: string) => void = () => {}, armor?: ArmorTypeDef[]): HTMLElement[] {
   return listLayout<ClassDef>(list, state, 'Class', (id) => ({ id, name: 'New class', trees: skills.trees.slice(0, 1).map((t) => t.id) }), (d) => [
     nameId(list, d, rerender, 'Class'),
     field('Description', textInput(d.description ?? '', (v) => { d.description = v.trim() || undefined; }, { 'aria-label': 'Class description' })),
@@ -150,12 +156,45 @@ export function classesTab(list: ClassDef[], skills: SkillsData, state: { sel: n
       h('p', { class: 'note' }, 'Given once, for good, when a hero joins the class (their starting class counts). A Fighter might get Strength and Endurance, a Mage Magic and Magic Defence.')),
     h('section', { class: 'db-section' }, h('h3', {}, 'Weapons and armor'),
       h('div', { class: 'db-table class-gear' }, h('span', { class: 'db-head' }, 'Kind'), h('span', { class: 'db-head' }, 'This class'),
-        ...GEAR_KINDS.flatMap(([k, name]) => [h('span', { class: 'db-name' }, name), select([['trained', 'Trained (full effect)'], ['untrained', 'Untrained (weaker)'], ['none', 'Can’t use']], d.gear?.[k] ?? 'trained', (v) => {
+        ...gearKinds({ armorTypes: armor }).flatMap(([k, name]) => [h('span', { class: 'db-name' }, name), select([['trained', 'Trained (full effect)'], ['untrained', 'Untrained (weaker)'], ['none', 'Can’t use']], d.gear?.[k] ?? 'trained', (v) => {
           if (v === 'trained') { if (d.gear) { delete d.gear[k]; if (!Object.keys(d.gear).length) delete d.gear; } } else (d.gear ??= {})[k] = v as GearSkill;
         }, { 'aria-label': `${d.name}: ${name}` })])),
-      h('p', { class: 'note' }, 'Untrained weapons hit for three quarters. Untrained armor costs Agility and Dexterity (more the heavier it is). “Can’t use” greys it out in Equipment for heroes of this class. A weapon’s type and an armor’s weight are set in Database → Items (or guessed from the name). Arms Training in the skill trees still decides medium and heavy weapon training too.')),
-    h('section', { class: 'db-section' }, h('h3', {}, 'Skill trees'),
-      ...skills.trees.map((t) => checkbox(t.name, d.trees.includes(t.id), (v) => { d.trees = v ? [...d.trees, t.id] : d.trees.filter((x) => x !== t.id); })),
-      h('p', { class: 'note' }, 'A hero learns from the trees of their class, and of every class they’ve had before (only the event command Change class changes it; players can’t). Heroes without a class (or a game with no classes) see every tree.')),
+      armor ? h('button', { type: 'button', class: 'btn small', onclick: () => openArmorTypes(armor, rerender) }, 'Edit armor types…') : h('span'),
+      h('p', { class: 'note' }, 'Untrained weapons hit for three quarters. Untrained armor costs the stats set for its type (Edit armor types…). “Can’t use” greys it out in Equipment for heroes of this class. A weapon’s type is set in Database → Weapons and an armor’s type in Database → Gear (or guessed from the name). Arms Training in the skill trees still decides medium and heavy weapon training too.')),
+    classTrees(d, skills, rerender, openTree),
   ], rerender, 'No classes yet. Without classes, every hero learns from every skill tree. Add classes to give each its own trees; set a hero’s starting class in Database → Heroes, and change or unlock classes with the event command “Change class”.');
+}
+
+/** A class's skill trees: one dropdown per tree (add or remove more), and a preview of each that opens it for editing. */
+function classTrees(d: ClassDef, skills: SkillsData, rerender: () => void, openTree: (id: string) => void): HTMLElement {
+  // The Party tree is everyone's already, whatever their class.
+  const choices = skills.trees.filter((t) => !t.shared);
+  const opts: [string, string][] = choices.map((t) => [t.id, t.name]);
+  d.trees = d.trees.filter((id, i, a) => a.indexOf(id) === i);
+  const rows = d.trees.map((id, k) => h('div', { class: 'class-tree-row' },
+    field(k ? `Skill tree ${k + 1}` : 'Skill tree', select(opts.some(([v]) => v === id) ? opts : [[id, `${id} (missing)`], ...opts], id, (v) => { d.trees[k] = v; rerender(); }, { 'aria-label': `${d.name} skill tree ${k + 1}` })),
+    h('button', { type: 'button', class: 'mini-btn', title: 'Remove this tree from the class', 'aria-label': `Remove ${id}`, onclick: () => { d.trees.splice(k, 1); rerender(); } }, '×'),
+    treePreview(skills, id, () => openTree(id))));
+  const unused = choices.filter((t) => !d.trees.includes(t.id));
+  return h('section', { class: 'db-section' }, h('h3', {}, 'Skill trees'),
+    ...(rows.length ? rows : [h('p', { class: 'note warn' }, 'No tree yet: heroes of this class have nothing to learn (besides the Party tree).')]),
+    choices.length
+      ? h('button', { type: 'button', class: 'btn small', disabled: !unused.length, title: unused.length ? 'Give this class another tree' : 'Every tree is already given', onclick: () => { d.trees.push(unused[0].id); rerender(); } }, d.trees.length ? '+ Another tree' : '+ Pick a tree')
+      : h('p', { class: 'note' }, 'Make skill trees in Database → Skill trees first.'),
+    h('p', { class: 'note' }, 'A hero learns from the trees of their class, and of every class they’ve had before (only the event command Change class changes it; players can’t). Heroes without a class (or a game with no classes) see every tree. Click a tree’s picture to edit it.'));
+}
+
+/** A spell's icon in the battle menus: its element's (default), or a built-in icon, tinted if wanted. */
+function spellIconField(d: SpellEntry, rerender: () => void): HTMLElement {
+  const own = !!d.icon;
+  const el = d.element && d.element !== 'neutral' ? d.element : null;
+  const preview = own ? builtinIcon(builtinIconName(d.icon) ?? 'spell_fire', d.iconTint).toDataURL() : el ? elementIconUrl(el) : builtinIcon('spell_fire', d.iconTint ?? d.color).toDataURL();
+  return field('Icon', h('div', { class: 'icon-picker' },
+    h('div', { class: 'spell-icon-row' }, h('img', { src: preview, alt: '' }),
+      select([['element', el ? 'Use its element’s icon' : 'Use its element (none: the magic icon in its colour)'], ['own', 'Pick an icon']], own ? 'own' : 'element', (v) => {
+        if (v === 'own') d.icon = 'builtin:spell_fire'; else { delete d.icon; delete d.iconTint; }
+        rerender();
+      }, { 'aria-label': `${d.name} icon` })),
+    ...(own ? [tintRow(d.iconTint, (t) => { if (t) d.iconTint = t; else delete d.iconTint; rerender(); }), iconGrid(d.icon, d.iconTint, (icon) => { d.icon = icon; rerender(); })] : [])),
+    'Shown beside its name in the battle Magic list.');
 }

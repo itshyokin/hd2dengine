@@ -6,6 +6,7 @@
  * the screen shows it.
  */
 import { elementIconUrl } from '../../art/elementIcons';
+import { builtinIcon, builtinIconName } from '../../art/itemIcons';
 import type { Sfx } from '../../audio/sfx';
 import type { BattleScreen, ChoiceItem, FighterView, PickList, VictoryReport } from '../../ui/BattleScreen';
 import type { Ailment, BattleWeather, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
@@ -490,7 +491,7 @@ export class TurnBattle {
   private magicMenu(b: Battler): void {
     const list = b.spells.map((s) => {
       const top = s.ranks[s.ranks.length - 1], low = s.ranks[0];
-      return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], iconUrl: s.element && s.element !== 'neutral' ? elementIconUrl(s.element) : undefined, inlineIcon: true, right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
+      return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], iconUrl: s.icon ? builtinIcon(builtinIconName(s.icon) ?? 'spell_fire', s.iconTint).toDataURL() : s.element && s.element !== 'neutral' ? elementIconUrl(s.element) : undefined, inlineIcon: true, right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
         detail: [s.description, s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one') : s.kind === 'support' ? [s.buffs?.length ? `${s.buffs.map((g) => buffLabel(g.buff)).join(', ')} for ${s.supportTarget === 'foes' ? (s.targets === 'all' ? 'every foe' : 'one foe') : s.supportTarget === 'any' ? (s.targets === 'all' ? 'either side' : 'anyone') : s.targets === 'all' ? 'the whole party' : 'one'}` : '', s.weather ? `${WEATHER_EFFECT[s.weather].name}: ${WEATHER_EFFECT[s.weather].text.toLowerCase()}` : ''].filter(Boolean).join('; ') || 'Support' : `${s.element === 'neutral' ? 'Magic' : s.element[0].toUpperCase() + s.element.slice(1)} damage to ${s.targets === 'all' ? 'every foe' : 'one foe'}`, low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : 'goes off at once'].filter(Boolean).join(' · ') };
     });
     this.screen.choose('Magic', list, (i) => this.rankMenu(b, b.spells[i]), () => this.commandMenu(b), () => this.showOrder(RANK.magic));

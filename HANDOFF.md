@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 21, 2026, after Update 94)
+# Handoff: where the project stands (Oct 21, 2026, after Update 95)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** waiting on the owner's playtest of Update 94 (props: walk-on-top setting, palette scroll kept, edit several together).
+- **Next work:** waiting on the owner's playtest of Update 95 (Database: stat order, armor types, item tabs, icons and tint, spell icons, class skill tree picker).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -193,12 +193,22 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   (`shownMode`); `propPicks` + `.sprite-tick` + `.prop-picks` bar; `src/editor/PropBatchEdit.ts` (settings table,
   only changed keys applied); assets.ts `saveProps` (one assets.json write, entries replaced in place). Customised
   built-ins are now "saved in assets.json", not "has an image".
+- 95: attributes.ts `setAttrOrder` reorders `ATTRS` in place (Database `statOrder`; EditorStore's `db` setter and
+  `changedDb`, Game after loading); statusFields `orderedBuffs`. Armor types: `ArmorTypeDef`, Database `armorTypes`,
+  classes.ts `DEFAULT_ARMOR_TYPES` / `armorTypes(db)` / `gearKinds(db)` (GEAR_KINDS and UNTRAINED_ARMOR gone;
+  `armorWeightOf(d, db)` and `gearKindOf(d, db)` take the db), ItemDef `armorWeight` holds a type id;
+  `src/editor/armorTypesEditor.ts`, ItemsWork `armorTypes`. Item tabs: ItemsEditor `ItemCat` / `ITEM_CATS` /
+  `itemCategory` / `itemsTab(..., cat, goto)`; DatabaseEditor `catState`, listOf `insert`. Icons: itemIcons.ts
+  `MORE_ICONS`, `ICON_GROUP_LIST`, `iconGroups()`, `builtinIcon(name, tint)`, `tintCanvas`; ItemDef `iconTint`;
+  ItemsEditor `iconGrid` / `tintRow`. SpellEntry / BattleSpell `icon` + `iconTint` (TurnBattle magicMenu).
+  Classes: AbilitiesEditor `classTrees` (dropdowns; checkboxes were swept to the top by formLayout) and
+  SkillsEditor `treePreview`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. Whatever the owner reports from playtesting Update 94.
+1. Whatever the owner reports from playtesting Update 95.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

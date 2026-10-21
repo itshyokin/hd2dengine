@@ -4,6 +4,9 @@
  */
 import { statusIconUrl } from '../art/statusIcons';
 import { AILMENTS, AILMENT_INFO, BUFFS, BUFF_INFO } from '../game/status';
+import { ATTRS } from '../game/attributes';
+/** Buffs with the stat ones in the game's stat order. */
+const orderedBuffs = () => { const stat = new Set<string>(ATTRS); const rest = BUFFS.filter((b) => !stat.has(b)); return [rest[0], ...ATTRS, ...rest.slice(1)] as typeof BUFFS; };
 import { BUFF_TURNS } from '../game/battle/status';
 import type { Ailment, BattleWeather, BuffGrant, Inflict } from '../world/types';
 import { WEATHER_EFFECT } from '../game/battle/rules';
@@ -57,7 +60,7 @@ export function buffsField(get: () => BuffGrant[] | undefined, set: (v: BuffGran
   return h('div', { class: 'field st-field' }, h('label', {}, opts.label ?? 'Buffs it gives'),
     ...list.map((b, k) => h('div', { class: 'st-line' },
       h('img', { src: statusIconUrl(`buff:${b.buff}`), alt: '', class: 'el-icon' }),
-      select(BUFFS.map((x) => [x, BUFF_INFO[x].name] as [string, string]), b.buff, (v) => { b.buff = v as BuffGrant['buff']; delete b.amount; save(list); rerender(); }, { 'aria-label': `Buff ${k + 1}` }),
+      select(orderedBuffs().map((x) => [x, BUFF_INFO[x].name] as [string, string]), b.buff, (v) => { b.buff = v as BuffGrant['buff']; delete b.amount; save(list); rerender(); }, { 'aria-label': `Buff ${k + 1}` }),
       h('span', { class: 'note' }, '+'),
       numberInput(b.amount ?? BUFF_INFO[b.buff].amount, (v) => { const n = Math.max(1, Math.round(v)); if (n === BUFF_INFO[b.buff].amount) delete b.amount; else b.amount = n; save(list); }, { step: 1, min: 1, 'aria-label': `Buff ${k + 1} amount` }),
       h('span', { class: 'note' }, `${BUFF_INFO[b.buff].unit || ''} for`),

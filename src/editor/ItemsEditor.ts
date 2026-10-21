@@ -7,10 +7,11 @@ import { upgradeRestore } from '../game/restore';
 import { ailmentChips, buffsField, inflictsField } from './statusFields';
 import type { Ailment } from '../world/types';
 import { elementSelect, matchupText } from './elementFields';
-import { ITEM_ICONS, builtinIcon, builtinIconName } from '../art/itemIcons';
+import { ITEM_ICONS, builtinIcon, builtinIconName, iconGroups, tintCanvas } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS } from '../game/inventory';
-import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight, type EssenceTier } from '../world/types';
-import { WEAPON_TYPES, WEAPON_TYPE_NAME, armorWeightOf, weaponTypeOf } from '../game/classes';
+import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight, type ArmorTypeDef, type EssenceTier } from '../world/types';
+import { WEAPON_TYPES, WEAPON_TYPE_NAME, armorTypes, armorWeightOf, weaponTypeOf } from '../game/classes';
+import { openArmorTypes } from './armorTypesEditor';
 import { FIELD_GLOW, POWER_NAMES, itemColor } from '../world/items';
 import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
 import { RANKS, RANK_GAIN, type Rank } from '../game/statRanks';
@@ -34,9 +35,9 @@ export function defaultLight(type: ItemLight['type']): ItemLight {
 
 /** Image URL for an item icon in the editor (built-in art, or an imported file). */
 const urls = new Map<string, string>();
-export function iconUrl(store: EditorStore, icon: string | undefined): string {
+export function iconUrl(store: EditorStore, icon: string | undefined, tint?: string): string {
   const name = builtinIconName(icon);
-  if (name || !icon) return builtinIcon(name ?? 'bag').toDataURL();
+  if (name || !icon) return builtinIcon(name ?? 'bag', tint).toDataURL();
   const blob = store.files.get(icon);
   if (!blob) return builtinIcon('?').toDataURL();
   let u = urls.get(icon);
@@ -50,7 +51,21 @@ export function iconUrl(store: EditorStore, icon: string | undefined): string {
  */
 const spriteIconUrls = new Map<string, string>();
 export function itemIconImg(store: EditorStore, d: ItemDef, cls = 'item-icon'): HTMLImageElement {
-  if (d.icon !== 'sprite') return h('img', { src: iconUrl(store, d.icon), alt: '', class: cls });
+  if (d.icon !== 'sprite') {
+    const img = h('img', { src: iconUrl(store, d.icon, d.iconTint), alt: '', class: cls });
+    // An imported picture with a tint: recoloured once it has loaded.
+    if (d.iconTint && !builtinIconName(d.icon) && d.icon) {
+      const tint = d.iconTint;
+      img.addEventListener('load', () => {
+        if (img.dataset.tinted) return;
+        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        c.getContext('2d')!.drawImage(img, 0, 0);
+        img.dataset.tinted = '1';
+        img.src = tintCanvas(c, tint).toDataURL();
+      });
+    }
+    return img;
+  }
   const id = itemWeaponSprite(d);
   const fallback = builtinIcon(d.slot === 'ranged' ? 'bow' : d.slot === 'shield' ? 'shield' : 'sword').toDataURL();
   const img = h('img', { src: spriteIconUrls.get(id) ?? fallback, alt: '', class: `${cls} pixel`, 'data-sprite-icon': id });
@@ -79,31 +94,67 @@ function itemId(name: string, taken: (id: string) => boolean): string {
   return id;
 }
 
-export interface ItemsWork { items: ItemDef[]; inventory: InventorySetup }
+export interface ItemsWork { items: ItemDef[]; inventory: InventorySetup; /** The window's armor types (Database → Armor types). */ armorTypes?: ArmorTypeDef[] }
 
 /** Items added in this window: their id follows their name until the database is applied. */
 const fresh = new WeakSet<ItemDef>();
 
-/** The Items tab. `rerender` redraws the whole tab (after adding or deleting an item). */
-export function itemsTab(store: EditorStore, work: ItemsWork, state: { sel: number }, rerender: () => void): HTMLElement[] {
-  const items = work.items;
-  state.sel = Math.min(state.sel, items.length - 1);
+/** The item tabs: everything in one list in the game's data, shown in five Database tabs. */
+export type ItemCat = 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems';
+export const ITEM_CATS: [ItemCat, string, string][] = [
+  ['items', 'Items', 'Potions, food, loot and materials'],
+  ['weapons', 'Weapons', 'Swords, bows and arrows'],
+  ['gear', 'Gear', 'Armor, shields and accessories'],
+  ['shards', 'Shards', 'Spell shards and element stones'],
+  ['keyItems', 'Key items', 'Quest items, keys and field tools'],
+];
+/** Which tab an item is listed in. */
+export function itemCategory(d: ItemDef): ItemCat {
+  if (d.kind === 'key') return 'keyItems';
+  if (d.kind === 'ammo') return 'weapons';
+  if (d.kind === 'equipment') return d.slot === 'weapon' || d.slot === 'ranged' ? 'weapons' : d.slot === 'magic' ? 'shards' : 'gear';
+  if (d.kind === 'material' && d.essence) return 'shards';
+  return 'items';
+}
+/** A new entry for a tab. */
+function newItem(cat: ItemCat, id: string): ItemDef {
+  switch (cat) {
+    case 'weapons': return { id, name: 'New weapon', kind: 'equipment', slot: 'weapon', icon: 'builtin:sword', price: 50, weapon: { class: 'light', damage: 8 } };
+    case 'gear': return { id, name: 'New armor', kind: 'equipment', slot: 'armor', icon: 'builtin:armor', price: 50, defense: 4 };
+    case 'shards': return { id, name: 'New shard', kind: 'equipment', slot: 'magic', icon: 'builtin:shard_frost', price: 80, spell: defaultSpell() };
+    case 'keyItems': return { id, name: 'New key item', kind: 'key', icon: 'builtin:key' };
+    default: return { id, name: 'New item', kind: 'consumable', icon: 'builtin:potion', price: 10, restore: { hp: 20 } };
+  }
+}
+
+/**
+ * One of the item tabs. `rerender` redraws the whole tab (after adding or deleting an item); `goto` opens another
+ * item tab (an item whose kind or slot changes moves to its tab, still selected).
+ */
+export function itemsTab(store: EditorStore, work: ItemsWork, state: { sel: number; cur?: ItemDef }, rerender: () => void, cat: ItemCat = 'items', goto?: (cat: ItemCat, d: ItemDef) => void): HTMLElement[] {
+  const all = work.items;
+  // The item being edited changed tab (its kind or slot): follow it there.
+  if (state.cur && all.includes(state.cur) && itemCategory(state.cur) !== cat && goto) { const d = state.cur; state.cur = undefined; goto(itemCategory(d), d); return []; }
+  const items = all.filter((d) => itemCategory(d) === cat);
+  state.sel = Math.max(0, Math.min(state.sel, items.length - 1));
+  const label = ITEM_CATS.find(([c]) => c === cat)![1];
   const add = () => {
-    const id = itemId('New item', (x) => items.some((d) => d.id === x));
-    const item: ItemDef = { id, name: 'New item', kind: 'consumable', icon: 'builtin:potion', price: 10, restore: { hp: 20 } };
-    fresh.add(item);
-    items.push(item);
-    state.sel = items.length - 1;
+    const base = newItem(cat, '');
+    base.id = itemId(base.name, (x) => all.some((d) => d.id === x));
+    fresh.add(base);
+    all.push(base);
+    state.sel = items.length;
     rerender();
   };
-  const list = h('div', { class: 'item-list', role: 'listbox', 'aria-label': 'Items' },
+  const list = h('div', { class: 'item-list', role: 'listbox', 'aria-label': label },
     ...items.map((d, i) => h('button', { type: 'button', class: 'item-row', role: 'option', 'aria-selected': String(i === state.sel), onclick: () => { state.sel = i; rerender(); } },
       itemIconImg(store, d), h('span', itemColor(d) ? { style: `color:${itemColor(d)}` } : {}, d.name || '(no name)'))),
-    h('button', { type: 'button', class: 'btn item-add', onclick: add }, '+ New item'));
+    h('button', { type: 'button', class: 'btn item-add', onclick: add }, `+ New ${{ items: 'item', weapons: 'weapon', gear: 'gear', shards: 'shard', keyItems: 'key item' }[cat]}`));
   const d = items[state.sel];
+  state.cur = d;
   const form = h('div', { class: 'item-form' });
-  if (!d) form.append(h('p', { class: 'note' }, 'No items yet. Add potions, a sword, a spell shard, a key… then hand them out with the “Give item” event command, put them in chests (Inspector → Create chest here), or sell them in shops (“Open shop”).'));
-  else form.append(...itemForm(store, work, d, rerender, () => { items.splice(state.sel, 1); state.sel = Math.max(0, state.sel - 1); rerender(); }));
+  if (!d) form.append(h('p', { class: 'note' }, `No ${label.toLowerCase()} yet. Items are handed out with the “Give item” event command, put in chests (Inspector → Create chest here), or sold in shops (“Open shop”).`));
+  else form.append(...itemForm(store, work, d, rerender, () => { all.splice(all.indexOf(d), 1); state.sel = Math.max(0, state.sel - 1); state.cur = undefined; rerender(); }));
   return [h('div', { class: 'items-layout' }, list, form)];
 }
 
@@ -194,7 +245,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       })),
       rarityField(d, rerender),
       ...(d.slot === 'weapon' || d.slot === 'ranged' || (d.slot === 'magic' && !d.spell?.power) ? [field('Element', elementSelect(d.element, (e) => { if (e && e !== 'neutral') d.element = e; else delete d.element; rerender(); }), matchupText(d.element))] : []),
-      d.slot === 'weapon' || d.slot === 'ranged' ? weaponForm(d) : d.slot === 'magic' ? spellForm(d, rerender) : defenseForm(d),
+      d.slot === 'weapon' || d.slot === 'ranged' ? weaponForm(d) : d.slot === 'magic' ? spellForm(d, rerender) : defenseForm(d, work, rerender),
       ...(() => { const f = itemSpriteField(store, d, rerender); return f ? [field('Sprite (animated characters)', f, 'What LPC characters hold. Characters without animations show the icon.')] : []; })(),
       ...(d.slot === 'weapon' || d.slot === 'ranged' ? [effectsForm(d)] : []),
       ...(d.slot === 'weapon' ? [checkbox('Breaks rock (a pickaxe, a hammer): mines boulders and ore veins', !!d.mines, (v) => { if (v) d.mines = true; else delete d.mines; })] : []),
@@ -342,9 +393,15 @@ function weaponForm(d: ItemDef): HTMLElement {
 }
 
 /** Armor and accessories: defence against hits and against spells. */
-function defenseForm(d: ItemDef): HTMLElement {
-  const weight = d.slot === 'armor' ? field('Weight', select([['', `Automatic (${armorWeightOf({ ...d, armorWeight: undefined }) ?? 'light'})`], ['light', 'Light (cloth, leather)'], ['medium', 'Medium (chain, scale)'], ['heavy', 'Heavy (plate)']],
-    d.armorWeight ?? '', (v) => { if (v) d.armorWeight = v as ArmorWeight; else delete d.armorWeight; }), 'For classes: which armor each is trained with. Automatic guesses from the name.') : null;
+function defenseForm(d: ItemDef, work: ItemsWork, rerender: () => void): HTMLElement {
+  const db = { armorTypes: work.armorTypes };
+  const types = armorTypes(db);
+  const auto = types.find((t) => t.id === armorWeightOf({ ...d, armorWeight: undefined }, db))?.name ?? types[0]?.name ?? '';
+  const weight = d.slot === 'armor' ? field('Armor type', h('div', { class: 'sw-input' },
+    select([['', `Automatic (${auto})`], ...types.map((t) => [t.id, t.note ? `${t.name} (${t.note})` : t.name] as [string, string]), ...(d.armorWeight && !types.some((t) => t.id === d.armorWeight) ? [[d.armorWeight, `${d.armorWeight} (removed: automatic)`] as [string, string]] : [])],
+      d.armorWeight ?? '', (v) => { if (v) d.armorWeight = v as ArmorWeight; else delete d.armorWeight; }),
+    work.armorTypes ? h('button', { type: 'button', class: 'mini-btn', title: 'Add, rename or remove armor types', 'aria-label': 'Edit armor types', onclick: () => openArmorTypes(work.armorTypes!, rerender) }, '☰') : h('span')),
+    'For classes: which armor each is trained with (☰ edits the types). Automatic guesses from the name.') : null;
   return h('div', { class: 'item-ring' }, weight ?? h('span'), h('div', { class: 'field-row' },
     field('Defence', numberInput(d.defense ?? 0, (v) => (d.defense = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }),
       'Against hits and arrows. Damage taken is reduced by defence ÷ (defence + 50): 10 takes away 17%, 50 takes away half.'),
@@ -380,11 +437,7 @@ function lightForm(d: ItemDef, rerender: () => void): HTMLElement {
 
 /** Built-in icon grid plus “Import image…”. */
 function iconPicker(store: EditorStore, d: ItemDef, refresh: () => void, rerender: () => void): HTMLElement {
-  const grid = h('div', { class: 'icon-grid', role: 'radiogroup', 'aria-label': 'Built-in icons' },
-    ...Object.entries(ITEM_ICONS).map(([name, def]) => h('button', {
-      type: 'button', class: 'icon-pick', role: 'radio', 'aria-checked': String(d.icon === `builtin:${name}`), title: def.name, 'aria-label': def.name,
-      onclick: () => { d.icon = `builtin:${name}`; rerender(); },
-    }, h('img', { src: builtinIcon(name).toDataURL(), alt: '' }))));
+  const grid = iconGrid(d.icon, d.iconTint, (icon) => { d.icon = icon; rerender(); });
   const file = h('input', { type: 'file', accept: 'image/png,image/webp,image/gif', hidden: true });
   file.addEventListener('change', async () => {
     const f = file.files?.[0];
@@ -407,10 +460,37 @@ function iconPicker(store: EditorStore, d: ItemDef, refresh: () => void, rerende
       onclick: () => { d.icon = 'sprite'; rerender(); } }, 'From its sprite')
     : null;
   if (fromSprite) grid.prepend(fromSprite);
-  return h('div', { class: 'icon-picker' }, grid,
+  return h('div', { class: 'icon-picker' }, tintRow(d.iconTint, (t) => { if (t) d.iconTint = t; else delete d.iconTint; rerender(); }), grid,
     h('div', { class: 'icon-import' },
       h('button', { type: 'button', class: 'btn', onclick: () => file.click() }, imported ? 'Replace image…' : 'Import image…'),
       h('span', { class: 'hint' }, imported ? d.icon : d.icon === 'sprite' ? 'Cut from its weapon sprite (bag, shop and back icons match the weapon).' : '16 × 16 or 32 × 32 PNG with a transparent background.'), file));
+}
+
+/** The built-in icons by group (potions, food, weapons…), the chosen one marked; `tint` previews them recoloured. */
+export function iconGrid(current: string | undefined, tint: string | undefined, pick: (icon: string) => void): HTMLElement {
+  const btn = (name: string) => h('button', {
+    type: 'button', class: 'icon-pick', role: 'radio', 'aria-checked': String(current === `builtin:${name}`), title: ITEM_ICONS[name].name, 'aria-label': ITEM_ICONS[name].name,
+    onclick: () => pick(`builtin:${name}`),
+  }, h('img', { src: builtinIcon(name, tint).toDataURL(), alt: '' }));
+  // The chosen icon's group starts open; the rest fold away (the lists are long).
+  const cur = builtinIconName(current);
+  return h('div', { class: 'icon-groups', role: 'radiogroup', 'aria-label': 'Built-in icons' },
+    ...iconGroups().map(([group, names]) => {
+      const det = h('details', { class: 'icon-group' }, h('summary', {}, `${group} (${names.length})`), h('div', { class: 'icon-grid' }, ...names.map(btn)));
+      if (cur && names.includes(cur)) det.open = true;
+      return det;
+    }));
+}
+/** A tint for an icon: off, or a colour (with a few quick picks). */
+export function tintRow(tint: string | undefined, set: (t: string | undefined) => void): HTMLElement {
+  const color = h('input', { type: 'color', value: tint ?? '#e05a4a', 'aria-label': 'Tint colour', disabled: !tint });
+  color.addEventListener('change', () => set(color.value));
+  const QUICK = ['#e8483a', '#ff9a2a', '#f0d040', '#5ac840', '#3ab8c8', '#3a6ae0', '#9a4ae0', '#e04a9a', '#f4f4f4', '#2a2a30'];
+  return h('div', { class: 'tint-row' },
+    checkbox('Tint', !!tint, (v) => set(v ? color.value : undefined)),
+    color,
+    ...QUICK.map((c) => h('button', { type: 'button', class: `tint-swatch${tint === c ? ' on' : ''}`, style: `background:${c}`, title: `Tint ${c}`, 'aria-label': `Tint ${c}`, onclick: () => set(c) })),
+    h('span', { class: 'hint' }, 'Recolours the icon, keeping its shading.'));
 }
 
 /** Where an item is used by the inventory setup (events aren't scanned here). */

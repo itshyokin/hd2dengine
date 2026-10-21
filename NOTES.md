@@ -183,6 +183,16 @@ Kept in the project so they travel with the code. Tick them off as they're built
         element).
   - [x] Battle start: health bars start at the hero's current health (no drain down from full). If needed, build
         the scene first and fade in once the bars are set.
+- [x] Owner's list (Oct 20, 11:35 pm) (update 95):
+  - [x] Stat order (Database → Heroes): reorder STR, DEX… once; every list in the game and the Database follows it.
+  - [x] "Weight" renamed "Armor type", with an Armor types window (add, rename, remove; untrained costs per type).
+  - [x] Items split into tabs: Items, Weapons, Gear (armor, shields, accessories), Shards (spell shards and element
+        stones), Key items.
+  - [x] Many more built-in icons (weapons, armor and clothes, potions and bottles, food, drinks, materials, gems,
+        ores, herbs, containers, spell symbols…), in folding groups, and a Tint for any item icon.
+  - [x] Spells: their own icon (built-in, tintable) or "Use its element".
+  - [x] Classes → Skill trees: a dropdown per tree (the old checkboxes had been moved to the top of the form by the
+        switches-first layout, so only the note showed), with a picture of each tree that opens it in Skill trees.
 - [x] Owner's list (Oct 20, late night) (update 94):
   - [x] Props: a "Walk on top (bridge or platform)" setting (east–west, north–south, or a platform any way), drawn as
         the prop's own picture or built in 3D. Customised built-in bridges that had lost it work as bridges again.

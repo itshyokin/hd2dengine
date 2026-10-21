@@ -82,14 +82,14 @@ import { EQUIP_SLOTS, type Ailment, type Database, type Dir, type EquipSlot, typ
 import { loadAssets, loadDatabase, loadMap } from '../shared/dataFiles';
 import { applyTheme } from '../world/mapThemes';
 import { loadCanvas } from '../shared/images';
-import { builtinIcon, builtinIconName } from '../art/itemIcons';
+import { builtinIcon, builtinIconName, tintCanvas as tintIcon } from '../art/itemIcons';
 import { DEFAULT_BAG_SLOTS, Inventory, QUICK_SLOTS, alwaysFits } from './inventory';
 import { forgeRules, forgedDef, upgradable, upgradeCost } from './forge';
 import { typeChartHtml } from '../ui/typeChart';
 import { affinity, affinityText, essenceItem, fuseCount, nextTier, type Affinity } from './essence';
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
 import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
-import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, speedMultiplier } from './attributes';
+import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, setAttrOrder, speedMultiplier } from './attributes';
 import { classStatGear, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
 import { buffLabel, effectColor, effectName, type EffectId } from './status';
@@ -428,6 +428,7 @@ export class Game {
       assets = await loadAssets();
     }
     this.resolveFile = resolve;
+    setAttrOrder(this.db.statOrder);
     migrateMap(mapData);
     // What the map leaves to its theme (Database → Map themes). A copy, so a map handed over by the editor isn't changed.
     if (mapData.theme) mapData = applyTheme(JSON.parse(JSON.stringify(mapData)) as MapData, this.db.mapThemes);
@@ -2493,8 +2494,8 @@ export class Game {
       const name = builtinIconName(d.icon);
       let c: HTMLCanvasElement;
       if (d.icon === 'sprite') c = this.sprites.weaponIcon(itemWeaponSprite(d)) ?? builtinIcon(d.slot === 'ranged' ? 'bow' : d.slot === 'shield' ? 'shield' : 'sword');
-      else if (name || !d.icon) c = builtinIcon(name ?? 'bag');
-      else { try { c = await loadCanvas(resolve(d.icon)); } catch { c = builtinIcon('?'); console.warn(`${d.name}: icon “${d.icon}” is missing`); } }
+      else if (name || !d.icon) c = builtinIcon(name ?? 'bag', d.iconTint);
+      else { try { c = await loadCanvas(resolve(d.icon)); if (d.iconTint) c = tintIcon(c, d.iconTint); } catch { c = builtinIcon('?'); console.warn(`${d.name}: icon “${d.icon}” is missing`); } }
       this.icons.set(d.id, c.toDataURL());
       this.iconCanvases.set(d.id, c);
     }));
@@ -4873,7 +4874,7 @@ export class Game {
         const at = spellAtRank(s, i + 1);
         return { rank: i + 1, name: rankName(s.name, i + 1), power: at.power * power, mp: Math.max(0, Math.round(at.mp * thrift)), charge: at.charge };
       });
-      out.push({ id: s.id, name: s.name, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget, weather: s.weather, weatherTurns: s.weatherTurns, accuracy: s.accuracy, sure: s.sure, sequence: s.sequence, seqTime: s.seqTime, seqBonus: s.seqBonus });
+      out.push({ id: s.id, name: s.name, icon: s.icon, iconTint: s.iconTint, description: s.description, sound: s.sound, chant: s.chant, kind: s.kind, element: s.element ?? 'neutral', color: s.color, targets: s.targets ?? 'one', inflicts: s.inflicts, ranks, buffs: s.buffs, supportTarget: s.supportTarget, weather: s.weather, weatherTurns: s.weatherTurns, accuracy: s.accuracy, sure: s.sure, sequence: s.sequence, seqTime: s.seqTime, seqBonus: s.seqBonus });
     }
     return out;
   }

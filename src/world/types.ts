@@ -890,6 +890,10 @@ export type AllyStyle = 'fighter' | 'archer' | 'caster' | 'healer';
 export interface OverworldCamera { pitch?: number; distance?: number; fov?: number; lean?: number }
 
 export interface Database {
+  /** Armor types (missing: Light, Medium and Heavy armor). */
+  armorTypes?: ArmorTypeDef[];
+  /** The order stats are listed in everywhere (missing: Strength, Dexterity, Agility, Endurance, Defence, Magic, Magic Defence). */
+  statOrder?: ('str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf')[];
   /** The camera over the maps (Database → Camera). Unset: the handheld-style camera. */
   overworldCamera?: OverworldCamera;
   title: string;
@@ -1005,10 +1009,19 @@ export const WEAPON_CLASSES: WeaponClass[] = ['light', 'medium', 'heavy'];
 
 /** What kind of weapon it is (classes can be trained with each kind, or kept from it). */
 export type WeaponType = 'sword' | 'dagger' | 'axe' | 'mace' | 'spear' | 'staff' | 'wand' | 'fist' | 'bow' | 'crossbow';
-/** Armor weight: light (cloth, leather), medium (chain, scale), heavy (plate). */
-export type ArmorWeight = 'light' | 'medium' | 'heavy';
-/** What a class can be trained with: a weapon type, an armor weight, or shields. */
-export type GearKind = WeaponType | `armor:${ArmorWeight}` | 'shield';
+/** An armor type's id (Database → Armor types): built in light (cloth, leather), medium (chain, scale), heavy (plate). */
+export type ArmorWeight = string;
+/** An armor type: its name, and what wearing it untrained costs (Agility and Dexterity for the built-in ones). */
+export interface ArmorTypeDef {
+  id: string;
+  name: string;
+  /** A short description (cloth, leather…). */
+  note?: string;
+  /** Stats it costs a hero whose class is untrained with it (negative numbers). */
+  untrained?: Partial<Record<'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf', number>>;
+}
+/** What a class can be trained with: a weapon type, an armor type, or shields. */
+export type GearKind = WeaponType | `armor:${string}` | 'shield';
 /** Trained (full effect), untrained (weaker), or can't use it at all. */
 export type GearSkill = 'trained' | 'untrained' | 'none';
 
@@ -1149,7 +1162,9 @@ export interface ItemDef {
    * fighters earned; a key item with `all` (EXP All) gives everyone not fighting that much while it's switched on.
    */
   exp?: { share: number; all?: boolean };
-  /** Armor (the armor slot): light, medium or heavy (unset: guessed from the name, else light). */
+  /** Recolours the icon (built-in or imported): every colour takes this hue, keeping its shading. */
+  iconTint?: string;
+  /** Armor (the armor slot): its armor type's id (unset: guessed from the name, else the first type). */
   armorWeight?: ArmorWeight;
   /** The same against spells. */
   magicDefense?: number;
@@ -1558,6 +1573,10 @@ export interface SpellEntry {
   id: string;
   name: string;
   description?: string;
+  /** Its icon in menus: a built-in icon ("builtin:<name>"); unset: its element's icon. */
+  icon?: string;
+  /** Recolours its icon. */
+  iconTint?: string;
   /**
    * bolt: a magic hit (in action mode, the bolt the magic button throws); heal: health back for the party;
    * support (turn-based): only its buffs or debuffs (Haste, Slow, Protect…).

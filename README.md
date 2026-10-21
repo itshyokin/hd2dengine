@@ -485,6 +485,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   % a point of AGI over 10, up to 40%), never below 20%; spells always land. Each point of DEX over 10 adds a
   quarter of a % to critical hits; each point of END over 10 adds 1.5% to the chance of shrugging off an ailment
   (up to 60%). Saves from before seven stats give Agility and Endurance 10.
+- **Stat order** (Database → Heroes, at the top): move the stats up and down with ▲ ▼ to set the order every list
+  shows them in, in the game (Status, Equipment, level ups, the dice table) and in the Database (heroes, classes,
+  gear bonuses, buffs). *Back to the usual order* resets it.
 - **Growth ranks**: each hero's seven stats have a level 1 value
   and a **rank** set in **Database → Heroes → Progression curve**: each level adds **A +4, B +3, C +2, D +1, F +0**.
   There are no stat points to spend any more; skill points stay. HP, MP and stamina aren't ranked (the skill tree
@@ -776,8 +779,17 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 
 ### Items, the bag, equipment and shops
 
-- **Database → Items**: every item has a name, description, icon (pick one of the built-in pixel icons or
-  **Import image…**: a 16 × 16 or 32 × 32 PNG, saved to `assets/icons/`), a price and a kind:
+- **Five item tabs** in the Database's Items group, each listing part of the game's items: **Items** (potions,
+  food, loot and materials), **Weapons** (melee weapons, bows and arrows), **Gear** (armor, shields and
+  accessories), **Shards** (spell shards and element stones) and **Key items**. *+ New* in each starts the right
+  kind (a new weapon is a sword, new gear is armor…). Changing an item's kind or slot moves it to its tab, still
+  selected. Duplicate, copy and paste work in every tab.
+- **Icons**: over 250 built-in pixel icons, in folding groups (potions and bottles, food, drinks, weapons, armor and
+  clothes, accessories and gems, materials, ores and minerals, herbs and plants, fishing, containers and things,
+  magic, element stones), or **Import image…** (a 16 × 16 or 32 × 32 PNG, saved to `assets/icons/`). **Tint**
+  recolours any icon, built-in or imported, keeping its shading: a red potion becomes a teal one, a steel helmet a
+  golden one (ten quick colours or any colour).
+- **Every item** has a name, description, icon, a price and a kind:
   - **Consumable**: restores health, magic and/or stamina. Health and magic each have an amount box and a **%** box
     (of the maximum), used together: 10 and 30 % restores 10 + 30% of max HP ("+10 + 30% HP"). Items work on
     magic in battle too.
@@ -1212,6 +1224,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
 - **Database → Spells**: attack spells (bolts) and healing spells: power and magic cost at rank 1, element, ailments,
   one target or all, the highest rank and what each rank adds (power %, magic %, one more charge turn), and for action
   mode the bolt's speed and range. Built-in: Fire, Frost, Spark (every foe) and Mend.
+  **Icon**: *Use its element's icon* (the default), or *Pick an icon* from the built-in set (the Magic group has
+  spell symbols: fire, ice, lightning, water, wind, earth, poison, light, dark, arcane, healing, protect, haste),
+  with a tint. It shows beside the spell's name in the battle Magic list.
 - **Database → Additions**: strikes (power × the hero's attack, button, how long the ring takes, the timing window)
   and mastery (highest rank, completions per rank, damage and window per rank). Built-in: Quick Strike, Double Slash,
   Volley and Crescent Storm (seven strikes).
@@ -1220,17 +1235,23 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   Lore, Storm Lore (Spark), Mending (Mend), Fighter (Quick Strike), Double Slash, Volley and Crescent Storm. Events and
   trainers use the event command **Teach spell / Addition** (to the hero, a party hero or everyone); heroes can start
   with some (Database → Heroes → *Class, spells and Additions at the start*).
-- **Classes** (Database → Classes): each class opens skill trees. A hero learns from the trees of their class and of
+- **Classes** (Database → Classes): each class opens skill trees, picked from a dropdown under **Skill trees**
+  (*+ Another tree* gives it more, × takes one away). Each picked tree shows a small picture of its skills; click it
+  to edit that tree in Database → Skill trees. A hero learns from the trees of their class and of
   every class they've had. Players can't change class; only the event command **Change class** does (a story
   promotion, say). Without classes, every hero sees every tree.
   - **Stat boost**: stats a class gives once, for good, when a hero joins it (their starting class counts): a
     Fighter's Strength and Endurance, a Mage's Magic and Magic Defence. Negative numbers take away.
   - **Weapons and armor**: for each weapon type (swords, daggers, axes, maces and hammers, spears, staves, wands, fist
-    weapons, bows, crossbows), each armor weight (light, medium, heavy) and shields: **Trained** (full effect),
-    **Untrained** (weapons hit for three quarters; armor costs Agility and Dexterity: light −2 AGI, medium −4 AGI
-    −2 DEX, heavy −7 AGI −3 DEX) or **Can't use** (greyed out in Equipment for that hero). A weapon's *Type* and an
-    armor's *Weight* are set in Database → Items, or guessed from the name (Leather Armor is light, Chainmail
-    medium, Plate heavy; a Short Sword is a sword). Pickaxes and mining hammers are tools anyone can use. Arms
+    weapons, bows, crossbows), each armor type and shields: **Trained** (full effect),
+    **Untrained** (weapons hit for three quarters; armor costs the stats set for its type) or **Can't use** (greyed
+    out in Equipment for that hero). A weapon's *Type* is set in Database → Weapons and an armor's **Armor type** in
+    Database → Gear, or guessed from the name (Leather Armor is light, Chainmail medium, Plate heavy; a Short Sword
+    is a sword).
+  - **Armor types** (*Edit armor types…* under the table, or ☰ beside an armor's Armor type): built in **Light**
+    (cloth, leather; untrained −2 AGI), **Medium** (chain, scale; −4 AGI −2 DEX) and **Heavy** (plate; −7 AGI −3 DEX).
+    Rename them, change what each costs untrained (any of the seven stats), or add your own (Robes, Mail, Bone…);
+    every class's table gets a row for each. Pickaxes and mining hammers are tools anyone can use. Arms
     Training in the skill trees still decides medium and heavy weapon training as before.
 - **Menu → Party → a hero → Magic** lists their spells; **Equipment → Addition** picks the Addition Attack uses (with
   its rank).

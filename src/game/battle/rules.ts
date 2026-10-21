@@ -21,6 +21,9 @@ export function spellSequence(s: Pick<BattleSpell, 'sequence'>, rank: number): i
 
 /** A spell a fighter can cast in battle, at any rank they know. */
 export interface BattleSpell {
+  /** Its own menu icon ("builtin:<name>") and tint; unset: its element's. */
+  icon?: string;
+  iconTint?: string;
   /** What it does, in a sentence (Database → Spells). */
   description?: string;
   /** Call-out as it goes off, and the chant while it charges. */

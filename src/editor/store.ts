@@ -1,4 +1,5 @@
 /** Editor state: the open map, the current tool, selection, and undo history. */
+import { setAttrOrder } from '../game/attributes';
 import { type HeightStyle, formatHeightStyles, parseHeightStyles } from '../world/heights';
 import { formatFishing, parseFishing } from '../world/fishing';
 import { PropCatalog, alignFootProps, blockedTiles } from '../world/props';
@@ -45,7 +46,10 @@ export type Topic = 'map' | 'selection' | 'structure' | 'ui' | 'meta';
 const HISTORY_LIMIT = 100;
 
 export class EditorStore {
-  db!: Database;
+  private dbValue!: Database;
+  get db(): Database { return this.dbValue; }
+  /** Setting the database also puts the stats in its order. */
+  set db(v: Database) { this.dbValue = v; setAttrOrder(v?.statOrder); }
   mapName = '';
   map!: MapData;
   maps: string[] = [];
@@ -199,6 +203,7 @@ export class EditorStore {
 
   changedDb(...topics: Topic[]): void {
     this.dbDirty = true;
+    setAttrOrder(this.db.statOrder);
     this.emit('map', 'meta', ...topics);
   }
 

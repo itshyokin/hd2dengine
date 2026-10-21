@@ -137,3 +137,39 @@ function nodeForm(data: SkillsData, n: SkillNode, siblings: SkillNode[], items: 
 export function cleanSkills(d: SkillsData): SkillsData | undefined {
   return JSON.stringify(d) === JSON.stringify(DEFAULT_SKILLS) ? undefined : d;
 }
+
+/**
+ * A small picture of one tree (its skills and the lines between them), for the Classes tab. Clicking it calls
+ * `open` (the Skill trees tab, on this tree).
+ */
+export function treePreview(data: SkillsData, treeId: string, open: () => void): HTMLElement {
+  const tree = data.trees.find((t) => t.id === treeId);
+  const nodes = data.nodes.filter((n) => n.tree === treeId);
+  const wrap = h('button', { type: 'button', class: 'sk-preview', title: `Open ${tree?.name ?? treeId} in Skill trees`, onclick: open });
+  if (!tree) { wrap.append(h('span', { class: 'note' }, 'This tree no longer exists.')); return wrap; }
+  const C = 46;
+  const maxX = Math.max(3, ...nodes.map((n) => n.x)), maxY = Math.max(1, ...nodes.map((n) => n.y));
+  const W = (maxX + 1) * C, H = (maxY + 1) * C + 10;
+  const pos = (n: SkillNode) => [n.x * C + C / 2, (maxY - n.y) * C + C / 2 + 10];
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'sk-preview-map');
+  for (const n of nodes) for (const pid of n.parents ?? []) {
+    const p = nodes.find((m) => m.id === pid);
+    if (!p) continue;
+    const [x1, y1] = pos(p), [x2, y2] = pos(n), l = document.createElementNS(ns, 'line');
+    Object.entries({ x1, y1, x2, y2 }).forEach(([k, v]) => l.setAttribute(k, String(v)));
+    l.setAttribute('class', 'sk-ed-line');
+    svg.appendChild(l);
+  }
+  for (const n of nodes) {
+    const [x, y] = pos(n), g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'sk-preview-node');
+    g.innerHTML = `<circle cx="${x}" cy="${y}" r="9" fill="${tree.color ?? '#e9c46a'}"/><text x="${x}" y="${y - 13}">${n.name.replace(/[&<>]/g, '')}</text>`;
+    svg.appendChild(g);
+  }
+  wrap.append(h('div', { class: 'sk-preview-head' }, h('b', { style: `color:${tree.color ?? ''}` }, tree.name), h('span', {}, `${nodes.length} skill${nodes.length === 1 ? '' : 's'} · click to edit`)),
+    nodes.length ? svg : h('p', { class: 'note' }, 'No skills in this tree yet.'));
+  return wrap;
+}

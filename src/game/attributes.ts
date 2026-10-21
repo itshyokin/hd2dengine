@@ -5,7 +5,16 @@
  */
 
 export type Attr = 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf';
+/** The stats, in the order every list shows them (Database → Heroes → Stat order changes it: `setAttrOrder`). */
 export const ATTRS: Attr[] = ['str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf'];
+/** The built-in order. */
+export const DEFAULT_ATTR_ORDER: readonly Attr[] = ['str', 'dex', 'agi', 'end', 'def', 'mag', 'mdf'];
+/** Put the stats in the game's order (unknown or missing ones keep their place at the end). */
+export function setAttrOrder(order?: readonly string[] | null): void {
+  const want = (order ?? []).filter((k, i, a): k is Attr => (DEFAULT_ATTR_ORDER as readonly string[]).includes(k) && a.indexOf(k) === i);
+  const next = [...want, ...DEFAULT_ATTR_ORDER.filter((k) => !want.includes(k))];
+  ATTRS.splice(0, ATTRS.length, ...next);
+}
 export type Attrs = Record<Attr, number>;
 
 export const ATTR_INFO: Record<Attr, { name: string; short: string; does: string }> = {
