@@ -247,6 +247,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   (mesh is an invisible holder), SLOT_OF maps sheet names (slash → attack, hurt → ko or a flinch → injured, kneel →
   injured…); Motion gains swimming / sitting / injured. Editor: characterModelEditor.ts, CharactersWork `look`.
   Dev / editor servers accept and serve assets/models/**/*.glb|fbx.
+- 102b: ModelStyle `{ look, outline }` (`modelStyle(db)`; Database `modelOutline`); CharacterModel `battleScale`
+  (ModelRig `battleScale`, default 0.5; BattleStage multiplies the fighter's scale and uses the rig's height);
+  Stat order moved to its own Database tab (Game → Stat order, DbTab 'stats'). vite.config.ts: never write `**/`
+  inside a /* */ comment (it ends the comment and the dev server won't start).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
