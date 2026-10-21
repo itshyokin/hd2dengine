@@ -192,11 +192,14 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
      the same `GROUND_YIELD` in its own vertex shader (the same trick as patchGroundYield, applied to the prop), so it
      sorts against the yielded ground exactly. Checkbox in the props editor (Database / prop editor where `stretch`
      and `rustle` live), on by default. Test with the bridge on a cliff edge.
-   - **Items "restores x%"**: `ItemDef.restore` + `restorePercent` (one switch for all gauges) already exist
-     (types.ts ~1069, ItemsEditor ~162, Game ~2542 / 2567 / 5362, InventoryScreen ~536). Make it per gauge: add
-     `restorePercentOf?: Gauge[]` (or make each entry `{ amount, percent }`), keep reading the old `restorePercent`
-     as "all of them", and put an Amount / % select beside each gauge's number in the Items editor. Detail text:
-     "Restores 30% HP · 20 MP". Check the battle item picker (`.ip-pop`) preview uses the same maths.
+   - **Items "restores x%"** (owner's call): REMOVE the "Amounts are percentages of the maximum" checkbox
+     (ItemsEditor ~162; the owner says it doesn't seem to work: check why while there, e.g. the battle path may
+     ignore it). Add `ItemDef.restorePct?: Partial<Record<Gauge, number>>`: HP and MP each get the plain amount box
+     (`restore`) and a % box (`restorePct`) side by side, and both apply: amount + pct × max / 100 (10 + 30% max HP).
+     Old saves: an item with `restorePercent: true` converts its `restore` numbers into `restorePct` on load, then
+     drop the flag. Apply the same sum everywhere restore is used: Game ~2542 (party member), ~2567 (stats), ~5362
+     (battle item list detail + `.ip-pop` preview, which takes `restore`/`percent`), InventoryScreen ~536. Text:
+     "Restores 10 + 30% HP", "Restores 30% MP", "Restores 50 HP".
    - **Battle log chime**: when a battle line that waits for OK is dismissed (the pocket flow `tell` / `pauseText`
      in TurnBattle / BattleScreen), play `uiSound('menuOk')`, the same chime as menus.
    - **Skybox in battle**: BattleStage builds its own scene with grey fog. Show the map's Sky (render/Sky.ts) behind

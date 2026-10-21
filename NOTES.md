@@ -173,8 +173,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [ ] Owner's list (Oct 20, night), plan in HANDOFF.md "Next up":
   - [ ] Props: a "Drawn in front of tiles" toggle (on by default, as now). Off for props like the tall wooden
         bridge/platform, whose legs show through the cliff ground in front of them.
-  - [ ] Items: "restores x%" per gauge (HP, MP, SP each set as an amount or a percentage), and the bag/battle text
-        reads "Restores 30% HP".
+  - [ ] Items: remove the "Amounts are percentages of the maximum" toggle (it doesn't seem to work for the owner).
+        Instead HP and MP each get a plain amount box and a % box, used together: 10 + 30% restores 10 plus 30% of
+        max HP. Text reads "Restores 10 + 30% HP".
   - [ ] Battle log: the menu confirm chime plays when pressing Next / Continue on a message.
   - [ ] Battles show the map's sky (skybox) instead of plain grey fog.
   - [ ] Day/night sky: the dawn/dusk change is too fast. Slow it down, with a Database "Sky transition speed" setting.
