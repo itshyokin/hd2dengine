@@ -3798,7 +3798,7 @@
       "description": "A bitter red tonic. Restores 30 health.",
       "kind": "consumable",
       "icon": "builtin:potion",
-      "price": 20,
+      "price": 200,
       "restore": {},
       "restorePct": {
         "hp": 30
@@ -3810,11 +3810,11 @@
       "description": "A bitter red tonic. Restores 60 health.",
       "kind": "consumable",
       "icon": "builtin:potion",
-      "price": 50,
-      "restore": {
+      "price": 500,
+      "restore": {},
+      "restorePct": {
         "hp": 60
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "potion_copy2",
@@ -3822,11 +3822,11 @@
       "description": "A bitter red tonic. Restores 120 health.",
       "kind": "consumable",
       "icon": "builtin:potion",
-      "price": 100,
-      "restore": {
+      "price": 1000,
+      "restore": {},
+      "restorePct": {
         "hp": 120
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "potion_copy3",
@@ -3834,11 +3834,11 @@
       "description": "A bitter red tonic. Restores all lost health.",
       "kind": "consumable",
       "icon": "builtin:potion",
-      "price": 250,
-      "restore": {
+      "price": 2500,
+      "restore": {},
+      "restorePct": {
         "hp": 9999
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "ether",
@@ -3846,11 +3846,11 @@
       "description": "Shimmering blue. Restores 20 magic.",
       "kind": "consumable",
       "icon": "builtin:ether",
-      "price": 40,
-      "restore": {
+      "price": 400,
+      "restore": {},
+      "restorePct": {
         "mp": 20
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "ether_copy",
@@ -3858,11 +3858,11 @@
       "description": "Shimmering blue. Restores 50 magic.",
       "kind": "consumable",
       "icon": "builtin:ether",
-      "price": 85,
-      "restore": {
+      "price": 850,
+      "restore": {},
+      "restorePct": {
         "mp": 50
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "ether_copy2",
@@ -3870,11 +3870,11 @@
       "description": "Shimmering blue. Restores all lost magic.",
       "kind": "consumable",
       "icon": "builtin:ether",
-      "price": 200,
-      "restore": {
+      "price": 2000,
+      "restore": {},
+      "restorePct": {
         "mp": 9999
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "tonic",
@@ -3882,11 +3882,11 @@
       "description": "Fully restores stamina.",
       "kind": "consumable",
       "icon": "builtin:tonic",
-      "price": 15,
-      "restore": {
+      "price": 150,
+      "restore": {},
+      "restorePct": {
         "sp": 100
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "tonic_copy",
@@ -3894,9 +3894,8 @@
       "description": "Cures physical ailments: Burn, Poison, Chill, Paralyze, Blind, and Stagger.",
       "kind": "consumable",
       "icon": "builtin:herb",
-      "price": 150,
+      "price": 200,
       "restore": {},
-      "restorePercent": true,
       "cures": [
         "burn",
         "poison",
@@ -3912,9 +3911,8 @@
       "description": "Cures Mental ailments: Silence, Sleep, and Confusion.",
       "kind": "consumable",
       "icon": "builtin:herb",
-      "price": 150,
+      "price": 200,
       "restore": {},
-      "restorePercent": true,
       "cures": [
         "silence",
         "sleep",
@@ -3927,42 +3925,163 @@
       "description": "Cures Zombie. Lethal if used on most Zombie-afflicated enemies.",
       "kind": "consumable",
       "icon": "builtin:tonic",
-      "price": 180,
+      "price": 250,
       "restore": {},
-      "restorePercent": true,
       "cures": [
         "zombie"
-      ]
+      ],
+      "iconTint": "#3ab8c8"
+    },
+    {
+      "id": "tonic_copy6",
+      "name": "Crit Up!",
+      "description": "Increases chance of Critical Hits in combat!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "buffs": [
+        {
+          "buff": "crit",
+          "whole": true
+        }
+      ],
+      "iconTint": "#ff9a2a"
+    },
+    {
+      "id": "tonic_copy7",
+      "name": "STR Up!",
+      "description": "Temporarily increases STR of one character in combat!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "buffs": [
+        {
+          "buff": "str",
+          "whole": true
+        }
+      ],
+      "iconTint": "#e8483a"
+    },
+    {
+      "id": "tonic_copy8",
+      "name": "DEX Up!",
+      "description": "Temporarily increases DEX of one character in combat!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "buffs": [
+        {
+          "buff": "dex",
+          "whole": true
+        }
+      ],
+      "iconTint": "#5ac840"
+    },
+    {
+      "id": "tonic_copy9",
+      "name": "MAG Up!",
+      "description": "Temporarily increases MAG of one character in combat!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "buffs": [
+        {
+          "buff": "mag",
+          "whole": true
+        }
+      ],
+      "iconTint": "#9a4ae0"
+    },
+    {
+      "id": "tonic_copy10",
+      "name": "DEF Up!",
+      "description": "Temporarily increases DEF of one character in combat!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "buffs": [
+        {
+          "buff": "def",
+          "whole": true
+        }
+      ],
+      "iconTint": "#566061"
+    },
+    {
+      "id": "tonic_copy11",
+      "name": "MDF Up!",
+      "description": "Temporarily increases MDF of one character in combat!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "buffs": [
+        {
+          "buff": "mdf",
+          "whole": true
+        }
+      ],
+      "iconTint": "#694b71"
+    },
+    {
+      "id": "tonic_copy12",
+      "name": "AGL Up!",
+      "description": "Temporarily increases AGL of one character in combat!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "buffs": [
+        {
+          "buff": "agi",
+          "whole": true
+        }
+      ],
+      "iconTint": "#f0d040"
+    },
+    {
+      "id": "tonic_copy13",
+      "name": "Stat Guard",
+      "description": "Prevents stat reduction in combat for one character!",
+      "kind": "consumable",
+      "icon": "builtin:soda_can",
+      "price": 1000,
+      "restore": {},
+      "iconTint": "#f4f4f4"
     },
     {
       "id": "tonic_copy4",
       "name": "Revive (fix with percentages)",
       "description": "Restores a KO'd character to 1/2 HP.",
       "kind": "consumable",
-      "icon": "builtin:gem",
+      "icon": "builtin:vial_blue",
       "price": 250,
       "restore": {
-        "hp": 100
+        "hp": 1
       },
-      "restorePercent": true,
-      "cures": [
-        "zombie"
-      ]
+      "restorePct": {
+        "hp": 50
+      },
+      "iconTint": "#f0d040"
     },
     {
       "id": "tonic_copy5",
       "name": "Full Revive (fix with percentages) (copy)",
       "description": "Restores a KO'd character to max HP.",
       "kind": "consumable",
-      "icon": "builtin:gem",
+      "icon": "builtin:potion_yellow",
       "price": 500,
       "restore": {
-        "hp": 100
+        "hp": 1
       },
-      "restorePercent": true,
-      "cures": [
-        "zombie"
-      ]
+      "restorePct": {
+        "hp": 100
+      }
     },
     {
       "id": "bread",
@@ -5979,7 +6098,7 @@
         "id": "skill_earthborn",
         "tree": "tree_2",
         "name": "Earthborn",
-        "x": 0,
+        "x": 2,
         "y": 0,
         "effects": [
           {
@@ -6296,7 +6415,7 @@
       "id": "mend",
       "name": "Mend",
       "kind": "heal",
-      "power": 26,
+      "power": 75,
       "mp": 8,
       "color": "#9dffb0",
       "maxRank": 3,
@@ -6305,11 +6424,21 @@
     {
       "id": "speedboost",
       "name": "Speed Boost",
-      "kind": "heal",
+      "kind": "support",
       "power": 11,
-      "mp": 6,
+      "mp": 45,
       "maxRank": 3,
-      "description": "Increase target's speed for the duration of the battle."
+      "description": "Increase target's speed for the duration of the battle.",
+      "supportTarget": "any",
+      "buffs": [
+        {
+          "buff": "haste",
+          "whole": true
+        }
+      ],
+      "icon": "builtin:spell_fire",
+      "iconTint": "#f0d040",
+      "color": "#fff15c"
     },
     {
       "id": "haste",

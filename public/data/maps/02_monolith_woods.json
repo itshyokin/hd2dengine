@@ -412,6 +412,117 @@
           }
         }
       ]
+    },
+    {
+      "id": 4,
+      "name": "Event 004",
+      "x": 33,
+      "z": 7,
+      "pages": [
+        {
+          "trigger": "action",
+          "solid": true,
+          "commands": [
+            {
+              "cmd": "shop",
+              "goods": [
+                {
+                  "item": "potion",
+                  "price": 0
+                },
+                {
+                  "item": "potion_copy",
+                  "price": 0
+                },
+                {
+                  "item": "potion_copy2",
+                  "price": 0
+                },
+                {
+                  "item": "potion_copy3",
+                  "price": 0
+                },
+                {
+                  "item": "ether",
+                  "price": 0
+                },
+                {
+                  "item": "ether_copy",
+                  "price": 0
+                },
+                {
+                  "item": "ether_copy2",
+                  "price": 0
+                },
+                {
+                  "item": "tonic",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy2",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy3",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy6",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy7",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy8",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy9",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy10",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy11",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy12",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy13",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy4",
+                  "price": 0
+                },
+                {
+                  "item": "tonic_copy5",
+                  "price": 0
+                },
+                {
+                  "item": "bread",
+                  "price": 0
+                }
+              ],
+              "canSell": true,
+              "name": "Test Shop"
+            }
+          ],
+          "character": "tori",
+          "facePlayer": true
+        }
+      ]
     }
   ],
   "buildings": [
