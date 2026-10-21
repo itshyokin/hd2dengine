@@ -3799,6 +3799,42 @@
       "restorePercent": true
     },
     {
+      "id": "potion_copy",
+      "name": "Plus Potion",
+      "description": "A bitter red tonic. Restores 60 health.",
+      "kind": "consumable",
+      "icon": "builtin:potion",
+      "price": 50,
+      "restore": {
+        "hp": 60
+      },
+      "restorePercent": true
+    },
+    {
+      "id": "potion_copy2",
+      "name": "Mega Potion",
+      "description": "A bitter red tonic. Restores 120 health.",
+      "kind": "consumable",
+      "icon": "builtin:potion",
+      "price": 100,
+      "restore": {
+        "hp": 120
+      },
+      "restorePercent": true
+    },
+    {
+      "id": "potion_copy3",
+      "name": "Full Potion",
+      "description": "A bitter red tonic. Restores all lost health.",
+      "kind": "consumable",
+      "icon": "builtin:potion",
+      "price": 250,
+      "restore": {
+        "hp": 9999
+      },
+      "restorePercent": true
+    },
+    {
       "id": "ether",
       "name": "Ether",
       "description": "Shimmering blue. Restores 20 magic.",
@@ -3807,6 +3843,30 @@
       "price": 40,
       "restore": {
         "mp": 20
+      },
+      "restorePercent": true
+    },
+    {
+      "id": "ether_copy",
+      "name": "High Ether",
+      "description": "Shimmering blue. Restores 50 magic.",
+      "kind": "consumable",
+      "icon": "builtin:ether",
+      "price": 85,
+      "restore": {
+        "mp": 50
+      },
+      "restorePercent": true
+    },
+    {
+      "id": "ether_copy2",
+      "name": "Full Ether",
+      "description": "Shimmering blue. Restores all lost magic.",
+      "kind": "consumable",
+      "icon": "builtin:ether",
+      "price": 200,
+      "restore": {
+        "mp": 9999
       },
       "restorePercent": true
     },
@@ -3821,6 +3881,82 @@
         "sp": 100
       },
       "restorePercent": true
+    },
+    {
+      "id": "tonic_copy",
+      "name": "Body Cure",
+      "description": "Cures physical ailments: Burn, Poison, Chill, Paralyze, Blind, and Stagger.",
+      "kind": "consumable",
+      "icon": "builtin:herb",
+      "price": 150,
+      "restore": {},
+      "restorePercent": true,
+      "cures": [
+        "burn",
+        "poison",
+        "chill",
+        "paralyze",
+        "blind",
+        "stagger"
+      ]
+    },
+    {
+      "id": "tonic_copy2",
+      "name": "Mind Cure",
+      "description": "Cures Mental ailments: Silence, Sleep, and Confusion.",
+      "kind": "consumable",
+      "icon": "builtin:herb",
+      "price": 150,
+      "restore": {},
+      "restorePercent": true,
+      "cures": [
+        "silence",
+        "sleep",
+        "confusion"
+      ]
+    },
+    {
+      "id": "tonic_copy3",
+      "name": "Holy Water",
+      "description": "Cures Zombie. Lethal if used on most Zombie-afflicated enemies.",
+      "kind": "consumable",
+      "icon": "builtin:tonic",
+      "price": 180,
+      "restore": {},
+      "restorePercent": true,
+      "cures": [
+        "zombie"
+      ]
+    },
+    {
+      "id": "tonic_copy4",
+      "name": "Revive (fix with percentages)",
+      "description": "Restores a KO'd character to 1/2 HP.",
+      "kind": "consumable",
+      "icon": "builtin:gem",
+      "price": 250,
+      "restore": {
+        "hp": 100
+      },
+      "restorePercent": true,
+      "cures": [
+        "zombie"
+      ]
+    },
+    {
+      "id": "tonic_copy5",
+      "name": "Full Revive (fix with percentages) (copy)",
+      "description": "Restores a KO'd character to max HP.",
+      "kind": "consumable",
+      "icon": "builtin:gem",
+      "price": 500,
+      "restore": {
+        "hp": 100
+      },
+      "restorePercent": true,
+      "cures": [
+        "zombie"
+      ]
     },
     {
       "id": "bread",
