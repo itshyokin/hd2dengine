@@ -155,6 +155,11 @@ Kept in the project so they travel with the code. Tick them off as they're built
       its wall, rest of the party's EXP after the first hero's, tall-grass rustle, really tall grass (wheat/corn),
       pause tab icon dark when selected, low-HP alert chime in battle, no MP regen on the map, Database colours for
       HP/MP/EXP bars and the stamina wheel (and wheel fade on/off), per-tile switch for generated normal maps.
+- [ ] Gold coin icon back beside the gold count on the Items page.
+- [ ] Database → Menus → "Party page layout" editor (like the HUD arranger): place and size the four member panels
+      (Player 1 = the lead / first in battle, Players 2–4) in percentages of the page; a Big / Medium / Small size per
+      panel; show or hide each part (picture, name, level, ailment, elements, HP, MP, EXP bar, EXP numbers). Only the
+      Party page needs it.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

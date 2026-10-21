@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 20, 2026, after Update 90)
+# Handoff: where the project stands (Oct 20, 2026, after Update 91 part 1)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,8 +15,15 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Waiting on the owner:** OK on the Items pop-up preview (Update 91 part 1). Then the open list in NOTES.md
-  ("Owner's list (Oct 20 evening)"). Plan for clipping: depth-bias sprites/props toward the camera over terrain.
+- **Next work (owner approved, in this order):** the open items at the end of NOTES.md's list: gold icon on Items;
+  the Party page layout editor (Database → Menus, percentages, Big/Medium/Small per member panel, show/hide parts);
+  sprites and props drawn over bevels and cliffs (plan: a depth bias toward the camera so they win over terrain
+  where they overlap it); ladder stretches to its wall; the rest of the party's EXP after the first hero's in the
+  battle results; tall-grass rustle (sound + shake when walked through); a really-tall grass prop (wheat/corn);
+  pause tab icon dark when selected; low-HP alert chime in battle (loops while the active fighter is in the red;
+  stops on the foe fainting, healing out of the red, or swapping to someone not in the red); no MP regen on the map;
+  Database colours for HP / MP / EXP bars and the stamina wheel, and a stamina-wheel fade on/off; a per-tile switch
+  for generated normal maps (Database → Tiles).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -155,6 +162,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   flames, lights and ember origins with `leanNow()` (torches no longer float); TurnBattle: Pocket `expPop` does
   nothing (no mid-battle EXP bar moves), `pocketResults` puts each level up right after that hero's EXP line,
   `GOT_AILMENT` lines on inflict; propShapes.ts `copy()` and shapes `crossStar`, `rows`, `thicket`.
+- 91 (part 1): PartyScreen rows are tall boxes (`.pr-row` with `.pr-art.pr-face`, EXP bar + `.pr-xpnum`), CSS at the
+  end of styles.css; InventoryScreen `partyPanel()` is now the `.ip-pop` "Use X on whom?" pop-up (target mode only).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
