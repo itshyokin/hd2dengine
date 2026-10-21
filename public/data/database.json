@@ -4056,32 +4056,30 @@
     },
     {
       "id": "tonic_copy4",
-      "name": "Revive (fix with percentages)",
+      "name": "Revive",
       "description": "Restores a KO'd character to 1/2 HP.",
       "kind": "consumable",
       "icon": "builtin:vial_blue",
       "price": 250,
-      "restore": {
-        "hp": 1
-      },
+      "restore": {},
       "restorePct": {
         "hp": 50
       },
-      "iconTint": "#f0d040"
+      "iconTint": "#f0d040",
+      "revive": true
     },
     {
       "id": "tonic_copy5",
-      "name": "Full Revive (fix with percentages) (copy)",
+      "name": "Full Revive",
       "description": "Restores a KO'd character to max HP.",
       "kind": "consumable",
       "icon": "builtin:potion_yellow",
       "price": 500,
-      "restore": {
-        "hp": 1
-      },
+      "restore": {},
       "restorePct": {
         "hp": 100
-      }
+      },
+      "revive": true
     },
     {
       "id": "bread",
@@ -4210,7 +4208,9 @@
       "slot": "armor",
       "defense": 8,
       "material": "iron_ingot",
-      "rarity": "uncommon"
+      "rarity": "uncommon",
+      "armorWeight": "new",
+      "iconTint": "#e8483a"
     },
     {
       "id": "sun_ring",
@@ -6578,5 +6578,37 @@
     "pitch": 42.4,
     "distance": 15.6,
     "lean": 0
-  }
+  },
+  "armorTypes": [
+    {
+      "id": "light",
+      "name": "Light armor",
+      "note": "Cloth, leather",
+      "untrained": {
+        "agi": -2
+      }
+    },
+    {
+      "id": "medium",
+      "name": "Medium armor",
+      "note": "Chain, scale",
+      "untrained": {
+        "agi": -4,
+        "dex": -2
+      }
+    },
+    {
+      "id": "heavy",
+      "name": "Heavy armor",
+      "note": "Plate",
+      "untrained": {
+        "agi": -7,
+        "dex": -3
+      }
+    },
+    {
+      "id": "new",
+      "name": "TitanTech"
+    }
+  ]
 }
