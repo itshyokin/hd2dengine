@@ -145,8 +145,13 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
   }
   for (const [key, quads] of geo.slivers) scene.add(mesh(quads, tileMat(key, false)));
   // Soft blocky's grass lip over the cliff tops (the painted ground, then any imported tile over it).
-  if (geo.lip.quads) scene.add(mesh(geo.lip, patchLip(makeGroundMat())));
-  for (const [key, quads] of geo.lipOverlays) if (quads.quads) scene.add(mesh(quads, patchLip(tileMat(key, false))));
+  // Its pixels stay sharp however slanted the wall is (a blurred, far-off copy of the texture showed as a pale line).
+  const sharp = (m: THREE.MeshStandardMaterial) => {
+    if (m.map) { const t = m.map.clone(); t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true; m.map = t; }
+    return patchLip(m);
+  };
+  if (geo.lip.quads) scene.add(mesh(geo.lip, sharp(makeGroundMat())));
+  for (const [key, quads] of geo.lipOverlays) if (quads.quads) scene.add(mesh(quads, sharp(tileMat(key, false))));
 
   // Cliff walls and stair risers, one mesh per look.
   for (const [look, quads] of geo.walls) {

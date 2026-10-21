@@ -383,6 +383,11 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
    It fades in at dusk and out at dawn, in the colour you choose.
 7. **Emits light** (optional): choose *Place light* under the preview and click where the light comes from.
    Set its colour, brightness, reach, flicker, when it's on, and shadows.
+8. **Shape**: *Flat* (one picture), *Solid block* (pushed back so it looks like a block), *Cross ×* (two copies at
+   45°), *Cross +* (one side-on), and for tall grass and thick plants: *Star ✳* (Cross × plus one facing the
+   camera), *Rows ≡* (three staggered rows across the footprint, each offset, sized and mirrored) and *Thicket*
+   (three rows of copies crossing in a shallow V). Props lean back toward the map camera like characters; their
+   flames, lights and embers lean with them.
 
 Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.png`) and the list in
 `public/data/assets.json`.
@@ -996,7 +1001,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   drains (the numbers count down with it), and the battle waits for that before the next line. With **Rounds** (and
   Single mode), burn and poison bite at the end of each round, a line each ("Jordan is hurt by poison!"); a fighter
   who can't act says so ("…is fast asleep!"), and one that wears off says that too. EXP is told and the bar filled
-  once, after "Victory!": the total (and how much was bonus), the bar running through any level it passes. The loot
+  once, after "Victory!": the total (and how much was bonus), the bar running through any level it passes, then that
+  hero's level up (nothing moves the bar before "Victory!"). An ailment taking hold gets its own line that waits for
+  OK ("Jordan was poisoned!"). The loot
   lines show the coin or the item's icon ("+10 Gold!"). An **ailment** shows as a pill beside the name and level (PSN on purple, BRN on orange…; Database →
   Combat → Status pills switches to full words, POISONED, and sets each pill's colour, text colour, tag and word);
   only buffs show over the fighter's head. A fighter has **one ailment at a time** in turn-based battles: one that's

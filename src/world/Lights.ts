@@ -10,6 +10,7 @@
 import type { PropData } from './types';
 import * as THREE from 'three';
 import { flameStrip, softDot } from '../art/placeholderArt';
+import { leanNow } from '../render/lean';
 import { clamp, hash2 } from '../core/math';
 import type { GameState } from '../game/GameState';
 import { type AreaUniform, MAX_AREAS, setAreas } from '../render/areaTint';
@@ -80,6 +81,9 @@ export class Lights {
   private readonly areas: LiveArea[] = [];
   private readonly emitters: Emitter[] = [];
   private readonly flameTex: THREE.Texture;
+  /** Things on props placed upright (a flame, a light, embers' origin): where they sit as the props lean. */
+  private readonly leaners: { at: THREE.Vector3; base: number; z: number; dy: number; tilt?: THREE.Object3D }[] = [];
+  private leanWas = 0;
   private readonly embers: THREE.Points;
   private readonly emberPos = new Float32Array(EMBERS * 3);
   private readonly emberVel = new Float32Array(EMBERS * 3);
@@ -179,17 +183,20 @@ export class Lights {
       if (d.flame) {
         const f = new THREE.Mesh(spriteGeometry(d.flame.w * s, d.flame.h * s), flameMat);
         f.position.set(p.x + d.flame.x * s, base + d.flame.y * s, pz + 0.03);
+        this.leaners.push({ at: f.position, base, z: pz + 0.03, dy: d.flame.y * s, tilt: f });
         scene.add(f);
         flames.push(f);
         if (d.flame.embers) {
           emitter = this.emitters.length;
           this.emitters.push({ origin: new THREE.Vector3(p.x + d.flame.x * s, base + d.flame.y * s + d.flame.h * s * 0.15, pz + 0.05), spread: d.flame.w * s * 0.5, active: true });
+          this.leaners.push({ at: this.emitters[emitter].origin, base, z: pz + 0.05, dy: d.flame.y * s + d.flame.h * s * 0.15 });
         }
       }
       if (d.light) {
         const l = d.light;
         const light = new THREE.PointLight(linearColor(l.color), l.intensity, l.radius * Math.sqrt(s), 2);
         light.position.set(p.x + l.x * s, base + l.y * s, pz + PROP_LIGHT_FORWARD);
+        this.leaners.push({ at: light.position, base, z: pz + PROP_LIGHT_FORWARD, dy: l.y * s });
         this.addLive(scene, light, l.intensity, l.schedule, l.flicker, l.switch, !!l.shadows, flames, emitter);
         this.lives[this.lives.length - 1].prop = p;
         this.budget.point++;
@@ -272,6 +279,13 @@ export class Lights {
     setAreas(this.areas.map((a) => a.uniform));
 
     this.flameTex.offset.x = (Math.floor(time * 10) % 4) / 4;
+    // Props lean back toward the camera (render/lean.ts): their flames, lights and embers go with them.
+    const lean = leanNow();
+    if (lean !== this.leanWas) {
+      this.leanWas = lean;
+      const c = Math.cos(lean), sn = Math.sin(lean);
+      for (const q of this.leaners) { q.at.y = q.base + q.dy * c; q.at.z = q.z - q.dy * sn; if (q.tilt) q.tilt.rotation.x = -lean; }
+    }
     if (!this.emitters.length) return;
     for (let i = 0; i < EMBERS; i++) {
       this.emberLife[i] -= dt;

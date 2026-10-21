@@ -4,12 +4,16 @@
  *    sides take the edge pixels, stretched back, so a crate or a rock reads as a block from the game's camera.
  *  - Cross ×: two copies of the picture crossing at 45° (bushes, trees, grass: they look full from any side).
  *  - Cross +: the picture plus a copy turned side-on through its middle (mostly for fuller shadows).
+ *  - Star ✳, Rows ≡ and Thicket: tall grass and thick plants (three crossing copies; three staggered rows; rows of V's).
  * All share the card's texture and material; only the geometry differs, built once per prop type.
  */
 import * as THREE from 'three';
 import type { PropDef } from '../world/types';
 
 export type PropShape = NonNullable<PropDef['shape']>;
+
+/** How deep a prop's rows spread: its footprint's depth, or a third of a tile. */
+const d0 = (d: PropDef): number => Math.max(0.2, Math.min(0.8, d.foot ? d.foot.d : 0.6));
 
 /** Opaque pixels of an image (alpha at least half, the material's alpha cut). */
 function alphaMask(img: HTMLCanvasElement): { w: number; h: number; on: (x: number, y: number) => boolean } {
@@ -60,6 +64,15 @@ function card(b: Builder, w: number, h: number, n: number[], z = 0, yaw = 0, cz 
   b.quad([at(-w / 2, 0), at(w / 2, 0), at(w / 2, h), at(-w / 2, h)], [[0, 0], [1, 0], [1, 1], [0, 1]], n);
 }
 
+/** A copy of the card for the grass shapes: placed (dx, depth z), turned by yaw, scaled, maybe mirrored. */
+function copy(b: Builder, w: number, h: number, N: number[], o: { x?: number; z?: number; yaw?: number; scale?: number; mirror?: boolean }): void {
+  const yaw = o.yaw ?? 0, k = o.scale ?? 1, c = Math.cos(yaw), s = Math.sin(yaw), cw = w * k, ch = h * k;
+  const n = new THREE.Vector3(...N).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+  const at = (x: number, y: number) => [(o.x ?? 0) + x * c, y, (o.z ?? 0) - x * s];
+  const u0 = o.mirror ? 1 : 0, u1 = o.mirror ? 0 : 1;
+  b.quad([at(-cw / 2, 0), at(cw / 2, 0), at(cw / 2, ch), at(-cw / 2, ch)], [[u0, 0], [u1, 0], [u1, 1], [u0, 1]], [n.x, n.y, n.z]);
+}
+
 /**
  * The geometry for a prop's shape. `cardNormal` is the flat sprite's lighting normal (tilted up toward the camera).
  * `center`: depth of the footprint's middle (crosses turn about it), negative = back from the front edge.
@@ -74,6 +87,29 @@ export function shapeGeometry(img: HTMLCanvasElement, d: PropDef, cardNormal: TH
       const n = new THREE.Vector3(...N).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
       card(b, w, h, [n.x, n.y, n.z], 0, yaw, center);
     }
+    return b.geometry();
+  }
+  // Tall grass and thick plants.
+  if (shape === 'crossStar') {
+    // Cross × with a third copy facing the camera through the middle (✳ from above).
+    for (const yaw of [Math.PI / 4, -Math.PI / 4]) copy(b, w, h, N, { z: center, yaw, mirror: yaw < 0 });
+    copy(b, w, h, N, { z: center });
+    return b.geometry();
+  }
+  if (shape === 'rows') {
+    // Three rows one behind another, each a little offset, sized and mirrored: a thick, layered clump.
+    const dep = d0(d);
+    copy(b, w, h, N, { x: -0.08 * w, z: center - dep * 0.33, scale: 0.92, mirror: true });
+    copy(b, w, h, N, { x: 0.06 * w, z: center, scale: 1 });
+    copy(b, w, h, N, { x: -0.03 * w, z: center + dep * 0.33, scale: 0.86, mirror: true });
+    return b.geometry();
+  }
+  if (shape === 'thicket') {
+    // Rows of shallow V's (each pair turned ±25°): layered from the front, still full from the side.
+    const dep = d0(d), ROWS: [number, number, number][] = [[-0.33, -0.06, 0.9], [0, 0.05, 1], [0.33, -0.02, 0.84]];
+    ROWS.forEach(([dz, dx, k], i) => {
+      for (const yaw of [0.44, -0.44]) copy(b, w, h, N, { x: dx * w, z: center + dz * dep, yaw, scale: k * (yaw > 0 ? 1 : 0.94), mirror: (i + (yaw > 0 ? 0 : 1)) % 2 === 1 });
+    });
     return b.geometry();
   }
   if (shape === 'crossPlus') {

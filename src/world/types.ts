@@ -119,7 +119,7 @@ export interface PropDef {
    * How it's drawn: a flat card (default); "solid", its outline pushed back `thickness` tiles (default: the footprint's
    * depth) so it looks like a block; or two crossing copies of the picture, "crossX" (at 45°) or "crossPlus" (one side-on).
    */
-  shape?: 'flat' | 'solid' | 'crossX' | 'crossPlus';
+  shape?: 'flat' | 'solid' | 'crossX' | 'crossPlus' | 'crossStar' | 'rows' | 'thicket';
   thickness?: number;
   /** Props with a footprint: "solid" (default) blocks its solid tiles; "flat" only a thin strip along the picture. */
   collide?: 'solid' | 'flat';

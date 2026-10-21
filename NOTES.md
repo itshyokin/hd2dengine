@@ -143,6 +143,12 @@ Kept in the project so they travel with the code. Tick them off as they're built
 - [x] Update 89 (part 2): Version C picked: soft-blocky outer corners rounded (half a tile), inner corners curving
       round into the lower cell, bevels and lip lit like the top (no line); the grass lip on every height style
       (and the round shoreline banks); Status stats zero-padded (08) so the rank pills line up.
+- [x] Update 90: the pale green line along cliff edges gone (the grass lip's texture stays sharp at any angle);
+      torch, campfire and lamp flames, lights and embers lean with their props; battle results: each hero's level up
+      straight after their EXP, before the loot, and no EXP bar movement before "Victory!" (Addition strikes moved
+      it); "Jordan was poisoned!" lines that wait for OK; new prop shapes for tall grass: Star ✳, Rows ≡, Thicket.
+- [ ] Pick a tall-grass shape (previews shown) and maybe a built-in tall grass prop with it.
+- [ ] Lingering ailments as pills on the HUD party cards.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

@@ -90,6 +90,12 @@ export interface BattleHost {
 
 type Phase = 'off' | 'intro' | 'next' | 'command' | 'busy' | 'over';
 
+/** Pocket Handheld's line when an ailment takes hold. */
+const GOT_AILMENT: Partial<Record<BattleAilment, string>> = {
+  burn: 'was burned!', poison: 'was poisoned!', chill: 'was chilled!', frozen: 'froze solid!', paralyze: 'is paralyzed! It may be unable to move!',
+  blind: 'was blinded!', silence: 'was silenced!', sleep: 'fell asleep!', confusion: 'became confused!', zombie: 'turned into a zombie!',
+};
+
 /** Pocket Handheld: how long an attacker takes to step back after a hit, before the target flashes. */
 const STEP_BACK = 0.3;
 
@@ -124,7 +130,6 @@ export class TurnBattle {
   start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean; waiting?: BattleEntry[] } = {}): void {
     this.hurt = false;
     this.partyFell = false;
-    this.toldLevel.clear();
     this.announced = false; this.combo = null;
     this.rules = rules;
     for (const e of entries) e.battler.charging = null;
@@ -1057,9 +1062,13 @@ export class TurnBattle {
       const a: BattleAilment = res === 'frozen' ? 'frozen' : f.ailment;
       this.screen.popup(t.key, AILMENT_WORD[a], 'info');
       this.say(`${t.name}: ${ailmentName(a)}`);
+      // Pocket Handheld: a line of its own, waiting for OK ("Jordan was poisoned!").
+      if (res === 'given' || res === 'frozen') { const w = GOT_AILMENT[a]; if (w) this.tell(`${t.name} ${w}`); }
       refreshAgility(t);
     }
-    this.refresh(t);
+    // Pocket Handheld (one hit): its pill shows as the bar drains, once the attacker is back.
+    if (this.screen.pocket && !this.combo) this.screen.after(STEP_BACK, () => this.refresh(t));
+    else this.refresh(t);
   }
 
   private heal(by: Battler, t: Battler, n: number): void {
@@ -1120,31 +1129,14 @@ export class TurnBattle {
   /** "+12 EXP" at the bottom left, for one of the party. */
   private expPop(b: Battler, n: number): void {
     if (n <= 0) return;
-    // Pocket Handheld: no pops; the bar creeps up (the log tells the EXP as each foe falls, the rest at the end).
-    if (this.screen.pocket) this.showXp(b);
-    else this.screen.expPop(`${b.name} +${n} EXP`);
-  }
-
-  /** Levels already told in the log this battle (Pocket Handheld), by hero. */
-  private toldLevel = new Map<number, number>();
-
-  /** Pocket Handheld: a hero's EXP bar moved up to what they've earned; a level reached is told in the log. */
-  private showXp(b: Battler): void {
-    const who = this.entry(b).who ?? 0, pv = this.host.xpPreview?.(who);
-    if (!pv) return;
-    if (!this.toldLevel.has(who)) this.toldLevel.set(who, pv.level);
-    const was = this.toldLevel.get(who)!;
-    const up = pv.level > was;
-    this.screen.setXp(b.key, pv.frac, pv.level, up);
-    this.toldLevel.set(who, pv.level);
-    if (up) this.say(`${b.name} grew to Lv ${pv.level}`);
+    // Pocket Handheld: nothing until the battle is won (the bar fills once, after "Victory!").
+    if (this.screen.pocket) return;
+    this.screen.expPop(`${b.name} +${n} EXP`);
   }
 
   /** A foe fell: everyone fighting earns its EXP now (the finishing blow and a weakness a little more). */
   private foeEarned(t: Battler): void {
     const k = this.striker, fighting = this.party.filter(isUp).map((p) => this.entry(p).who ?? 0);
-    // Their levels before this foe's EXP (so a level reached now is told).
-    for (const w of fighting) if (!this.toldLevel.has(w)) { const pv = this.host.xpPreview?.(w); if (pv) this.toldLevel.set(w, pv.level); }
     const gains = this.host.foeDefeated?.(t.key, k ? this.entry(k.by).who ?? 0 : null, !!k?.weak, fighting) ?? [];
     for (const g of gains) {
       const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);
@@ -1261,8 +1253,8 @@ export class TurnBattle {
 
   /** Pocket Handheld's results, in the log: EXP still to tell (bonuses, shared EXP), level ups and what they brought, the loot. */
   private pocketResults(report: VictoryReport): void {
+    // Each hero's EXP, then (straight after it) their level up; the loot after everyone's.
     const exp: { text: string; sound?: string; bars?: () => void; stats?: string[]; icon?: string }[] = [];
-    const ups: typeof exp = [];
     for (const h of report.heroes) {
       const who = Number(h.key.slice(1)) || 0, b = this.all.find((e) => e.battler.side === 'party' && (e.who ?? 0) === who)?.battler;
       // The bar fills once, through every level it passes (the level ticks up at each), to where it ends up.
@@ -1274,10 +1266,10 @@ export class TurnBattle {
         exp.push({ text: `${h.name} gained ${h.gained} EXP!${bonus > 0 ? `\nIncludes bonus EXP +${bonus}${h.bonus!.bits.length ? ` (${h.bonus!.bits.map((x) => x.replace(/ \+\d+$/, '')).join(', ')})` : ''}` : ''}`, sound: 'expFill', bars });
       }
       // A level up: a ding, the new level and (in a box beside it) what it brought.
-      if (h.after.level > h.level) ups.push({ text: `${h.name} reached Level ${h.after.level}!`, sound: 'levelUp', stats: h.changes.flatMap((c) => c.split(' · ')) });
+      if (h.after.level > h.level) exp.push({ text: `${h.name} reached Level ${h.after.level}!`, sound: 'levelUp', stats: h.changes.flatMap((c) => c.split(' · ')) });
     }
     const loot = report.loot.map((l) => ({ icon: l.icon, text: l.kind === 'gold' ? `+${l.name}!` : `Got ${l.count > 1 ? `${l.count} × ` : ''}${l.name}!${l.note ? ` (${l.note})` : ''}`, sound: ({ gold: 'lootGold', potion: 'lootPotion', key: 'lootKey', material: 'lootMaterial', gear: 'lootGear', item: 'lootItem' } as const)[l.kind] as string }));
-    this.screen.pocketVictory([...exp, ...loot, ...ups], () => {
+    this.screen.pocketVictory([...exp, ...loot], () => {
       if (this.host.outro) this.host.outro(() => this.close('victory'));
       else this.close('victory');
     });
