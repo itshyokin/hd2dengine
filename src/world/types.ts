@@ -844,6 +844,8 @@ export interface CharacterModel {
   height?: number;
   /** Turned this many degrees so it faces the camera when facing down (0, 90, 180, 270). */
   rot?: number;
+  /** Its size on the battle stage, as a share of its height (default 0.5: the stage is seen up close). */
+  battleScale?: number;
 }
 
 /** How a new game's hero gets their stats (Database → Heroes). */
@@ -928,6 +930,8 @@ export interface OverworldCamera { pitch?: number; distance?: number; fov?: numb
 export interface Database {
   /** How 3D characters are drawn (Database → Characters). Unset: Legend of Dragoon (low-res, outlined). */
   modelLook?: ModelLook;
+  /** 3D characters' dark outline: on or off (unset: on with Legend of Dragoon, off with FFX). */
+  modelOutline?: boolean;
   /** Weapon types (missing: the built-in ten). */
   weaponTypes?: WeaponTypeDef[];
   /** Armor types (missing: Light, Medium and Heavy armor). */

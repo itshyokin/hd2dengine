@@ -80,7 +80,7 @@ export class CharacterSprite {
     if (asset.rigged) {
       this.anim = null;
       this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ visible: false }));
-      this.rig = new ModelRig(asset.rigged.model, asset.rigged.def, asset.rigged.look);
+      this.rig = new ModelRig(asset.rigged.model, asset.rigged.def, asset.rigged.style);
       this.mesh.add(this.rig.root);
       this.dir = dir;
       this.rig.face(dir); this.rig.snapFacing();

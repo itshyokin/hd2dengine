@@ -147,6 +147,7 @@ import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } fr
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
 import { toonWaterTime } from '../render/waterEdge';
+import { modelStyle } from '../render/characterModel';
 import { alignFootProps, blockedTiles, footTiles, propCovers, stepOf } from '../world/props';
 import { propKey } from './GameState';
 import { TouchControls } from '../ui/TouchControls';
@@ -483,7 +484,7 @@ export class Game {
     alignFootProps(mapData, (t) => this.sprites.def(t));
     this.tiles = new TileCatalog(assets);
     await this.sprites.preload(resolve);
-    this.sprites.modelLook = this.db.modelLook ?? 'lod';
+    this.sprites.modelStyle = modelStyle(this.db);
     await this.sprites.preloadCharacters(this.db.characters, resolve);
     await this.sprites.preloadFlats((this.db.enemies ?? []).map((e) => e.look.image).filter((p): p is string => !!p), resolve);
     // LPC weapon sprites used by items and enemies (people default to a sword or a bow).

@@ -213,9 +213,12 @@ export class BattleStage implements StageHooks {
       ring.renderOrder = 2;
       this.group.add(mesh, ring);
       const flat = s.sprite instanceof FlatSprite ? s.sprite : null;
+      // A 3D character stands smaller on the stage (it's seen up close): its own share of its height, half by default.
+      const rig = s.sprite instanceof CharacterSprite ? s.sprite.rig : null;
+      const k = rig ? rig.battleScale : 1;
       const f: Fighter = {
-        key: s.key, side: s.side, sprite: s.sprite, flat, scale: s.scale ?? 1, lift: s.lift ?? 0,
-        tall: Math.max(0.4, bb.max.y - bb.min.y), wide: Math.max(0.3, bb.max.x - bb.min.x),
+        key: s.key, side: s.side, sprite: s.sprite, flat, scale: (s.scale ?? 1) * k, lift: s.lift ?? 0,
+        tall: rig ? rig.height : Math.max(0.4, bb.max.y - bb.min.y), wide: rig ? Math.max(0.5, rig.height * 0.4) : Math.max(0.3, bb.max.x - bb.min.x),
         home, at: home.clone(), attackAnim: s.attackAnim ?? 'slash', steps: [], shake: 0, step: 0, active: false, down: false,
         fade: 0, fading: false, ring, ringColor: null, turnColor: s.color ?? '#ffc46e', lunge: 0, weak: false, posed: false, facing: new THREE.Vector2(0, s.side === 'party' ? -1 : 1),
       };
