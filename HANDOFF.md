@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 18, 2026)
+# Handoff: where the project stands (Oct 20, 2026, after Update 90)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -13,6 +13,30 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `README.md`: the full feature guide (what every tool, tab and command does).
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
+
+## Pick up here (state as of Update 90)
+- **Waiting on the owner:** which tall-grass prop shape to keep or tune. Update 90 added three new shapes to
+  Database → Props → Shape (Star ✳, Rows ≡, Thicket) next to Cross ×; previews were shown, none is used by a
+  built-in prop yet. When one is chosen, consider giving the built-in "Grass tuft" a taller tall-grass variant.
+- **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
+  **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
+  cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
+  (fighting styles were removed in 89). Battle text should read like the handheld games, one line at a time,
+  waiting for OK where the player needs to read it.
+- **Battle flow (Pocket Handheld):** move announced (no button) → strike → attacker steps back (`STEP_BACK`) →
+  target flashes, HP bar drains with numbers counting (`DRAIN`), battle waits (`pauseText`) → lines ("A critical
+  hit!", "Jordan was poisoned!") wait for OK. With Rounds, burn/poison bite at round end. After the last foe:
+  "Victory!" (fanfare) → each hero's EXP line (bar fills once, `fillXp`) → their level up → loot. Nothing touches
+  the EXP bar before "Victory!".
+- **Ailments:** one at a time per fighter; shown as pills (`statusPills.ts`) beside name/level; they last into the
+  next battle per ailment (`stays`, Database → Combat → Ailments) until cured, rested or worn off.
+- **Known small things / ideas:** lingering ailments aren't on the HUD party cards yet (only Party/Status pages);
+  a very faint crease can show where a soft-blocky bevel meets the flat top; the grass lip on Cliff-style rock
+  mostly shows along the top edge because the jagged face juts out.
+- **Testing in the cloud workspace:** a small Playwright harness drives the game (`window.__game`); tests that
+  reshape a map do it by intercepting `01_monolith.json` and editing heights/styles/props in the response. Swiftshader
+  is slow: shrink the viewport to 480×270 while waiting, use `waitForFunction`, and drive input with
+  `__game.input.press('ok')`.
 
 ## How we work (conventions to keep)
 - Work in numbered updates ("Update 63", small follow-ups "63b"). Each update: build it, test it in the browser
@@ -127,6 +151,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 89 (part 2): `SOFT_LOOK` { round 0.5, lip 0.5 }; `concaveRound` / `bevelInner` (inner corners: the lower cell draws
   the curve, the plateau cells trim their strips and walls); QuadList `add(..., light)` (soft cells lit flat); lip
   for every style via `lipFn`.
+- 90: lip meshes use nearest-filtered copies of the ground textures (a mipmapped copy showed as a pale green line on
+  slanted/curved walls) and their top edge rises `LIP_RISE` above the ground; world/Lights.ts `leaners` move prop
+  flames, lights and ember origins with `leanNow()` (torches no longer float); TurnBattle: Pocket `expPop` does
+  nothing (no mid-battle EXP bar moves), `pocketResults` puts each level up right after that hero's EXP line,
+  `GOT_AILMENT` lines on inflict; propShapes.ts `copy()` and shapes `crossStar`, `rows`, `thicket`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

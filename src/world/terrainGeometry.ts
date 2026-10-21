@@ -60,6 +60,8 @@ const faceNormal = (a: V3, b: V3, c: V3): V3 => cross(sub(b, a), sub(c, a));
 const UP: V3 = [0, 1, 0];
 /** Walls reach this far below the ground at their foot, hiding hairline gaps where they meet it. */
 const SINK = 0.04;
+/** How far the grass lip's top edge rises above the ground (past the imported tiles' lift). */
+const LIP_RISE = 0.012;
 /** The skirt around the map's outer edge reaches down to here (the land around the map sits at −0.02). */
 const EDGE_SKIRT = -0.15;
 const STAIR_STEPS = 4;
@@ -476,7 +478,9 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
         const da = Math.min(LIP, a[1] - footA), db = Math.min(LIP, b[1] - footB);
         if (da < 0.02 && db < 0.02) return;
         const l = Math.hypot(out[0], out[2]) || 1, nx = out[0] / l, nz = out[2] / l;
-        const at = (p: V3, dy: number, off: number): V3 => [p[0] + nx * off, p[1] - dy, p[2] + nz * off];
+        // Its top edge rises a hair above the ground, to the imported tiles' height, hiding the painted ground's edge
+        // under them (it showed as a line of a different green).
+        const at = (p: V3, dy: number, off: number): V3 => [p[0] + nx * off, p[1] - dy + (dy === 0 ? LIP_RISE : 0), p[2] + nz * off];
         // A point h down the lip shows the top h in from the edge (the ground folded over).
         const fold = (p: V3, h: number): [number, number] => [p[0] - nx * h, p[2] - nz * h];
         const f = [fold(a, 0), fold(b, 0), fold(b, db), fold(a, da)], fade: [number, number, number, number] = [0, 0, db / LIP, da / LIP];
@@ -581,7 +585,7 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
           u += len;
           if (LIP > 0) {
             const da = Math.min(LIP, A.o[1] - low), db = Math.min(LIP, B.o[1] - low), l = Math.hypot(facing[0], facing[2]) || 1, nx = facing[0] / l, nz = facing[2] / l;
-            const at = (p: V3, dy: number, off: number): V3 => [p[0] + nx * off, p[1] - dy, p[2] + nz * off];
+            const at = (p: V3, dy: number, off: number): V3 => [p[0] + nx * off, p[1] - dy + (dy === 0 ? LIP_RISE : 0), p[2] + nz * off];
             const fold = (p: V3, hh: number): V3 => [p[0] - nx * hh, 0, p[2] - nz * hh];
             const f = [fold(A.o, 0), fold(B.o, 0), fold(B.o, db), fold(A.o, da)], fade: [number, number, number, number] = [0, 0, db / LIP, da / LIP];
             lip.add([at(A.o, 0, 0.003), at(B.o, 0, 0.003), at(B.o, db, 0.003), at(A.o, da, 0.003)], f.map(guv), [nx, 0, nz], fade, UP);
