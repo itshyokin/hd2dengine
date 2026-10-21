@@ -202,15 +202,18 @@ export class PartyScreen {
         <div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(lead.mp[0], lead.mp[1])}%"></i></div></div>
         <div class="pr-num">${Math.round(lead.mp[0])} / ${Math.round(lead.mp[1])}</div>
         <div class="pr-line"><span class="pr-k">EXP</span><div class="pr-bar xp"><i style="width:${lead.xp.next === null ? 100 : pct(lead.xp.have, lead.xp.next)}%"></i></div></div>
+        <div class="pr-num">${lead.xp.next === null ? 'MAX' : `${lead.xp.have} / ${lead.xp.next}`}</div>
       </div>` : '';
     const rows = all.slice(1).map((c, j) => {
       const k = j + 1, first = k === this.host.active;
       return `${first ? '<div class="pr-sep">Reserve</div>' : ''}<div class="pr-row pr-slot${slotCls(k)}${k >= this.host.active ? ' bench' : ''}" data-k="${k}" role="option" aria-selected="${this.sel === k}"${c.color ? ` style="--hero:${c.color}"` : ''}>
-        <img class="pr-face" src="${c.portrait}" alt="">
+        <div class="pr-art pr-face"><img src="${c.art}" alt=""></div>
         <div class="pr-row-main">
           <div class="pr-row-top"><b>${esc(c.name)}</b>${lv(c)}${ail(c)}${c.skillPoints > 0 ? '<span class="pr-up">LEVEL UP</span>' : ''}${c.elements?.length ? `<span class="pr-els">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>
           <div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(c)}"><i style="width:${pct(c.hp[0], c.hp[1])}%"></i></div><span class="pr-num">${Math.round(c.hp[0])} / ${Math.round(c.hp[1])}</span></div>
-          <div class="pr-line thin"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(c.mp[0], c.mp[1])}%"></i></div><span class="pr-num">${Math.round(c.mp[0])} / ${Math.round(c.mp[1])}</span></div>
+          <div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(c.mp[0], c.mp[1])}%"></i></div><span class="pr-num">${Math.round(c.mp[0])} / ${Math.round(c.mp[1])}</span></div>
+          <div class="pr-line thin"><span class="pr-k">EXP</span><div class="pr-bar xp"><i style="width:${c.xp.next === null ? 100 : pct(c.xp.have, c.xp.next)}%"></i></div></div>
+          <div class="pr-xpnum">${c.xp.next === null ? 'MAX' : `${c.xp.have} / ${c.xp.next}`}</div>
         </div>
       </div>`;
     }).join('');

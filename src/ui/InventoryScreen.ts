@@ -372,7 +372,7 @@ export class InventoryScreen {
     // With the party beside the bag: pick who on it (their bars fill as it's used).
     if (this.actions.party) {
       const disabled = who.map((w) => !!w.disabled);
-      this.message = this.actions.useWarning?.(i) ? 'Careful: you’re a zombie, healing hurts you.' : 'Use on whom? (↑ ↓, Space)';
+      this.message = this.actions.useWarning?.(i) ? 'Careful: you’re a zombie, healing hurts you.' : '';
       this.mode = { kind: 'target', index: Math.max(0, disabled.indexOf(false)), disabled, run: (k) => { after(this.actions.use(i, k)); } };
       this.render();
       return;
@@ -413,15 +413,25 @@ export class InventoryScreen {
   }
 
 
-  /** The party beside the bag: each hero's face, gauges and ailments; the one being picked is highlighted. */
+  /**
+   * Using an item: who on, in a pop-up over the bag like the battle's (the lead in gold at the top, then the rest),
+   * each with their level, HP (and numbers) and MP. Only shown while choosing.
+   */
   private partyPanel(): string {
     const list = this.actions.party?.() ?? [], m = this.mode;
-    if (!list.length) return '';
-    const bar = (cls: string, [v, max]: [number, number]) => `<div class="ip-bar ${cls}"><i style="width:${Math.max(0, Math.min(100, (v / Math.max(1, max)) * 100))}%"></i><b>${Math.round(v)} / ${Math.round(max)}</b></div>`;
-    return `<div class="inv-party${m.kind === 'target' ? ' picking' : ''}" aria-label="Party">${list.map((x, k) => `<div class="ip-card${m.kind === 'target' && m.index === k ? ' sel' : ''}${x.down ? ' down' : ''}${m.kind === 'target' && m.disabled[k] ? ' off' : ''}" data-pc="${k}" style="--hero:${x.color}">
-      <img class="ip-face" src="${x.portrait}" alt=""><div class="ip-main"><div class="ip-name"><b>${esc(x.name)}</b><small>Lv ${x.level}${x.down ? ' · down' : ''}</small></div>
-      ${bar('hp', x.hp)}${bar('mp', x.mp)}
-      ${x.ailments.length ? `<div class="ip-ail">${x.ailments.map((a) => `<img src="${a.icon}" alt="${esc(a.name)}" title="${esc(a.name)}">`).join('')}</div>` : ''}</div></div>`).join('')}</div>`;
+    if (!list.length || m.kind !== 'target') return '';
+    const pct = ([v, max]: [number, number]) => Math.max(0, Math.min(100, (v / Math.max(1, max)) * 100));
+    const tier = (hp: [number, number]) => { const f = hp[0] / Math.max(1, hp[1]); return f <= 0.2 ? ' low' : f <= 0.5 ? ' mid' : ''; };
+    const def = this.inv().def(this.inv().slots[this.sel]?.id ?? '');
+    return `<div class="ip-pop" role="dialog" aria-label="Use on whom?"><div class="ip-pop-box">
+      <h4>Use ${esc(def?.name ?? 'it')} on whom?</h4>
+      ${list.map((x, k) => `<button type="button" class="ip-row${m.index === k ? ' sel' : ''}${k === 0 ? ' lead' : ''}${x.down ? ' down' : ''}" data-pc="${k}" ${m.disabled[k] ? 'disabled' : ''} style="--hero:${x.color}">
+        <img class="ip-face" src="${x.portrait}" alt="">
+        <span class="ip-main"><span class="ip-name"><b>${esc(x.name)}</b><span class="lv-pill" style="color:#3a2200">Lv ${x.level}</span>${x.down ? '<span class="st-pill" style="background:#5a5a68;color:#f4f4fa">KO</span>' : ''}${x.ailments.map((a) => `<img class="ip-ail" src="${a.icon}" alt="${esc(a.name)}" title="${esc(a.name)}">`).join('')}</span>
+        <span class="ip-line"><span class="ip-k">HP</span><span class="ip-bar hp${tier(x.hp)}"><i style="width:${pct(x.hp)}%"></i></span><span class="ip-num">${Math.round(x.hp[0])} / ${Math.round(x.hp[1])}</span></span>
+        <span class="ip-line"><span class="ip-k">MP</span><span class="ip-bar mp"><i style="width:${pct(x.mp)}%"></i></span><span class="ip-num">${Math.round(x.mp[0])} / ${Math.round(x.mp[1])}</span></span></span>
+      </button>`).join('')}
+      <div class="ip-hint">↑ ↓ choose · Space: use · Esc: back</div></div></div>`;
   }
 
   /** Gear: what it would change for each hero who can use it. */

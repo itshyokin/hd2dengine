@@ -149,6 +149,12 @@ Kept in the project so they travel with the code. Tick them off as they're built
       it); "Jordan was poisoned!" lines that wait for OK; new prop shapes for tall grass: Star ✳, Rows ≡, Thicket.
 - [x] Tall-grass shapes: the owner keeps all three (Star ✳, Rows ≡, Thicket) alongside Cross ×.
 - [ ] Lingering ailments as pills on the HUD party cards.
+- [x] Update 91 (part 1): Party tab boxes 60% wide, centred, three to the column's height, with EXP bar and numbers;
+      Items: the party strip beside the bag is gone; using an item opens a "Use X on whom?" pop-up like the battle's.
+- [ ] Owner's list (Oct 20 evening): sprites/props drawn over bevels and cliffs (depth bias), ladder stretches to
+      its wall, rest of the party's EXP after the first hero's, tall-grass rustle, really tall grass (wheat/corn),
+      pause tab icon dark when selected, low-HP alert chime in battle, no MP regen on the map, Database colours for
+      HP/MP/EXP bars and the stamina wheel (and wheel fade on/off), per-tile switch for generated normal maps.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
