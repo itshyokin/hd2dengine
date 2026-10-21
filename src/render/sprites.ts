@@ -14,13 +14,14 @@ import { DEFAULT_PALETTE, PLACEHOLDER_SPRITES, characterSheet } from '../art/pla
 import { normalMapFrom } from '../core/pixel';
 import { loadCanvas, maskToGlow, missingImage } from '../shared/images';
 import type { PropCatalog } from '../world/props';
-import type { CharacterAnimLayout, CharacterDef, CharacterPalette, PropDef, WeaponSpriteDef, WeaponSpriteManifest } from '../world/types';
+import type { CharacterAnimLayout, CharacterDef, CharacterModel, CharacterPalette, ModelLook, PropDef, WeaponSpriteDef, WeaponSpriteManifest } from '../world/types';
 
 import { WEAPON_MANIFEST_PATH as WEAPON_MANIFEST } from '../game/combat/weaponSprites';
 import { cutIcon, weaponIconRect } from '../art/weaponIcon';
 import { weaponMaskCanvas } from './weaponMask';
 import { completeLayout } from './sheetCheck';
 import { type BakedModel, bakeModel, modelExt, parseModel } from './models';
+import { type LoadedCharModel, loadCharacterModel, renderCharacterPicture } from './characterModel';
 import { patchAreaTint } from './areaTint';
 import { linearColor, makeTexture, registerNormalMap } from './textures';
 
@@ -39,6 +40,8 @@ export interface SpriteAsset {
    * wearing the sheet, so each gets its own geometry and picks frames through its UVs (not the texture offset).
    */
   anim?: { layout: CharacterAnimLayout; width: number; height: number };
+  /** A 3D character (render/characterModel.ts): drawn instead of the sheet, which stays as the fallback. */
+  rigged?: { model: LoadedCharModel; def: CharacterModel; look: ModelLook };
 }
 
 /** Pixels per tile for animated (LPC) sheets: a 64 × 64 frame covers 2 × 2 tiles. */
@@ -224,8 +227,24 @@ export class SpriteLibrary {
   /** Use this model for a prop (the editor, after importing one). */
   setModel(id: string, m: BakedModel | undefined): void { if (m) this.models.set(id, m); else this.models.delete(id); }
 
-  /** Load the imported character sheets (Database → Characters). */
+  /** How 3D characters are drawn (Database → Characters → 3D look). */
+  modelLook: ModelLook = 'lod';
+  /** 3D characters' models, by their file (and extra files). */
+  private readonly charModels = new Map<string, LoadedCharModel>();
+  private static modelKey(m: CharacterModel): string { return [m.file, ...(m.extra ?? [])].join('|'); }
+  /** A character's loaded 3D model (undefined: none, or it didn't load). */
+  charModel(def: CharacterDef | undefined): LoadedCharModel | undefined { return def?.model ? this.charModels.get(SpriteLibrary.modelKey(def.model)) : undefined; }
+  /** Use this loaded model for a character model's files (the editor's preview, after loading one). */
+  setCharModel(m: CharacterModel, loaded: LoadedCharModel): void { this.charModels.set(SpriteLibrary.modelKey(m), loaded); }
+
+  /** Load the imported character sheets (Database → Characters), and their 3D models. */
   async preloadCharacters(chars: Record<string, CharacterDef>, resolve: (path: string) => string): Promise<void> {
+    await Promise.all(Object.values(chars).filter((c) => c.model?.file && !this.charModels.has(SpriteLibrary.modelKey(c.model))).map(async (c) => {
+      try {
+        const m = await loadCharacterModel(c.model!, async (p) => { const r = await fetch(resolve(p)); if (!r.ok) throw new Error(`${p}: ${r.status}`); return r.arrayBuffer(); });
+        this.charModels.set(SpriteLibrary.modelKey(c.model!), m);
+      } catch (e) { this.problems.push(`${c.name}: 3D model “${c.model!.file}” couldn’t be loaded (${e instanceof Error ? e.message : String(e)})`); }
+    }));
     await Promise.all(Object.values(chars).filter((c) => c.sheet && !this.sheets.has(c.sheet)).map(async (c) => {
       try { this.sheets.set(c.sheet!, await loadCanvas(resolve(c.sheet!))); }
       catch { this.problems.push(`${c.name}: character sheet “${c.sheet}” is missing`); }
@@ -234,6 +253,8 @@ export class SpriteLibrary {
 
   /** A character's own sprite asset: its imported sheet, else its palette over the built-in look. */
   forCharacter(def: CharacterDef | undefined): SpriteAsset {
+    const model = this.charModel(def);
+    if (model && def?.model) return { ...this.forCharacter({ ...def, model: undefined }), rigged: { model, def: def.model, look: this.modelLook } };
     const sheet = def?.sheet ? this.sheets.get(def.sheet) : undefined;
     if (sheet && def?.anim) return this.animated(def.sheet!, sheet, def.anim);
     if (sheet) return this.sheet(sheet);
@@ -253,6 +274,13 @@ export class SpriteLibrary {
     const k = `${key}|${dir}|${scale}`;
     const hit = this.standing.get(k);
     if (hit) return hit;
+    // A 3D character: the model in its Idle pose, rendered.
+    const model = this.charModel(def);
+    if (model && def?.model) {
+      const pic = renderCharacterPicture(model, def.model, this.modelLook, dir, 'full', (scale || 2) * 56);
+      this.standing.set(k, pic);
+      return pic;
+    }
     const sheet = (def?.sheet ? this.sheets.get(def.sheet) : undefined) ?? characterSheet(def?.palette ?? DEFAULT_PALETTE);
     let fx: number, fy: number, fw: number, fh: number;
     if (def?.sheet && def.anim && this.sheets.has(def.sheet)) {
@@ -297,6 +325,15 @@ export class SpriteLibrary {
     const k = `${key}|${size}`;
     let out = this.portraits.get(k);
     if (out) return out;
+    const model = this.charModel(def);
+    if (model && def?.model) {
+      const head = renderCharacterPicture(model, def.model, this.modelLook, 'down', 'head', size);
+      out = document.createElement('canvas');
+      out.width = out.height = size;
+      out.getContext('2d')!.drawImage(head, Math.round((size - head.width) / 2), 0);
+      this.portraits.set(k, out);
+      return out;
+    }
     const sheet = (def?.sheet ? this.sheets.get(def.sheet) : undefined) ?? characterSheet(def?.palette ?? DEFAULT_PALETTE);
     // The front-facing frame: LPC sheets by their layout (the walk's down row, first frame); others 3 × 4 (middle of row 0).
     let fx = 0, fy = 0, fw: number, fh: number;

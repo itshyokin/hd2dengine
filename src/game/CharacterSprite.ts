@@ -11,7 +11,14 @@ import * as THREE from 'three';
 import { ANIM_PIXELS_PER_TILE, SpriteLibrary, withSpriteShadows } from '../render/sprites';
 import type { SpriteAsset } from '../render/sprites';
 import { patchAreaTint } from '../render/areaTint';
-import type { CharacterAnimLayout, CharacterPalette, Dir, SheetAnim, WeaponGlow, WeaponSheetAnim, WeaponSpriteDef, WeaponTrail } from '../world/types';
+import type { CharacterAnimLayout, CharacterPalette, Dir, ModelSlot, SheetAnim, WeaponGlow, WeaponSheetAnim, WeaponSpriteDef, WeaponTrail } from '../world/types';
+import { ModelRig } from '../render/characterModel';
+
+/** Sheet animations as 3D model slots (a 3D character answers the same calls as a sheet). */
+const SLOT_OF: Record<string, ModelSlot> = {
+  slash: 'attack', backslash: 'attack', halfslash: 'attack', thrust: 'attack', slash_reverse: 'attack', shoot: 'attack', combat_idle: 'idle',
+  spellcast: 'spellcast', hurt: 'ko', jump: 'jump', climb: 'climb', sit: 'sit', kneel: 'injured', idle: 'idle', walk: 'walk', run: 'run', swim: 'swim',
+};
 
 /** Direction rows of LPC weapon sheets. */
 const WEAPON_DIRS: Dir[] = ['up', 'left', 'down', 'right'];
@@ -45,7 +52,7 @@ const DIR_ROW: Record<Dir, number> = { down: 0, left: 1, right: 2, up: 3 };
 const WALK_CYCLE = [0, 1, 2, 1];
 
 /** What the character's movement looks like this frame. */
-export interface Motion { moving: boolean; running?: boolean; airborne?: boolean; climbing?: boolean; combat?: boolean }
+export interface Motion { moving: boolean; running?: boolean; airborne?: boolean; climbing?: boolean; combat?: boolean; swimming?: boolean; sitting?: boolean; injured?: boolean }
 
 export class CharacterSprite {
   readonly mesh: THREE.Mesh;
@@ -62,9 +69,23 @@ export class CharacterSprite {
   /** Weapon and shield sprites, drawn in this order (later ones nearer the body on both sides). */
   private overlays: Overlay[] = [];
 
+  /** A 3D character: its model, posed and turned here; `mesh` is then an invisible holder it stands in. */
+  readonly rig: ModelRig | null = null;
+  /** Exact facing for 3D characters (radians), with the way it was set for. */
+  private yaw: { dir: Dir; angle: number } | null = null;
+
   constructor(sprites: SpriteLibrary, palette: CharacterPalette | SpriteAsset, dir: Dir = 'down') {
     const asset = 'map' in palette ? (palette as SpriteAsset) : sprites.character(palette as CharacterPalette);
     this.map = asset.map;
+    if (asset.rigged) {
+      this.anim = null;
+      this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ visible: false }));
+      this.rig = new ModelRig(asset.rigged.model, asset.rigged.def, asset.rigged.look);
+      this.mesh.add(this.rig.root);
+      this.dir = dir;
+      this.rig.face(dir); this.rig.snapFacing();
+      return;
+    }
     this.anim = asset.anim ?? null;
     this.mesh = withSpriteShadows(new THREE.Mesh(asset.geometry, asset.material), asset);
     if (this.anim) this.uv = asset.geometry.getAttribute('uv') as THREE.BufferAttribute;
@@ -77,11 +98,14 @@ export class CharacterSprite {
   }
 
   /** Has animations beyond walking (an animated sheet)? */
-  get animated(): boolean { return !!this.anim; }
+  get animated(): boolean { return !!this.anim || !!this.rig; }
   /** Does the sheet have this animation? */
-  has(name: string): boolean { return !!this.anim?.layout.anims[name]; }
+  has(name: string): boolean {
+    if (this.rig) { const s = SLOT_OF[name]; return !!s && this.rig.has(s); }
+    return !!this.anim?.layout.anims[name];
+  }
   /** Whether an animation has a row for each way the character can face (LPC's hurt has only one: facing the camera). */
-  facesAllWays(name: string): boolean { return (this.anim?.layout.anims[name]?.dirs ?? 1) === 4; }
+  facesAllWays(name: string): boolean { return this.rig ? true : (this.anim?.layout.anims[name]?.dirs ?? 1) === 4; }
 
   /**
    * Advance the animation. `moving` (or a Motion) says how the character moves; animated sheets pick walk, run, jump,
@@ -89,6 +113,13 @@ export class CharacterSprite {
    */
   animate(dt: number, motion: boolean | Motion): void {
     const m: Motion = typeof motion === 'boolean' ? { moving: motion } : motion;
+    if (this.rig) {
+      this.rig.loop(m.climbing ? 'climb' : m.swimming ? 'swim' : m.airborne && this.rig.has('jump') ? 'jump' : m.moving ? (m.running ? 'run' : 'walk')
+        : m.sitting ? 'sit' : m.injured && this.rig.has('injured') ? 'injured' : 'idle');
+      this.refresh();
+      this.rig.update(dt, !!m.climbing && !m.moving);
+      return;
+    }
     if (!this.anim) {
       this.walkTime = m.moving ? this.walkTime + dt : 0;
       this.setFrame(m.moving ? WALK_CYCLE[Math.floor(this.walkTime * 8) % 4] : 1);
@@ -111,6 +142,13 @@ export class CharacterSprite {
    * the sheet doesn't have it.
    */
   play(name: string, duration?: number, from = 0, done?: () => void, to?: number): boolean {
+    if (this.rig) {
+      // A sheet's flinch (the first steps of "hurt") is Injured on a model; the whole of it is KO.
+      const flinch = name === 'hurt' && to !== undefined && to <= 2;
+      const slot = flinch ? 'injured' : SLOT_OF[name];
+      if (!slot) return false;
+      return this.rig.once(slot, duration, done, slot === 'ko');
+    }
     // A reversed animation ("slash_reverse"): the body plays the plain one backwards.
     const body = this.anim?.layout.anims[name] ? name : REVERSED[name];
     const a = body ? this.anim?.layout.anims[body] : undefined;
@@ -125,6 +163,16 @@ export class CharacterSprite {
 
   /** Hold one frame of an animation (cycle step) until cleared with `hold(null)`. */
   hold(name: string | null, step = 0): void {
+    if (this.rig) {
+      const slot = name ? SLOT_OF[name] : undefined;
+      // KO stays on its last frame; a drawn bow or a raised weapon at that point through the attack (sheets have
+      // about 8 steps); a kneel or a seat loops.
+      if (!slot) this.rig.release();
+      else if (slot === 'ko') this.rig.pose('ko', 1);
+      else if (slot === 'injured' || slot === 'sit') { this.rig.release(); this.rig.loop(slot); }
+      else this.rig.pose(slot, Math.min(1, step / 8));
+      return;
+    }
     const anims = this.anim?.layout.anims;
     if (name && anims?.[name]) this.pose = { name, frame: step };
     else if (name && anims?.[REVERSED[name]]) {
@@ -136,13 +184,15 @@ export class CharacterSprite {
   }
 
   /** Stop any action or pose (back to plain movement). */
-  clearAction(): void { this.action = null; this.pose = null; this.refresh(); }
+  clearAction(): void { if (this.rig) { this.rig.release(); return; } this.action = null; this.pose = null; this.refresh(); }
 
-  get acting(): boolean { return !!this.action; }
+  get acting(): boolean { return this.rig ? this.rig.acting : !!this.action; }
 
   faceVector(dx: number, dz: number): void {
     if (!dx && !dz) return;
     this.dir = Math.abs(dx) > Math.abs(dz) ? (dx < 0 ? 'left' : 'right') : dz < 0 ? 'up' : 'down';
+    // A model turns to the exact way (diagonals too).
+    if (this.rig) this.yaw = { dir: this.dir, angle: Math.atan2(dx, dz) };
     this.refresh();
   }
 
@@ -151,6 +201,7 @@ export class CharacterSprite {
   }
 
   private refresh(): void {
+    if (this.rig) { this.rig.face(this.dir, this.yaw && this.yaw.dir === this.dir ? this.yaw.angle : undefined); return; }
     if (!this.anim) { this.setFrame(1); return; }
     const anims = this.anim.layout.anims;
     let name: string, step: number;
@@ -210,7 +261,7 @@ export class CharacterSprite {
       for (const e of [...o.echoes.back, ...o.echoes.front]) { this.mesh.remove(e); e.geometry.dispose(); (e.material as THREE.Material).dispose(); }
     }
     this.overlays = [];
-    if (!this.anim) return;
+    if (!this.anim) return;  // 3D characters carry their weapons in the model (equipment models: Update 104)
     list.forEach((w, i) => {
       const make = (side: 'back' | 'front') => {
         const g = new THREE.PlaneGeometry(1, 1);

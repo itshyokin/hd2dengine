@@ -823,6 +823,27 @@ export interface CharacterDef {
   anim?: CharacterAnimLayout;
   /** Who made the sheet's parts (read from the PNG; shown on the Credits screen). */
   credits?: SpriteCredit[];
+  /** A rigged 3D model drawn instead of the sheet (render/characterModel.ts); the sheet or palette stays as a fallback. */
+  model?: CharacterModel;
+}
+
+/** A 3D character's animation slots. Enemies use Idle, Attack, Spellcast and KO (their death). */
+export type ModelSlot = 'idle' | 'walk' | 'run' | 'jump' | 'swim' | 'climb' | 'sit' | 'injured' | 'ko' | 'attack' | 'spellcast';
+/** How 3D characters are drawn: Legend of Dragoon (low-res: crisp textures, flat shading, an outline) or FFX (smooth). */
+export type ModelLook = 'lod' | 'ffx';
+
+/** A character's 3D model (Database → Characters). */
+export interface CharacterModel {
+  /** The model file (GLB or FBX) under public/, e.g. "assets/models/characters/party/katrina/katrina.glb". */
+  file: string;
+  /** More files with actions for the same skeleton. */
+  extra?: string[];
+  /** The action each slot plays, by name ('' none); a slot left out is matched by the actions' names. */
+  anims?: Partial<Record<ModelSlot, string>>;
+  /** How tall it stands, in tiles (default 1.6). */
+  height?: number;
+  /** Turned this many degrees so it faces the camera when facing down (0, 90, 180, 270). */
+  rot?: number;
 }
 
 /** How a new game's hero gets their stats (Database → Heroes). */
@@ -905,6 +926,8 @@ export type AllyStyle = 'fighter' | 'archer' | 'caster' | 'healer';
 export interface OverworldCamera { pitch?: number; distance?: number; fov?: number; lean?: number }
 
 export interface Database {
+  /** How 3D characters are drawn (Database → Characters). Unset: Legend of Dragoon (low-res, outlined). */
+  modelLook?: ModelLook;
   /** Weapon types (missing: the built-in ten). */
   weaponTypes?: WeaponTypeDef[];
   /** Armor types (missing: Light, Medium and Heavy armor). */

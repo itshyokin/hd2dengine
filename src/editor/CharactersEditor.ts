@@ -6,12 +6,14 @@
  */
 import { canvasFromBlob } from '../shared/images';
 import { type BuilderSheetMeta, readBuilderMeta } from '../shared/pngText';
-import type { CharacterDef } from '../world/types';
+import type { CharacterDef, ModelLook } from '../world/types';
+import { editorCharModel, openCharacterModel } from './characterModelEditor';
+import { renderCharacterPicture } from '../render/characterModel';
 import { characterFrame, setCharacterSheet } from './editorArt';
-import { h, toast } from './dom';
+import { field, h, select, toast } from './dom';
 import type { EditorStore } from './store';
 
-export interface CharactersWork { chars: Record<string, CharacterDef>; player: string }
+export interface CharactersWork { chars: Record<string, CharacterDef>; player: string; /** How 3D characters are drawn (unset: Legend of Dragoon). */ look?: ModelLook }
 
 const slug = (s: string) => s.toLowerCase().replace(/\.png$/i, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'character';
 const niceName = (file: string) => file.replace(/\.png$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, (c) => c.toUpperCase()) || 'Character';
@@ -105,10 +107,16 @@ export function charactersTab(store: EditorStore, w: CharactersWork, rerender: (
     const thumb = document.createElement('canvas');
     thumb.width = frame.width; thumb.height = frame.height; thumb.className = 'char-thumb';
     thumb.getContext('2d')!.drawImage(frame, 0, 0);
+    // A 3D character: its model, rendered (once it's read).
+    if (c.model) void editorCharModel(store, c.model).then((m) => {
+      const pic = renderCharacterPicture(m, c.model!, w.look ?? 'lod', 'down', 'full', 96);
+      thumb.width = pic.width; thumb.height = pic.height;
+      thumb.getContext('2d')!.drawImage(pic, 0, 0);
+    }).catch(() => { /* shown as missing below */ });
     const sheet = c.sheet ? store.files.get(c.sheet) : undefined;
     const n = c.anim ? Object.keys(c.anim.anims).length : 0;
     const safe = c.credits?.length ? c.credits.every((x) => x.licenses.some((l) => /^(CC0|OGA-BY)/.test(l.trim()))) : null;
-    const size = c.anim ? `Animated (${n} animation${n === 1 ? '' : 's'})${safe === null ? '' : safe ? ' · Steam-safe' : ' · not Steam-safe'}` : c.sheet ? `${frame.width} × ${frame.height} frames` : 'Built-in look';
+    const size = c.model ? `3D model${c.model.anims ? ` (${Object.keys(c.model.anims).length} slot${Object.keys(c.model.anims).length === 1 ? '' : 's'} set)` : ''}` : c.anim ? `Animated (${n} animation${n === 1 ? '' : 's'})${safe === null ? '' : safe ? ' · Steam-safe' : ' · not Steam-safe'}` : c.sheet ? `${frame.width} × ${frame.height} frames` : 'Built-in look';
     const used = usedBy(id);
     let armed = false;
     const del = h('button', { type: 'button', class: 'btn small danger', disabled: w.player === id, title: w.player === id ? 'Choose another player first' : undefined,
@@ -134,6 +142,7 @@ export function charactersTab(store: EditorStore, w: CharactersWork, rerender: (
             toast(warn ? `Sheet replaced, but ${warn}` : `Sheet replaced for ${c.name}`, warn ? 'error' : 'ok');
             rerender();
           }) }, c.sheet ? 'Replace sheet…' : 'Use a sheet…'),
+          h('button', { type: 'button', class: 'btn small', onclick: () => openCharacterModel(store, id, c, w.look ?? 'lod', rerender) }, c.model ? '3D model…' : 'Use a 3D model…'),
           del)));
   };
 
@@ -141,7 +150,8 @@ export function charactersTab(store: EditorStore, w: CharactersWork, rerender: (
   return [
     h('section', { class: 'db-section db-wide' },
       h('h3', {}, 'Characters'),
-      h('div', { class: 'char-btns' }, h('button', { type: 'button', class: 'btn', onclick: importSheets }, 'Import character sheets…')),
+      h('div', { class: 'char-btns' }, h('button', { type: 'button', class: 'btn', onclick: importSheets }, 'Import character sheets…'),
+        field('3D look (characters with a 3D model)', select([['lod', 'Legend of Dragoon: low-res, crisp, outlined'], ['ffx', 'Final Fantasy X: smooth']], w.look ?? 'lod', (v) => { w.look = v === 'lod' ? undefined : v as ModelLook; rerender(); }, { 'aria-label': '3D look' }))),
       h('p', { class: 'note' }, 'Sheets from the Character Builder bring their animations (walk, run, attacks…) and credits with them; credits appear on the Credits screen. Plain RPG Maker MV-style sheets (3 frames across × 4 rows: facing down, left, right, up) also work, walking only. Pick several files at once to import a batch.'),
       h('div', { class: 'char-grid' }, ...ids.map((id) => card(id, w.chars[id])))),
   ];

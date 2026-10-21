@@ -259,6 +259,11 @@ async function playtest(stamp: string, battle?: { enemies: string[]; map?: strin
     for (const f of store.db.audio?.files ?? []) { used.add(f); await readSound(store, f, async () => !!kept?.has(f)); }
     for (const c of Object.values(store.db.characters)) if (c.sheet) used.add(c.sheet);
     for (const e of store.db.enemies ?? []) if (e.look.image) used.add(e.look.image);
+    // 3D characters' model files (read now if they haven't been yet).
+    for (const c of Object.values(store.db.characters)) for (const f of c.model ? [c.model.file, ...(c.model.extra ?? [])] : []) {
+      used.add(f);
+      if (!store.files.has(f)) { try { store.files.set(f, await store.project.readFile(f)); } catch { /* the game tries the project */ } }
+    }
     // The title's picture or video.
     { const tb = store.db.menus?.titleBackground, f = tb?.kind === 'image' ? tb.image : tb?.kind === 'video' ? tb.video : undefined;
       if (f) { used.add(f); if (!store.files.has(f)) { try { store.files.set(f, await store.project.readFile(f)); } catch { /* the game tries the project */ } } } }

@@ -135,7 +135,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const saving = { anywhere: store.db.saving?.anywhere !== false, autosave: store.db.saving?.autosave !== false };
   const abilities = Object.fromEntries(ABILITIES.map((a) => [a, store.db.abilities?.[a] ?? true])) as Record<string, boolean>;
   const body = h('div', { class: 'db-editor' });
-  const people: CharactersWork = { chars: JSON.parse(JSON.stringify(store.db.characters)), player: store.db.player };
+  const people: CharactersWork = { chars: JSON.parse(JSON.stringify(store.db.characters)), player: store.db.player, look: store.db.modelLook };
   const credits: CreditEntry[] = JSON.parse(JSON.stringify(store.db.credits ?? []));
   const quests: QuestDef[] = JSON.parse(JSON.stringify(store.db.quests ?? []));
   const questState = { sel: 0 };
@@ -638,7 +638,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(itemsOut) === JSON.stringify(db.items?.length ? db.items : null) && JSON.stringify(invOut ?? null) === JSON.stringify(db.inventory ?? null) &&
         JSON.stringify(combatOut) === JSON.stringify(db.combat ?? null) && JSON.stringify(enemiesOut) === JSON.stringify(db.enemies?.length ? db.enemies : null) &&
         JSON.stringify(audioOut) === JSON.stringify(db.audio ?? null) && JSON.stringify(skillsOut) === JSON.stringify(db.skills ?? null) &&
-        JSON.stringify(people.chars) === JSON.stringify(db.characters) && people.player === db.player &&
+        JSON.stringify(people.chars) === JSON.stringify(db.characters) && people.player === db.player && people.look === db.modelLook &&
         JSON.stringify(cleanCredits(credits) ?? null) === JSON.stringify(db.credits ?? null) && JSON.stringify(questsOut) === JSON.stringify(db.quests?.length ? db.quests : null) &&
         JSON.stringify(heroesOut) === JSON.stringify(db.heroes?.length ? db.heroes : null) &&
         JSON.stringify(spellsOut) === JSON.stringify(db.spells ?? null) && JSON.stringify(additionsOut) === JSON.stringify(db.additions ?? null) &&
@@ -681,6 +681,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (stylesOut) db.messageStyles = C(stylesOut); else delete db.messageStyles;
       if (climateOut) db.climate = C(climateOut) as typeof db.climate; else delete db.climate;
       db.characters = C(people.chars);
+      if (people.look) db.modelLook = people.look; else delete db.modelLook;
       const cr = cleanCredits(credits);
       if (cr) db.credits = C(cr); else delete db.credits;
       if (people.chars[people.player]) db.player = people.player;
