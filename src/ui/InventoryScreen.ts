@@ -3,6 +3,7 @@
  * with the selected item's details, gold, and an action list (Use, Equip, Quick slot, Move, Drop). The Shards tab
  * readies a shard as a hero's spell and sets shards in weapons and armor. Arrow keys / Space / Esc, or mouse and touch.
  */
+import { restoreBits } from '../game/restore';
 import { COIN_SVG } from './StatusBars';
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
@@ -533,8 +534,7 @@ function kindLine(d: ItemDef): string {
     const mines = d.mines ? ' · breaks rock' : '';
     return `Equipment · ${slot}${el}${w}${def}${mdef}${power}${sp}${bonus}${crit}${inf}${prot}${ward}${mines}`;
   }
-  const r = d.restore ?? {}, unit = d.restorePercent ? '%' : '';
-  const parts = (['hp', 'mp', 'sp'] as const).filter((g) => r[g]).map((g) => `+${r[g]}${unit} ${g.toUpperCase()}`);
+  const parts = restoreBits(d);
   if (d.cures?.length) parts.push(`cures ${d.cures.map((c) => (c === 'all' ? 'all ailments' : AILMENT_INFO[c].name)).join(', ')}`);
   for (const b of d.buffs ?? []) parts.push(`${BUFF_INFO[b.buff].name} +${b.amount ?? BUFF_INFO[b.buff].amount}${BUFF_INFO[b.buff].unit} for ${b.seconds ?? BUFF_INFO[b.buff].seconds}s`);
   return `Consumable${parts.length ? ' · ' + parts.join(', ') : ''}`;

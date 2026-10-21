@@ -138,6 +138,11 @@ export interface PropDef {
   rustle?: boolean;
   /** Sits flat against the cliff face behind it (cave mouths, doorways, doors, wall banners) instead of standing in its tile. */
   wall?: boolean;
+  /**
+   * Drawn in front of the tiles (ground and cliffs in front of it give way, so it never hides behind a ledge). On by
+   * default; turn off for props that must sort with the ground as they stand (tall platforms whose legs show through).
+   */
+  frontOfTiles?: boolean;
   /** On a wall: stretched to the wall's height wherever it's placed (ladders, vines, waterfalls of ivy). */
   stretch?: boolean;
   /** Fires that burn out: starts unlit the first time the player comes (light it with fuel or a fire attack). */
@@ -950,7 +955,8 @@ export interface Database {
   /** Quests (Database → Quests), started and advanced by events. */
   quests?: QuestDef[];
   /** The clock: game minutes per real minute (0 stops it; default 20) and how dark night gets (0 – 1, default 0.85). */
-  time?: { rate?: number; darkness?: number; seasons?: import('./seasons').SeasonSettings };
+  /** skySpeed: how fast sleeping's sky transition runs (1 normal, 0.5 twice as slow, 2 twice as fast). */
+  time?: { rate?: number; darkness?: number; skySpeed?: number; seasons?: import('./seasons').SeasonSettings };
 }
 
 export type ItemKind = 'consumable' | 'equipment' | 'key' | 'ammo' | 'material';
@@ -1067,7 +1073,9 @@ export interface ItemDef {
   stack?: number;
   /** Consumables: what using it restores. */
   restore?: Partial<Record<Gauge, number>>;
-  /** Restore amounts are percentages of the maximum. */
+  /** Consumables: percent of the maximum restored, added to `restore` (10 + 30% max HP). */
+  restorePct?: Partial<Record<Gauge, number>>;
+  /** Old: restore amounts are percentages of the maximum (read as `restorePct`; the editor converts it). */
   restorePercent?: boolean;
   /** Changes how a stat grows each level: a consumable changes it for good (a Potion of Defense), gear while it's worn. */
   statRank?: { stat: 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank };

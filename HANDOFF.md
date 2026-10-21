@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 20, 2026, after Update 92)
+# Handoff: where the project stands (Oct 20, 2026, after Update 93)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,8 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work (owner approved, not started):** Update 93 = the "Owner's list (Oct 20, night)" in NOTES.md. The plan is
-  under "Next up" below. Do the items in that order, test each, then docs, build, commit and push as usual.
+- **Next work:** waiting on the owner's playtest of Update 93 (the "Owner's list (Oct 20, night)" is done).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -178,42 +177,21 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   arrow, field bow ignores arrows; Equipment `.eq-left` column, top-aligned; LT / RT (`subPrev`/`subNext`) switch
   hero on Equipment (even locked), Status (`order`) and Skill Tree (`otherHero`); Swap first in Party actions; menu
   hints use `input.label(...)`.
+- 93: `src/game/restore.ts` (`restoreAmount` / `restoreBits` / `upgradeRestore`): ItemDef `restorePct` beside
+  `restore` (amount + % of max; old `restorePercent` items read as %, the Items editor converts them; the checkbox is
+  gone); battle items restore MP too (TurnBattle `itemOnFoe`, BattleItem `pct`). PropDef `frontOfTiles` (false →
+  sprites.ts sets `material.userData.hdBack`, and patchLean pushes that prop back by `GROUND_YIELD` so it sorts with
+  the yielded ground); checkbox in PropImporter. Battle log Next plays `menuOk`. Battle fog starts 1.8× further out
+  (the sky dome already draws on stages; it was mostly hidden by fog). Database → Time `skySpeed` (sleep's sky pass:
+  `PASS = min(12, 5 + hours × 0.55) / skySpeed`, slower than before). Battle spell lists: ChoiceItem `inlineIcon`
+  (element icon, or the tinted magic picture for non-elemental; spells have no Database icon of their own). First
+  draw of a fighter's bars skips the CSS transition (`.no-anim`, PocketBlock `drawn`), so no drain from full.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. **Update 93 (owner's list, Oct 20 night): the plan.**
-   - **Prop toggle "Drawn in front of tiles"**: today every mesh built before props (terrain, water, edges) goes
-     through `patchGroundYield` in `src/world/WorldBuilder.ts` (~line 197), so sprites and props win against ground
-     up to `GROUND_YIELD` (render/lean.ts). The owner's screenshot: a tall wooden bridge/platform prop's legs show
-     through the cliff top in front of it. Add `PropDef.frontOfTiles?: boolean` (undefined = on). When it's off, give that
-     prop's materials a flag (e.g. `userData.noYield`) and draw it with plain depth: simplest is to push it back by
-     the same `GROUND_YIELD` in its own vertex shader (the same trick as patchGroundYield, applied to the prop), so it
-     sorts against the yielded ground exactly. Checkbox in the props editor (Database / prop editor where `stretch`
-     and `rustle` live), on by default. Test with the bridge on a cliff edge.
-   - **Items "restores x%"** (owner's call): REMOVE the "Amounts are percentages of the maximum" checkbox
-     (ItemsEditor ~162; the owner says it doesn't seem to work: check why while there, e.g. the battle path may
-     ignore it). Add `ItemDef.restorePct?: Partial<Record<Gauge, number>>`: HP and MP each get the plain amount box
-     (`restore`) and a % box (`restorePct`) side by side, and both apply: amount + pct × max / 100 (10 + 30% max HP).
-     Old saves: an item with `restorePercent: true` converts its `restore` numbers into `restorePct` on load, then
-     drop the flag. Apply the same sum everywhere restore is used: Game ~2542 (party member), ~2567 (stats), ~5362
-     (battle item list detail + `.ip-pop` preview, which takes `restore`/`percent`), InventoryScreen ~536. Text:
-     "Restores 10 + 30% HP", "Restores 30% MP", "Restores 50 HP".
-   - **Battle log chime**: when a battle line that waits for OK is dismissed (the pocket flow `tell` / `pauseText`
-     in TurnBattle / BattleScreen), play `uiSound('menuOk')`, the same chime as menus.
-   - **Skybox in battle**: BattleStage builds its own scene with grey fog. Show the map's Sky (render/Sky.ts) behind
-     the stage: either keep the world sky mesh visible/moved with the battle camera, or make a Sky for the stage
-     with the same time of day and weather. Keep the fog but tint it from the sky colour so the horizon blends.
-   - **Sky transition speed**: find where Sky/time of day blends day → dusk → night colours (render/Sky.ts and the
-     map lighting) and widen the blend windows. Add Database setting "Sky transition speed" (e.g. Slow / Normal /
-     Fast, or a multiplier, default a bit slower than now) in the Time/Weather settings tab.
-   - **Spell element icons**: battle spell list (BattleScreen `renderLists`) shows the element icon (the element
-     icons used by status pills / Equipment "Elements") before the name, or the spell's Database icon if it has none.
-   - **No HP drain at battle start**: the battle HUD bars animate from 100% to the real value on the first render.
-     Set the bars' starting width to the current value (skip the transition on the first draw, e.g. add a
-     `no-anim` class for one frame, or remember the last value per fighter starting at their current HP). If any
-     drain still shows, finish setting up the scene before the battle's fade-in.
+1. Whatever the owner reports from playtesting Update 93.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

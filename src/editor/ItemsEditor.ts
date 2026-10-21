@@ -3,6 +3,7 @@
  * (name, icon, kind, price, what it restores or which slot it fills, a ring's power and magic cost),
  * and the bag size and what a new game starts with.
  */
+import { upgradeRestore } from '../game/restore';
 import { ailmentChips, buffsField, inflictsField } from './statusFields';
 import type { Ailment } from '../world/types';
 import { elementSelect, matchupText } from './elementFields';
@@ -124,11 +125,11 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
     h('div', { class: 'field-row' },
       field('Kind', select(KIND_NAMES, d.kind, (v) => {
         d.kind = v as ItemKind;
-        if (d.kind === 'equipment') { d.slot ??= 'accessory'; delete d.restore; delete d.restorePercent; delete d.stack; }
+        if (d.kind === 'equipment') { d.slot ??= 'accessory'; delete d.restore; delete d.restorePct; delete d.restorePercent; delete d.stack; }
         else { if (!(d.kind === 'key' && d.exp?.all)) delete d.exp; delete d.slot; delete d.protects; if (d.kind !== 'ammo') delete d.inflicts; if (!(d.kind === 'key' && d.tool === 'light')) delete d.light; delete d.ring; delete d.weapon; delete d.defense; delete d.magicDefense; delete d.bonus; delete d.crit; delete d.glow; delete d.trail; delete d.sprite; delete d.rarity; delete d.spell; if (d.icon === 'sprite') d.icon = 'builtin:bag'; }
-        if (d.kind === 'ammo') { d.ammo ??= { damage: 2 }; delete d.restore; delete d.restorePercent; } else delete d.ammo;
+        if (d.kind === 'ammo') { d.ammo ??= { damage: 2 }; delete d.restore; delete d.restorePct; delete d.restorePercent; } else delete d.ammo;
         if (d.kind === 'consumable') d.restore ??= { hp: 20 };
-        if (d.kind === 'key' || d.kind === 'material') { delete d.restore; delete d.restorePercent; }
+        if (d.kind === 'key' || d.kind === 'material') { delete d.restore; delete d.restorePct; delete d.restorePercent; }
         if (d.kind !== 'consumable') { delete d.cures; delete d.buffs; }
         if (d.kind === 'key') delete d.stack; else delete d.tool;
         rerender();
@@ -155,11 +156,17 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       d.essence ? field('Of element', elementSelect(d.essence.element, (e) => { if (d.essence && e && e !== 'neutral') d.essence.element = e; rerender(); })) : h('span')));
   }
   if (d.kind === 'consumable') {
+    upgradeRestore(d);
     const r = (d.restore ??= {});
+    const pctBox = (g: Gauge) => field(`${GAUGE_LABEL[g]} %`, numberInput(d.restorePct?.[g] ?? 0, (v) => {
+      const n = Math.max(0, Math.min(100, Math.round(v))), p = (d.restorePct ??= {});
+      if (n) p[g] = n; else delete p[g];
+      if (!Object.keys(p).length) delete d.restorePct;
+    }, { step: 1, min: 0, max: 100 }), `Percent of the maximum, added to the amount (10 and 30 % = 10 + 30% of max ${g.toUpperCase()}).`);
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Using it restores'),
-      h('div', { class: 'field-row' }, ...(['hp', 'mp', 'sp'] as Gauge[]).map((g) =>
-        field(GAUGE_LABEL[g], numberInput(r[g] ?? 0, (v) => { const n = Math.max(0, Math.round(v)); if (n) r[g] = n; else delete r[g]; }, { step: 1, min: 0 })))),
-      checkbox('Amounts are percentages of the maximum', !!d.restorePercent, (v) => (d.restorePercent = v || undefined)),
+      h('div', { class: 'field-row' }, ...(['hp', 'mp', 'sp'] as Gauge[]).flatMap((g) => [
+        field(GAUGE_LABEL[g], numberInput(r[g] ?? 0, (v) => { const n = Math.max(0, Math.round(v)); if (n) r[g] = n; else delete r[g]; }, { step: 1, min: 0 })),
+        ...(g === 'sp' ? [] : [pctBox(g)])])),
       field('Cures', ailmentChips(() => d.cures, (v) => { if (v) d.cures = v; else delete d.cures; }, rerender, 'Cures', { all: true }),
         'Zombie is only cured when it’s chosen itself. A zombie is hurt by healing, so a Zombie cure that also heals cures first, then heals.'),
       buffsField(() => d.buffs, (v) => { if (v) d.buffs = v; else delete d.buffs; }, rerender),

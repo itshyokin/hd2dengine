@@ -387,6 +387,8 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
    makes one (a ladder, hanging vines) fill whatever wall it's placed on. **Rustles when walked through**: tall
    grass shakes and swishes as the hero or the party step in (on by default for the tall-grass shapes that don't
    block). Built-in **Tall grass**, **Really tall grass** (taller than the hero) and **Wheat** are in the Props layer.
+   **Always drawn in front of tiles** (on by default): a ledge or cliff in front of the prop never hides it, like the
+   characters. Turn it off for tall platforms and bridges whose legs would show through the ground in front of them.
 9. **Shape**: *Flat* (one picture), *Solid block* (pushed back so it looks like a block), *Cross ×* (two copies at
    45°), *Cross +* (one side-on), and for tall grass and thick plants: *Star ✳* (Cross × plus one facing the
    camera), *Rows ≡* (three staggered rows across the footprint, each offset, sized and mirrored) and *Thicket*
@@ -524,6 +526,8 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 
 - **Database → Time**: *Clock speed* from stopped to 60× (1× is real time; the default 20× makes a day last 72
   minutes of play) and *Night darkness* (up to pitch black away from lights). The clock pauses in menus.
+  *Sky transition speed* (Slow, Normal, Fast, Very fast) sets how quickly the sky turns through the hours when
+  sleeping (Normal takes 5 – 12 seconds, longer for a longer sleep).
   The day runs the full 24 hours, midnight and dawn included. "Set time of day" takes 0 – 23.75.
 - **Map settings → Lighting**: *Outdoor* (full day and night), *Indoor* (muted light; windows with a glow mask
   show daylight and go dark at night, the opposite of outside; no fireflies), *Dark* (caves and dungeons: dark at
@@ -769,7 +773,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
 
 - **Database → Items**: every item has a name, description, icon (pick one of the built-in pixel icons or
   **Import image…**: a 16 × 16 or 32 × 32 PNG, saved to `assets/icons/`), a price and a kind:
-  - **Consumable**: restores health, magic and/or stamina (fixed amounts or *percentages of the maximum*).
+  - **Consumable**: restores health, magic and/or stamina. Health and magic each have an amount box and a **%** box
+    (of the maximum), used together: 10 and 30 % restores 10 + 30% of max HP ("+10 + 30% HP"). Items work on
+    magic in battle too.
     It isn't used up when it would do nothing. **Stack** sets how many fit in one bag slot (default 64); more of the
     same item starts another stack.
   - **Equipment**: goes in the **Weapon** (melee: light, medium or heavy class, damage), **Bow** (damage),

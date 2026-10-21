@@ -51,6 +51,7 @@ interface State {
   wall: boolean;
   stretch: boolean;
   rustle: '' | 'yes' | 'no';
+  front: boolean;
   /** Footprint: tiles deep, and which are solid (rows from the back row to the front, columns left to right). */
   d: number;
   solid: boolean[][];
@@ -90,6 +91,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     wall: !!existing?.wall,
     stretch: !!existing?.stretch,
     rustle: existing?.rustle === undefined ? '' : existing.rustle ? 'yes' : 'no',
+    front: existing?.frontOfTiles !== false,
     d: existing?.foot?.d ?? 1, solid: [],
     shape: existing?.shape ?? 'flat', thickness: existing?.thickness ?? 0, collide: existing?.collide ?? 'solid',
     flameOn: !!existing?.flame, flame: existing?.flame ? { ...existing.flame } : { x: 0, y: Math.round((existing?.h ?? 2) * 0.75 * 10) / 10, w: 0.5, h: 0.75, embers: true },
@@ -410,6 +412,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
         st.season, (v) => (st.season = v as State['season'])), 'Green parts follow the season outdoors: fresh in spring, green-gold in summer, orange and red in autumn.'),
       checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => (st.wall = v)),
       checkbox('Stretches to the height of the wall it’s placed against (ladders, hanging vines)', st.stretch, (v) => (st.stretch = v)),
+      checkbox('Always drawn in front of tiles (a ledge or cliff in front never hides it; turn off for tall platforms or bridges whose legs show through the ground)', st.front, (v) => (st.front = v)),
       field('Rustles when walked through', select([['', 'Tall grass shapes that don’t block'], ['yes', 'Yes (shakes and swishes)'], ['no', 'No']], st.rustle, (v) => (st.rustle = v as State['rustle']))),
       checkbox('Is respawn point (using it, the player comes back here after losing all health)', st.respawn, (v) => (st.respawn = v)),
       checkbox('Is a forge (an anvil): smelt ore, upgrade weapons and armor, set shards in them', st.forge, (v) => (st.forge = v)),
@@ -555,6 +558,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       if (st.wall) def.wall = true;
       if (st.wall && st.stretch) def.stretch = true;
       if (st.rustle) def.rustle = st.rustle === 'yes';
+      if (!st.front) def.frontOfTiles = false;
       if (st.season) def.season = st.season;
       if (st.respawn) def.respawn = true;
       if (st.forge) def.forge = true;

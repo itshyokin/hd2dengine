@@ -2126,3 +2126,9 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .eq-stats { align-self: start; }
 /* Opened from the Party page (no tab strip): everything sits at the top of the window instead of spreading out. */
 .eq-box:not(:has(> .tab-strip)) { align-content: start; }
+.no-anim, .no-anim * { transition: none !important; }
+/* Spells in battle lists: the element's icon (or the spell's magic picture) before the name. */
+.bcmd-inline-icon { display: inline-flex; width: 1.25em; height: 1.25em; margin-right: 0.45em; vertical-align: -0.2em; flex: none; }
+.bcmd-inline-icon img, .bcmd-inline-icon svg { width: 100%; height: 100%; image-rendering: pixelated; }
+.battle .bcmd:has(> .bcmd-inline-icon) { grid-template-columns: auto minmax(0, 1fr) auto; }
+.battle .bcmd:has(> .bcmd-inline-icon) > .bcmd-detail { grid-column: 2 / -1; }

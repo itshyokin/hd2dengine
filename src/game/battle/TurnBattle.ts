@@ -5,6 +5,7 @@
  * The game supplies the fighters and does what lasts beyond the battle (items, rewards, the hero's health);
  * the screen shows it.
  */
+import { elementIconUrl } from '../../art/elementIcons';
 import type { Sfx } from '../../audio/sfx';
 import type { BattleScreen, ChoiceItem, FighterView, PickList, VictoryReport } from '../../ui/BattleScreen';
 import type { Ailment, BattleWeather, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
@@ -26,7 +27,7 @@ import { hitChance } from '../attributes';
 /** One fighter as the game hands it over. */
 export interface BattleEntry { battler: Battler; view: FighterView; /** Party: 0 the hero, 1… members. */ who?: number; /** Enemies: the map's enemy (handed back when it's beaten). */ ref?: unknown }
 
-export interface BattleItem { slot: number; name: string; count: number; detail?: string; icon?: string; restore?: { hp?: number; mp?: number }; percent?: boolean; cures?: string[]; buffs?: BuffGrant[] }
+export interface BattleItem { slot: number; name: string; count: number; detail?: string; icon?: string; restore?: { hp?: number; mp?: number }; pct?: { hp?: number; mp?: number }; cures?: string[]; buffs?: BuffGrant[] }
 
 export type BattleOutcome = 'victory' | 'defeat' | 'fled';
 
@@ -489,7 +490,7 @@ export class TurnBattle {
   private magicMenu(b: Battler): void {
     const list = b.spells.map((s) => {
       const top = s.ranks[s.ranks.length - 1], low = s.ranks[0];
-      return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
+      return { label: s.ranks.length > 1 ? `${s.name} (rank ${top.rank})` : s.name, icon: 'magic', iconColor: s.color ?? ELEMENT_COLORS[s.element], iconUrl: s.element && s.element !== 'neutral' ? elementIconUrl(s.element) : undefined, inlineIcon: true, right: `${low.mp} MP`, disabled: low.mp > b.mp, rank: RANK.magic,
         detail: [s.description, s.kind === 'heal' ? (s.targets === 'all' ? 'Heals the whole party' : 'Heals one') : s.kind === 'support' ? [s.buffs?.length ? `${s.buffs.map((g) => buffLabel(g.buff)).join(', ')} for ${s.supportTarget === 'foes' ? (s.targets === 'all' ? 'every foe' : 'one foe') : s.supportTarget === 'any' ? (s.targets === 'all' ? 'either side' : 'anyone') : s.targets === 'all' ? 'the whole party' : 'one'}` : '', s.weather ? `${WEATHER_EFFECT[s.weather].name}: ${WEATHER_EFFECT[s.weather].text.toLowerCase()}` : ''].filter(Boolean).join('; ') || 'Support' : `${s.element === 'neutral' ? 'Magic' : s.element[0].toUpperCase() + s.element.slice(1)} damage to ${s.targets === 'all' ? 'every foe' : 'one foe'}`, low.charge ? `charges ${low.charge} turn${low.charge === 1 ? '' : 's'}` : 'goes off at once'].filter(Boolean).join(' · ') };
     });
     this.screen.choose('Magic', list, (i) => this.rankMenu(b, b.spells[i]), () => this.commandMenu(b), () => this.showOrder(RANK.magic));
@@ -841,14 +842,16 @@ export class TurnBattle {
 
   /** An item used on an enemy: its healing heals them (or hurts the undead), its cures cure them. */
   private itemOnFoe(b: Battler, it: BattleItem, t: Battler): void {
-    const hp = it.restore?.hp ?? 0, cures = it.cures ?? [], buffs = it.buffs ?? [];
+    const hp = Math.round((it.restore?.hp ?? 0) + t.maxHp * (it.pct?.hp ?? 0) / 100), cures = it.cures ?? [], buffs = it.buffs ?? [];
+    const mp = Math.min(t.maxMp - t.mp, Math.round((it.restore?.mp ?? 0) + t.maxMp * (it.pct?.mp ?? 0) / 100));
     const cured = cures.length ? t.status.cure(cures as (Ailment | 'all')[]) : [];
-    if (!hp && !cured.length && !buffs.length) { this.screen.message('It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
+    if (!hp && mp <= 0 && !cured.length && !buffs.length) { this.screen.message('It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
     this.host.spendItem(it.slot);
     this.screen.message(`${b.name} uses ${it.name} on ${t.name}`);
     this.host.sound('item');
     this.later(0.3, () => {
-      if (hp) this.heal(b, t, healAmount(it.percent ? t.maxHp * hp / 100 : hp, t));
+      if (hp) this.heal(b, t, healAmount(hp, t));
+      if (mp > 0) { t.mp += mp; this.screen.popup(t.key, `+${mp} MP`, 'mp'); this.refresh(t); }
       if (cured.length) { refreshAgility(t); this.screen.popup(t.key, `Cured ${cured.map(ailmentName).join(', ')}`, 'info'); this.refresh(t); }
       if (buffs.length && isUp(t)) this.giveBuffs(b, t, buffs);
       this.endTurn(b, RANK.item, 0.9);

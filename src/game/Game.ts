@@ -2,6 +2,7 @@
  * The game: loads data, builds the scene, and runs the frame loop.
  * Systems are kept in their own modules; this file wires them together.
  */
+import { restoreAmount, restoreBits, restoreParts, restoresAny } from './restore';
 import { partyLayout } from '../ui/partyLayout';
 import { UI_THEMES, applyUiTheme } from '../ui/themes';
 import * as THREE from 'three';
@@ -702,7 +703,7 @@ export class Game {
       },
       useWarning: (i) => {
         const d = this.items.get(this.inventory.slots[i]?.id ?? '');
-        return d?.restore?.hp && this.combat.heroStatus.zombie && !d.cures?.includes('zombie') ? 'Use (hurts: you’re a zombie!)' : null;
+        return d && restoresAny(d, 'hp') && this.combat.heroStatus.zombie && !d.cures?.includes('zombie') ? 'Use (hurts: you’re a zombie!)' : null;
       },
       equip: (i) => this.equipItem(i),
       toolOn: (i) => { const id = this.inventory.slots[i]?.id; if (id && this.items.get(id)?.exp?.all) return !this.state.expAllOff.has(id); return !!id && this.rings.ring?.id === id && this.rings.active; },
@@ -2536,10 +2537,9 @@ export class Game {
       // Ailments left from a battle.
       if (!battle && d.cures?.length) { const cured = this.clearLingering(d.cures, who); if (cured.length) got.push(`cured ${cured.map((a) => effectName(a as never)).join(', ')}`); }
       for (const g of ['hp', 'mp', 'sp'] as const) {
-        const v = d.restore?.[g];
-        if (!v) continue;
+        if (!restoresAny(d, g)) continue;
         const before = m.data[g];
-        m.data[g] = Math.min(max[g], before + (d.restorePercent ? (max[g] * v) / 100 : v));
+        m.data[g] = Math.min(max[g], before + restoreAmount(d, g, max[g]));
         const n = Math.round(m.data[g] - before);
         if (n > 0) got.push(`+${n} ${g.toUpperCase()}`);
       }
@@ -2562,9 +2562,8 @@ export class Game {
       if (cured.length) gains.push(`cured ${[...new Set(cured)].join(', ')}`);
     }
     for (const g of ['hp', 'mp', 'sp'] as const) {
-      const v = d.restore?.[g];
-      if (!v) continue;
-      const amount = d.restorePercent ? (this.stats.cfg.max[g] * v) / 100 : v, before = this.stats[g];
+      if (!restoresAny(d, g)) continue;
+      const amount = restoreAmount(d, g, this.stats.cfg.max[g]), before = this.stats[g];
       if (g === 'hp' && st.zombie) {
         this.stats.change('hp', 'add', -amount);
         const lost = Math.round(before - this.stats.hp);
@@ -5359,8 +5358,8 @@ export class Game {
       items: () => this.inventory.slots.flatMap((s, i) => {
         const d = s && this.items.get(s.id);
         if (!s || !d || d.kind !== 'consumable' || !(d.restore || d.cures?.length || d.buffs?.length)) return [];
-        const r = d.restore, bits = r ? (['hp', 'mp', 'sp'] as const).filter((g) => r[g]).map((g) => `+${r[g]}${d.restorePercent ? '%' : ''} ${g.toUpperCase()}`) : [];
-        return [{ slot: i, name: d.name, icon: this.itemIcon(d.id), count: s.n, detail: [bits.join(' · '), d.description].filter(Boolean).join(' — '), restore: r ? { hp: r.hp, mp: r.mp } : undefined, percent: !!d.restorePercent, cures: d.cures as string[] | undefined, buffs: d.buffs }];
+        const bits = restoreBits(d), part = (g: 'hp' | 'mp') => restoreParts(d, g);
+        return [{ slot: i, name: d.name, icon: this.itemIcon(d.id), count: s.n, detail: [bits.join(' · '), d.description].filter(Boolean).join(' — '), restore: { hp: part('hp').flat, mp: part('mp').flat }, pct: { hp: part('hp').pct, mp: part('mp').pct }, cures: d.cures as string[] | undefined, buffs: d.buffs }];
       }),
       useItem: (slot, who, ailments) => {
         const s0 = this.inventory.slots[slot], id = s0?.id, d = id ? this.items.get(id) : undefined, before = id ? this.inventory.count(id) : 0;
@@ -6359,8 +6358,11 @@ export class Game {
     this.updateLightning(dt);
     const air = this.stage?.stage.data.atmosphere ?? this.mapData.atmosphere, outdoor = this.time.environment === 'outdoor';
     const thick = Math.min(1, Math.max(air?.haze ?? 0, outdoor ? haze * 0.75 + rain * 0.25 + mist * 0.7 : 0));
-    this.fog.near = 22 - 16 * thick;
-    this.fog.far = 50 - 30 * thick;
+    // A battle stage is small and seen from close by: the fog starts further out so the sky and the scenery around
+    // it show (it read as a grey wall before update 93).
+    const reach = this.stage ? 1.8 : 1;
+    this.fog.near = (22 - 16 * thick) * reach;
+    this.fog.far = (50 - 30 * thick) * reach;
     // Mist (perhaps only around dawn or after dark) and sun rays (only while the sun is out).
     const hour = this.time.hour, night = this.time.night;
     const when = air?.mistWhen ?? 'always';
@@ -6526,7 +6528,8 @@ export class Game {
     const s = this.sleeping;
     if (!s) { this.sleepLook = Math.max(0, this.sleepLook - dt); return; }
     s.t += dt;
-    const UP = 2.2, PASS = Math.min(6, 2.5 + s.hours * 0.3), DOWN = 2.2;
+    // Database → Time → Sky transition speed (Normal: 5 – 12 s for the hours to pass, slower than before update 93).
+    const UP = 2.2, PASS = Math.min(12, 5 + s.hours * 0.55) / Math.max(0.2, this.db.time?.skySpeed ?? 1), DOWN = 2.2;
     if (s.phase === 'up') { this.sleepLook = Math.min(1, s.t / UP); if (s.t >= UP + 0.4) { s.phase = 'pass'; s.t = 0; } return; }
     if (s.phase === 'pass') {
       const k = Math.min(1, s.t / PASS), e = k * k * (3 - 2 * k), h = wrapHour(s.from + s.hours * e);

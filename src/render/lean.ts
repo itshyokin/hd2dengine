@@ -33,8 +33,18 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
   mat.onBeforeCompile = (shader, renderer) => {
     prev?.call(mat, shader, renderer);
     // Flat on a wall (ladders, wall torches, windows): stays upright against it.
-    if (mat.userData.noLean) return;
+    if (mat.userData.noLean) {
+      // Not drawn in front of tiles: pushed back like the ground, so it sorts with it as it really stands.
+      if (mat.userData.hdBack) { Object.assign(shader.uniforms, uniforms); shader.vertexShader = 'uniform float uHdLean;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+  if (uHdLean > 0.0) {
+    vec4 hdBack = projectionMatrix * vec4(mvPosition.xyz * (1.0 + ${GROUND_YIELD.toFixed(2)} / max(0.001, length(mvPosition.xyz))), 1.0);
+    gl_Position.z = hdBack.z / hdBack.w * gl_Position.w;
+  }`); }
+      return;
+    }
     Object.assign(shader.uniforms, uniforms);
+    // A prop set not to be drawn in front of tiles (PropDef.frontOfTiles false) is pushed back as far as the ground is.
+    const back = mat.userData.hdBack ? `hdUp.xyz *= 1.0 + ${GROUND_YIELD.toFixed(2)} / max(0.001, length(hdUp.xyz));` : '';
     // Drawn leaning, but at the depth it would have standing up: terrain behind a sprite (a cliff wall, a bevel)
     // never cuts through its leaned-back top, while anything really in front of it still hides it.
     shader.vertexShader = 'uniform float uHdLean;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -45,12 +55,14 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
     #ifdef USE_INSTANCING
     hdUp = instanceMatrix * hdUp;
     #endif
-    hdUp = projectionMatrix * (modelViewMatrix * hdUp);
+    hdUp = modelViewMatrix * hdUp;
+    ${back}
+    hdUp = projectionMatrix * hdUp;
     gl_Position.z = hdUp.z / hdUp.w * gl_Position.w;
   }`);
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + (mat.userData.noLean ? '|nolean' : '|lean');
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + (mat.userData.noLean ? '|nolean' : '|lean') + (mat.userData.hdBack ? '|back' : '');
   return mat;
 }
 

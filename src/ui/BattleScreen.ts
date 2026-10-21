@@ -28,7 +28,7 @@ export const DRAIN = 0.9;
 
 interface Narration { text: string; wait: boolean; sound?: string; bars?: () => void; stats?: string[]; /** A picture before the words (the gold coin, an item's icon). */ icon?: string; /** A pause (seconds) with the last line left up: the battle waits (a health bar draining). */ pause?: number }
 
-interface PocketBlock { el: HTMLElement; hp: HTMLElement; num: HTMLElement | null; orb: HTMLElement | null; orbText: HTMLElement | null; /** The HP shown (counting toward the real one), its target, the most, and how fast it counts. */ shown?: number; to?: number; max?: number; rate?: number }
+interface PocketBlock { el: HTMLElement; hp: HTMLElement; num: HTMLElement | null; orb: HTMLElement | null; orbText: HTMLElement | null; /** Drawn once already (the first draw skips the bar animation). */ drawn?: boolean; /** The HP shown (counting toward the real one), its target, the most, and how fast it counts. */ shown?: number; to?: number; max?: number; rate?: number }
 
 interface Qte {
   target: string;
@@ -129,6 +129,8 @@ export interface ChoiceItem {
   icon?: string;
   iconColor?: string;
   iconUrl?: string;
+  /** Show the picture before the name in every layout (spells: their element's icon). */
+  inlineIcon?: boolean;
   detail?: string;
   disabled?: boolean;
   /** Shown on the right (an MP cost, a count). */
@@ -611,7 +613,7 @@ export class BattleScreen {
     const full = c.t * TYPE_SPEED >= c.text.length;
     if (this.input.consume('ok') || this.input.consume('cancel')) {
       if (!full) c.t = c.text.length / TYPE_SPEED;
-      else if (c.t - c.text.length / TYPE_SPEED > 0.15) { uiSound('menuMove'); this.narrCur = null; this.nextLine(); }
+      else if (c.t - c.text.length / TYPE_SPEED > 0.15) { uiSound('menuOk'); this.narrCur = null; this.nextLine(); }
     }
     return true;
   }
@@ -685,6 +687,9 @@ export class BattleScreen {
     if (f.bar) f.bar.style.width = `${Math.max(0, Math.min(100, (v.hp / Math.max(1, v.maxHp)) * 100))}%`;
     // Pocket Handheld: the bar goes green, yellow, red; heroes' numbers and MP orb.
     const pb = f.pb;
+    // The first draw jumps straight to the real health (no drain from full as the battle opens).
+    const first = !pb.drawn;
+    if (first) { pb.drawn = true; pb.el.classList.add('no-anim'); f.el.classList.add('no-anim'); }
     pb.hp.style.width = `${Math.max(0, Math.min(100, share * 100))}%`;
     pb.el.classList.toggle('mid', share <= 0.5 && share > 0.2);
     pb.el.classList.toggle('low', share <= 0.2);
@@ -702,7 +707,9 @@ export class BattleScreen {
       pb.orbText!.textContent = String(Math.floor(v.mp));
       pb.orb.title = `MP ${Math.floor(v.mp)} / ${v.maxMp}`;
     }
+    if (first) requestAnimationFrame(() => requestAnimationFrame(() => { pb.el.classList.remove('no-anim'); f.el.classList.remove('no-anim'); }));
     const b = this.blocks.get(key);
+    if (b && first) { b.el.classList.add('no-anim'); requestAnimationFrame(() => requestAnimationFrame(() => b.el.classList.remove('no-anim'))); }
     if (b) {
       b.hp.style.width = `${Math.max(0, Math.min(100, share * 100))}%`;
       b.mpBar.classList.toggle('unused', !v.maxMp);
@@ -1069,6 +1076,13 @@ export class BattleScreen {
       if (dragon) {
         const ic = document.createElement('span');
         ic.className = 'bcmd-icon';
+        if (it.iconUrl) { const im = document.createElement('img'); im.src = it.iconUrl; im.alt = ''; ic.append(im); }
+        else if (it.icon) { ic.innerHTML = svgIcon(it.icon); if (it.iconColor) ic.style.color = it.iconColor; }
+        b.append(ic);
+      }
+      if (!dragon && it.inlineIcon) {
+        const ic = document.createElement('span');
+        ic.className = 'bcmd-inline-icon';
         if (it.iconUrl) { const im = document.createElement('img'); im.src = it.iconUrl; im.alt = ''; ic.append(im); }
         else if (it.icon) { ic.innerHTML = svgIcon(it.icon); if (it.iconColor) ic.style.color = it.iconColor; }
         b.append(ic);

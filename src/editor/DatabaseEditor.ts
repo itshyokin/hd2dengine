@@ -117,7 +117,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const audio: AudioWork = { files: [...(store.db.audio?.files ?? [])], sfx: { ...(store.db.audio?.sfx ?? {}) }, titleMusic: store.db.audio?.titleMusic, victoryMusic: store.db.audio?.victoryMusic, battleMusic: store.db.audio?.battleMusic, style: store.db.audio?.style };
   const skills: SkillsData = JSON.parse(JSON.stringify(skillsData(store.db.skills)));
   const skillState = { tree: 0, sel: '' };
-  const time = { rate: store.db.time?.rate ?? 20, darkness: store.db.time?.darkness ?? 0.85, seasons: { ...store.db.time?.seasons } as SeasonSettings };
+  const time = { rate: store.db.time?.rate ?? 20, darkness: store.db.time?.darkness ?? 0.85, skySpeed: store.db.time?.skySpeed ?? 1, seasons: { ...store.db.time?.seasons } as SeasonSettings };
   let gameTitle = store.db.title;
   const menus: MenuConfig = JSON.parse(JSON.stringify(store.db.menus ?? {})) as MenuConfig;
   const cam: OverworldCamera = JSON.parse(JSON.stringify(store.db.overworldCamera ?? {})) as OverworldCamera;
@@ -427,7 +427,9 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         h('h3', {}, 'Clock'),
         field('Clock speed', range(time.rate, 0, 60, 1, 'Clock speed', (v) => (v ? `${v}×` : 'Stopped'), (v) => (time.rate = v), rateNote, dayLength)),
         rateNote,
-        h('p', { class: 'note' }, 'The clock pauses in menus and on the title screen. The starting hour is in the map settings under “Game start”.')),
+        h('p', { class: 'note' }, 'The clock pauses in menus and on the title screen. The starting hour is in the map settings under “Game start”.'),
+        field('Sky transition speed', select([['0.5', 'Slow'], ['1', 'Normal'], ['1.6', 'Fast'], ['2.5', 'Very fast']], String(time.skySpeed), (v) => (time.skySpeed = Number(v))),
+          'Sleeping (and the Sleep event command): how quickly the sky turns through the hours. Normal takes 5 – 12 seconds, longer for a long sleep.')),
       h('section', { class: 'db-section' },
         h('h3', {}, 'Night'),
         field('Night darkness', range(Math.round(time.darkness * 100), 0, 100, 5, 'Night darkness', (v) => `${v}%`, (v) => (time.darkness = v / 100), darkNote, (v) => darkText(v / 100))),
@@ -530,7 +532,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     Object.assign(cfg, playerConfig());
     for (const a of ABILITIES) abilities[a] = true;
     saving.anywhere = true; saving.autosave = true;
-    time.rate = 20; time.darkness = 0.85; time.seasons = {};
+    time.rate = 20; time.darkness = 0.85; time.skySpeed = 1; time.seasons = {};
     for (const k of Object.keys(menus)) delete (menus as Record<string, unknown>)[k];
     render();
   } }, 'Reset to defaults');
@@ -547,10 +549,11 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (!saving.autosave) sv.autosave = false;
       const svOut = Object.keys(sv).length ? sv : null;
       const mOut = cleanMenus(menus);
-      const tOut: { rate?: number; darkness?: number; seasons?: SeasonSettings } = {};
+      const tOut: { rate?: number; darkness?: number; skySpeed?: number; seasons?: SeasonSettings } = {};
       if (Object.keys(time.seasons).length) tOut.seasons = { ...time.seasons };
       if (time.rate !== 20) tOut.rate = time.rate;
       if (Math.abs(time.darkness - 0.85) > 0.001) tOut.darkness = time.darkness;
+      if (time.skySpeed !== 1) tOut.skySpeed = time.skySpeed;
       const tFinal = Object.keys(tOut).length ? tOut : null;
       const itemsOut = work.items.length ? work.items : null;
       const invOut = cleanInventory(work.inventory);
