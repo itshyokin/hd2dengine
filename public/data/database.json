@@ -8,9 +8,15 @@
   },
   "startHour": 8,
   "stats": {
+    "regen": {
+      "sp": 35
+    },
     "cost": {
       "run": 9,
       "jump": 7
+    },
+    "ledges": {
+      "mode": "collision"
     }
   },
   "player": "hero",
@@ -3793,10 +3799,10 @@
       "kind": "consumable",
       "icon": "builtin:potion",
       "price": 20,
-      "restore": {
+      "restore": {},
+      "restorePct": {
         "hp": 30
-      },
-      "restorePercent": true
+      }
     },
     {
       "id": "potion_copy",
@@ -4074,6 +4080,18 @@
       "slot": "armor",
       "defense": 8,
       "material": "iron_ingot"
+    },
+    {
+      "id": "leather_armor_copy",
+      "name": "TitanTech Armor",
+      "description": "Old Earth-style armor built using strange technology.",
+      "kind": "equipment",
+      "icon": "builtin:shield",
+      "price": 120,
+      "slot": "armor",
+      "defense": 8,
+      "material": "iron_ingot",
+      "rarity": "uncommon"
     },
     {
       "id": "sun_ring",
@@ -5181,6 +5199,11 @@
         "name": "Party",
         "color": "#5ac8c0",
         "shared": true
+      },
+      {
+        "id": "tree_2",
+        "name": "Titan",
+        "color": "#9b2222"
       }
     ],
     "nodes": [
@@ -5919,6 +5942,20 @@
         "ranks": 3,
         "level": 5,
         "description": "Everyone’s Defence and Magic Defence go up."
+      },
+      {
+        "id": "skill_earthborn",
+        "tree": "tree_2",
+        "name": "Earthborn",
+        "x": 0,
+        "y": 0,
+        "effects": [
+          {
+            "stat": "maxHp",
+            "value": 10
+          }
+        ],
+        "description": "Your heritage lets you use weapons/armor made from TitanTech."
       }
     ]
   },
@@ -5949,7 +5986,7 @@
     {
       "id": "volley",
       "name": "Volley",
-      "description": "Four quick strikes with mixed buttons.",
+      "description": "Four quick strikes!",
       "strikes": [
         {
           "power": 0.5,
@@ -5957,7 +5994,6 @@
         },
         {
           "power": 0.5,
-          "button": "X",
           "time": 0.55
         },
         {
@@ -5967,7 +6003,6 @@
         },
         {
           "power": 0.8,
-          "button": "Y",
           "time": 0.5
         }
       ],
@@ -5984,17 +6019,14 @@
         },
         {
           "power": 0.4,
-          "button": "B",
           "time": 0.5
         },
         {
           "power": 0.45,
-          "button": "X",
           "time": 0.45
         },
         {
           "power": 0.45,
-          "button": "Y",
           "time": 0.45
         },
         {
@@ -6005,13 +6037,11 @@
         },
         {
           "power": 0.55,
-          "button": "B",
           "time": 0.4,
           "window": 0.2
         },
         {
           "power": 0.9,
-          "button": "any",
           "time": 0.55
         }
       ],
@@ -6343,5 +6373,39 @@
   "overworldCamera": {
     "pitch": 65,
     "lean": 66
-  }
+  },
+  "abilities": {
+    "crawl": false
+  },
+  "classes": [
+    {
+      "id": "class_titan",
+      "name": "Titan",
+      "trees": [
+        "might"
+      ],
+      "description": "You hail from Old Earth, knowing little of magic---but your technological skills are vastly superior to most born on Titamas.",
+      "bonus": {
+        "mdf": 3,
+        "def": 3,
+        "agi": 1,
+        "str": 1,
+        "end": 2
+      },
+      "gear": {
+        "sword": "untrained",
+        "axe": "untrained",
+        "mace": "untrained",
+        "spear": "untrained",
+        "staff": "none",
+        "wand": "none",
+        "fist": "untrained",
+        "bow": "untrained",
+        "crossbow": "untrained",
+        "armor:medium": "untrained",
+        "armor:heavy": "untrained",
+        "shield": "untrained"
+      }
+    }
+  ]
 }

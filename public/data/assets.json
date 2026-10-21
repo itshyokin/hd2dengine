@@ -711,6 +711,150 @@
       "filter": "point",
       "sway": 0.5,
       "image": "assets/props/bush.png"
+    },
+    {
+      "id": "bridge_wood_h",
+      "name": "Wooden bridge (east–west)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/bridge_wood_h.png"
+    },
+    {
+      "id": "bridge_wood_v",
+      "name": "Wooden bridge (north–south)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/bridge_wood_v.png"
+    },
+    {
+      "id": "bridge_rope_h",
+      "name": "Rope bridge (east–west)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/bridge_rope_h.png"
+    },
+    {
+      "id": "bridge_rope_v",
+      "name": "Rope bridge (north–south)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/bridge_rope_v.png"
+    },
+    {
+      "id": "bridge_stone_h",
+      "name": "Stone bridge (east–west)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/bridge_stone_h.png"
+    },
+    {
+      "id": "bridge_stone_v",
+      "name": "Stone bridge (north–south)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/bridge_stone_v.png"
+    },
+    {
+      "id": "dock",
+      "name": "Dock / wooden platform",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/dock.png"
+    },
+    {
+      "id": "platform_stone",
+      "name": "Stone platform",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "frontOfTiles": false,
+      "image": "assets/props/platform_stone.png"
     }
   ],
   "tiles": [
