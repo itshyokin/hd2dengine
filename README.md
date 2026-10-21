@@ -391,7 +391,8 @@ In the Props layer, click **+ Import prop from image…** (or drop an image on t
    45°), *Cross +* (one side-on), and for tall grass and thick plants: *Star ✳* (Cross × plus one facing the
    camera), *Rows ≡* (three staggered rows across the footprint, each offset, sized and mirrored) and *Thicket*
    (three rows of copies crossing in a shallow V). Props lean back toward the map camera like characters; their
-   flames, lights and embers lean with them.
+   flames, lights and embers lean with them. Characters and props are never hidden by the ground (a ledge in front, a tall cliff behind),
+   like the handheld games; buildings and other props still hide them.
 
 Imported **tiles** have *Make a normal map from the texture*: off, the tile lies flat under the lights (cleaner
 for pixel art); a normal map image of your own is always used.

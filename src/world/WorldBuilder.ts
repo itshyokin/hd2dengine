@@ -3,6 +3,7 @@
  * imported tiles, animated water, and instanced prop sprites.
  */
 import { patchLip } from '../render/lipFade';
+import { patchGroundYield } from '../render/lean';
 import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
@@ -112,6 +113,7 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
     return out === BRICKS && map.heightStyle(x, z) === 'c' ? '▲' : out;
   };
   const geo = buildTerrainGeometry(map, spans, wallLook);
+  const terrainFrom = scene.children.length;
 
   // Ground: every cell's top surface, textured with one image painted from the terrain layer.
   const gc = groundCanvas(map), gn = normalMapFrom(gc, { strength: 2 });
@@ -189,6 +191,11 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
   const edgeWater = edgeWaters(map.w, map.h, (x, z) => map.waterAt(x, z), (x, z) => Math.min(...map.cornersAt(x, z)), borderSides(data.border));
   const { ripple: waterNormals, flows: waterFlows } = buildWater(scene, map, data, edgeWater);
   buildBorder(scene, map, data, waterNormals, tileTextures, edgeWater);
+  // Terrain gives way to characters and props in depth (render/lean.ts).
+  for (const obj of scene.children.slice(terrainFrom)) obj.traverse((o: THREE.Object3D) => {
+    const mats = (o as THREE.Mesh).material;
+    if ((o as THREE.Mesh).isMesh && mats) for (const m of Array.isArray(mats) ? mats : [mats]) patchGroundYield(m);
+  });
   const buildings = buildBuildings(scene, map, data.buildings ?? [], tileTextures);
   const props = buildProps(scene, map, data, sprites);
   const falls = buildWaterfalls(scene, map);

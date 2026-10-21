@@ -157,6 +157,9 @@ Kept in the project so they travel with the code. Tick them off as they're built
       low-HP alert in battle; MP no longer comes back on the map (hero and party); pause tab icons follow the tab's
       text; coin beside the bag's gold; Database → Title & menus: Bars (health, magic, EXP, stamina colours; HP green
       everywhere by default), stamina wheel steady option, Party page layout editor; per-tile "make a normal map".
+- [x] Update 91b: terrain gives way to characters and props in depth on the map (no hiding behind a ledge or a tall
+      cliff, like the handheld games; buildings still hide you); a hero swapped out still gets the EXP of the foes
+      they fought (they were dropped from the battle's lists), told in turn after the first hero's EXP and level up.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.
