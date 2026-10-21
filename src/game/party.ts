@@ -175,28 +175,27 @@ export class Ally {
     this.stuck = 0;
   }
 
-  private hostRef: AllyHost | null = null;
-  private float(text: string, kind: 'dmg' | 'heal' | 'info' | 'hurt'): void { this.hostRef?.float(text, this.x, this.y + 1.4, this.z, kind); }
 
   update(dt: number, h: AllyHost): void {
-    this.hostRef = h;
     const n = h.numbers(this.data, this.def);
     // Magic and health come back slowly, faster out of a fight.
     if (h.regenMp) this.data.mp = Math.min(n.max.mp, this.data.mp + dt * (h.calm ? 4 : 1));
     this.data.sp = n.max.sp;
+    // Knocked out: they stay down (no getting back up by themselves) and out of sight until something heals them
+    // (an item, a revive, resting at an inn or a campfire); then they're back, following again.
+    if (this.down && this.data.hp >= 1) this.data.down = false;
     if (this.down) {
-      // Up again a moment after the fight, with a quarter of their health.
       this.downFor += dt;
-      if (h.calm && this.downFor > 3) {
-        this.data.down = false;
-        this.data.hp = Math.max(1, Math.round(n.max.hp * 0.25));
-        this.sprite.hold(null);
-        this.sprite.mesh.rotation.z = 0;
-        this.float('Back up!', 'info');
-        h.log(`${this.name} gets back up`);
-      }
-      this.sprite.animate(dt, false);
+      this.sprite.mesh.visible = false;
       return;
+    }
+    if (!this.sprite.mesh.visible) {
+      this.sprite.mesh.visible = true;
+      this.sprite.hold(null);
+      this.sprite.mesh.rotation.z = 0;
+      // Back at the hero's side.
+      const p = h.leader;
+      this.x = p.x; this.z = p.z; this.y = p.y; this.sprite.mesh.position.set(p.x, p.y, p.z);
     }
     if (h.calm && h.regenHp) this.data.hp = Math.min(n.max.hp, this.data.hp + dt * 0.5);
 

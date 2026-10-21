@@ -8,9 +8,9 @@
 import { elementIconUrl } from '../../art/elementIcons';
 import { builtinIcon, builtinIconName } from '../../art/itemIcons';
 import type { Sfx } from '../../audio/sfx';
-import type { BattleScreen, ChoiceItem, FighterView, PickList, VictoryReport } from '../../ui/BattleScreen';
+import type { BattleScreen, ChoiceItem, FighterView, PickList, VictoryReport, BuffChip } from '../../ui/BattleScreen';
 import type { Ailment, BattleWeather, BuffGrant, BuffKind, Element, EnemyAction, Inflict } from '../../world/types';
-import { BUFF_INFO, DEBUFFS, buffLabel } from '../status';
+import { BUFF_INFO, DEBUFFS, buffChip, buffLabel } from '../status';
 import type { TurnBasedConfig } from '../combat/config';
 import { ELEMENT_COLORS } from '../elements';
 import { TYPE_SPEED } from '../../ui/BattleScreen';
@@ -33,7 +33,7 @@ export interface BattleItem { slot: number; name: string; count: number; detail?
 export type BattleOutcome = 'victory' | 'defeat' | 'fled';
 
 /** A party member waiting on the bench (they can swap in on a turn). */
-export interface ReserveView { who: number; name: string; icon: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean }
+export interface ReserveView { who: number; name: string; icon: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean; /** Buffs they still carry (from earlier in the battle). */ buffs?: BuffChip[] }
 
 export interface BattleHost {
   sound(name: Sfx): void;
@@ -384,7 +384,7 @@ export class TurnBattle {
     this.phase = 'command';
     this.planning = null; this.planned = null;
     this.screen.message(`${b.name} is down! Who’s next?`, true);
-    this.screen.choose('Send in', res.map((r) => ({ label: r.name, iconUrl: r.icon, right: `${Math.ceil(r.hp)}/${r.maxHp} HP`, detail: `HP ${Math.ceil(r.hp)}/${r.maxHp} · MP ${Math.floor(r.mp)}/${r.maxMp}` })),
+    this.screen.choose('Send in', res.map((r) => ({ label: r.name, iconUrl: r.icon, inlineIcon: true, bars: { hp: r.hp, maxHp: r.maxHp, mp: r.mp, maxMp: r.maxMp, xp: this.host.xpPreview?.(r.who)?.frac }, buffs: r.buffs })),
       (i) => this.doSwap(b, res[i].who, true));
     return true;
   }
@@ -425,8 +425,9 @@ export class TurnBattle {
   /** Swap: choose who comes in from the bench. */
   private swapMenu(b: Battler): void {
     const res = this.host.reserves?.() ?? [];
-    this.screen.choose('Swap in', res.map((r) => ({ label: r.name, iconUrl: r.icon, right: r.down ? 'KO' : `${Math.ceil(r.hp)}/${r.maxHp} HP`, disabled: r.down,
-      detail: r.down ? 'Knocked out' : `HP ${Math.ceil(r.hp)}/${r.maxHp} · MP ${Math.floor(r.mp)}/${r.maxMp}` })),
+    // A face on the left, the name, then health, magic and EXP bars under it (no numbers repeated on the right).
+    this.screen.choose('Swap in', res.map((r) => ({ label: r.name, iconUrl: r.icon, inlineIcon: true, right: r.down ? 'KO' : undefined, disabled: r.down,
+      bars: { hp: r.hp, maxHp: r.maxHp, mp: r.mp, maxMp: r.maxMp, xp: this.host.xpPreview?.(r.who)?.frac }, buffs: r.buffs })),
     (i) => this.doSwap(b, res[i].who), () => this.commandMenu(b));
   }
 
@@ -524,7 +525,7 @@ export class TurnBattle {
   private itemMenu(b: Battler): void {
     const items = this.host.items();
     if (!items.length) { this.commandMenu(b); return; }
-    this.screen.choose('Items', items.map((it) => ({ label: it.name, iconUrl: it.icon, icon: 'items', right: `×${it.count}`, detail: it.detail, rank: RANK.item })), (i) => {
+    this.screen.choose('Items', items.map((it) => ({ label: it.name, iconUrl: it.icon, icon: 'items', inlineIcon: true, right: `×${it.count}`, detail: it.detail, rank: RANK.item })), (i) => {
       const it = items[i];
       if (this.screen.pocket) { this.itemLists(b, it); return; }
       this.pickTarget(this.anyone(this.sideOf(b), b), (t) => this.doItem(b, it, t), () => this.itemMenu(b), b);
@@ -538,10 +539,10 @@ export class TurnBattle {
   private itemLists(b: Battler, it: BattleItem): void {
     const harms = !!it.buffs?.some((g) => DEBUFFS.has(g.buff));
     const party: PickList = { title: 'Party', rows: [
-      ...this.party.map((p) => ({ key: p.key, name: p.name, hp: p.hp, maxHp: p.maxHp, mp: p.mp, maxMp: p.maxMp, down: !isUp(p), gold: p === b })),
+      ...this.party.map((p) => ({ key: p.key, name: p.name, hp: p.hp, maxHp: p.maxHp, mp: p.mp, maxMp: p.maxMp, down: !isUp(p), gold: p === b, buffs: chipsOf(p) })),
       ...(this.host.reserves?.() ?? []).map((r) => ({ key: `res:${r.who}`, name: r.name, hp: r.hp, maxHp: r.maxHp, mp: r.mp, maxMp: r.maxMp, down: r.down })),
     ] };
-    const foes: PickList = { title: 'Foes', rows: this.foes.filter(isUp).map((f) => ({ key: f.key, name: f.name, hp: f.hp, maxHp: f.maxHp })) };
+    const foes: PickList = { title: 'Foes', rows: this.foes.filter(isUp).map((f) => ({ key: f.key, name: f.name, hp: f.hp, maxHp: f.maxHp, buffs: chipsOf(f) })) };
     const lists = harms ? [foes, party] : [party, foes];
     this.screen.message(`Use ${it.name} on whom?`, true);
     this.screen.pickFromLists(lists, 0, (key) => {
@@ -812,8 +813,11 @@ export class TurnBattle {
   /** An item: the user turns to whoever it's for and tosses it, then it takes effect. */
   private doItem(b: Battler, it: BattleItem, t: Battler): void {
     if (this.defer(b, () => this.doItem(b, it, t), true)) return;
-    this.screen.animate(b.key, 'toss', undefined, t.key);
-    this.later(0.45, () => this.applyItem(b, it, t));
+    // Pocket Handheld: "Jordan used Potion!" first; it stays up while the bars fill.
+    this.announce(`${b.name} used ${it.name}!`, () => {
+      this.screen.animate(b.key, 'toss', undefined, t.key);
+      this.later(0.45, () => this.applyItem(b, it, t));
+    });
   }
 
   private applyItem(b: Battler, it: BattleItem, t: Battler): void {
@@ -823,12 +827,20 @@ export class TurnBattle {
     // It did nothing (full health, say): say so and choose again; the turn isn't lost.
     if (!r?.used) { this.screen.message(r?.text || 'It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
     // The item worked on the game's numbers: read them back.
+    let gained = { hp: 0, mp: 0, up: false };
     for (const p of this.party) {
       const e = this.entry(p), before = p.hp, mpBefore = p.mp, v = this.host.readVitals(e.who ?? 0);
       p.hp = v.hp; p.mp = v.mp;
       if (p.hp > before) this.screen.popup(p.key, `+${Math.round(p.hp - before)}`, 'heal');
       if (p.mp > mpBefore) this.screen.popup(p.key, `+${Math.round(p.mp - mpBefore)} MP`, 'mp');
+      if (p === t) gained = { hp: Math.round(p.hp - before), mp: Math.round(p.mp - mpBefore), up: before <= 0 && p.hp > 0 };
       this.refresh(p);
+    }
+    // Pocket Handheld: the bars fill first (the text box holds), then the line saying what it did waits for OK.
+    if (this.screen.pocket && (gained.hp > 0 || gained.mp > 0)) {
+      this.screen.pauseText(DRAIN + 0.25);
+      r.text = gained.up ? `${t.name} is back on their feet with ${Math.round(t.hp)} HP!`
+        : `${t.name} recovered ${[gained.hp > 0 ? `${gained.hp} HP` : '', gained.mp > 0 ? `${gained.mp} MP` : ''].filter(Boolean).join(' and ')}!`;
     }
     const cured = r.cures.length ? t.status.cure(r.cures) : [];
     if (cured.length) { refreshAgility(t); this.screen.popup(t.key, `Cured ${cured.map(ailmentName).join(', ')}`, 'info'); this.refresh(t); }
@@ -1346,6 +1358,7 @@ export class TurnBattle {
         ...st.list.map((a) => ({ ailment: a, icon: statusIconUrl(a), name: `${ailmentName(a)}${Number.isFinite(st.turns.get(a)!) ? ` (${st.turns.get(a)} turn${st.turns.get(a) === 1 ? '' : 's'})` : ''}` })),
         ...[...st.buffs].map(([k, v]) => ({ icon: statusIconUrl(`buff:${k}`), name: `${buffLabel(k)} (${Number.isFinite(v.turns) ? `${v.turns} turn${v.turns === 1 ? '' : 's'}` : 'all battle'})` })),
       ],
+      buffs: chipsOf(b),
     });
     // The party's numbers are the game's too (a save, the HUD).
     if (b.side === 'party') this.host.writeVitals(this.entry(b).who ?? 0, b.hp, b.mp);
@@ -1363,3 +1376,6 @@ export class TurnBattle {
   }
 }
 
+
+/** A fighter's buffs and debuffs as arrow chips. */
+function chipsOf(b: Battler): BuffChip[] { return [...b.status.buffs].map(([k, v]) => buffChip(k, v.amount)); }

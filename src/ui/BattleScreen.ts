@@ -121,7 +121,7 @@ export interface StageHooks {
 /** Fighter animations. approach / strike / back: an Addition (close in, strike per button, then run back). */
 export type Anim = 'lunge' | 'shot' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge';
 
-export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Badly hurt or ailing (the wounded pose). */ weak?: boolean; /** Ailments and buffs on them: icon, a name for the tooltip, and which ailment (none for a buff). */ status?: { icon: string; name: string; ailment?: string }[] }
+export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Badly hurt or ailing (the wounded pose). */ weak?: boolean; /** Ailments and buffs on them: icon, a name for the tooltip, and which ailment (none for a buff). */ status?: { icon: string; name: string; ailment?: string }[]; /** Buffs as arrows beside the orbs (Pocket Handheld). */ buffs?: BuffChip[] }
 
 export interface ChoiceItem {
   label: string;
@@ -137,6 +137,17 @@ export interface ChoiceItem {
   right?: string;
   /** Hovering it: what it would do to the turn order (the action's weight). */
   rank?: number;
+  /** Buffs and debuffs beside the name (▲ STR). */
+  buffs?: BuffChip[];
+  /** Bars under the name (the Swap list: health, magic, EXP), with a face on the left from `iconUrl`. */
+  bars?: { hp: number; maxHp: number; mp: number; maxMp: number; xp?: number };
+}
+/** A buff or debuff: an arrow (up or down) over a short tag. */
+export interface BuffChip { tag: string; up: boolean; name: string }
+/** The arrows-over-tags row. */
+export function buffChipsHtml(list: BuffChip[] | undefined): string {
+  if (!list?.length) return '';
+  return `<span class="bchips">${list.map((c) => `<span class="bchip ${c.up ? 'up' : 'down'}" title="${c.name.replace(/"/g, '&quot;')}"><i>${c.up ? '▲' : '▼'}</i>${c.tag}</span>`).join('')}</span>`;
 }
 
 type Mode =
@@ -149,7 +160,7 @@ type Mode =
   | { kind: 'lists'; lists: PickList[]; col: number; rows: number[]; pick: (key: string) => void; back: () => void };
 
 /** A list of fighters to choose from (Pocket Handheld's item targets). `gold`: the one out fighting. */
-export interface PickList { title: string; rows: { key: string; name: string; hp: number; maxHp: number; mp?: number; maxMp?: number; down?: boolean; gold?: boolean; disabled?: boolean }[] }
+export interface PickList { title: string; rows: { key: string; name: string; hp: number; maxHp: number; mp?: number; maxMp?: number; down?: boolean; gold?: boolean; disabled?: boolean; buffs?: BuffChip[] }[] }
 
 /** The command bar's pictures (Legend of Dragoon style): small white line drawings. */
 export const COMMAND_ICONS: Record<string, string> = {
@@ -175,7 +186,7 @@ export class BattleScreen {
   private readonly statusEl: HTMLElement;
   private readonly resultEl: HTMLElement;
   private readonly flashEl: HTMLElement;
-  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string; card: HTMLElement | null; pb: PocketBlock }>();
+  private readonly fighters = new Map<string, { view: FighterView; el: HTMLElement; img: HTMLCanvasElement; bar: HTMLElement | null; row: HTMLElement | null; icons: HTMLElement; rowIcons: HTMLElement | null; statusKey: string; buffKey?: string; card: HTMLElement | null; pb: PocketBlock }>();
   /** Pocket Handheld: each side's spheres (shown on that side's first block). */
   private spheres: Record<'party' | 'enemy', Sphere[]> = { party: [], enemy: [] };
   private readonly camEl: HTMLElement;
@@ -679,10 +690,18 @@ export class BattleScreen {
           f.pb.el.querySelector('.pb-lv')!.after(s);
         }
       }
-      const over = this.layout === 'pocket' ? (v.status ?? []).filter((x) => !x.ailment) : v.status ?? [];
+      // Pocket Handheld: buffs are arrows beside the orbs, not over the head.
+      const over = this.layout === 'pocket' ? [] : v.status ?? [];
       f.icons.replaceChildren(...over.map((x) => { const im = document.createElement('img'); im.src = x.icon; im.alt = x.name; im.title = x.name; return im; }));
       const make = () => (v.status ?? []).map((x) => { const im = document.createElement('img'); im.src = x.icon; im.alt = x.name; im.title = x.name; return im; });
       f.rowIcons?.replaceChildren(...make());
+    }
+    const bk = (v.buffs ?? []).map((c) => `${c.up}${c.tag}`).join();
+    if (bk !== f.buffKey) {
+      f.buffKey = bk;
+      const foot = f.pb.el.querySelector('.pb-foot');
+      foot?.querySelector('.bchips')?.remove();
+      if (foot && v.buffs?.length) foot.querySelector('.pb-balls')!.insertAdjacentHTML('afterend', buffChipsHtml(v.buffs));
     }
     if (f.bar) f.bar.style.width = `${Math.max(0, Math.min(100, (v.hp / Math.max(1, v.maxHp)) * 100))}%`;
     // Pocket Handheld: the bar goes green, yellow, red; heroes' numbers and MP orb.
@@ -984,7 +1003,7 @@ export class BattleScreen {
     if (!box) { box = document.createElement('div'); box.className = 'pocket-pick'; this.root.append(box); }
     const bar = (a: number, b: number) => { const f = b > 0 ? Math.max(0, Math.min(1, a / b)) : 0; return `<span class="pp-bar${f <= 0.2 ? ' low' : f <= 0.5 ? ' mid' : ''}"><i style="width:${f * 100}%"></i></span>`; };
     box.innerHTML = m.lists.map((l, c) => `<div class="pp-col${c === m.col ? ' on' : ''}"><h4>${esc(l.title)}</h4>${l.rows.map((r, k) => `<button type="button" class="pp-row${r.gold ? ' gold' : ''}${r.down ? ' down' : ''}${c === m.col && k === m.rows[c] ? ' sel' : ''}" data-c="${c}" data-k="${k}"${r.disabled ? ' disabled' : ''}>
-      <b>${esc(r.name)}</b><small>HP ${Math.round(r.hp)} / ${r.maxHp}${r.maxMp ? ` · MP ${Math.round(r.mp ?? 0)} / ${r.maxMp}` : ''}${r.down ? ' · KO' : ''}</small>${bar(r.hp, r.maxHp)}</button>`).join('') || '<p class="pp-none">No one</p>'}</div>`).join('');
+      <b>${esc(r.name)}${buffChipsHtml(r.buffs)}</b><small>HP ${Math.round(r.hp)} / ${r.maxHp}${r.maxMp ? ` · MP ${Math.round(r.mp ?? 0)} / ${r.maxMp}` : ''}${r.down ? ' · KO' : ''}</small>${bar(r.hp, r.maxHp)}</button>`).join('') || '<p class="pp-none">No one</p>'}</div>`).join('');
     box.querySelectorAll<HTMLElement>('.pp-row').forEach((el) => el.addEventListener('click', (e) => {
       e.stopPropagation();
       const mm = this.mode;
@@ -1088,7 +1107,20 @@ export class BattleScreen {
         b.append(ic);
       }
       const l = document.createElement('span'); l.className = 'bcmd-label'; l.textContent = it.label;
+      if (it.buffs?.length) l.insertAdjacentHTML('beforeend', buffChipsHtml(it.buffs));
       b.append(l);
+      if (it.bars) {
+        // The Swap list: health, magic and EXP under the name.
+        const v = it.bars, w = (a: number, m: number) => `${Math.max(0, Math.min(100, (a / Math.max(1, m)) * 100))}%`;
+        const share = v.hp / Math.max(1, v.maxHp);
+        const bars = document.createElement('span');
+        bars.className = `bcmd-bars${share <= 0.2 ? ' low' : share <= 0.5 ? ' mid' : ''}`;
+        bars.innerHTML = `<span class="bb hp" title="HP ${Math.ceil(v.hp)} / ${v.maxHp}"><i style="width:${w(v.hp, v.maxHp)}"></i></span><em>${Math.ceil(v.hp)} / ${v.maxHp}</em>`
+          + (v.maxMp ? `<span class="bb mp" title="MP ${Math.floor(v.mp)} / ${v.maxMp}"><i style="width:${w(v.mp, v.maxMp)}"></i></span><em>${Math.floor(v.mp)} / ${v.maxMp}</em>` : '')
+          + (v.xp !== undefined ? `<span class="bb xp" title="EXP"><i style="width:${Math.round(v.xp * 100)}%"></i></span><em>EXP</em>` : '');
+        b.append(bars);
+        b.classList.add('with-bars');
+      }
       if (it.right) { const r = document.createElement('span'); r.className = 'bcmd-right'; r.textContent = it.right; b.append(r); }
       if (it.detail && !dragon) { const d = document.createElement('span'); d.className = 'bcmd-detail'; d.textContent = it.detail; b.append(d); }
       b.addEventListener('pointerenter', () => { if (this.mode === m && !it.disabled && m.index !== i) { m.index = i; this.renderList(); m.hover?.(i); } });

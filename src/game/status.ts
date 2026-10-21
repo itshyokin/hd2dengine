@@ -225,3 +225,11 @@ export class StatusSet {
 export const buffLabel = (k: BuffKind): string => (k === 'haste' || k === 'slow' ? BUFF_INFO[k].name : `${BUFF_INFO[k].name} up`);
 export const effectName = (id: EffectId): string => (id.startsWith('buff:') ? buffLabel(id.slice(5) as BuffKind) : AILMENT_INFO[id as Ailment | 'frozen'].name);
 export const effectColor = (id: EffectId): string => (id.startsWith('buff:') ? BUFF_INFO[id.slice(5) as BuffKind].color : AILMENT_INFO[id as Ailment | 'frozen'].color);
+
+/** Short tags for buffs and debuffs, shown under an arrow (▲ STR, ▼ SPD). */
+const BUFF_TAG: Record<BuffKind, string> = { crit: 'CRT', str: 'STR', dex: 'DEX', agi: 'AGI', end: 'END', def: 'DEF', mag: 'MAG', mdf: 'MDF', regen: 'RGN', haste: 'SPD', slow: 'SPD', acc: 'ACC', eva: 'EVA', accDown: 'ACC', evaDown: 'EVA' };
+/** A buff as an arrow and a tag: up for a boost, down for a debuff (Slow, Accuracy down, a lowered stat). */
+export function buffChip(k: BuffKind, amount = 1): { tag: string; up: boolean; name: string } {
+  const up = !DEBUFFS.has(k) && amount >= 0;
+  return { tag: BUFF_TAG[k], up, name: up ? buffLabel(k) : k === 'slow' || k === 'accDown' || k === 'evaDown' ? BUFF_INFO[k].name : `${BUFF_INFO[k].name} down` };
+}

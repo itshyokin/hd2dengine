@@ -1113,7 +1113,18 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   holds an **EXP All** key item switched on (Key items → Turn on / off; *EXP All %*): then they get that percent of
   the foes' EXP. A hero swapped in partway earns from then on; one knocked out keeps what they'd earned.
 - **Winning** gives gold and drops straight into the bag (a full bag leaves them on the ground) and runs the beaten
-  enemies' page commands. A hero knocked out in a won battle gets back up with 1 HP.
+  enemies' page commands. The hero you play, knocked out in a won battle, gets back up with 1 HP; other party members
+  stay knocked out (and out of sight on the map, no longer following) until something heals them: a **revive** item,
+  resting at an inn or a campfire, or the *Full rest* event command. Health never comes back on its own.
+- **Revives** (Database → Items → a consumable → *Revives*): bring a knocked-out hero back with what the item restores
+  (at least 1 HP), from the bag or in battle. A revive only works on the knocked out, and other items can't help them
+  (healing items say "only a revive can help").
+- **Using items** shows it happening: in the bag's "Use on whom?" the bar fills and the numbers count up, then a line
+  ("Katrina recovered 30 HP!") waits for OK; in battle (Pocket Handheld) "Jordan used Potion!", the bar fills, then
+  "Jordan recovered 60 HP!" waits for OK.
+- **Buffs and debuffs** (Pocket Handheld): arrows with the stat under them beside each block's spheres (▲ STR in green,
+  ▼ SPD in red), and the same beside names when choosing whom to use an item on and in the Swap list. The Swap list
+  shows each hero's face, name, buffs, and their health, magic and EXP bars.
 - **Single battle mode** (Database → Combat → *Battle mode: Single*; Pokémon-style): one hero is out at a time,
   against one foe (or a full troop). Each round the hero picks first, then both sides act, the faster first (Agility,
   Haste and Slow decide; the log says who moves first); there's no turn order bar. **Swap** brings in another hero:

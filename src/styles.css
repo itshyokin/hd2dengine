@@ -1858,6 +1858,11 @@ body.sleeping :is(.hud-top, .hud-side, .hud-weapons, .hud-xp, .hud-party, .hud-q
 .battle.layout-pocket .bcmd-tile:disabled .bcmd-tile-label { opacity: 0.4; }
 .battle.layout-pocket .battle-cmd-cap { text-align: left; padding: 0 calc(var(--u) * 0.4); margin: calc(var(--u) * 0.4) 0 0; font-size: calc(var(--u) * 1.25); line-height: 1.3;
   height: 2.6em; min-height: 2.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* A list (Items, Magic, Swap): a taller box under the hero's block, which moves up to make room (never covered). */
+.battle.layout-pocket.list-mode .battle-cmd { box-sizing: border-box; height: calc(var(--cmd-h) * 2 + var(--g)); max-height: none; display: flex; flex-direction: column; }
+.battle.layout-pocket.list-mode .battle-cmd .battle-cmd-list { flex: 1; min-height: 0; overflow: auto; }
+.battle.layout-pocket.list-mode .pocket-heroes { bottom: calc(var(--g) * 3 + var(--cmd-h) * 2 + env(safe-area-inset-bottom, 0px)); }
+.battle.layout-pocket .pocket-heroes { transition: bottom 0.2s ease; }
 /* The text box (one line at a time, ▼ when it waits for OK) at the bottom left, beside the commands; in the middle
    while there are none. The full battle log opens over the battle with Y. */
 .pocket-text { display: none; }
@@ -2132,3 +2137,35 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .bcmd-inline-icon img, .bcmd-inline-icon svg { width: 100%; height: 100%; image-rendering: pixelated; }
 .battle .bcmd:has(> .bcmd-inline-icon) { grid-template-columns: auto minmax(0, 1fr) auto; }
 .battle .bcmd:has(> .bcmd-inline-icon) > .bcmd-detail { grid-column: 2 / -1; }
+
+/* Buffs and debuffs: an arrow over a short tag (▲ STR in green, ▼ SPD in red). */
+.bchips { display: inline-flex; gap: 0.35em; margin-left: 0.6em; vertical-align: middle; }
+.bchip { display: inline-grid; justify-items: center; line-height: 1; font-size: 0.55em; font-weight: 800; letter-spacing: 0.04em; font-family: var(--f-ui, inherit); }
+.bchip i { font-style: normal; font-size: 1.3em; line-height: 1; }
+.bchip.up { color: #7cf08a; }
+.bchip.down { color: #ff7a6a; }
+.pb-foot .bchips { margin-left: 0; font-size: calc(var(--u, 10px) * 2.4); }
+.pb-foot .bchip { text-shadow: 0 1px 0 #000; }
+/* The Swap list: a face on the left, the name with its buffs, and health / magic / EXP bars under it. */
+.battle .bcmd.with-bars .bcmd-inline-icon { width: 2.6em; height: 2.6em; grid-row: span 2; align-self: center; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.battle .bcmd.with-bars .bcmd-inline-icon img { object-fit: cover; image-rendering: pixelated; }
+.bcmd-bars { grid-column: 2 / -1; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; margin-top: 4px; }
+.bcmd-bars .bb { height: 6px; border-radius: 3px; background: #2a2d3a; overflow: hidden; }
+.bcmd-bars .bb i { display: block; height: 100%; }
+.bcmd-bars .bb.hp i { background: var(--c-hp, linear-gradient(#7cf08a, #3cb05a)); }
+.bcmd-bars.mid .bb.hp i { background: linear-gradient(#ffe27a, #e0a82a); }
+.bcmd-bars.low .bb.hp i { background: linear-gradient(#ff8a7a, #d0402a); }
+.bcmd-bars .bb.mp i { background: var(--c-mp, linear-gradient(#c89aff, #8a5ae0)); }
+.bcmd-bars .bb.xp i { background: var(--c-xp, linear-gradient(90deg, #7ad8ff, #3a9ad8)); }
+.bcmd-bars em { font-style: normal; font-size: 10px; color: var(--muted, #a8a090); font-variant-numeric: tabular-nums; }
+
+/* The bag's "Use on whom?" after using: the line saying what it did, waiting for OK. */
+.ip-said { min-height: 1.6em; padding: 8px 26px 6px 4px; position: relative; font-size: 13px; color: #f3ead8; border-top: 1px solid rgba(201, 164, 106, 0.35); cursor: pointer; }
+.ip-said .ip-next { position: absolute; right: 6px; bottom: 6px; color: #ffd27a; font-size: 11px; visibility: hidden; }
+.ip-said.ready .ip-next { visibility: visible; animation: pt-bob 0.8s ease-in-out infinite; }
+.battle.layout-pocket.list-mode .battle-cmd .battle-cmd-list { align-content: start; }
+.battle .bcmd.with-bars { grid-template-columns: 2.6em minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; }
+.battle .bcmd.with-bars > .bcmd-inline-icon { grid-column: 1; grid-row: 1 / span 2; margin: 0; }
+.battle .bcmd.with-bars > .bcmd-label { grid-column: 2; grid-row: 1; }
+.battle .bcmd.with-bars > .bcmd-right { grid-column: 3; grid-row: 1; }
+.battle .bcmd.with-bars > .bcmd-bars { grid-column: 2 / -1; grid-row: 2; margin-top: 2px; }

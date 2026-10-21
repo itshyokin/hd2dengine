@@ -711,7 +711,7 @@ export class Game {
         if (!ms.length) return [];
         const hp = (v: number, mx: number) => `${Math.round(v)} / ${Math.round(mx)} HP`;
         return [{ label: `${mainHero(this.db).name} · ${hp(this.stats.hp, this.stats.cfg.max.hp)}` },
-          ...ms.map((m) => ({ label: `${m.def.name} · ${m.data.down ? 'knocked out' : hp(m.data.hp, this.allyNumbers(m.data, m.def).max.hp)}`, disabled: !!m.data.down }))];
+          ...ms.map((m) => ({ label: `${m.def.name} · ${m.data.down ? 'knocked out' : hp(m.data.hp, this.allyNumbers(m.data, m.def).max.hp)}` }))];
       },
       useWarning: (i) => {
         const d = this.items.get(this.inventory.slots[i]?.id ?? '');
@@ -2544,8 +2544,12 @@ export class Game {
     if (who > 0) {
       // On a party member: what it restores (they have no ailments or buffs of their own).
       const m = this.members()[who - 1];
-      if (!m || m.data.down) return null;
+      if (!m) return null;
       const max = this.allyNumbers(m.data, m.def).max, got: string[] = [];
+      // Knocked out: only a revive works (and a revive only works on the knocked out).
+      const ko = !!m.data.down || m.data.hp <= 0;
+      if (ko !== !!d.revive) return ko ? `${m.def.name} is knocked out: only a revive can help.` : `${d.name} only works on someone knocked out.`;
+      if (ko) { m.data.down = false; m.data.hp = 0; }
       if (d.statRank && (m.data.statRanks?.[d.statRank.stat] ?? m.def.ranks?.[d.statRank.stat] ?? 'C') !== d.statRank.rank) {
         this.setStatRank(m.def.id, d.statRank.stat, d.statRank.rank);
         got.push(`${ATTR_INFO[d.statRank.stat].name} now grows at Rank ${d.statRank.rank}`);
@@ -2560,6 +2564,7 @@ export class Game {
         if (n > 0) got.push(`+${n} ${g.toUpperCase()}`);
       }
       if (battle) for (const b of d.buffs ?? []) got.push(buffLabel(b.buff));
+      if (ko) { if (m.data.hp < 1) m.data.hp = 1; got.unshift('back on their feet'); }
       if (!got.length) return `${d.name} wouldn’t do anything for ${m.def.name} right now.`;
       this.inventory.removeAt(i, 1);
       this.state.tally('itemsUsed');
@@ -2569,6 +2574,10 @@ export class Game {
     }
     const st = this.combat.heroStatus;
     const gains: string[] = [];
+    // The hero: the same rule (a revive only when they're knocked out).
+    const heroKo = this.stats.hp <= 0;
+    if (heroKo !== !!d.revive) return heroKo ? `${mainHero(this.db).name} is knocked out: only a revive can help.` : `${d.name} only works on someone knocked out.`;
+    if (heroKo) gains.push('back on their feet');
     if (d.statRank && (this.progress.statRanks[d.statRank.stat] ?? mainHero(this.db).ranks?.[d.statRank.stat] ?? 'C') !== d.statRank.rank) {
       this.setStatRank(mainHero(this.db).id, d.statRank.stat, d.statRank.rank);
       gains.push(`${ATTR_INFO[d.statRank.stat].name} now grows at Rank ${d.statRank.rank}`);
@@ -2591,6 +2600,7 @@ export class Game {
       if (got > 0) gains.push(`+${got} ${g.toUpperCase()}`);
     }
     for (const b of d.buffs ?? []) { if (!battle) st.boost(b.buff, b.amount, b.seconds); gains.push(buffLabel(b.buff)); }
+    if (heroKo && this.stats.hp < 1) this.stats.change('hp', 'set', 1);
     if (!gains.length) return `${d.name} wouldn’t do anything right now.`;
     this.inventory.removeAt(i, 1);
     this.state.tally('itemsUsed');

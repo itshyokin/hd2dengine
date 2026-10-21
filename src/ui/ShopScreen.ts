@@ -129,6 +129,14 @@ export class ShopScreen {
   }
 
   private render(): void {
+    // Keep the list where it was, then bring the chosen row into view (keys and controllers move the cursor).
+    const keep = this.root.querySelector<HTMLElement>('.shop-list')?.scrollTop ?? 0;
+    this.draw();
+    const list = this.root.querySelector<HTMLElement>('.shop-list');
+    if (list) { list.scrollTop = keep; list.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }); }
+  }
+
+  private draw(): void {
     const inv = this.inv(), rows = this.rows();
     const tabs = `<div class="shop-tabs"><button type="button" class="shop-tab" data-t="buy" aria-selected="${this.tab === 'buy'}">Buy</button>${
       this.canSell ? `<button type="button" class="shop-tab" data-t="sell" aria-selected="${this.tab === 'sell'}">Sell</button>` : ''}</div>`;
