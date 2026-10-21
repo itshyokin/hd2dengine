@@ -17,7 +17,7 @@ import { patchAreaTint, setBuildOrigin } from '../render/areaTint';
 import { patchToonWater, patchWaterEdge, waterMask } from '../render/waterEdge';
 import { blendMask, patchTileBlend } from '../render/tileBlend';
 import { SpriteLibrary, withSpriteShadows } from '../render/sprites';
-import { blockedTiles, footTiles, propBoxes, stepOf } from './props';
+import { blockedTiles, footTiles, footZ, propBoxes, stepOf } from './props';
 import { type BuiltBuilding, buildBuildings } from './buildings';
 import type { TileTexture } from '../render/tileTextures';
 import { linearColor, makeTexture, registerNormalMap } from '../render/textures';
@@ -684,6 +684,25 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
       mesh.receiveShadow = true;
       scene.add(mesh);
     }
+  }
+  // 3D props: the model, fitted to the footprint, every copy drawn at once. It stands where the picture would.
+  for (const [type, list] of [...groups]) {
+    const model = sprites.model(type), pdef = sprites.def(type);
+    if (!model || !pdef) continue;
+    groups.delete(type);
+    for (const mt of model.materials) patchAreaTint(mt);
+    const mesh = new THREE.InstancedMesh(model.geometry, model.materials, list.length);
+    mesh.castShadow = pdef.castShadow !== false;
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    list.forEach((p, i) => {
+      const s = p.s ?? 1, at = propBase(map, p, pdef);
+      m.makeScale(s, s, s);
+      m.setPosition(p.x, at.y, footZ(pdef, p.x, p.z, stepOf(map)));
+      mesh.setMatrixAt(i, m);
+      if (placed.has(p)) slots.set(p, { mesh, index: i });
+    });
+    scene.add(mesh);
   }
   for (const [type, list] of groups) {
     const a = sprites.get(type), pdef = sprites.def(type), onWall = !!pdef?.wall;

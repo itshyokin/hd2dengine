@@ -14,6 +14,8 @@ import { flameStrip } from '../art/placeholderArt';
 import { lightFields } from './lightForm';
 import { walkSoundField } from './CommandEditor';
 import type { EditorStore } from './store';
+import type * as THREE from 'three';
+import { type ModelExt, bakeModel, modelExt, modelSize, modelThumbnail, parseModel } from '../render/models';
 
 type Res = 'keep' | '16' | '24' | '32' | '48' | '64';
 interface Src { canvas: HTMLCanvasElement; name: string }
@@ -28,6 +30,9 @@ const NEXT: Record<Mark, Mark> = { '#': '.', '.': '*', '*': '#' };
 const toMark = (c: string | undefined): Mark => (c === '#' || c === 'X' ? '#' : c === '*' ? '*' : '.');
 
 interface State {
+  /** A 3D model drawn instead of the picture (the picture is then its rendered icon), and how it's turned. */
+  model?: { obj: THREE.Object3D; name: string; blob: Blob; ext: ModelExt; fresh: boolean };
+  modelRot: number;
   name: string;
   w: number; h: number;
   /** Source pixels per tile, and the source pixel at the frame's top-left corner. */
@@ -84,8 +89,9 @@ interface State {
 const defaultLight = (h: number): PropLight => ({ x: 0, y: Math.round(h * 0.8 * 10) / 10, color: '#ffc86b', intensity: 2.2, radius: 7, schedule: 'night', flicker: 'none' });
 
 /** Opens the importer. Pass an imported prop's definition to edit it instead. */
-export async function openPropImporter(store: EditorStore, existing?: PropDef): Promise<void> {
+export async function openPropImporter(store: EditorStore, existing?: PropDef, opts: { model?: boolean } = {}): Promise<void> {
   const st: State = {
+    modelRot: existing?.modelRot ?? 0,
     name: existing?.name ?? '', w: existing?.w ?? 1, h: existing?.h ?? 2, scale: 32, ox: 0, oy: 0,
     flipGreen: false, glowColor: existing?.glowColor ?? '#ffc86b', filter: existing?.filter ?? 'point', res: 'keep',
     castShadow: existing?.castShadow !== false,
@@ -128,6 +134,13 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       return b ? { canvas: await canvasFromBlob(b), name: path!.split('/').pop()! } : undefined;
     };
     st.normal = await fromFile(existing.normal);
+    if (existing.model) {
+      const b = store.files.get(existing.model), ext = modelExt(existing.model);
+      if (b && ext) {
+        try { st.model = { obj: await parseModel(await b.arrayBuffer(), ext), name: existing.model.split('/').pop()!, blob: b, ext, fresh: false }; }
+        catch { toast('This prop’s 3D model couldn’t be read; saving keeps the file as it is.', 'error'); }
+      }
+    }
     st.glow = await fromFile(existing.glow);
     const cols = Math.max(1, Math.round(existing.w));
     if (existing.foot) {
@@ -303,6 +316,42 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
   const flameArt = () => (flameCanvas ??= flameStrip());
 
   /* ---------------------------------------------------------------- files */
+  const modelInput = h('input', { type: 'file', accept: '.glb,.fbx', hidden: true });
+  modelInput.addEventListener('change', () => { const f = modelInput.files?.[0]; if (f) void loadModelFile(f); modelInput.value = ''; });
+  async function loadModelFile(file: File): Promise<void> {
+    const ext = modelExt(file.name);
+    if (!ext) { toast('Choose a .glb or .fbx model (a .gltf with separate files: export it as .glb).', 'error'); return; }
+    try {
+      const obj = await parseModel(await file.arrayBuffer(), ext);
+      st.model = { obj, name: file.name, blob: file, ext, fresh: true };
+      if (!st.name) st.name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      // Its footprint from its size: models in metres (most) are a tile per metre; very big or tiny ones about 2 tiles.
+      const sz = modelSize(obj, st.modelRot), long = Math.max(sz.x, sz.z);
+      const k = long >= 0.3 && long <= 12 ? 1 : 2 / Math.max(1e-6, long);
+      st.w = clampTiles(sz.x * k); st.d = 0;
+      setDepth(clampTiles(sz.z * k));
+      if (st.filter === 'point' && !existing) st.filter = 'smooth';
+      remodel();
+    } catch (e) {
+      toast(`Couldn’t read ${file.name}: ${e instanceof Error ? e.message : String(e)}`, 'error');
+    }
+  }
+  /** Fit the model to the footprint again and show its icon in the frame (its height follows from its shape). */
+  function remodel(): void {
+    if (!st.model) return;
+    try {
+      const baked = bakeModel(st.model.obj, { w: st.w, d: st.d, rot: st.modelRot, sharp: st.filter === 'point' });
+      const PPT = 48, pic = modelThumbnail(baked, st.w, PPT);
+      st.image = { canvas: pic, name: `${st.model.name} (rendered)` };
+      st.h = clampTiles(Math.ceil(pic.height / PPT - 0.05));
+      st.scale = PPT; st.ox = 0; st.oy = pic.height - st.h * PPT;
+      layout();
+      renderForm();
+      draw();
+    } catch (e) {
+      toast(`Couldn’t fit the model: ${e instanceof Error ? e.message : String(e)}`, 'error');
+    }
+  }
   const fileInputs = {
     image: h('input', { type: 'file', accept: 'image/*', hidden: true }),
     normal: h('input', { type: 'file', accept: 'image/*', hidden: true }),
@@ -353,15 +402,17 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
     st.w = w; st.h = hh;
     setDepth(st.d);
     layout();
+    if (st.model) remodel();
   }
 
   /** Resize the footprint (new tiles start X: blocking). */
   function setDepth(d: number): void {
-    const old = st.solid;
+    const old = st.solid, was = st.d;
     st.d = d;
     // Rows are kept from the front: the front row stays the front row.
     st.solid = Array.from({ length: d }, (_, r) => Array.from({ length: st.w }, (_, c): Mark => old[old.length - d + r]?.[c] ?? '#'));
     renderTools();
+    if (st.model && was !== d) remodel();
   }
 
   /* ---------------------------------------------------------------- form */
@@ -384,12 +435,20 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
   function renderForm(): void {
     const parts: Node[] = [
       field('Name', textInput(st.name, (v) => (st.name = v.trim()), { placeholder: 'e.g. Lamp post', oninput: (e: Event) => (st.name = (e.target as HTMLInputElement).value.trim()) })),
-      slotRow('image', 'Image', 'The sprite itself. Transparent background recommended.'),
+      st.model ? h('div', { class: 'slot' },
+        h('div', { class: 'slot-head' }, h('span', { class: 'slot-label' }, '3D model'), h('span', { class: 'slot-file', title: st.model.name }, st.model.name)),
+        h('div', { class: 'slot-actions' },
+          h('button', { type: 'button', class: 'btn small', onclick: () => modelInput.click() }, 'Replace…'),
+          h('button', { type: 'button', class: 'btn small ghost', onclick: () => { st.model = undefined; renderForm(); toast('Now a flat picture (its rendered icon). Choose an image to replace it.'); } }, 'Use a picture instead')),
+        field('Faces', select([['0', 'As modelled (front toward the camera)'], ['90', 'Turned right 90°'], ['180', 'Turned round'], ['270', 'Turned left 90°']], String(st.modelRot), (v) => { st.modelRot = Number(v); remodel(); })),
+        h('p', { class: 'hint' }, 'Drawn in 3D, fitted evenly into its footprint (Width × Depth); its height follows from its shape. The picture is its icon in the palette.'))
+        : slotRow('image', 'Image', 'The sprite itself. Transparent background recommended.'),
+      st.model ? h('span') : h('div', { class: 'toolrow small' }, h('button', { type: 'button', class: 'btn small ghost', onclick: () => modelInput.click() }, 'Use a 3D model instead (.glb, .fbx)…')),
     ];
     if (existing && isBuiltinProp(existing.id)) {
       parts.unshift(h('p', { class: 'note' }, 'Saving makes a customised copy of this built-in prop, used everywhere it’s placed. “Reset to original” in the Props palette brings the built-in back.'));
     }
-    if (st.image && !hasTransparency(st.image.canvas)) parts.push(h('p', { class: 'warn' }, 'This image has no transparent pixels, so the whole rectangle will show in the game.'));
+    if (st.image && !st.model && !hasTransparency(st.image.canvas)) parts.push(h('p', { class: 'warn' }, 'This image has no transparent pixels, so the whole rectangle will show in the game.'));
     parts.push(
       h('div', { class: 'section-label' }, 'Size on the map'),
       h('div', { class: 'field-row three' },
@@ -399,7 +458,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       h('p', { class: 'hint' }, 'Width and depth: the tiles it covers on the ground (its footprint, each tile marked X, O or ★ in the grid under the picture). Height: how tall the picture stands. Placed on the map, it covers whole tiles, its picture rising from the footprint’s front edge: a 1 × 1 × 1 block fills its tile exactly.'),
       h('div', { class: 'section-label' }, 'Shape and collision'),
       h('div', { class: 'field-row' },
-        field('Shape', select([['flat', 'Flat (one picture)'], ['solid', 'Solid block (pushed back)'], ['crossX', 'Cross × (two at 45°)'], ['crossPlus', 'Cross + (one side-on)'], ['crossStar', 'Star ✳ (cross × plus one facing front)'], ['rows', 'Rows ≡ (three staggered rows)'], ['thicket', 'Thicket (rows of crossing pairs)']], st.shape,
+        st.model ? field('Shape', h('span', { class: 'hint' }, '3D model')) : field('Shape', select([['flat', 'Flat (one picture)'], ['solid', 'Solid block (pushed back)'], ['crossX', 'Cross × (two at 45°)'], ['crossPlus', 'Cross + (one side-on)'], ['crossStar', 'Star ✳ (cross × plus one facing front)'], ['rows', 'Rows ≡ (three staggered rows)'], ['thicket', 'Thicket (rows of crossing pairs)']], st.shape,
           (v) => { st.shape = v as State['shape']; renderForm(); })),
         field('Collision', select([['solid', 'Solid: its X tiles block'], ['flat', 'Flat: only along the picture']], st.collide,
           (v) => { st.collide = v as 'solid' | 'flat'; renderTools(); renderForm(); }))),
@@ -618,6 +677,13 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       if (st.burns > 0 && (st.lightOn || st.flameOn)) { def.burns = st.burns; if (st.burntOut) def.burntOut = st.burntOut; if (st.startsOut) def.startsOut = true; }
       if (st.glow) def.glowColor = st.glowColor;
       if (st.lightOn) def.light = { ...st.light };
+      if (st.model) {
+        def.model = st.model.fresh || !existing?.model ? `assets/props/${id}.${st.model.ext}` : existing.model;
+        if (st.model.fresh || !existing?.model || existing.model !== def.model) images.model = { path: def.model, blob: st.model.blob };
+        if (st.modelRot) def.modelRot = st.modelRot;
+        // A model stands as it is: no camera tilt, no paper shapes.
+        delete def.shape; delete def.thickness;
+      }
       if (await commitProp(store, def, images, img)) {
         store.propType = id;
         store.propTool = 'place';
@@ -639,7 +705,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
       h('p', { class: 'hint' }, 'The orange frame is the picture: each square is one tile, Width × Height. Drag to move the image inside it, scroll or use the slider to zoom it, Fit / Fill to size it to the frame. The blue marker is the front edge of the footprint, where the picture stands on the ground.'),
       footGrid),
     form,
-    fileInputs.image, fileInputs.normal, fileInputs.glow);
+    fileInputs.image, fileInputs.normal, fileInputs.glow, modelInput);
 
   const saveLabel = existing ? 'Save changes' : 'Import prop';
 
@@ -659,7 +725,8 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef): 
   const ro = new ResizeObserver(() => layout());
   ro.observe(cropWrap);
   layout();
-  if (!existing) fileInputs.image.click();
+  if (!existing) (opts.model ? modelInput : fileInputs.image).click();
+  else if (st.model) remodel();
 }
 
 /* -------------------------------------------------------------------- helpers */

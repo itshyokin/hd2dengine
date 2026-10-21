@@ -830,7 +830,7 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 /* Props palette: the tools, the chosen prop and the import buttons stay at the top while the lists scroll. */
 .prop-sticky { position: sticky; top: -14px; z-index: 3; display: grid; gap: 10px; margin: -14px -16px 0; padding: 14px 16px 10px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 8px 14px -10px rgba(0,0,0,0.6); }
 .prop-sticky .prop-picks { position: static; box-shadow: none; }
-.prop-sticky { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.prop-sticky { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .prop-sticky > * { grid-column: 1 / -1; }
 .prop-sticky > .import-btn { grid-column: auto; padding: 6px 6px; font-size: 12px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .armor-type-row > .field-row.weapon-type-fields:first-child { grid-template-columns: 1fr 1fr 1.3fr auto auto; align-items: end; }

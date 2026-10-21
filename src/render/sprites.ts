@@ -20,6 +20,7 @@ import { WEAPON_MANIFEST_PATH as WEAPON_MANIFEST } from '../game/combat/weaponSp
 import { cutIcon, weaponIconRect } from '../art/weaponIcon';
 import { weaponMaskCanvas } from './weaponMask';
 import { completeLayout } from './sheetCheck';
+import { type BakedModel, bakeModel, modelExt, parseModel } from './models';
 import { patchAreaTint } from './areaTint';
 import { linearColor, makeTexture, registerNormalMap } from './textures';
 
@@ -208,8 +209,20 @@ export class SpriteLibrary {
       const [image, normal, glow] = await Promise.all([load(d.image, 'image'), load(d.normal, 'normal map'), load(d.glow, 'glow mask')]);
       this.images.set(d.id, { image: image ?? missingImage(d.w * 16, d.h * 16), normal, glow });
     });
-    await Promise.all(jobs);
+    // 3D props: each model read and fitted to its footprint once.
+    const models = this.catalog.all().filter((d) => d.model).map(async (d) => {
+      try { this.models.set(d.id, await loadModel(d, resolve(d.model!))); }
+      catch (e) { this.problems.push(`${d.name}: model “${d.model}” couldn’t be loaded (${e instanceof Error ? e.message : String(e)})`); }
+    });
+    await Promise.all([...jobs, ...models]);
   }
+
+  /** 3D props, fitted to their footprints (see render/models.ts). */
+  private readonly models = new Map<string, BakedModel>();
+  /** A prop's 3D model, when it has one and it loaded. */
+  model(id: string): BakedModel | undefined { return this.models.get(id); }
+  /** Use this model for a prop (the editor, after importing one). */
+  setModel(id: string, m: BakedModel | undefined): void { if (m) this.models.set(id, m); else this.models.delete(id); }
 
   /** Load the imported character sheets (Database → Characters). */
   async preloadCharacters(chars: Record<string, CharacterDef>, resolve: (path: string) => string): Promise<void> {
@@ -495,4 +508,12 @@ export class SpriteLibrary {
     a.map.repeat.set(1 / 3, 1 / 4);
     return a;
   }
+}
+
+/** Read a prop's model file and fit it to the prop's footprint. */
+export async function loadModel(d: PropDef, url: string): Promise<BakedModel> {
+  const ext = modelExt(d.model ?? '') ?? 'glb';
+  const buf = await (await fetch(url)).arrayBuffer();
+  const obj = await parseModel(buf, ext);
+  return bakeModel(obj, { w: d.foot?.w ?? Math.max(1, Math.round(d.w)), d: d.foot?.d ?? 1, rot: d.modelRot, sharp: d.filter === 'point' });
 }
