@@ -827,6 +827,10 @@
     {"type":"vines","x":10.5,"z":28},
     {"type":"vines","x":9.5,"z":28},
     {"type":"vines","x":10.5,"z":31},
-    {"type":"vines","x":9.5,"z":32}
+    {"type":"vines","x":9.5,"z":32},
+    {"type":"boulder","x":5,"z":21},
+    {"type":"rock","x":10.5,"z":21},
+    {"type":"rock","x":4.5,"z":23},
+    {"type":"rock","x":15.5,"z":31}
   ]
 }

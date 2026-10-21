@@ -800,32 +800,6 @@
       "image": "assets/props/bridge_wood_v.png"
     },
     {
-      "id": "vines",
-      "name": "Vines (cuttable)",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "shape": "solid",
-      "thickness": 0.05,
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "castShadow": false,
-      "sway": 0.6,
-      "wall": true,
-      "noTilt": true,
-      "cuttable": true,
-      "regrows": true,
-      "image": "assets/props/vines.png"
-    },
-    {
       "id": "tuft",
       "name": "Grass tuft",
       "w": 1,
@@ -863,6 +837,31 @@
       "filter": "point",
       "sway": 0.8,
       "image": "assets/props/pine.png"
+    },
+    {
+      "id": "vines",
+      "name": "Vines (cuttable)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "shape": "crossStar",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "castShadow": false,
+      "sway": 0.6,
+      "wall": true,
+      "noTilt": true,
+      "cuttable": true,
+      "regrows": true,
+      "image": "assets/props/vines.png"
     }
   ],
   "tiles": [
