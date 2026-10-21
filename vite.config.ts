@@ -25,7 +25,7 @@ async function listAudio(dir = AUDIO_DIR, rel = 'audio'): Promise<string[]> {
  *   GET  /__editor/maps                     → ["map001", ...]
  *   POST /__editor/save?file=maps/x.json    → writes the request body
  *   POST /__editor/upload?file=assets/props/x.png → writes an imported image (or sound)
- * Only database.json, assets.json, maps/*.json, assets/(props|tiles|icons|characters|weapons/custom)/*.png and assets/audio/* can be written.
+ * Only database.json, assets.json, maps/*.json, assets/(props|tiles|icons|characters|weapons/custom)/*.png, assets/props/*.glb|fbx and assets/audio/* can be written.
  */
 function editorApi(): Plugin {
   const send = (res: ServerResponse, status: number, body: unknown) => {
@@ -48,6 +48,17 @@ function editorApi(): Plugin {
       // Saving from the editor shouldn't make Vite reload the editor page.
       server.watcher.unwatch(DATA_DIR);
       server.watcher.unwatch(path.resolve('public/assets'));
+      // Prop models saved this session: Vite only knows the public files it saw at start (and the assets folder
+      // isn't watched), so serve them straight from disk.
+      server.middlewares.use(async (req, res, next) => {
+        const m = /^\/assets\/props\/([A-Za-z0-9_.-]+\.(?:glb|fbx))(?:\?.*)?$/.exec(req.url ?? '');
+        if (!m) return next();
+        try {
+          const data = await fs.readFile(path.resolve('public/assets/props', m[1]));
+          res.setHeader('Content-Type', m[1].endsWith('.glb') ? 'model/gltf-binary' : 'application/octet-stream');
+          res.end(data);
+        } catch { next(); }
+      });
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith('/__editor/')) return next();
         try {
@@ -70,7 +81,7 @@ function editorApi(): Plugin {
           }
           if (req.method === 'POST' && url.pathname === '/__editor/upload') {
             const file = url.searchParams.get('file') ?? '';
-            if (!/^assets\/(?:(?:props|tiles|icons|characters|enemies|weapons\/custom)\/[A-Za-z0-9_.-]+\.png|audio\/[A-Za-z0-9_.-]+\.(?:ogg|mp3|wav|m4a))$/.test(file)) return send(res, 400, { error: 'Invalid file name' });
+            if (!/^assets\/(?:(?:props|tiles|icons|characters|enemies|weapons\/custom)\/[A-Za-z0-9_.-]+\.png|props\/[A-Za-z0-9_.-]+\.(?:glb|fbx)|audio\/[A-Za-z0-9_.-]+\.(?:ogg|mp3|wav|m4a))$/.test(file)) return send(res, 400, { error: 'Invalid file name' });
             const target = path.resolve('public', file);
             await fs.mkdir(path.dirname(target), { recursive: true });
             await fs.writeFile(target, await readBytes(req));

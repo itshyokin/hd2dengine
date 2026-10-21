@@ -95,6 +95,13 @@ export interface PropDef {
   name: string;
   /** Image path relative to public/, e.g. "assets/props/lamp.png". Built-in props have none. */
   image?: string;
+  /**
+   * A 3D model (GLB or FBX, e.g. "assets/props/hut.glb") drawn instead of the picture, fitted to the footprint
+   * (render/models.ts); the image is then its rendered icon.
+   */
+  model?: string;
+  /** The model turned this many degrees (0, 90, 180, 270) to face the camera. */
+  modelRot?: number;
   /** Built-in props only: key of the art generated in code. */
   builtin?: string;
   /** A bridge or platform piece: walked on at a deck height over water, chasms or lower ground (world/decks.ts). */

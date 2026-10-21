@@ -35,7 +35,7 @@ const IDLE_LIMIT_MS = 3 * 60 * 1000;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.glb': 'model/gltf-binary', '.fbx': 'application/octet-stream', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ogg': 'audio/ogg',
   '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.flac': 'audio/flac', '.woff2': 'font/woff2',
 };
@@ -70,7 +70,7 @@ const readBytes = (req) => new Promise((resolve, reject) => {
 });
 const readBody = async (req) => (await readBytes(req)).toString('utf8');
 /** Imported files: images under public/assets/(props|tiles|icons|characters)/, sounds under public/assets/audio/. */
-const ASSET_FILE = /^assets\/(?:(?:props|tiles|icons|characters|enemies|weapons\/custom)\/[A-Za-z0-9_.-]+\.png|audio\/[A-Za-z0-9_.-]+\.(?:ogg|mp3|wav|m4a))$/;
+const ASSET_FILE = /^assets\/(?:(?:props|tiles|icons|characters|enemies|weapons\/custom)\/[A-Za-z0-9_.-]+\.png|props\/[A-Za-z0-9_.-]+\.(?:glb|fbx)|audio\/[A-Za-z0-9_.-]+\.(?:ogg|mp3|wav|m4a))$/;
 
 const AUDIO = path.join(ROOT, 'audio');
 /** Every sound under audio/ (any depth), as "audio/…" paths. */

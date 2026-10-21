@@ -251,7 +251,7 @@ setCombatPreview((enemies, map) => {
 async function playtest(stamp: string, battle?: { enemies: string[]; map?: string }): Promise<void> {
   try {
     const used = new Set<string>();
-    for (const d of store.assets.props) for (const p of [d.image, d.normal, d.glow]) if (p) used.add(p);
+    for (const d of store.assets.props) for (const p of [d.image, d.normal, d.glow, d.model]) if (p) used.add(p);
     for (const t of store.assets.tiles) for (const p of [t.image, t.normal]) if (p) used.add(p);
     for (const d of store.db.items ?? []) if (d.icon && !d.icon.startsWith('builtin:') && d.icon !== 'sprite') used.add(d.icon);
     // Imported sounds: read now the ones the game can't fetch itself (a project folder, or kept on this device).

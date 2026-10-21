@@ -367,7 +367,7 @@ with the ground like everything else.
 
 ### Importing props from images
 
-In the Props layer, click **+ Import prop from image…** (or drop an image on the preview).
+In the Props layer, click **+ Image…** (or drop an image on the preview).
 
 1. **Image**: the sprite. A transparent PNG works best; the editor warns if the image has no transparency.
 2. **Size on the map**: width × height in tiles. The preview shows the image cut into that grid.
@@ -420,6 +420,27 @@ for pixel art); a normal map image of your own is always used.
 
 Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.png`) and the list in
 `public/data/assets.json`.
+
+
+### 3D props (GLB / FBX models)
+
+In the Props layer, click **+ 3D model…** and pick a **.glb** model (an **.fbx** works too, best with its textures
+embedded; a .gltf with separate files: export it as .glb). It opens in the prop importer like a picture does, and
+everything else (name, footprint, behaviour, light, drops) is set the same way:
+- **Footprint**: guessed from the model's size (a tile per metre, the glTF scale; very large or tiny models about two
+  tiles). Change *Width* and *Depth* and the model is refitted: scaled evenly to fit inside the footprint, standing on
+  its front edge like a picture, centred left to right. Its *Height* follows from its shape.
+- **Faces**: as modelled (its front toward the camera), turned right or left 90°, or turned round.
+- **Filtering**: *Smooth* (default for models) or *Point* for crisp low-res textures (PS1 style).
+- The picture in the frame is the model **rendered from the map camera's angle**: it's the palette icon and how the
+  2D map shows it. *Use a picture instead* turns it back into a flat prop (that icon as its picture).
+- The X / O / ★ grid works as for pictures. With a model, the ground behind it really is behind it: anyone on a tile
+  behind the model (★, or a path round its back) is hidden by it like by a building.
+
+In the game a model is lit, casts and catches shadows, takes the map's area tints and cloud shadows, and is cut,
+mined, burnt out or hidden like any prop; every copy of one model is drawn in one go. Models don't lean toward the
+camera, sway or change with the seasons. Animated models stand still in their rest pose (characters with animations
+come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fbx`) beside its icon.
 
 ### Heights, cliffs, ramps and stairs (Height layer)
 

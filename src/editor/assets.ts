@@ -16,14 +16,14 @@ import type { EditorStore } from './store';
 export async function loadProjectAssets(store: EditorStore): Promise<void> {
   const assets = await store.project.readAssets();
   await Promise.all(assets.props.map(async (d) => {
-    for (const path of [d.image, d.normal, d.glow]) {
+    for (const path of [d.image, d.normal, d.glow, d.model]) {
       if (!path) continue;
       try {
         const blob = await store.project.readFile(path);
         store.files.set(path, blob);
         if (path === d.image) setCustomPropImage(d.id, await canvasFromBlob(blob));
       } catch {
-        if (path === d.image) console.warn(`${d.name}: image ${path} is missing`);
+        if (path === d.image || path === d.model) console.warn(`${d.name}: ${path === d.model ? 'model' : 'image'} ${path} is missing`);
       }
     }
   }));
@@ -42,7 +42,7 @@ export async function loadProjectAssets(store: EditorStore): Promise<void> {
   store.setAssets(assets);
 }
 
-export interface PropImages { image: Blob; normal?: Blob; glow?: Blob }
+export interface PropImages { image: Blob; normal?: Blob; glow?: Blob; /** A new 3D model file, written to its path. */ model?: { path: string; blob: Blob } }
 
 /** Save a new or edited prop: its images, then the updated asset list. Returns false if saving failed. */
 export async function commitProp(store: EditorStore, def: PropDef, images: PropImages, preview: HTMLCanvasElement): Promise<boolean> {
@@ -52,6 +52,7 @@ export async function commitProp(store: EditorStore, def: PropDef, images: PropI
   def.image = `${base}.png`;
   if (images.normal) { def.normal = `${base}_normal.png`; files.push([def.normal, images.normal]); } else delete def.normal;
   if (images.glow) { def.glow = `${base}_glow.png`; files.push([def.glow, images.glow]); } else delete def.glow;
+  if (images.model) files.push([images.model.path, images.model.blob]);
 
   const props = store.assets.props.filter((d) => d.id !== def.id);
   props.push(def);

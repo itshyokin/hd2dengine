@@ -366,7 +366,8 @@ export class Palette {
       };
       const builtinLabel = h('div', { class: 'section-label' }, 'Built-in', tickAll(builtins));
       body.push(
-        h('button', { type: 'button', class: 'btn import-btn', title: 'Import a prop from an image', onclick: () => void openPropImporter(s) }, '+ From an image…'),
+        h('button', { type: 'button', class: 'btn import-btn', title: 'Import a prop from an image', onclick: () => void openPropImporter(s) }, '+ Image…'),
+        h('button', { type: 'button', class: 'btn import-btn', title: 'Import a 3D prop from a GLB or FBX model', onclick: () => void openPropImporter(s, undefined, { model: true }) }, '+ 3D model…'),
         h('button', { type: 'button', class: 'btn import-btn', title: 'Add props from the LPC library', onclick: () => void openLpcLibrary(s, 'prop') }, '+ LPC library…'),
         builtinLabel,
         h('div', { class: 'sprites' }, ...builtins.map((d) => card(d.id, d.name, !!d.light))));
