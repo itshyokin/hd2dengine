@@ -36,7 +36,7 @@ export interface EquipHost {
   choices(hero: number, slot: EquipSlotId): EquipChoice[];
   /** The hero's numbers now, or with `id` in `slot` (null: taken off). */
   view(hero: number, change?: { slot: EquipSlotId; id: string | null }): EquipView;
-  /** A party member's fighting style (null: none to choose, the hero): its options, the chosen one, and what they'll really do. */
+  /** The hero's Addition (what Attack performs; null: they have none, a plain attack): the ones learned, the one equipped. */
   style?(hero: number): { value: string; options: [string, string][]; note?: string } | null;
   setStyle?(hero: number, value: string): void;
   /** Put it on (null takes off). Returns a message, or null. */
@@ -108,6 +108,8 @@ export class EquipScreen {
     if (!this.open) return;
     const i = this.input, m = this.mode;
     if (tabKeys(i, this.tabs)) return;
+    // LT / RT: the previous / next party member.
+    { const d = i.consume('subPrev') ? -1 : i.consume('subNext') ? 1 : 0; if (d) { if (m.kind === 'pick') this.mode = { kind: 'slots' }; this.switchHero(d, true); return; } }
     // Without tabs (opened on its own): LB / RB move between the bag's list and the hero's gear (to take things off).
     if (!this.tabs && (i.consume('tabPrev') || i.consume('tabNext'))) {
       if (m.kind === 'pick') { this.mode = { kind: 'slots' }; uiSound('menuBack'); this.render(); return; }
@@ -122,8 +124,9 @@ export class EquipScreen {
       return;
     }
     if (i.consume('cancel')) { this.close(); return; }
-    if (i.consume('left')) { this.switchHero(-1); return; }
-    if (i.consume('right')) { this.switchHero(1); return; }
+    const onAdd = m.kind === 'slots' && !!this.host.style?.(this.hero) && this.slot === this.host.slots(this.hero).length;
+    if (i.consume('left')) { if (onAdd) this.cycleStyle(-1); else this.switchHero(-1); return; }
+    if (i.consume('right')) { if (onAdd) this.cycleStyle(1); else this.switchHero(1); return; }
     // Y / R: between the bag's list and the hero's gear.
     if (i.consume('switchWeapon')) { this.focus(m.kind === 'list' ? 'slots' : 'list'); return; }
     if (m.kind === 'list') {
@@ -138,7 +141,7 @@ export class EquipScreen {
     if (i.consume('up')) { this.slot = (this.slot + n - 1) % n; uiSound('menuMove'); this.render(); return; }
     if (i.consume('down')) { this.slot = (this.slot + 1) % n; uiSound('menuMove'); this.render(); return; }
     if (i.confirm()) {
-      // The last row: the fighting style, stepped through with Space.
+      // The last row: the Addition, stepped through with Space (or ← → on it).
       if (st && this.slot === n - 1) { this.cycleStyle(1); return; }
       uiSound('menuOk'); this.pick(); this.render();
     }
@@ -179,9 +182,10 @@ export class EquipScreen {
     this.render();
   }
 
-  private switchHero(d: number): void {
+  private switchHero(d: number, trigger = false): void {
     const n = this.host.heroes().length;
-    if (n < 2 || this.locked) { uiSound('menuBack'); return; }
+    // Opened for one hero (from the Party page): only LT / RT move on to the next.
+    if (n < 2 || (this.locked && !trigger)) { uiSound('menuBack'); return; }
     this.hero = (this.hero + d + n) % n;
     if (this.mode.kind === 'pick') this.mode = { kind: 'slots' };
     this.slot = Math.min(this.slot, this.host.slots(this.hero).length - 1);
@@ -216,7 +220,7 @@ export class EquipScreen {
       <span class="eq-label">${esc(s.label)}</span>${icon(s.item)}${name(s.item, s.none)}${shard(s.item)}</button>`).join('');
     const style = h.style?.(this.hero);
     const styleRow = style ? `<button type="button" class="eq-slot eq-style${m.kind === 'slots' && this.slot === slots.length ? ' sel' : ''}" data-style="1">
-      <span class="eq-label">Fighting style</span><span class="eq-empty off" aria-hidden="true"></span><span class="eq-name">◀ ${esc(style.options.find(([v]) => v === style.value)?.[1] ?? style.value)} ▶${style.note ? ` <small>${esc(style.note)}</small>` : ''}</span><span></span></button>` : '';
+      <span class="eq-label">Addition</span><span class="eq-empty off" aria-hidden="true"></span><span class="eq-name">◀ ${esc(style.options.find(([v]) => v === style.value)?.[1] ?? style.value)} ▶${style.note ? ` <small>${esc(style.note)}</small>` : ''}</span><span></span></button>` : '';
     const picker = m.kind === 'pick' ? `<div class="eq-pick" role="listbox">${m.list.length ? m.list.map((c, k) => `<button type="button" class="eq-choice${k === m.index ? ' sel' : ''}" data-choice="${k}" role="option" aria-selected="${k === m.index}">
         ${c ? icon(c) : '<span class="eq-empty off"></span>'}${c ? name(c) : '<span class="eq-name none">Take it off</span>'}${shard(c)}${c?.count && c.count > 1 ? `<span class="eq-count">× ${c.count}</span>` : '<span></span>'}
         ${c?.detail ? `<small>${esc(c.detail)}</small>` : ''}</button>`).join('') : '<p class="eq-none">Nothing in the bag fits here.</p>'}</div>` : '';
@@ -238,16 +242,16 @@ export class EquipScreen {
       row('Magic defence', now.magicArmour, next?.magicArmour),
       ...(h.elements ? [`<div class="eq-stat eq-elements"><span>Elements</span><b>${esc(h.elements(this.hero))}</b><em></em></div>`] : []),
     ].join('');
-    const many = heroes.length > 1 && !this.locked, sw = this.tabs ? 'Y or R' : 'LB / RB (Q / E)';
+    const many = heroes.length > 1, who = `${this.locked ? '' : '← → · '}${esc(this.input.label('subPrev'))} / ${esc(this.input.label('subNext'))}`, sw = esc(this.input.label('switchWeapon'));
     const note = m.kind === 'pick' ? '↑ ↓ compare · Space: equip · Esc: back'
-      : m.kind === 'list' ? `↑ ↓ compare · Space: put it on${many ? ' · ← → another hero' : ''} · ${sw}: ${esc(heroes[this.hero]?.name ?? '')}’s gear${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`
-        : `↑ ↓ choose a slot · Space: change it (or take it off)${many ? ' · ← → another hero' : ''} · ${sw}: the bag’s list${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`;
+      : m.kind === 'list' ? `↑ ↓ compare · Space: put it on${many ? ` · ${who}: another hero` : ''} · ${sw}: ${esc(heroes[this.hero]?.name ?? '')}’s gear${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`
+        : `↑ ↓ choose a slot · Space: change it (or take it off; Addition: the next one)${many ? ` · ${who}: another hero` : ''} · ${sw}: the bag’s list${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`;
     this.root.innerHTML = `<div class="inv-box eq-box">
-      <div class="inv-head"><span class="menu-title">Equipment</span><span class="sk-points">${many ? '← →: another hero' : ''}</span></div>
+      <div class="inv-head"><span class="menu-title">Equipment</span><span class="sk-points">${many ? `${who}: another hero` : ''}</span></div>
       ${tabStrip(this.tabs)}
-      <div class="eq-party">${party}</div>
       <div class="eq-body">
-        <div class="eq-list${m.kind === 'list' ? ' focus' : ''}"><div class="eq-col-title">In the bag</div>${list}</div>
+        <div class="eq-left"><div class="eq-party">${party}</div>
+        <div class="eq-list${m.kind === 'list' ? ' focus' : ''}"><div class="eq-col-title">In the bag</div>${list}</div></div>
         <div class="eq-mid${m.kind !== 'list' ? ' focus' : ''}"><div class="eq-col-title">${esc(heroes[this.hero]?.name ?? '')}’s gear</div><div class="eq-slots">${slotRows}${styleRow}</div>${picker}</div>
         <div class="eq-stats">${stats}</div>
       </div>

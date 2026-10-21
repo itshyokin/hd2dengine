@@ -558,8 +558,9 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   Player 4's panel, one under another. **Database → Title & menus → Party page layout** moves and sizes each panel
   (drag it, or its corner; percentages of the page, so it fits any screen), sets its text size (Big / Medium /
   Small) and what it shows. A message box along the bottom says what to do. ↑ ↓ choose (← to the lead); Space
-  opens a menu at the bottom right: **Status**, **Equipment**, **Skill Tree**, **Addition**, **Magic**, **Class**
-  (when they have more than one), **Swap** ("Move Katrina to where?") and Cancel. Anyone with skill points to spend
+  opens a menu at the bottom right: **Swap** ("Move Katrina to where?"), **Status**, **Equipment**, **Skill Tree**,
+  **Magic**, **Class** (when they have more than one) and Cancel. On the Equipment, Status and Skill Tree pages the
+  triggers (LT / RT; Z / C on the keyboard) go to the previous / next party member. Anyone with skill points to spend
   shows a **LEVEL UP** badge.
 - **Status** (Party → someone → Status), like the handheld games' summary: the hero on the left (picture, name, level
   pill, ailment, elements) and three pages on the right, ← → between them: **Profile** (About and ailments),
@@ -637,7 +638,7 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   hosted game. Choosing the file needs a click or Enter (browsers don't open file pickers from a controller button).
 - **The game's default settings**: put a saved settings file at `public/data/settings.json` and it becomes the
   starting settings for every player who hasn't changed theirs (controls, HUD layout, picture…). **Restore
-  defaults** goes back to it. A browser that already has settings saved keeps them until Restore defaults.
+  defaults** goes back to it (it asks "Are you sure?" first). A browser that already has settings saved keeps them until Restore defaults.
 - Exit closes the game where the browser allows it; in a normal tab it asks the player to close the tab.
 
 ### World layout, the world map and seamless maps
@@ -742,7 +743,8 @@ Saved files: `public/assets/props/<id>.png` (plus `<id>_normal.png`, `<id>_glow.
   `speed <×>`, `unlock_skills [hero|all]`, `teleport <map> [x z]`, `time <hour>`, `weather <kind> [amount]`,
   `season <name|auto>`, `battle <troop|enemies…>`, `win_battle`, `switch <name> <on|off>`, `var <name> <value>`,
   `debug_menu <show|hide>` (the playtest panel), `fps`, `hud <on|off>` (screenshots), `achievement <id>`,
-  `achievements_reset`, `explore_all`, `where`, `bug <what went wrong>` (notes the map, tile, height, time, party,
+  `achievements_reset` (or `reset_achievements`; counts kept in the save, like foes defeated, can earn them
+  again), `explore_all`, `where`, `bug <what went wrong>` (notes the map, tile, height, time, party,
   level and a small picture, kept in this browser) and `bugs` (downloads every note as a `.json`; `bugs clear` starts
   over): handy for playtesting.
 - **Database → Title & menus → Developer console**: in playtests only (default), always, or never.
@@ -875,7 +877,8 @@ Battles are turn-based (next section); the real-time battle system was removed i
 - **Bumping into foes**: an enemy that sees or hears the hero chases them, and reaching the hero starts a battle with
   it and its friends nearby (from behind: an **ambush**, the foes act first). Ranged foes start it when they shoot.
 - **The sword (1) and the bow (2)** are field tools the hero always has (no arrows needed): they cut vines and grass,
-  hit switches and break things. An equipped weapon or bow shows in their place; an equipped arrow lends its element.
+  hit switches and break things. An equipped weapon or bow shows in their place. The field bow never uses up arrows
+  (and picking arrows up doesn't equip them: arrows are only used in battle once equipped on the Equipment page).
   Hold the bow to draw, let go to shoot. Fire spells, fire arrows and fire weapons light torches and campfires.
 - **Striking first**: a sword swing, an arrow or a spell bolt that reaches a foe starts the battle with the party's
   turns first. **Lock on with the bow (Tab / RB)** to snipe a foe from afar: with a bow the lock-on reaches much
@@ -1183,7 +1186,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   Keyboard: the letters A, B, X, Y (Space / Enter for A); controller: the face buttons; touch: the four buttons
   that appear. A miss or the wrong button ends the string (a missed first strike still lands, weakly); perfect
   timing adds 10%. Performing an Addition in full counts towards its next **rank** (more damage, a wider window).
-  Database → Combat → *Additions*: set per hero in Menu → Abilities (default), or chosen from a list with each Attack;
+  Each hero has one Addition equipped at a time, set on the **Equipment** page (the Addition row, ← → or Space to
+  change it); everyone starts with Quick Strike (or the hero's Default Addition in Database → Heroes). A hero set to
+  **No Additions** in Database → Heroes makes a plain attack instead: **Melee** runs in and strikes once, **Ranged**
+  fires the bow from where they stand.
+  Database → Combat → *Additions*: set per hero on the Equipment page (default), or chosen from a list with each Attack;
   *Addition timing: Automatic* lands every strike by itself (accessibility).
 - **Start battle** (event command): a turn-based battle against chosen enemies (bosses, set pieces), in either battle
   system. The event waits for it. Options: may the party run, what losing does (back to the respawn point, or the
@@ -1214,8 +1221,8 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
     armor's *Weight* are set in Database → Items, or guessed from the name (Leather Armor is light, Chainmail
     medium, Plate heavy; a Short Sword is a sword). Pickaxes and mining hammers are tools anyone can use. Arms
     Training in the skill trees still decides medium and heavy weapon training as before.
-- **Menu → Party → a hero → Magic / Addition** lists their spells and Additions (with rank and progress) and sets
-  the Addition Attack uses.
+- **Menu → Party → a hero → Magic** lists their spells; **Equipment → Addition** picks the Addition Attack uses (with
+  its rank).
 
 ### EXP orbs and loot on the ground
 

@@ -149,11 +149,9 @@ export class Inventory {
   /** Never-ending items (the basic arrows): one in the bag is all there is. */
   infinite(id: string): boolean { return !!this.def(id)?.ammo?.infinite; }
 
-  /** The arrows the next shot uses: the chosen ones while any are left, otherwise never-ending ones. */
+  /** The arrows equipped (Equipment → Arrows), while any are left. Nothing is picked by itself. */
   arrow(): string | null {
-    if (this.ammo && this.count(this.ammo) > 0) return this.ammo;
-    for (const s of this.slots) if (s && this.infinite(s.id)) return s.id;
-    for (const s of this.slots) if (s && this.def(s.id)?.kind === 'ammo') return s.id;
+    if (this.ammo && (this.count(this.ammo) > 0 || this.infinite(this.ammo))) return this.ammo;
     return null;
   }
 

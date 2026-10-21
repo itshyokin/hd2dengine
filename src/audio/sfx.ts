@@ -30,6 +30,7 @@ export class AudioManager {
   private readonly loops: Record<'music' | 'ambience', Loop | null> = { music: null, ambience: null };
   /** What each loop should be playing (kept while audio is still locked). */
   private readonly want: Record<'music' | 'ambience', string> = { music: '', ambience: '' };
+  private readonly loopGen: Record<'music' | 'ambience', number> = { music: 0, ambience: 0 };
   private volumes: Record<Bus | 'master', number> = { master: 0.25, music: 0.49, ambience: 0.49, sfx: 0.64, ui: 0.49, jingle: 0.64 };
   /** Effects swapped for other sounds (Database → Audio): name → source ('' = silent). */
   overrides: Partial<Record<Sfx, string>> = {};
@@ -141,6 +142,9 @@ export class AudioManager {
   private playLoop(kind: 'music' | 'ambience', src: string, fade: number, force = false): void {
     if (!force && this.want[kind] === src) return;
     this.want[kind] = src;
+    // Each change has its number: only the latest one's track may start (a slow load finishing late used to start a
+    // second track on top of the battle music).
+    const gen = ++this.loopGen[kind];
     if (!this.ready) return;
     const ctx = this.ctx!, t = ctx.currentTime, old = this.loops[kind];
     if (old) {
@@ -154,7 +158,10 @@ export class AudioManager {
     // Testing the chiptune: music files give way to a built-in theme.
     const play = kind === 'music' && this.chipOnly && !src.startsWith('builtin:') ? this.chipMusic(src) : src;
     void this.buffer(play).then((buf) => {
-      if (!buf || this.want[kind] !== src || !this.ctx) return;
+      if (!buf || this.want[kind] !== src || this.loopGen[kind] !== gen || !this.ctx) return;
+      // Anything still playing in this slot goes (it should already be fading out).
+      const prev = this.loops[kind];
+      if (prev) { try { prev.node.stop(); } catch { /* stopped already */ } }
       const node = ctx.createBufferSource();
       node.buffer = buf;
       node.loop = true;

@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 20, 2026, after Update 91b)
+# Handoff: where the project stands (Oct 20, 2026, after Update 92)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work (owner approved):** the "Owner's list (Oct 20, late)" at the end of NOTES.md's list.
+- **Next work:** waiting on the owner's playtest of Update 92 (the "Owner's list (Oct 20, late)" is done).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -167,6 +167,16 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - 91b: render/lean.ts `patchGroundYield` (terrain, water and edge scenery pushed `GROUND_YIELD` back in depth while
   the map camera leans; applied in WorldBuilder to everything built before props and buildings); TurnBattle
   `foeEarned` reads a swapped-out hero's health from the host (`readVitals`).
+- 92: audio/sfx.ts `loopGen` (a newer `playLoop` wins and stops the old loop: no music under battle music); louder
+  `lowHp`; CharacterSprite `facesAllWays` (the battle 'hit' only plays 'hurt' when it has 4 directions); PostFX
+  `focusBand` (2.2 on the battle stage so tall foes stay sharp); Game `titleLeaving` (title look kept through the
+  fade-out, dropped in the transfer's load phase); Restore defaults confirm; console `reset_achievements`;
+  Additions live on the Equipment page (equipHost `style`/`setStyle`, `ensureAddition` gives Quick Strike or
+  `defaultAddition`, `attackStyle` → `{ additions, addition, shoots }`); HeroDef `noAdditions` + `plainAttack`
+  ('ranged' → Battler `shoots`, BattleStage 'shot' anim); inventory `arrow()` only returns an explicitly equipped
+  arrow, field bow ignores arrows; Equipment `.eq-left` column, top-aligned; LT / RT (`subPrev`/`subNext`) switch
+  hero on Equipment (even locked), Status (`order`) and Skill Tree (`otherHero`); Swap first in Party actions; menu
+  hints use `input.label(...)`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

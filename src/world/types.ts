@@ -820,6 +820,13 @@ export interface HeroForm { level: number; look?: string; face?: string }
 export interface HeroDef {
   id: string;
   name: string;
+  /**
+   * No Additions: Attack is a plain attack, never an Addition (archers, mages). Everyone else starts with Quick Strike
+   * equipped and can equip any Addition they learn (Equipment page).
+   */
+  noAdditions?: boolean;
+  /** Their plain attack (with No Additions): melee runs in and swings (default), ranged fires the bow from where they stand. */
+  plainAttack?: 'melee' | 'ranged';
   /** Which look from Characters (the first hero's is the player's look). */
   look?: string;
   /** Face art for the battle screen and menus (an image path); unset: a face cut from their look. */

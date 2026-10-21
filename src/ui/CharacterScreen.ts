@@ -3,7 +3,7 @@
  * left (their picture, name, level, elements and any ailment), and pages on the right: Profile (who they are and any
  * ailments), Stats (health, magic, their stats on the left and battle numbers on the right, EXP) and Gear (what
  * they're wearing; equipping is done from the bag).
- * Keys: ← → pages · Esc back.
+ * Keys: ← → pages · LT / RT another hero · Esc back.
  */
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
@@ -21,6 +21,8 @@ export interface CharacterHost {
   ailments(h: number): { name: string; icon: string; left?: string }[];
   /** Each stat's progression rank (A … F), shown as a pill beside it. */
   ranks?(h: number): Record<Attr, Rank>;
+  /** Everyone, in lineup order (LT / RT step through them). */
+  order?(): number[];
 }
 
 export class CharacterScreen {
@@ -56,6 +58,15 @@ export class CharacterScreen {
   /** Put away without going back (another pause tab was picked). */
   hide(): void { this.open = false; this.root.hidden = true; }
 
+  private otherHero(d: number): void {
+    const order = this.host.order?.() ?? [this.hero];
+    if (order.length < 2) return;
+    const k = Math.max(0, order.indexOf(this.hero));
+    this.hero = order[(k + d + order.length) % order.length];
+    uiSound('menuMove');
+    this.render();
+  }
+
   private turn(d: number): void {
     const n = CharacterScreen.PAGES.length;
     this.page = (this.page + d + n) % n;
@@ -67,6 +78,8 @@ export class CharacterScreen {
     if (!this.open) return;
     const i = this.input;
     if (i.consume('cancel')) { this.close(); return; }
+    // LT / RT: the previous / next party member (in lineup order).
+    { const d = i.consume('subPrev') ? -1 : i.consume('subNext') ? 1 : 0; if (d) { this.otherHero(d); return; } }
     if (i.consume('left') || i.consume('up')) { this.turn(-1); return; }
     if (i.consume('right') || i.consume('down')) { this.turn(1); return; }
     i.confirm();
@@ -116,7 +129,7 @@ export class CharacterScreen {
           <div class="cs-page">${body}</div>
         </div>
       </div>
-      <div class="menu-note">← → pages · Esc: back</div>
+      <div class="menu-note">← → pages${(this.host.order?.().length ?? 1) > 1 ? ` · ${esc(this.input.label('subPrev'))} / ${esc(this.input.label('subNext'))}: another hero` : ''} · Esc: back</div>
     </div>`;
     this.root.querySelectorAll<HTMLElement>('[data-page]').forEach((b) => b.addEventListener('click', () => { this.page = Number(b.dataset.page); uiSound('menuMove'); this.render(); }));
   }

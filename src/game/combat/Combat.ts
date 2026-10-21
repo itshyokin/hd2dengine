@@ -510,8 +510,8 @@ export class Combat {
   private shootArrow(power: number): void {
     const h = this.host, bow = this.equipped('ranged');
     if (!bow?.weapon) return;
-    // The field bow needs no arrows; an equipped arrow lends its damage and element.
-    const arrowId = h.inventory.arrow(), arrow = arrowId ? h.items.get(arrowId) : undefined;
+    // The field bow is a tool (switches, starting fights): it uses no arrows, and arrows don't change it.
+    const arrow = undefined as import('../../world/types').ItemDef | undefined;
     h.tally?.('arrows');
     const p = h.player.position, range = h.cfg.bow.lockRange * 1.1;
     const [dx, dz] = this.aim(0);

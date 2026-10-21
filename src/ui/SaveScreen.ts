@@ -146,7 +146,7 @@ export class SaveScreen {
       <div class="sv-list" role="listbox">${list.map(card).join('')}</div>
       ${confirmBox}
       <div class="inv-msg">${esc(this.message || this.note)}</div>
-      <div class="menu-note">${c ? '← →: choose · Space: confirm · Esc: keep it' : `↑ ↓ choose · Space: ${this.mode === 'save' ? 'save here' : 'load'} · Y or R: delete · Esc: back`}</div>
+      <div class="menu-note">${c ? '← →: choose · Space: confirm · Esc: keep it' : `↑ ↓ choose · Space: ${this.mode === 'save' ? 'save here' : 'load'} · ${this.input.label('switchWeapon')}: delete · Esc: back`}</div>
     </div>`;
     this.root.querySelectorAll<HTMLElement>('.sv-slot').forEach((el) => el.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('.sv-del') || this.confirm) return;

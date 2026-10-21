@@ -80,6 +80,8 @@ export class CharacterSprite {
   get animated(): boolean { return !!this.anim; }
   /** Does the sheet have this animation? */
   has(name: string): boolean { return !!this.anim?.layout.anims[name]; }
+  /** Whether an animation has a row for each way the character can face (LPC's hurt has only one: facing the camera). */
+  facesAllWays(name: string): boolean { return (this.anim?.layout.anims[name]?.dirs ?? 1) === 4; }
 
   /**
    * Advance the animation. `moving` (or a Motion) says how the character moves; animated sheets pick walk, run, jump,

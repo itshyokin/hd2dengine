@@ -28,6 +28,7 @@ void main(){
 
 const COMPOSITE_FS = `
 uniform sampler2D tScene; uniform sampler2D tBloom; uniform vec2 res;
+uniform float focusBand;
 uniform float bloomStrength, tiltOn, focus, exposure, saturation, vignette, blurPx, fade;
 uniform vec3 fadeColor;
 varying vec2 vUv;
@@ -35,7 +36,7 @@ vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1
 float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void main(){
   vec3 col = texture2D(tScene, vUv).rgb;
-  float amt = smoothstep(0.10, 0.5, abs(vUv.y - focus)) * tiltOn;
+  float amt = smoothstep(0.10 * focusBand, 0.5 * focusBand, abs(vUv.y - focus)) * tiltOn;
   if (amt > 0.01) {
     vec2 r = amt * blurPx / res; vec3 s = vec3(0.0);
     for (int i = 0; i < 16; i++) {
@@ -83,7 +84,7 @@ export class PostFX {
     this.blur = mk(BLUR_FS, { tSrc: { value: null }, dir: { value: new THREE.Vector2() } });
     this.composite = mk(COMPOSITE_FS, {
       tScene: { value: null }, tBloom: { value: null }, res: { value: new THREE.Vector2() },
-      bloomStrength: { value: 0.65 }, tiltOn: { value: 1 }, focus: { value: 0.5 }, exposure: { value: 1.1 },
+      focusBand: { value: 1 }, bloomStrength: { value: 0.65 }, tiltOn: { value: 1 }, focus: { value: 0.5 }, exposure: { value: 1.1 },
       saturation: { value: 1.12 }, vignette: { value: 0.35 }, blurPx: { value: 7 }, fade: { value: 0 }, fadeColor: { value: new THREE.Color(0, 0, 0) },
     });
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.composite);
@@ -107,6 +108,8 @@ export class PostFX {
   tiltFade = 0;
   /** Screen-space height (0 bottom … 1 top) that stays sharp under tilt-shift. */
   set focus(v: number) { this.composite.uniforms.focus.value = v; }
+  /** How wide the sharp band is (1: the map's; more keeps more of the screen sharp, as in battle). */
+  set focusBand(v: number) { this.composite.uniforms.focusBand.value = v; }
   set exposure(v: number) { this.composite.uniforms.exposure.value = v; }
   /** 0 = clear, 1 = black. */
   get fade(): number { return this.composite.uniforms.fade.value; }

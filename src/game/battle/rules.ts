@@ -132,6 +132,8 @@ export interface Battler {
   /** Heroes: their Additions and the one Attack uses (when set per hero). */
   additions?: BattleAddition[];
   addition?: string;
+  /** A plain attack fired from where they stand (a bow), not run in for. */
+  shoots?: boolean;
   /** A spell they're charging. */
   charging?: Charging | null;
 }

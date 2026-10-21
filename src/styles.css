@@ -2093,13 +2093,14 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .mb-bar.hp span, .pr-bar.hp i, .ip-row .ip-bar.hp i, .pb-bar span { background: var(--g-hp) !important; }
 .hud-row.mp .hud-fill, .hud-gauge.mp .hud-fill, .st-gauge.mp i, .hud-ally-bar.mp i, .pt-bar.mp i, .ip-bar.mp i, .cs-bar.mp i, .bstat-bar.mp span, .pc-bar.mp i,
 .mb-bar.mp span, .pr-bar.mp i, .ip-row .ip-bar.mp i { background: var(--g-mp) !important; }
+.pp-bar:not(.mid):not(.low) i { background: var(--g-hp) !important; }
 .hud-xp-fill, .hud-gauge.xp .hud-fill, .hud-gauge.xp .hud-ghost, .hud-ally-bar.xp i, .pt-bar.xp i, .cs-bar.xp i, .pc-bar.xp i, .pb-xp span, .pr-bar.xp i { background: var(--g-xp) !important; }
 .st-gauge.sp i, .hud-ally-bar.sp i, .cs-bar.sp i { background: var(--g-sp) !important; }
 .hs-fill { stroke: var(--c-sp) !important; }
 .hud-stamina.low .hs-fill { stroke: #d6e04f !important; } .hud-stamina.exhausted .hs-fill { stroke: #c9823a !important; }
 .pb-orb { background: conic-gradient(var(--c-mp) calc(var(--mp) * 360deg), #2a2440 0) !important; }
-.pb.mid .pb-bar span, .pr-bar.hp.mid i, .ip-row .ip-bar.hp.mid i, .mblock.low .mb-bar.hp span { background: linear-gradient(#ffe27a, #e0a82a) !important; }
-.pb.low .pb-bar span, .pr-bar.hp.low i, .ip-row .ip-bar.hp.low i { background: linear-gradient(#ff8a7a, #d0402a) !important; }
+.pb.mid .pb-bar span, .pr-bar.hp.mid i, .ip-row .ip-bar.hp.mid i, .mblock.low .mb-bar.hp span, .pp-bar.mid i { background: linear-gradient(#ffe27a, #e0a82a) !important; }
+.pb.low .pb-bar span, .pr-bar.hp.low i, .ip-row .ip-bar.hp.low i, .pp-bar.low i { background: linear-gradient(#ff8a7a, #d0402a) !important; }
 /* The stamina wheel kept on screen (Database → Menus: it doesn't fade when full). */
 .hud-stamina.steady.idle { opacity: 1 !important; visibility: visible !important; }
 /* The Party page laid out freely: each member's panel placed in percent of the page (Database → Menus). */
@@ -2117,3 +2118,11 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .pr-panel.bench { opacity: 0.92; }
 .pr-panel .pt-badge { top: 8px; right: 8px; left: auto; z-index: 1; }
 .pr-panel .pr-art { border-radius: 9px; background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--hero, #ffb04a) 35%, transparent), transparent 70%); }
+
+/* Equipment: the hero (or the party) and the bag on the left, their gear and numbers beside it, all from the top. */
+.eq-left { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.eq-box .eq-left .eq-party { flex-wrap: wrap; overflow: visible; }
+.eq-body, .eq-box .eq-body { align-items: start; align-content: start; }
+.eq-stats { align-self: start; }
+/* Opened from the Party page (no tab strip): everything sits at the top of the window instead of spreading out. */
+.eq-box:not(:has(> .tab-strip)) { align-content: start; }

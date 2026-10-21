@@ -542,6 +542,7 @@ export class Game {
     // The skill tree of whoever is chosen in the Party menu (the hero, or a party member's own).
     const skMember = () => (this.skillHero ? this.members()[this.skillHero - 1] : undefined);
     this.skillScreen = new SkillTreeScreen(this.ui, this.input, {
+      otherHero: (d) => { const o = this.lineupWhos(); if (o.length < 2) return false; const k = Math.max(0, o.indexOf(this.skillHero)); this.skillHero = o[(k + d + o.length) % o.length]; return true; },
       skills: () => { const m = skMember(); return m ? this.memberSkills(m.data) : this.skills; },
       points: () => { const m = skMember(); return m ? m.data.skillPoints ?? 0 : this.progress.points; },
       level: () => { const m = skMember(); return m ? m.data.level : this.progress.level; },
@@ -614,6 +615,7 @@ export class Game {
       view: (h) => this.equipHost().view(h),
       ailments: (h) => h ? [] : this.combat.heroStatus.list.map((e) => ({ name: effectName(e.id), icon: statusIconUrl(e.id), left: Number.isFinite(e.total) ? `${Math.ceil(e.left)}s` : undefined })),
       ranks: (h) => this.heroRanks(h),
+      order: () => this.lineupWhos(),
     });
     // Party (the pause menu's first tab): the three fighting as cards; Status, Equipment, Skill Tree… and Swap.
     this.partyScreen = new PartyScreen(this.ui, this.input, {
@@ -1110,6 +1112,8 @@ export class Game {
       const same = t.name === this.mapName && !t.fresh;
       void (same ? Promise.resolve(null) : this.loadMapData(t.name)).then((data) => {
         // Restore saved switches etc. first, so the new map's events pick the right pages.
+        // Leaving the title: its picture stayed up through the fade out; now the screen is black, it goes.
+        if (this.titleLeaving) { this.titleLeaving = false; this.setTitleLook(false); }
         t.before?.();
         if (same || !data) {
           this.refreshEvents();
@@ -2437,7 +2441,7 @@ export class Game {
     // Loading from the title (Continue or Load Game) leaves the title: hero, status bars and camera come back,
     // the HUD fading in with the picture.
     const fromTitle = this.onTitle;
-    if (fromTitle) { this.onTitle = false; document.body.classList.add('ui-dim'); this.setTitleLook(false); }
+    if (fromTitle) { this.onTitle = false; document.body.classList.add('ui-dim'); this.titleLeaving = true; }
     this.menu.close();
     this.interpreter.stop();
     this.requestTransfer(d.map, { x: d.x, z: d.z, dir: d.dir }, 'black', {
@@ -2824,6 +2828,18 @@ export class Game {
         return { ...t, melee, bow, spell };
       },
       elements: (h) => affinityText(this.heroAffinity(h)),
+      // The Addition row (what Attack performs): the ones learned; stepped through with Space or ← →.
+      style: (h) => {
+        const def = h ? this.members()[h - 1]?.def : mainHero(this.db), a = this.abilitiesOf(h);
+        if (!def || !a || def.noAdditions || this.combatCfg.turnBased.additions !== 'set') return null;
+        this.ensureAddition(h);
+        const adds = additionList(this.db).filter((d) => a.additions && d.id in a.additions);
+        if (!adds.length) return null;
+        const cur = adds.find((d) => d.id === a.addition) ?? adds[0];
+        const uses = a.additions?.[cur.id] ?? 0, rank = additionRank(cur, uses);
+        return { value: cur.id, options: adds.map((d) => [d.id, d.name] as [string, string]), note: `Rank ${rank} · ${cur.strikes.map((x) => (x.button === 'any' ? '★' : x.button ?? 'A')).join(' ')}` };
+      },
+      setStyle: (h, v) => { const a = this.abilitiesOf(h); if (a) a.addition = v; },
       equip: (h, slot, id) => {
         if (slot === 'element1' || slot === 'element2') {
           const key = `elem:${h}:${slot === 'element2' ? 1 : 0}`;
@@ -3768,6 +3784,29 @@ export class Game {
   }
 
   /** A hero's learned abilities: 0 the hero, k the k-th party member. */
+  /**
+   * Heroes with Additions (all but those set to No Additions) always know Quick Strike (or the first Addition in the
+   * Database) and have one equipped: no plain attack unless the Database says so.
+   */
+  private ensureAddition(who: number): void {
+    const def = who ? this.members()[who - 1]?.def : mainHero(this.db), a = this.abilitiesOf(who);
+    if (!def || !a || def.noAdditions) return;
+    const list = additionList(this.db);
+    const first = list.find((d) => d.id === def.defaultAddition) ?? list.find((d) => d.id === 'quick_strike') ?? list[0];
+    if (!first) return;
+    a.additions ??= {};
+    if (!(first.id in a.additions)) a.additions[first.id] = 0;
+    if (!a.addition || !(a.addition in a.additions)) a.addition = first.id;
+  }
+
+  /** A hero's Additions in battle, or (No Additions) a plain attack, melee or ranged. */
+  private attackStyle(who: number, a: AbilityData): { additions: ReturnType<Game['battleAdditions']>; addition?: string; shoots?: boolean } {
+    const def = who ? this.members()[who - 1]?.def : mainHero(this.db);
+    if (def?.noAdditions) return { additions: [], addition: undefined, shoots: def.plainAttack === 'ranged' };
+    this.ensureAddition(who);
+    return { additions: this.battleAdditions(a), addition: a.addition };
+  }
+
   private abilitiesOf(who: number): AbilityData | null {
     if (!who) return this.progress.abilities;
     const m = this.members()[who - 1];
@@ -4380,6 +4419,7 @@ export class Game {
       { name: 'achievement', args: '<id>', help: 'Unlock an achievement (even in a cheated game)', complete: () => ids(this.db.achievements),
         run: (a) => (this.unlockAchievement(need(a[0], 'achievement'), true) ? 'Unlocked.' : 'Already unlocked, or no such achievement.') },
       { name: 'achievements_reset', help: 'Lock every achievement again (in this browser)', run: () => { this.achBook.reset(); return 'All achievements locked again.'; } },
+      { name: 'reset_achievements', help: 'Clear every achievement and start them over (same as achievements_reset)', run: () => { this.achBook.reset(); return 'All achievements cleared: they start over.'; } },
       { name: 'explore_all', help: 'Reveal the whole world map', run: () => { for (const [n, p] of Object.entries(this.db.world?.maps ?? {})) { this.visited.add(n); this.exploredFor(n, p.w, p.h).reveal(p.w / 2, p.h / 2, Math.hypot(p.w, p.h)); } return 'The world map is revealed.'; } },
       { name: 'bug', args: '<note…>', help: 'Note a bug here: map, tile, party and a picture (bugs: download the list)', run: (a) => {
           const note = a.join(' ').trim();
@@ -4500,7 +4540,8 @@ export class Game {
       { id: 'equip', label: 'Equipment', detail: 'Weapons, armor and accessories' },
       { id: 'skills', label: 'Skill Tree', detail: 'Spend skill points' },
     ];
-    if (this.combatCfg.turnBased.additions === 'set') out.push({ id: 'addition', label: 'Addition', detail: adds.length ? `Attack performs: ${cur?.name ?? 'a plain attack'}` : 'No Additions learned yet', disabled: !adds.length });
+    // (The Addition is equipped on the Equipment page now.)
+    void adds; void cur;
     out.push({ id: 'magic', label: 'Magic', detail: spells.length ? `${spells.length} spell${spells.length === 1 ? '' : 's'}: healing can be cast from here` : 'No spells learned yet', disabled: !spells.length });
     return out;
   }
@@ -5000,7 +5041,7 @@ export class Game {
           ...this.aimOf(useBow ? bowDef : w, t.attrs.dex), evasion: evasionOf(t.attrs.agi), spellEvasion: evasionOf(t.attrs.mdf), resist: ailmentResist(t.attrs.end), ranged: useBow, guardBonus: sk.get('guardHeal'),
           defence: this.heroDefence(0), spells, ct: 0, guarding: false,
           status: this.heroBattleStatus(), inflicts: (useBow ? bowDef?.inflicts : w?.inflicts),
-          additions: this.battleAdditions(a), addition: a.addition,
+          ...this.attackStyle(0, a),
         },
         view: { key: 'p0', side: 'party', name: hero.name, picture: this.sprites.standingFrame('battle:hero', look, 'left', 0), icon: this.portraitUrl, color: this.heroColor(0), face: hero.face ? this.resolveFile(hero.face) : undefined,
           level: this.progress.level, xp: { have: this.progress.xp, next: this.progress.maxed ? 0 : this.progress.toNext }, elements: aff0.elements.length ? aff0.elements : undefined, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame('battle:hero', look, 'up', 0) : undefined },
@@ -5028,7 +5069,7 @@ export class Game {
         spells, ct: 0, guarding: false,
         status: this.lingering(new BattleStatus([...(m.def.resists ?? []), ...this.wornGear(m.data.equip).flatMap((g) => g?.protects ?? [])]), m.data.ailments),
         inflicts: useBow ? undefined : n.meleeInflicts,
-        additions: this.battleAdditions(ab), addition: ab.addition,
+        ...this.attackStyle(who, ab),
       },
       view: { key, side: 'party', name: m.def.name, picture: this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'left', 0), icon: this.memberPortrait(m.def), color: this.heroColor(who), face: m.def.face ? this.resolveFile(m.def.face) : undefined,
         level: m.data.level, xp: { have: m.data.xp, next: xpToNext(this.combatCfg, m.data.level) }, elements: aff.elements.length ? aff.elements : undefined, back: this.combatCfg.turnBased.layout === 'pocket' ? this.sprites.standingFrame(`battle:ally:${m.def.id}`, look, 'up', 0) : undefined },
@@ -5291,6 +5332,8 @@ export class Game {
     this.sun.target.position.copy(look);
     this.sun.position.copy(look).addScaledVector(this.time.sunDir, 30);
     this.post.focus = st.focusHeight(this.camera);
+    // Battles keep a wider band sharp, so a tall foe isn't blurred at the top.
+    this.post.focusBand = 2.2;
     this.camera.updateMatrixWorld();
     const r = this.canvas.getBoundingClientRect();
     st.project(this.camera, r.width, r.height, (k, x, y, w, h, shown) => this.battleScreen.place(k, x + r.left, y + r.top, w, h, shown));
@@ -5888,7 +5931,10 @@ export class Game {
           this.menu.notice('Settings loaded');
         }, (e: Error) => this.menu.notice(e.message));
       } },
-      { label: 'Restore defaults', detail: 'Everything, controls and HUD too', pick: () => { delete st.bindings; delete st.bindingsVersion; delete st.hud; Object.assign(st, this.settingsStore.defaults()); this.applySettings(); this.settingsStore.save(st); this.menu.notice('Settings restored'); } },
+      { label: 'Restore defaults', detail: 'Everything, controls and HUD too', pick: () => this.menu.push('Are you sure?', [
+        { label: 'No, keep my settings', pick: () => this.menu.back() },
+        { label: 'Yes, restore the defaults', pick: () => { delete st.bindings; delete st.bindingsVersion; delete st.hud; Object.assign(st, this.settingsStore.defaults()); this.applySettings(); this.settingsStore.save(st); this.menu.back(); this.menu.notice('Settings restored'); } },
+      ], { note: 'Every setting goes back to the game’s defaults: graphics, sound, gameplay, your controls and the HUD layout. This can’t be undone.' }) },
     ], { note: 'Settings are yours: they stay the same whichever save is loaded.', ...opts });
   }
 
@@ -6001,15 +6047,18 @@ export class Game {
 
   private leaveTitle(then: () => void): void {
     this.onTitle = false;
-    // The HUD stays out of sight while the game loads, and fades in with the picture.
+    // The HUD stays out of sight while the game loads, and fades in with the picture. The title picture (and no
+    // hero) stays until the screen has faded to black.
     document.body.classList.add('ui-dim');
-    this.setTitleLook(false);
+    this.titleLeaving = true;
     this.menu.close();
     then();
   }
 
   /** A picture or video behind the title (Database → Title & menus), shown on the title and faded away after. */
   private titleBgEl: HTMLImageElement | HTMLVideoElement | null = null;
+  /** Leaving the title: its look stays until the transfer's fade to black is complete. */
+  private titleLeaving = false;
   private get titleCovered(): boolean {
     const tb = this.db.menus?.titleBackground;
     return this.onTitle && !!tb && ((tb.kind === 'image' && !!tb.image) || (tb.kind === 'video' && !!tb.video));
@@ -6217,7 +6266,7 @@ export class Game {
       return;
     }
     const t = this.camTarget;
-    if (this.onTitle) {
+    if (this.onTitle || this.titleLeaving) {
       // Drift slowly across the map behind the title.
       const a = this.elapsed * 0.05, tb = this.db.menus?.titleBackground;
       // Its own map: a slow look around the chosen spot; otherwise a drift across the map.
@@ -6248,6 +6297,7 @@ export class Game {
     this.projected.y += 0.7;
     this.projected.project(this.camera);
     this.post.focus = clamp(this.projected.y * 0.5 + 0.5, 0.25, 0.75);
+    this.post.focusBand = 1;
     this.post.tiltFade = this.sleepLook;
     // The sun's shadow camera follows the view so shadows stay sharp.
     this.sun.target.position.copy(t);

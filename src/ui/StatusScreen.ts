@@ -160,7 +160,7 @@ export class StatusScreen {
         <span>Resist ailments <b>${Math.round(ailmentResist(now.attrs.end))}%</b>${diff(Math.round(ailmentResist(now.attrs.end)), Math.round(ailmentResist(after.attrs.end)), '%')}</span>
       </div>
       ${pts > 0 ? `<div class="mk-foot"><span class="mk-points">Stat points: <b>${this.left}</b> of ${pts} left</span><button type="button" class="menu-item mk-use" data-row="${ATTRS.length}" aria-selected="${this.row === ATTRS.length}" ${this.pending ? '' : 'disabled'}><span class="menu-label">Confirm</span></button></div>` : ''}
-      <div class="menu-note">${pts > 0 ? '↑ ↓ choose · → add a point · ← take one back · Confirm keeps them · ' : 'Level up for stat points · '}${this.tabs ? `${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs · ` : many ? 'LB / RB (Q / E): another hero · ' : ''}Esc: ${this.pending ? 'undo' : 'back'}</div>
+      <div class="menu-note">${pts > 0 ? '↑ ↓ choose · → add a point · ← take one back · Confirm keeps them · ' : 'Level up for stat points · '}${this.tabs ? `${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs · ` : many ? `${esc(this.input.label('tabPrev'))} / ${esc(this.input.label('tabNext'))}: another hero · ` : ''}Esc: ${this.pending ? 'undo' : 'back'}</div>
     </div>`;
     wireTabs(this.root, this.tabs);
     this.root.querySelectorAll<HTMLButtonElement>('.st-swap').forEach((b) => b.addEventListener('click', () => this.switchHero(Number(b.dataset.d))));

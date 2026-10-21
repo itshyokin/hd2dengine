@@ -163,13 +163,13 @@ export class HudArranger {
     const opts = HUD_OPTIONS[this.current] ?? [];
     const stack = l?.stack ?? HUD_DEFAULT_STACK[this.current] ?? 'h';
     const optRow = opts.length ? `<div class="ha-row ha-opts">${[
-      opts.includes('stack') ? `<button type="button" data-a="stack">Bars: ${stack === 'v' ? 'stacked ↕' : 'side by side ↔'} <kbd>Y / R</kbd></button>` : '',
+      opts.includes('stack') ? `<button type="button" data-a="stack">Bars: ${stack === 'v' ? 'stacked ↕' : 'side by side ↔'} <kbd>${this.input.label('switchWeapon')}</kbd></button>` : '',
       opts.includes('face') ? `<button type="button" data-a="face">Faces: ${l?.face ? 'shown' : 'hidden'} <kbd>X / Shift</kbd></button>` : '',
-      opts.includes('art') ? `<button type="button" data-a="art">Season picture: ${l?.art === false ? 'off' : 'on'} <kbd>Y / R</kbd></button>` : '',
-      opts.includes('bg') ? `<button type="button" data-a="bg">Background: ${{ lines: 'behind each line', box: 'one box', none: 'none' }[l?.bg ?? 'lines']} <kbd>Y / R</kbd></button>` : '',
+      opts.includes('art') ? `<button type="button" data-a="art">Season picture: ${l?.art === false ? 'off' : 'on'} <kbd>${this.input.label('switchWeapon')}</kbd></button>` : '',
+      opts.includes('bg') ? `<button type="button" data-a="bg">Background: ${{ lines: 'behind each line', box: 'one box', none: 'none' }[l?.bg ?? 'lines']} <kbd>${this.input.label('switchWeapon')}</kbd></button>` : '',
     ].join('')}</div>` : '';
     this.panel.innerHTML = `<h2>Arrange the HUD</h2>
-      <p>Drag a piece with the mouse (the wheel resizes it). Or pick one with <b>Q / E</b> (LB / RB), move it with the arrows (D-pad or stick), and press <b>Enter</b> (A) to change its size.</p>
+      <p>Drag a piece with the mouse (the wheel resizes it). Or pick one with <b>${this.input.label('tabPrev')} / ${this.input.label('tabNext')}</b>, move it with the arrows (D-pad or stick), and press <b>${this.input.label('ok')}</b> to change its size.</p>
       <div class="ha-sel">Selected: <b>${name}</b> · size ${Math.round(scale * 100)}%</div>
       <div class="ha-row">
         <button type="button" data-a="smaller">Smaller</button><button type="button" data-a="bigger">Bigger</button>

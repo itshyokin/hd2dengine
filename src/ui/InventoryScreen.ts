@@ -485,7 +485,7 @@ export class InventoryScreen {
         </div>
       </div>
       <div class="menu-note">${this.filter === 'shard' && this.hfocus ? '↑ ↓ ← → choose · Space: take out or switch · Esc: back to the shards'
-        : `Arrows move${this.filter === 'shard' && this.actions.holders ? ' (→ past the last column: who holds shards)' : ''} · Space: ${this.filter === 'shard' ? 'ready a spell, wear an element stone, or fuse stones' : this.filter === 'gear' ? 'equip (choose who)' : 'use / equip'} · Y or R: more (${this.filter === 'gear' || this.filter === 'shard' ? 'take off, ' : ''}move, drop)${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: back`}</div>
+        : `Arrows move${this.filter === 'shard' && this.actions.holders ? ' (→ past the last column: who holds shards)' : ''} · Space: ${this.filter === 'shard' ? 'ready a spell, wear an element stone, or fuse stones' : this.filter === 'gear' ? 'equip (choose who)' : 'use / equip'} · ${esc(this.input.label('switchWeapon'))}: more (${this.filter === 'gear' || this.filter === 'shard' ? 'take off, ' : ''}move, drop)${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: back`}</div>
     </div>`;
     wireTabs(this.root, this.tabs);
     this.root.querySelector('.inv-slot.sel')?.scrollIntoView({ block: 'nearest' });

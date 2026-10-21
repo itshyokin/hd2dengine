@@ -341,7 +341,7 @@ export class BattleStage implements StageHooks {
 
   /* ------------------------------------------------------------------ what the battle screen asks for */
 
-  animate(key: string, how: 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge', color?: string, target?: string): void {
+  animate(key: string, how: 'lunge' | 'shot' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge', color?: string, target?: string): void {
     const f = this.fighters.get(key);
     if (!f) return;
     if (how === 'dodge') {
@@ -379,6 +379,15 @@ export class BattleStage implements StageHooks {
       f.steps.push({ kind: 'play', anim, dur: 0.38, t: 0, keepFacing: true }, { kind: 'wait', dur: 0.3, t: 0 }, { kind: 'face', to: null, dur: 0.05, t: 0 });
       return;
     }
+    if (how === 'shot') {
+      // A bow from where they stand: turn to the target, draw and loose, then face the foes again.
+      this.focus(key);
+      const sp = f.sprite, anim = sp instanceof CharacterSprite && sp.has('shoot') ? 'shoot' : f.attackAnim;
+      f.steps = [];
+      if (t) f.steps.push({ kind: 'face', to: t.home.clone(), dur: 0.1, t: 0 });
+      f.steps.push({ kind: 'play', anim, dur: 0.45, t: 0, keepFacing: true }, { kind: 'wait', dur: 0.15, t: 0 });
+      return;
+    }
     if (how === 'lunge' || how === 'approach') {
       this.focus(key);
       f.steps = [];
@@ -393,7 +402,8 @@ export class BattleStage implements StageHooks {
       f.steps.push({ kind: 'wait', dur: 0.15, t: 0 }, { kind: 'move', to: f.home.clone(), dur: 0.32, t: 0, run: true });
     } else if (how === 'hit') {
       f.shake = 0.35;
-      if (!f.down && f.sprite instanceof CharacterSprite && f.sprite.has('hurt')) f.sprite.play('hurt', 0.22, 0, undefined, 1);
+      // The hurt pose only if it faces the way they're facing (LPC's has a single, camera-facing row: just the shake).
+      if (!f.down && f.sprite instanceof CharacterSprite && f.sprite.has('hurt') && f.sprite.facesAllWays('hurt')) f.sprite.play('hurt', 0.22, 0, undefined, 1);
       this.burst(f, color ?? '#ffffff', color ? 1.6 : 0.8, color ? 0.55 : 0.25);
     } else if (how === 'cast' || how === 'heal') {
       this.focus(key);

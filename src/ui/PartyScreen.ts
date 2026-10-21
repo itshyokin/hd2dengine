@@ -113,7 +113,7 @@ export class PartyScreen {
     const me = this.all()[this.sel];
     if (!me) return [];
     const others = this.all().some((_, k) => this.canSwapWith(k));
-    return [...this.host.actions(me.who), { id: 'swap', label: 'Swap', detail: 'Trade places with someone else in the party', disabled: !others }, { id: 'cancel', label: 'Cancel' }];
+    return [{ id: 'swap', label: 'Swap', detail: 'Trade places with someone else in the party', disabled: !others }, ...this.host.actions(me.who), { id: 'cancel', label: 'Cancel' }];
   }
 
   private pick(): void {
@@ -217,7 +217,7 @@ export class PartyScreen {
     const msg = m.kind === 'pick' ? (all.length > 1 ? 'Choose a party member.' : `${esc(me?.name ?? '')} is on their own.`)
       : m.kind === 'actions' ? `Do what with ${esc(me?.name ?? '')}?${act?.detail ? `<small>${esc(act.detail)}</small>` : ''}`
         : `Move ${esc(me?.name ?? '')} to where?`;
-    const note = m.kind === 'pick' ? '↑ ↓ ← → choose · Space: open · Esc: close'
+    const note = m.kind === 'pick' ? `↑ ↓ ← → choose · Space: open${this.tabs ? ` · ${this.tabs.keys[0]} / ${this.tabs.keys[1]}: tabs` : ''} · Esc: close`
       : m.kind === 'actions' ? '↑ ↓ choose · Space: open · Esc: back' : '↑ ↓ ← → choose · Space: swap · Esc: back';
     this.root.innerHTML = `<div class="inv-box pr-box">
       <div class="pr-main pr-free" role="listbox">${panels}</div>

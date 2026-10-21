@@ -25,6 +25,8 @@ export interface SkillHost {
   teaches?(node: SkillNode): string | null;
   /** The Party tree (shared by everyone): its ranks, points, the party's level, and learning in it. */
   party?(): { skills: Skills; points: number; level: number; learn(node: SkillNode): void } | null;
+  /** LT / RT: the previous / next party member's tree (false: nobody else). */
+  otherHero?(d: number): boolean;
 }
 
 const CELL = 96;
@@ -93,6 +95,7 @@ export class SkillTreeScreen {
     if (!this.open) return;
     const i = this.input;
     if (i.consume('cancel')) { if (this.confirming) { this.confirming = false; this.render(); } else this.close(); return; }
+    { const d = i.consume('subPrev') ? -1 : i.consume('subNext') ? 1 : 0; if (d && this.host.otherHero?.(d)) { this.confirming = false; this.tree = 0; this.pickDefault(); uiSound('menuMove'); this.render(); return; } }
     if (i.consume('tabPrev')) { this.switchTree(-1); return; }
     if (i.consume('tabNext')) { this.switchTree(1); return; }
     for (const [a, dx, dy] of [['left', -1, 0], ['right', 1, 0], ['up', 0, 1], ['down', 0, -1]] as const) {
@@ -186,7 +189,7 @@ export class SkillTreeScreen {
         <svg class="sk-map" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${lines}${dots}</svg>
         <div class="sk-detail">${detail}</div>
       </div>
-      <div class="menu-note">Arrows choose · Enter learns · Q / E (LB / RB) switch trees · Esc back</div></div>`;
+      <div class="menu-note">Arrows choose · Space learns · ${this.input.label('tabPrev')} / ${this.input.label('tabNext')}: trees · ${this.input.label('subPrev')} / ${this.input.label('subNext')}: another hero · Esc: back</div></div>`;
     this.root.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => { this.tree = Number(b.dataset.tab); this.confirming = false; this.pickDefault(); uiSound('menuMove'); this.render(); }));
     this.root.querySelectorAll<SVGGElement>('.sk-node').forEach((g) => g.addEventListener('click', () => {
       const id = g.dataset.id!;

@@ -119,7 +119,7 @@ export interface StageHooks {
 }
 
 /** Fighter animations. approach / strike / back: an Addition (close in, strike per button, then run back). */
-export type Anim = 'lunge' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge';
+export type Anim = 'lunge' | 'shot' | 'hit' | 'cast' | 'heal' | 'faint' | 'approach' | 'strike' | 'back' | 'pose' | 'unpose' | 'toss' | 'dodge';
 
 export interface Vitals { hp: number; maxHp: number; mp: number; maxMp: number; guarding?: boolean; /** Badly hurt or ailing (the wounded pose). */ weak?: boolean; /** Ailments and buffs on them: icon, a name for the tooltip, and which ailment (none for a buff). */ status?: { icon: string; name: string; ailment?: string }[] }
 
@@ -975,7 +975,7 @@ export class BattleScreen {
     let box = this.root.querySelector<HTMLElement>('.pocket-pick');
     if (m.kind !== 'lists') { box?.remove(); return; }
     if (!box) { box = document.createElement('div'); box.className = 'pocket-pick'; this.root.append(box); }
-    const bar = (a: number, b: number) => `<span class="pp-bar"><i style="width:${b > 0 ? Math.max(0, Math.min(100, (a / b) * 100)) : 0}%"></i></span>`;
+    const bar = (a: number, b: number) => { const f = b > 0 ? Math.max(0, Math.min(1, a / b)) : 0; return `<span class="pp-bar${f <= 0.2 ? ' low' : f <= 0.5 ? ' mid' : ''}"><i style="width:${f * 100}%"></i></span>`; };
     box.innerHTML = m.lists.map((l, c) => `<div class="pp-col${c === m.col ? ' on' : ''}"><h4>${esc(l.title)}</h4>${l.rows.map((r, k) => `<button type="button" class="pp-row${r.gold ? ' gold' : ''}${r.down ? ' down' : ''}${c === m.col && k === m.rows[c] ? ' sel' : ''}" data-c="${c}" data-k="${k}"${r.disabled ? ' disabled' : ''}>
       <b>${esc(r.name)}</b><small>HP ${Math.round(r.hp)} / ${r.maxHp}${r.maxMp ? ` · MP ${Math.round(r.mp ?? 0)} / ${r.maxMp}` : ''}${r.down ? ' · KO' : ''}</small>${bar(r.hp, r.maxHp)}</button>`).join('') || '<p class="pp-none">No one</p>'}</div>`).join('');
     box.querySelectorAll<HTMLElement>('.pp-row').forEach((el) => el.addEventListener('click', (e) => {

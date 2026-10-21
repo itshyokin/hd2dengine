@@ -591,8 +591,9 @@ export class TurnBattle {
     if (this.defer(b, () => this.doAttack(b, this.retarget(b, t)))) return;
     if (this.screen.pocket && !this.announced) { this.announced = true; this.announce(`${b.name} attacks!`, () => this.doAttack(b, t)); return; }
     this.announced = false;
-    this.screen.animate(b.key, 'lunge', undefined, t.key);
-    this.host.sound('swing');
+    // A ranged plain attack fires from where they stand; otherwise run in and swing.
+    this.screen.animate(b.key, b.shoots ? 'shot' : 'lunge', undefined, t.key);
+    this.host.sound(b.shoots ? 'shoot' : 'swing');
     this.later(0.28, () => {
       if (b.side === 'party') this.host.attackVoice?.(this.entry(b).who ?? 0);
       this.hit(b, t, b.attack, b.attackElement, b.attackMagic, b.inflicts);

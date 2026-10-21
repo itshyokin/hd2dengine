@@ -136,7 +136,7 @@ function chipSfx(name: SfxName): Float32Array {
     case 'hitCloth': return render([step(2500, 0.06, 11, 1), { wave: 'tri', f: 120, dur: 0.05, vol: 9, at: 0 }]);
     case 'critBig': return render([step(14000, 0.03, 15, 1), { wave: 'tri', f: 90, to: 38, dur: 0.6, vol: 15, fade: 4, at: 0 }, step(900, 0.4, 9, 3, 'noise', 0.02)]);
     case 'rustle': return render([step(7000, 0.06, 7, 1), step(5200, 0.06, 6, 1, 'noise', 0.09), step(6200, 0.05, 4, 1, 'noise', 0.18)]);
-    case 'lowHp': return render([{ wave: 'p25', f: note('B5'), dur: 0.1, vol: 6, fade: 1 }, { wave: 'p25', f: note('G5'), dur: 0.1, vol: 6, fade: 1, at: 0.15 }]);
+    case 'lowHp': return render([{ wave: 'p25', f: note('B5'), dur: 0.1, vol: 10, fade: 1 }, { wave: 'p25', f: note('G5'), dur: 0.1, vol: 10, fade: 1, at: 0.15 }]);
     case 'thump': return render([{ wave: 'tri', f: 110, to: 45, dur: 0.18, vol: 15, fade: 2 }, step(1200, 0.03, 7, 1)]);
     case 'hit': return render([step(3000, 0.07, 14, 1), { wave: 'p50', f: 220, to: 70, dur: 0.08, vol: 12, fade: 1, at: 0 }]);
     case 'crit': return render([{ wave: 'p25', f: 1700, to: 380, dur: 0.16, vol: 13, fade: 2 }, step(5000, 0.05, 14, 1)]);
