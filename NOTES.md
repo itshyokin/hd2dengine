@@ -147,7 +147,7 @@ Kept in the project so they travel with the code. Tick them off as they're built
       torch, campfire and lamp flames, lights and embers lean with their props; battle results: each hero's level up
       straight after their EXP, before the loot, and no EXP bar movement before "Victory!" (Addition strikes moved
       it); "Jordan was poisoned!" lines that wait for OK; new prop shapes for tall grass: Star ✳, Rows ≡, Thicket.
-- [ ] Pick a tall-grass shape (previews shown) and maybe a built-in tall grass prop with it.
+- [x] Tall-grass shapes: the owner keeps all three (Star ✳, Rows ≡, Thicket) alongside Cross ×.
 - [ ] Lingering ailments as pills on the HUD party cards.
 
 ## World

@@ -15,9 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Waiting on the owner:** which tall-grass prop shape to keep or tune. Update 90 added three new shapes to
-  Database → Props → Shape (Star ✳, Rows ≡, Thicket) next to Cross ×; previews were shown, none is used by a
-  built-in prop yet. When one is chosen, consider giving the built-in "Grass tuft" a taller tall-grass variant.
+- **Waiting on the owner:** playtest feedback after Update 90 (all three tall-grass shapes are kept).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
