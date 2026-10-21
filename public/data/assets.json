@@ -705,7 +705,7 @@
           "."
         ]
       },
-      "shape": "crossX",
+      "shape": "thicket",
       "collide": "flat",
       "block": [],
       "filter": "point",
