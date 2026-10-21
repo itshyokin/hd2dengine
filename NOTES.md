@@ -170,6 +170,18 @@ Kept in the project so they travel with the code. Tick them off as they're built
       heroes set to No Additions in the Database (with Melee or Ranged: ranged fires the bow without running in);
       Settings → Restore defaults asks "Are you sure?"; console command reset_achievements; check every pause-menu
       key/button hint is right.
+- [ ] Owner's list (Oct 20, night), plan in HANDOFF.md "Next up":
+  - [ ] Props: a "Drawn in front of tiles" toggle (on by default, as now). Off for props like the tall wooden
+        bridge/platform, whose legs show through the cliff ground in front of them.
+  - [ ] Items: "restores x%" per gauge (HP, MP, SP each set as an amount or a percentage), and the bag/battle text
+        reads "Restores 30% HP".
+  - [ ] Battle log: the menu confirm chime plays when pressing Next / Continue on a message.
+  - [ ] Battles show the map's sky (skybox) instead of plain grey fog.
+  - [ ] Day/night sky: the dawn/dusk change is too fast. Slow it down, with a Database "Sky transition speed" setting.
+  - [ ] Battle spell menu: the element's icon beside each spell's name (the spell's own Database icon if it has no
+        element).
+  - [ ] Battle start: health bars start at the hero's current health (no drain down from full). If needed, build
+        the scene first and fade in once the bars are set.
 
 ## World
 - [ ] Moving platforms (left ↔ right, rising ↔ falling), after bridges and platforms.

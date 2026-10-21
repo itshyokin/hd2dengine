@@ -15,7 +15,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** waiting on the owner's playtest of Update 92 (the "Owner's list (Oct 20, late)" is done).
+- **Next work (owner approved, not started):** Update 93 = the "Owner's list (Oct 20, night)" in NOTES.md. The plan is
+  under "Next up" below. Do the items in that order, test each, then docs, build, commit and push as usual.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -182,6 +183,34 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
+1. **Update 93 (owner's list, Oct 20 night): the plan.**
+   - **Prop toggle "Drawn in front of tiles"**: today every mesh built before props (terrain, water, edges) goes
+     through `patchGroundYield` in `src/world/WorldBuilder.ts` (~line 197), so sprites and props win against ground
+     up to `GROUND_YIELD` (render/lean.ts). The owner's screenshot: a tall wooden bridge/platform prop's legs show
+     through the cliff top in front of it. Add `PropDef.frontOfTiles?: boolean` (undefined = on). When it's off, give that
+     prop's materials a flag (e.g. `userData.noYield`) and draw it with plain depth: simplest is to push it back by
+     the same `GROUND_YIELD` in its own vertex shader (the same trick as patchGroundYield, applied to the prop), so it
+     sorts against the yielded ground exactly. Checkbox in the props editor (Database / prop editor where `stretch`
+     and `rustle` live), on by default. Test with the bridge on a cliff edge.
+   - **Items "restores x%"**: `ItemDef.restore` + `restorePercent` (one switch for all gauges) already exist
+     (types.ts ~1069, ItemsEditor ~162, Game ~2542 / 2567 / 5362, InventoryScreen ~536). Make it per gauge: add
+     `restorePercentOf?: Gauge[]` (or make each entry `{ amount, percent }`), keep reading the old `restorePercent`
+     as "all of them", and put an Amount / % select beside each gauge's number in the Items editor. Detail text:
+     "Restores 30% HP · 20 MP". Check the battle item picker (`.ip-pop`) preview uses the same maths.
+   - **Battle log chime**: when a battle line that waits for OK is dismissed (the pocket flow `tell` / `pauseText`
+     in TurnBattle / BattleScreen), play `uiSound('menuOk')`, the same chime as menus.
+   - **Skybox in battle**: BattleStage builds its own scene with grey fog. Show the map's Sky (render/Sky.ts) behind
+     the stage: either keep the world sky mesh visible/moved with the battle camera, or make a Sky for the stage
+     with the same time of day and weather. Keep the fog but tint it from the sky colour so the horizon blends.
+   - **Sky transition speed**: find where Sky/time of day blends day → dusk → night colours (render/Sky.ts and the
+     map lighting) and widen the blend windows. Add Database setting "Sky transition speed" (e.g. Slow / Normal /
+     Fast, or a multiplier, default a bit slower than now) in the Time/Weather settings tab.
+   - **Spell element icons**: battle spell list (BattleScreen `renderLists`) shows the element icon (the element
+     icons used by status pills / Equipment "Elements") before the name, or the spell's Database icon if it has none.
+   - **No HP drain at battle start**: the battle HUD bars animate from 100% to the real value on the first render.
+     Set the bars' starting width to the current value (skip the transition on the first draw, e.g. add a
+     `no-anim` class for one frame, or remember the last value per fighter starting at their current HP). If any
+     drain still shows, finish setting up the scene before the battle's fade-in.
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary
