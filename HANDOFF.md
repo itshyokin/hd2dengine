@@ -15,8 +15,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 104, Oct 22)
-- **Next work:** Update 105 (ailments out of battle, plus the RPG Maker-style ailment balloons off the face moved
-  from 104), then 106 (resting and camping: Rest point prefab, hours picker, camping supplies, Rested / Well Rested,
+- **In progress (Oct 22, owner away; asked for 105 and 106):** 105's code is committed (see the 105 technical note);
+  remaining for 105: README / NOTES tick. Then 106 (resting and camping: Rest point prefab, hours picker, camping supplies, Rested / Well Rested,
   event commands). 104 is done (frames, pills, rumble, breath / drips / steam, HP tint, safe zones, chatter,
   Equipment statuses, Jordan always walks in front). The 3D roadmap (107–109) is dropped: sprites only. The design preview for the frames,
   pills and balloons is the owner's "Weather & Ailment HUD Preview" canvas (claude.ai artifact). Owner decisions from Oct 22 are written into those notes ("Decided:"); anything still
@@ -299,6 +299,15 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   equipping is slot → pick; `show(at)` opens on the item's slot with it picked out. Game `ailmentOf(who)`.
   HP tint: BodyConfig `hpTint` (off), `hpTintStyle` (body.ts) sets `--g-hp` on the HUD card / `.hud-top` (StatusBars
   `setHeroTint`) and the pause pr-panel (PartyMemberView `tint`), from Game `hpTint(who)` (statusPills colour).
+- 105: Game `updateAilments()` (own step counter `ailWalk`; Poison / Burn lose BodyConfig `ailmentPct`% every
+  `ailmentSteps` steps, default 4% / 10, to 1, then `clearLingering` + "wore off" log; anyone at 0 HP is cured,
+  Zombie too). Storage is unchanged: hero `heroAilments`, members `data.ailments` (Record ailment → battle turns;
+  99 = lasts). `keepAilments` keeps one per hero and none for the KO'd. statusPills defaults: chill / frozen /
+  stagger `stays: false`. BattleStatus.give: someone with an ailment can't get Zombie either. ui/ailmentBalloon.ts
+  (`ailmentBalloon(id)`, `ailmentPill`); StatusBars PartyCard `ailment` (balloon + pill; `.hud-ally .wf-pills` is
+  now absolute at the card's top-right), `setHeroAilment`; PartyScreen balloon in `.pr-art` (PartyMemberView
+  `ailment.id`). Database → Weather & temperature → On the body: the Poison / Burn rows (shown even with the
+  elements off). Still for 106: 5+ hour rest cures everything incl. Zombie, event Give / cure ailment.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
