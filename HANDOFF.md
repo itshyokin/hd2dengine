@@ -16,7 +16,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 
 ## Pick up here (state as of Update 104, Oct 22)
 - **In progress (Oct 22, owner away; asked for 105 and 106):** 105's code is committed (see the 105 technical note);
-  remaining for 105: README / NOTES tick. Then 106 (resting and camping: Rest point prefab, hours picker, camping supplies, Rested / Well Rested,
+  remaining for 105: README / NOTES tick. 106 is in progress: core committed (see the 106 technical note); still to
+  do: editor "Create rest point here" prefab, the sleep command's Inn checkbox in the editor, Database fields for
+  the Rested / Well Rested hours, browser tests, README / NOTES / standalone build. Then 106 (resting and camping: Rest point prefab, hours picker, camping supplies, Rested / Well Rested,
   event commands). 104 is done (frames, pills, rumble, breath / drips / steam, HP tint, safe zones, chatter,
   Equipment statuses, Jordan always walks in front). The 3D roadmap (107–109) is dropped: sprites only. The design preview for the frames,
   pills and balloons is the owner's "Weather & Ailment HUD Preview" canvas (claude.ai artifact). Owner decisions from Oct 22 are written into those notes ("Decided:"); anything still
@@ -308,6 +310,18 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   now absolute at the card's top-right), `setHeroAilment`; PartyScreen balloon in `.pr-art` (PartyMemberView
   `ailment.id`). Database → Weather & temperature → On the body: the Poison / Burn rows (shown even with the
   elements off). Still for 106: 5+ hour rest cures everything incl. Zombie, event Give / cure ailment.
+- 106: game/rest.ts (GoodKind, GOOD_INFO, `restShare` 20%/h, `goodFromPoints` 25 / 50, `nextGood` replacement rule,
+  `fillSupplies` cheapest mix, `goodHours` from BodyConfig `restedHours` 2 / `wellRestedHours` 1.5, `hoursLabel`).
+  GameState `good` (hero id → {kind, until on `clock`}, saved). Commands: `rest` (Game `startRest`: setRespawn, then
+  ui/RestScreen.ts hours → supplies; supplies only spent at 25+; then `startSleep` hours with `sleeping.done` →
+  `finishRest`: share refill, 1h warms / dries, 5h+ fullRest + cure incl. Zombie, `giveGood('all')`), `goodState`
+  (hours + minutes, 'none' removes), `heroWeather` (sets meter / wet), `ailment` now has `hero` ('' / 'all' / id) and
+  follows the one-per-hero rule (Game `ailmentCommand` rewritten: stores into heroAilments / data.ailments, no longer
+  the old seconds-based heroStatus), `sleep.inn` (wakes Well Rested). Condition `{ heroHas, hero, is }` via
+  GameState.env.heroHas → Game `heroHas`. Stats: `goodBonus(id, k)` added into every heroTotals skill function;
+  battle EXP `share` wraps `share0` with +10 / 25%. Display: goodPill (HUD cards, hero top via setHeroAilment's
+  second arg, pause panels), Equipment status row, CharacterScreen Stats page gold +N with time left and an EXP
+  bonus cell. Expiry logged in updateAilments.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
