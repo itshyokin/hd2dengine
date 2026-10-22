@@ -5097,7 +5097,51 @@
     {
       "id": "hero",
       "name": "Jordan",
-      "color": "#e74b4b"
+      "color": "#e74b4b",
+      "chatter": {
+        "lines": {
+          "cold": [
+            "Reminds me of fall back home!"
+          ],
+          "freezing": [
+            "Brrr! Who wants to make a snowman?"
+          ],
+          "hot": [
+            "Phew! I could use some water!"
+          ],
+          "overheating": [
+            "We need to find some shade soon!"
+          ],
+          "wet": [
+            "Ah...! My cell phone! Damn it!"
+          ],
+          "comfortable": [
+            "Wow, that's much better!"
+          ],
+          "rain": [
+            "Should've known with those clouds..."
+          ],
+          "snow": [
+            "Alice and I used to build snow forts back home."
+          ],
+          "storm": [
+            "I hope Alice is safe..."
+          ],
+          "clear": [
+            "I always love the colors of the sky after a storm!"
+          ],
+          "windUp": [
+            "Hold on, winds picking up!"
+          ],
+          "rest": [
+            "Still no texts from Alice...",
+            "I could use a snack!"
+          ],
+          "camp": [
+            "I wonder if Alice is camping out somewhere too."
+          ]
+        }
+      }
     },
     {
       "id": "hero_2",
@@ -5110,6 +5154,53 @@
         "mag": 8,
         "def": 14,
         "mdf": 14
+      },
+      "chatter": {
+        "amount": 1,
+        "lines": {
+          "cold": [
+            "Cold..."
+          ],
+          "freezing": [
+            "I hope Lady Eleanor is dressed warm enough..."
+          ],
+          "hot": [
+            "Warm out here..."
+          ],
+          "overheating": [
+            "I should've dressed lighter, like my Lady."
+          ],
+          "wet": [
+            "Ah... soggy boots..."
+          ],
+          "comfortable": [
+            "Mmm... much better."
+          ],
+          "rain": [
+            "Looks like rain."
+          ],
+          "snow": [
+            "I love the snow."
+          ],
+          "storm": [
+            "Mmm... I love thunderstorms."
+          ],
+          "clear": [
+            "The sunshine feels good on my face."
+          ],
+          "windUp": [
+            "Winds getting stronger."
+          ],
+          "rest": [
+            "Time to catch our breath."
+          ],
+          "camp": [
+            "Rest is just as important as training. Remember that."
+          ],
+          "newMap": [
+            "Always new places to see. Titamas is a big place."
+          ]
+        }
       }
     },
     {
@@ -5129,7 +5220,54 @@
       ],
       "absorb": [
         "dark"
-      ]
+      ],
+      "chatter": {
+        "amount": 9,
+        "lines": {
+          "cold": [
+            "Damn, its freakin' cold!"
+          ],
+          "freezing": [
+            "I'm freezing over here!"
+          ],
+          "hot": [
+            "Phew... warm out here!"
+          ],
+          "overheating": [
+            "HOT!!"
+          ],
+          "comfortable": [
+            "Ahhh! Its pretty freakin' nice out!"
+          ],
+          "rain": [
+            "Oh no! My hair! My beautiful hair!"
+          ],
+          "wet": [
+            "Oh, damn it!  My robes are drenched!"
+          ],
+          "snow": [
+            "Oooh! Pretty snow!"
+          ],
+          "storm": [
+            "EEEK! I HATE THUNDER!!!"
+          ],
+          "clear": [
+            "About damn time!"
+          ],
+          "windUp": [
+            "Oooh, my skirt! I mean... robes!"
+          ],
+          "rest": [
+            "Oh, thank the Gods! I can finally sit!"
+          ],
+          "camp": [
+            "I don't wanna ever get up again."
+          ],
+          "newMap": [
+            "NOW where the hell are we!?"
+          ]
+        }
+      }
     },
     {
       "id": "hero_4",
@@ -5151,7 +5289,53 @@
       ],
       "resists": [
         "burn"
-      ]
+      ],
+      "chatter": {
+        "lines": {
+          "cold": [
+            "Ooh, there is a chill in the air."
+          ],
+          "freezing": [
+            "Okay, NOW I am cold!"
+          ],
+          "hot": [
+            "Good thing I dressed light..."
+          ],
+          "overheating": [
+            "If it gets any hotter, the clothes are coming off...!"
+          ],
+          "wet": [
+            "A little water never hurt anybody."
+          ],
+          "comfortable": [
+            "Mmm... much better."
+          ],
+          "rain": [
+            "Feels good on my skin!"
+          ],
+          "snow": [
+            "Bleh... elves were not made for this weather!"
+          ],
+          "storm": [
+            "I hope my horns do not get hit by lightning..."
+          ],
+          "clear": [
+            "Ah, there is the sun!"
+          ],
+          "windUp": [
+            "Something in the air..."
+          ],
+          "rest": [
+            "Take five, everyone. We cannot sit around too long."
+          ],
+          "camp": [
+            "I hate being in one place for too long. Need to keep moving."
+          ],
+          "newMap": [
+            "This place seems... familiar."
+          ]
+        }
+      }
     },
     {
       "id": "hero_5",
