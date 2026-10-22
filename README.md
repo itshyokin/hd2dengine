@@ -821,7 +821,7 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   [rank] [hero]`, `learn_addition`, `forget_spell`, `forget_addition`, `exp <n> [hero]`, `level <n> [hero]`, `heal [hero]`,
   `hp <n> [hero]`, `mp <n> [hero]`, `ko [hero]`, `revive [hero]`, `deathless`,
   `deathless_party`, `infinite_items`, `infinite_gold`, `god` (all four), `ghost` (through walls, props and cliffs),
-  `speed <×>`, `unlock_skills [hero|all]`, `teleport <map> [x z]`, `time <hour>`, `weather <kind> [amount]`,
+  `speed <×>`, `unlock_skills [hero|all]`, `teleport <map> [x z]`, `time <hour>`, `weather <kind> [amount]` (rain, storm, snow, blizzard, haze, sandstorm, pollen, dust, leaves, none; also clear / sunny, fog, thunder),
   `season <name|auto>`, `battle <troop|enemies…>`, `win_battle`, `switch <name> <on|off>`, `var <name> <value>`,
   `debug_menu <show|hide>` (the playtest panel), `fps`, `hud <on|off>` (screenshots), `achievement <id>`,
   `achievements_reset` (or `reset_achievements`; counts kept in the save, like foes defeated, can earn them
