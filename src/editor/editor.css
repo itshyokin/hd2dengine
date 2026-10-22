@@ -860,7 +860,8 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .zone-chip.safe-chip[data-mark="."] { background: transparent; color: inherit; }
 
 /* Database → Characters → Chatter */
-.char-view-bar { margin-bottom: 12px; }
+.char-view-bar { grid-column: 1 / -1; }
+.chat-tab { grid-column: 1 / -1; display: grid; gap: 14px; max-width: 980px; }
 .chat-amount-row { display: flex; align-items: center; gap: 10px; }
 .chat-amount { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .chat-grid { display: grid; gap: 8px; }

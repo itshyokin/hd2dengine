@@ -348,7 +348,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Characters view' },
         ...(([['looks', 'Looks'], ['chatter', 'Chatter']] as const).map(([v, label]) => h('button', { type: 'button', 'aria-pressed': String(charView === v), onclick: () => { charView = v; render(); } }, label))));
       const bar = h('div', { class: 'char-view-bar' }, seg);
-      content.replaceChildren(bar, ...(charView === 'chatter' ? chatterTab(heroes.heroes, store.maps, chatState, render) : charactersTab(store, people, render)));
+      content.replaceChildren(bar, ...(charView === 'chatter' ? [h('div', { class: 'chat-tab' }, ...chatterTab(heroes.heroes, store.maps, chatState, render))] : charactersTab(store, people, render)));
       return;
     }
     if (tab === 'credits') { content.replaceChildren(...creditsTab(credits, people.chars, render, [...store.assets.props, ...store.assets.tiles].map((d) => d.credits ?? []))); return; }
