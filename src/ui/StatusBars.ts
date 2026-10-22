@@ -132,7 +132,7 @@ export class StatusBars {
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
-      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather || (!m.down && (m.ailment || m.good)) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment) + goodPill(m.good)}</span>` : ''}</div>` : '';
+      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather || (!m.down && (m.ailment || m.good)) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment) + goodPill(m.good, true)}</span>` : ''}</div>` : '';
     });
   }
 

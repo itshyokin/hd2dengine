@@ -2270,7 +2270,7 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .rs-meter.rested i { background: linear-gradient(#ffe39a, #e8b84a); }
 .rs-meter.wellRested i { background: linear-gradient(#ffd07a, #f08a2a); }
 .rs-meter em { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255,255,255,0.7); }
-.rs-meter span { position: relative; display: block; text-align: center; font: 800 12px/20px var(--f-body); color: #fff; text-shadow: 0 1px 2px #000; }
+.rs-meter span { position: relative; display: block; text-align: right; padding-right: 10px; font: 800 12px/20px var(--f-body); color: #fff; text-shadow: 0 1px 2px #000; }
 .rs-marks { position: relative; height: 16px; margin: 2px 4px 0; font-size: 11px; color: #c9c1ad; }
 .rs-marks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .rs-marks span:last-child { transform: translateX(-100%); }

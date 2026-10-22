@@ -729,6 +729,21 @@ export class Inspector {
       s.select({ kind: 'event', id });
       toast('A crate: hit it to break it. Its commands run when it breaks (add “Set switch” for a bridge or a gate). Try the Crystal switch or Cracked boulder sprites too.');
     };
+    // A rest point (Update 106): a campfire (unless a prop is already there) and an event that offers a rest there.
+    const createRest = () => {
+      const id = s.nextEventId();
+      s.checkpoint();
+      if (s.propOnTile(x, z) < 0) s.map.props.push({ type: 'campfire', x: x + 0.5, z: z + 0.5 });
+      const ev: EventData = { id, name: 'Rest point', x, z, pages: [{ trigger: 'action', commands: [
+        { cmd: 'text', text: 'The fire crackles warmly. Make camp here?' },
+        { cmd: 'choice', options: ['Rest', 'Not now'], branches: [[{ cmd: 'rest' }], []], cancel: 1 },
+      ] }] };
+      s.map.events.push(ev);
+      s.changed('structure');
+      s.pageIndex = 0;
+      s.select({ kind: 'event', id });
+      toast('A rest point: the player picks how many hours to rest and their camping supplies; it also sets the respawn point.');
+    };
     const paste = () => { const r = s.pasteEvent(x, z); if (typeof r === 'string') toast(r, 'error'); };
     const moveStart = () => {
       s.checkpoint();
@@ -749,6 +764,7 @@ export class Inspector {
         area ? null : h('button', { type: 'button', class: 'btn', disabled: !fits, onclick: createEntrance, title: 'A cave mouth on the cliff face behind this tile (or on this tile’s own face): the player walks into it to go to another map. Change its picture to the door or square opening if you like.' }, 'Create cave entrance here'),
         area ? null : h('button', { type: 'button', class: 'btn', disabled: !fits, onclick: createEnemy, title: 'An enemy from Database → Enemies' }, 'Create enemy here'),
         area ? null : h('button', { type: 'button', class: 'btn', disabled: !fits, onclick: createBreakable, title: 'A crate, boulder or crystal switch the player breaks by hitting it; its commands run when it breaks' }, 'Create breakable here'),
+        area ? null : h('button', { type: 'button', class: 'btn', disabled: !fits, onclick: createRest, title: 'A campfire where the party rests (pick hours, camping supplies); also sets the respawn point' }, 'Create rest point here'),
         area ? null : h('button', { type: 'button', class: 'btn', disabled: !fits, onclick: () => createLoot('chest'), title: 'A chest that gives an item once, then stays open' }, 'Create chest here'),
         area ? null : h('button', { type: 'button', class: 'btn', disabled: !fits, onclick: () => createLoot('pickup'), title: 'A sparkle on the ground: pick it up once and it’s gone' }, 'Create item pickup here'),
         clip ? h('button', { type: 'button', class: 'btn', onclick: paste, title: 'Ctrl+V pastes on the tile under the mouse' }, `Paste “${clip.name}” here`) : null,

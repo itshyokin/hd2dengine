@@ -83,6 +83,11 @@ export function bodySection(b: BodySettings, rerender: () => void): HTMLElement 
     h('div', { class: 'db-table body-table' },
       ...row('Poisoned / Burned: lose', num(b.ailmentPct, (v) => (b.ailmentPct = Math.round(v * 10) / 10), 'Ailment health lost', 0.5, 0, 50), '% of max health'),
       ...row('every', num(b.ailmentSteps, (v) => (b.ailmentSteps = Math.round(v)), 'Ailment steps between', 1, 1, 200), 'steps (down to 1, then it wears off)')),
+    h('h4', {}, 'Resting and camping'),
+    h('div', { class: 'db-table body-table' },
+      ...row('Rested lasts', num(b.restedHours, (v) => (b.restedHours = Math.round(v * 4) / 4), 'Rested hours', 0.25, 0.25, 72), 'game hours (+1 to every stat, +10% EXP)'),
+      ...row('Well Rested lasts', num(b.wellRestedHours, (v) => (b.wellRestedHours = Math.round(v * 4) / 4), 'Well Rested hours', 0.25, 0.25, 72), 'game hours (+3 to every stat, +25% EXP)')),
+    h('p', { class: 'note' }, 'At a rest point (“Create rest point here” on an empty tile) the party rests for the hours the player picks: health and magic come back 20% an hour, 1 hour warms and dries them, 5+ hours is a full restore that cures every ailment. Camping supplies (each item’s Camp value, Database → Items) make them Rested at 25 points, Well Rested at 50. Inns (Sleep with “An inn”) give Well Rested. Event command: Give buff.'),
     h('p', { class: 'note' }, 'Ailments out of battle: one per hero (someone who has one can’t get another, Zombie included). Poison and Burn cost health as they walk, down to 1, then wear off; the rest stay until cured (an item, an event, or 5+ hours of rest). Chill, Frozen and Stagger end with the battle (Database → Combat → Ailments: “lasts after battle”). Falling to 0 health cures it.'));
 }
 

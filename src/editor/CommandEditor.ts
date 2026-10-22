@@ -181,7 +181,7 @@ function summary(c: Command): string {
     case 'wait': return `${c.seconds} s`;
     case 'fadeOut': case 'fadeIn': return `${c.seconds ?? 0.8} s`;
     case 'setTime': return `${hourLabel(c.hour)}${c.instant ? ', instantly' : ''}`;
-    case 'sleep': return `${c.until === 'night' ? 'Until night (21:00)' : c.until === 'hours' ? `For ${c.hours ?? 8} hours` : 'Until morning (7:00)'}${c.rest ? ', and rest' : ''}`;
+    case 'sleep': return `${c.until === 'night' ? 'Until night (21:00)' : c.until === 'hours' ? `For ${c.hours ?? 8} hours` : 'Until morning (7:00)'}${c.rest ? ', and rest' : ''}${c.inn ? ' (inn: Well Rested)' : ''}`;
     case 'ability': return `${ABILITY_NAMES[c.ability]}: ${c.on ? 'learn (on)' : 'lose (off)'}`;
     case 'transfer': return transferSummary(c);
     case 'save': return 'Let the player save (a save point)';
@@ -553,6 +553,7 @@ export class CommandEditor {
         return [field('Sleep', select([['morning', 'Until morning (7:00)'], ['night', 'Until night (21:00)'], ['hours', 'For a number of hours']], d.until ?? 'morning', (v) => { d.until = v as typeof d.until; })),
           field('Hours', numberInput(d.hours ?? 8, (v) => (d.hours = Math.max(0.25, Math.min(48, v))), { step: 0.5, min: 0.25, max: 48 }), 'Used with “For a number of hours”.'),
           checkbox('Rest too (health, magic and stamina back to full)', !!d.rest, (v) => (d.rest = v || undefined)),
+          checkbox('An inn: the party wakes Well Rested (+3 to every stat, +25% EXP)', !!d.inn, (v) => (d.inn = v || undefined)),
           h('p', { class: 'hint' }, 'The camera tilts up from the hero to the sky, the hours rush by overhead (sun, clouds, stars, Saturn and the moon go round), then it comes back down. Put it after a choice at a camp or an inn.')];
       case 'ability':
         return [field('Ability', select(ABILITIES.map((a) => [a, ABILITY_NAMES[a]] as [string, string]), d.ability, (v) => (d.ability = v as Ability))),
