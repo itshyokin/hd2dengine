@@ -62,7 +62,14 @@ decide things; the tablet editor keeps working.
           Comfortable, and monsters never enter it: a truly safe place. Spots inside it are painted like water or
           terrain types: Seat, Lay down (more later: Crouch, Lean…). Entering the zone, every party member except
           the hero you play picks a free spot at random and sits / lies there (Sit and KO-like poses, or the sheet's
-          sit) until the player leaves the zone; then they stand and fall in behind again.
+          sit) until the player leaves the zone; then they stand and fall in behind again. Activity spots too,
+          from the sprites' poses: Practice magic (casting), Training dummy (a dummy prop; the hero swings at it
+          now and then), more later. Each character has Rest preferences in the Database: 1–10 per activity (10:
+          goes for it most often, 1: rarely); hero spots are shared out by preference, ties going to whoever is
+          higher in the party order.
+        - The overworld sprite is always the player character (Jordan, the first hero), wherever he is in the
+          lineup; the option for another member to be the walking sprite goes away. The followers behind him
+          walk in the party's list order, the same order as the HUD panels and the pause menu (always the same).
         - Remove the enemy health bars / meters on the overworld (left over from the action battle system).
         - Party chatter: followers say a line in a speech bubble that follows the speaker (one at a time, picked at
           random, with a cooldown so it stays rare). Database → Characters → Chatter, written per character so it
@@ -113,8 +120,8 @@ decide things; the tablet editor keeps working.
     Database → Crafting: add / remove recipes, each up to three material items (from the item list) and the result;
     key items can't be crafted. Decided: the order of the materials doesn't matter, only that they're right; a
     recipe takes two or three materials (a stone knife + fur = leather); one craft makes one, and the CRAFT button
-    keeps going while the materials last (2 stone knives + 3 fur: two leather). Open: a "kept, not used up" flag for
-    tool materials (the knife in that example), if wanted.
+    keeps going while the materials last (2 stone knives + 3 fur: two leather). Each material can be marked
+    "kept, not used up" (a tool: the knife stays in the bag).
   - Remove copyrighted material, names and references from the engine, code and descriptions (game names used as
     style references in the UI text and docs: Pokémon, Legend of Dragoon, Final Fantasy, RPG Maker, Halo, Baldur's
     Gate…; built-in names; anything taken from other games). Third-party art keeps its licence credits.
