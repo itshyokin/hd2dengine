@@ -41,7 +41,8 @@ import { cliffChoices } from './assets';
 import { textColorsTab } from './TextColorsEditor';
 import { messageStyles, textColors, type MessageStyle, type TextColor } from '../ui/richText';
 import { messageStylesTab } from './MessageStylesEditor';
-import { cleanClimate, climateTab } from './ClimateEditor';
+import { cleanClimate, climateTab , bodySection, cleanBody } from './ClimateEditor';
+import { type BodySettings, bodySettings } from '../game/body';
 import { climateConfig, type ClimateConfig } from '../world/climate';
 import { saveDatabase } from './io';
 import { beforeCombatPreview } from './combatPreview';
@@ -155,6 +156,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const themes: MapTheme[] = structuredClone(mapThemes(store.db.mapThemes)), themeState = { sel: 0 };
   const textCols: TextColor[] = structuredClone(textColors(store.db.textColors));
   const climate: ClimateConfig = structuredClone(climateConfig(store.db.climate));
+  const bodyWork: BodySettings = structuredClone(bodySettings(store.db.body));
   const msgStyles: MessageStyle[] = structuredClone(messageStyles(store.db.messageStyles)), msgState = { sel: 0 };
   let devConsole = store.db.devConsole ?? 'playtest';
 
@@ -357,7 +359,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'markers') { content.replaceChildren(...markersTab(markers, render)); return; }
     if (tab === 'mapThemes') { content.replaceChildren(...mapThemesTab(themes, themeState, render, audioFiles(store), cliffChoices(store))); return; }
     if (tab === 'textColors') { content.replaceChildren(...textColorsTab(textCols, render)); return; }
-    if (tab === 'climate') { content.replaceChildren(...climateTab(climate, render)); return; }
+    if (tab === 'climate') { content.replaceChildren(...climateTab(climate, render), bodySection(bodyWork, render)); return; }
     if (tab === 'messageStyles') { content.replaceChildren(...messageStylesTab(msgStyles, textCols, msgState, render)); return; }
     if (tab === 'achievements') { content.replaceChildren(...achievementsTab(store, store.db, achievements, achState, render)); return; }
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
@@ -629,6 +631,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const textColorsOut = JSON.stringify(textCols) === JSON.stringify(textColors(undefined)) ? null : textCols;
       const stylesOut = JSON.stringify(msgStyles) === JSON.stringify(messageStyles(undefined)) ? null : msgStyles;
       const climateOut = cleanClimate(climate) ?? null;
+      const bodyOut = cleanBody(bodyWork) ?? null;
       const camOut = Object.keys(cam).length ? cam : null;
       const statOut = statOrder.join() === DEFAULT_ATTR_ORDER.join() ? null : [...statOrder];
       const armorOut = JSON.stringify(work.armorTypes) === JSON.stringify(DEFAULT_ARMOR_TYPES) && !db.armorTypes ? null : work.armorTypes ?? null;
@@ -647,7 +650,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null)) return 'same';
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -682,6 +685,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (textColorsOut) db.textColors = C(textColorsOut); else delete db.textColors;
       if (stylesOut) db.messageStyles = C(stylesOut); else delete db.messageStyles;
       if (climateOut) db.climate = C(climateOut) as typeof db.climate; else delete db.climate;
+      if (bodyOut) db.body = C(bodyOut); else delete db.body;
       db.characters = C(people.chars);
       if (people.look) db.modelLook = people.look; else delete db.modelLook;
       if (people.outline !== undefined) db.modelOutline = people.outline; else delete db.modelOutline;

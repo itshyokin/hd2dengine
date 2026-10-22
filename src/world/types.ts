@@ -737,6 +737,15 @@ export interface MapData {
   weatherZone?: string;
   /** Climate: this many °F warmer (+) or colder (−) than the season says (a desert, a mountain top). */
   tempOffset?: number;
+  /**
+   * A temperature of its own (°F), for caves and houses: it wanders a few degrees but never into another state's
+   * range (a warm cave never turns sweltering). Unset: outdoors follows the weather; indoors 68, caves 55.
+   */
+  fixedTemp?: number;
+  /** Damp (a wet cave, a cellar): it slowly soaks whoever is in it. */
+  damp?: boolean;
+  /** The elements don't touch anyone here (a cozy town): no cold, heat or wet. */
+  noElements?: boolean;
   /** Its own weather at the start, when unique (a "Change weather" command can change it for the rest of the game). */
   weather?: { kind: WeatherKind; amount?: number };
   /** Air: distance haze, low ground mist (all day, mornings or nights only) and shafts of sunlight; each 0 … 1. */
@@ -933,6 +942,8 @@ export type AllyStyle = 'fighter' | 'archer' | 'caster' | 'healer';
 export interface OverworldCamera { pitch?: number; distance?: number; fov?: number; lean?: number }
 
 export interface Database {
+  /** The elements on the body out of battle: cold, heat and wet (Database → Weather & temperature). */
+  body?: BodyConfig;
   /** How 3D characters are drawn (Database → Characters). Unset: Legend of Dragoon (low-res, outlined). */
   modelLook?: ModelLook;
   /** 3D characters' dark outline: on or off (unset: on with Legend of Dragoon, off with FFX). */
@@ -1218,6 +1229,12 @@ export interface ItemDef {
   levelUp?: number;
   /** Consumables: brings a knocked-out hero back (with what it restores; at least 1 HP). Only works on the knocked out. */
   revive?: boolean;
+  /** Armor and accessories: how warm it keeps its wearer, 0 (none: coolest in the heat) … 10 (the warmest). */
+  warmth?: number;
+  /** Consumables: warms (+, a Hot Cocoa) or cools (−, a Chilled Tea) by this much of the cold / heat meter (100: all the way back). */
+  warms?: number;
+  /** Food, drinks, potions: what it's worth as camping supplies (25 for Rested, 50 for Well Rested). */
+  camp?: number;
   /** Recolours the icon (built-in or imported): every colour takes this hue, keeping its shading. */
   iconTint?: string;
   /** Armor (the armor slot): its armor type's id (unset: guessed from the name, else the first type). */
@@ -1771,4 +1788,28 @@ export interface FishCatch {
   time?: 'day' | 'night';
   /** Rare: a better rod makes it more likely. */
   rare?: boolean;
+}
+
+/** The elements on the body (game/body.ts has the defaults). */
+export interface BodyConfig {
+  /** Off: nobody gets cold, hot or wet. */
+  off?: boolean;
+  /** What a hero feels (°F, after their gear's Warmth) to get Cold, Freezing, Hot, Overheating. */
+  coldAt?: number;
+  freezingAt?: number;
+  hotAt?: number;
+  overheatAt?: number;
+  /** Seconds (real) for the meter to fill from normal; to recover; to dry off. */
+  fill?: number;
+  recover?: number;
+  dry?: number;
+  /** Freezing / Overheating: lose this % of max health every this many steps (never below 1). */
+  chipSteps?: number;
+  chipPct?: number;
+  /** Show Comfortable whenever nothing else is shown (off: only when a fire, shelter or gear is keeping it off). */
+  comfortAlways?: boolean;
+  /** Seconds a hero's panel rumbles when they take a chip of damage. */
+  rumble?: number;
+  /** How much slower (%): wet, Cold / Hot, Freezing / Overheating. */
+  slow?: { wet?: number; mild?: number; severe?: number };
 }

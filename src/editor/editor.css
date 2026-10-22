@@ -853,3 +853,5 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 @media (max-width: 820px) { .char-model-grid { grid-template-columns: 1fr; } .char-model-left { position: static; } }
 .char-3d-style { display: grid; gap: 6px; margin: 4px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); max-width: 640px; }
 .char-3d-style .field-row { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+/* Database → Weather & temperature → On the body: name, number, unit per row. */
+.db-table.body-table { grid-template-columns: max-content 84px minmax(0, 1fr); align-items: center; gap: 6px 10px; }

@@ -34,7 +34,7 @@ decide things; the tablet editor keeps working.
       last through one (Freezing before a fight, still Freezing after). Each hero: 1 ailment + 1 weather state +
       1 good state. Every character in the party is affected (the first is the leader); KO'd heroes (0 HP) take no
       chip damage, and falling to 0 HP cures their ailment. Everything is saved.
-  - [ ] Update 103: Warmth and temperature. Armor and accessories get Warmth 0–10 (10 best against cold, 0 coolest
+  - [x] Update 103: Warmth and temperature. Armor and accessories get Warmth 0–10 (10 best against cold, 0 coolest
         in heat). Maps get Temperature: follows outside, or a fixed base (a cool cave, a warm house) that wanders a
         few degrees but never into another state's range; and Damp / Dry (damp caves slowly make you Wet). Warmth
         zones round lit fires, torches and braziers, and indoors. A cold / heat meter per hero fills with the
@@ -45,6 +45,9 @@ decide things; the tablet editor keeps working.
         Freezing / Overheating slowest (the worst one counts). Rain and swimming wet you; fires, shelter and sun
         dry you. Horses and griffins are never slowed; on a griffin the rider is immune until they land. Items
         (potions, food, drinks) get Warms / Cools (Hot Cocoa, Chilled Tea) and a Camp value.
+        Done: game/body.ts (meter, wet, felt temperature, states, slow, soothe), GameState `body`, Game
+        `updateBody` / `weatherStates` / console `body`, Lights `byFire`, MapData fixedTemp / damp / noElements,
+        ItemDef warmth / warms / camp, Database `body` (Weather & temperature → On the body).
   - [ ] Update 104: showing it. The HUD party panels and the pause menu's party cards get a frame per weather state
         (Comfortable gold, Wet drops, Cold frost corners, Freezing frost and icicles with a cold pulse, Hot shimmer,
         Overheating embers and a hot pulse) and a pill row (weather first, then the ailment, then the good state;

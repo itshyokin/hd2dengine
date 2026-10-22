@@ -346,6 +346,13 @@ export class Inspector {
       field(theme?.tempOffset !== undefined && m.tempOffset === undefined ? `Climate (°F; theme: ${theme.tempOffset > 0 ? '+' : ''}${theme.tempOffset})` : 'Climate (°F warmer or colder)',
         numberInput(m.tempOffset ?? theme?.tempOffset ?? 0, (v) => this.edit(() => { const r = Math.round(v); if (r || theme?.tempOffset !== undefined) m.tempOffset = r; else delete m.tempOffset; if (theme?.tempOffset === r) delete m.tempOffset; }), { step: 1 }),
         'A desert +15, a mountain top −20: added to the season’s temperature here. The shared weather still changes by itself (Database → Weather) unless this map has Unique weather.'),
+      field('Temperature', select([['', outdoor ? 'Follows outside (season, hour, weather)' : 'Usual (indoors 68°F, caves 55°F)'], ['fixed', 'Its own (a cave, a house)']], m.fixedTemp !== undefined ? 'fixed' : '',
+        (v) => this.edit(() => { if (v) m.fixedTemp = outdoor ? 60 : (m.environment === 'indoor' ? 68 : 55); else delete m.fixedTemp; }, true)),
+        'Its own: it wanders a few degrees but never into another range (a warm cave never turns sweltering). For heroes’ cold and heat (Database → Weather & temperature → On the body).'),
+      ...(m.fixedTemp !== undefined ? [field('°F', numberInput(m.fixedTemp, (v) => this.edit(() => { m.fixedTemp = Math.max(-40, Math.min(140, Math.round(v))); }), { step: 1, min: -40, max: 140 }),
+        'A warm house 68, a cool cave 50, an ice cave 20, a lava cave 105.')] : []),
+      checkbox('Damp (a wet cave, a cellar): it slowly soaks whoever is in it', !!m.damp, (v) => this.edit(() => { if (v) m.damp = true; else delete m.damp; })),
+      checkbox('Keep the elements out (a cozy town): nobody gets cold, hot or wet here', !!m.noElements, (v) => this.edit(() => { if (v) m.noElements = true; else delete m.noElements; })),
       h('p', { class: 'hint' }, unique
         ? 'This map keeps its own weather (or its zone’s), whatever the weather is on other maps. Good for deserts, mountaintops, a magic storm.'
         : outdoor ? 'Shared: every outdoor map without Unique weather has the same weather, so it’s still raining when the player steps into the next map. This is the weather a new game starts with (it’s the same setting on every shared map). Events change it with “Change weather”.'

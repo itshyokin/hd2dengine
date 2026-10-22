@@ -599,6 +599,39 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   stronger and fire-type foes softer (*Heat and cold in battle*, 25% at most by default).
 - Console: `temperature` shows it (and the weather), `temperature add -30`, `temperature set 100`, `temperature reset`.
 
+### The elements on the body (cold, heat and wet)
+
+Out of battle, every hero in the party feels the weather. Battles never change any of this, and it lasts through
+them: Freezing before a fight, still Freezing after.
+- **The meter**: each hero has a cold / heat meter that follows what they *feel*: the temperature where they stand,
+  changed by their gear's **Warmth** (Database → Gear: 0–10 per piece, adding up to 10; in the cold 10 is about 30°F
+  warmer, in the heat warm gear makes it worse and Warmth 0 keeps them coolest) and by being wet (wet in the cold is
+  colder, and the cold bites twice as fast). It fills over time (*Getting cold or hot takes*, 90 seconds by default)
+  and drifts back when it's mild, three times as fast by a fire.
+- **States**: *Cold* / *Hot* past half way, *Freezing* / *Overheating* at the end (only when it's colder than the
+  Freezing or hotter than the Overheating temperature felt: 40 / 25 / 85 / 100 °F by default), *Wet* (rain where it
+  reaches them, a swim, a damp cave), and *Comfortable* when a fire, shelter from harsh weather or warm enough gear is
+  keeping it off (or always, with *Always show Comfortable*).
+- **What they do**: Wet walks a little slower (10%), Cold / Hot slower (20%), Freezing / Overheating slowest (35%);
+  the hero you play sets the walking pace (the worst state counts; riding, the horse is never slowed). Freezing and
+  Overheating also lose health as they walk (3% every 12 steps by default), never below 1, and never on someone
+  knocked out; the adventure log says so the first time.
+- **Warming up and drying off**: lit fires (campfires, torches, braziers: anything with a flame) warm and dry everyone
+  within about two and a half tiles; indoors keeps the rain off; the sun dries you on a warm, clear day. Items with
+  **Warms / cools** (Database → Items: + a Hot Cocoa, − a Chilled Tea; 100 takes them all the way back) work from the
+  bag, and items have a **Camp value** for camping (Update 106).
+- **Maps** (Map Properties → Weather): *Temperature: its own* for caves and houses (a cool cave 50°F, an ice cave 20,
+  a lava cave 105): it wanders a few degrees but never into another state's range (a warm cave never turns
+  sweltering); *Damp* slowly soaks whoever is in it; *Keep the elements out* for cozy towns. Unset, indoors is 68°F
+  and caves 55°F.
+- **Griffins**: up in the air the rider is safe; the elements pause until they land. They also pause during events
+  and while sleeping.
+- **Database → Weather & temperature → On the body**: all of the above (the temperatures, how fast it fills,
+  recovers and dries, the health lost and how often, how much slower, how long a hurt hero's panel rumbles), and an
+  off switch.
+- Console: `body` shows each hero's meter, wetness, state and Warmth (and the temperature); `body -100` makes everyone
+  Freezing, `body 0 1` soaked and otherwise normal.
+
 ### Time, night and map lighting
 
 - **Database → Time**: *Clock speed* from stopped to 60× (1× is real time; the default 20× makes a day last 72

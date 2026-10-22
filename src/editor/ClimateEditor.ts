@@ -4,7 +4,8 @@
  */
 import { checkbox, h, numberInput } from './dom';
 import { DEFAULT_CLIMATE, climateConfig, type ClimateConfig } from '../world/climate';
-import { WEATHER_KINDS, type WeatherKind } from '../world/types';
+import { type BodyConfig, WEATHER_KINDS, type WeatherKind } from '../world/types';
+import { type BodySettings, DEFAULT_BODY } from '../game/body';
 import { WEATHER_NAMES } from './CommandEditor';
 import type { Season } from '../world/seasons';
 
@@ -51,4 +52,44 @@ export function cleanClimate(c: ClimateConfig): ReturnType<typeof climateConfig>
   for (const [k] of SEASONS) if (JSON.stringify(c.seasons[k]) !== JSON.stringify(d.seasons[k])) seasons[k] = c.seasons[k];
   if (Object.keys(seasons).length) out.seasons = seasons;
   return (Object.keys(out).length ? out : undefined) as never;
+}
+
+/** Database → Weather & temperature → On the body: cold, heat and wet out of battle (game/body.ts). */
+export function bodySection(b: BodySettings, rerender: () => void): HTMLElement {
+  const num = (v: number, set: (x: number) => void, label: string, step = 1, min = 0, max = 999) =>
+    numberInput(v, (x) => { set(Math.max(min, Math.min(max, x))); }, { step: String(step), class: 'db-num', 'aria-label': label });
+  const row = (name: string, input: HTMLElement, unit: string) => [h('span', { class: 'db-name' }, name), input, h('span', { class: 'db-unit' }, unit)];
+  return h('section', { class: 'db-section db-wide' }, h('h3', {}, 'On the body (out of battle)'),
+    checkbox('Heroes feel the elements: cold, heat and wet', !b.off, (v) => { b.off = !v; rerender(); }),
+    ...(b.off ? [] : [
+      h('div', { class: 'db-table body-table' },
+        ...row('Cold below', num(b.coldAt, (v) => (b.coldAt = Math.round(v)), 'Cold below', 1, -60, 140), '°F felt'),
+        ...row('Freezing at or below', num(b.freezingAt, (v) => (b.freezingAt = Math.round(v)), 'Freezing at', 1, -60, 140), '°F felt'),
+        ...row('Hot above', num(b.hotAt, (v) => (b.hotAt = Math.round(v)), 'Hot above', 1, -60, 160), '°F felt'),
+        ...row('Overheating at or above', num(b.overheatAt, (v) => (b.overheatAt = Math.round(v)), 'Overheating at', 1, -60, 160), '°F felt'),
+        ...row('Getting cold or hot takes', num(b.fill, (v) => (b.fill = Math.round(v)), 'Seconds to fill', 5, 5, 1200), 'seconds (wet in the cold: half)'),
+        ...row('Recovering takes', num(b.recover, (v) => (b.recover = Math.round(v)), 'Seconds to recover', 5, 5, 1200), 'seconds (by a fire: a third)'),
+        ...row('Drying off takes', num(b.dry, (v) => (b.dry = Math.round(v)), 'Seconds to dry', 5, 5, 1200), 'seconds (by a fire or in the sun: sooner)'),
+        ...row('Freezing / Overheating: lose', num(b.chipPct, (v) => (b.chipPct = Math.round(v * 10) / 10), 'Health lost', 0.5, 0, 50), '% of max health'),
+        ...row('every', num(b.chipSteps, (v) => (b.chipSteps = Math.round(v)), 'Steps between', 1, 1, 200), 'steps (never below 1 health)'),
+        ...row('Their panel rumbles for', num(b.rumble, (v) => (b.rumble = Math.round(v * 10) / 10), 'Rumble seconds', 0.5, 0, 10), 'seconds'),
+        ...row('Wet: slower by', num(b.slow.wet, (v) => (b.slow.wet = Math.round(v)), 'Wet slower', 1, 0, 90), '%'),
+        ...row('Cold / Hot: slower by', num(b.slow.mild, (v) => (b.slow.mild = Math.round(v)), 'Cold slower', 1, 0, 90), '%'),
+        ...row('Freezing / Overheating: slower by', num(b.slow.severe, (v) => (b.slow.severe = Math.round(v)), 'Freezing slower', 1, 0, 90), '%')),
+      checkbox('Always show Comfortable when nothing else shows (off: only while a fire, shelter or warm gear is keeping the weather off)', b.comfortAlways, (v) => { b.comfortAlways = v; }),
+      h('p', { class: 'note' }, 'Each hero has a cold / heat meter that follows what they feel: the temperature where they stand (this map’s, Map Properties → Weather), warmed by their gear’s Warmth (0–10, Database → Gear: 10 keeps the cold off, 0 keeps them coolest in the heat), colder when wet. It fills over time: Cold / Hot past half way, Freezing / Overheating at the end, then slowly back when it’s mild. Rain and swimming soak them; fires (campfires, torches, braziers), shelter and the sun dry them. Freezing and Overheating cost health as they walk (never below 1). Battles never change any of this, and it lasts through them. On a griffin the rider is safe; horses are never slowed. Hot drinks warm and cold ones cool (an item’s Warms / cools). The console’s body command shows each hero’s meter.'),
+    ]));
+}
+
+/** The body settings: only what differs from the defaults (or undefined). */
+export function cleanBody(b: BodySettings): BodyConfig | undefined {
+  const d = DEFAULT_BODY, out: Record<string, unknown> = {};
+  for (const k of Object.keys(d) as (keyof BodySettings)[]) {
+    if (k === 'slow') continue;
+    if (b[k] !== d[k]) out[k] = b[k];
+  }
+  const slow: Record<string, number> = {};
+  for (const k of ['wet', 'mild', 'severe'] as const) if (b.slow[k] !== d.slow[k]) slow[k] = b.slow[k];
+  if (Object.keys(slow).length) out.slow = slow;
+  return Object.keys(out).length ? out as BodyConfig : undefined;
 }

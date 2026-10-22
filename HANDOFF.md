@@ -1,4 +1,4 @@
-# Handoff: where the project stands (Oct 21, 2026, after Update 102)
+# Handoff: where the project stands (Oct 21, 2026, after Update 103)
 
 A summary for picking the work back up in a new Claude session or account. Everything is committed to
 `itshyokin/hd2dengine` (branch `main`). To start a new session, attach the repo and say: *"Read HANDOFF.md,
@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Updates 103–106 (the elements: Warmth, weather states, ailments out of battle, resting and camping; the 3D items moved to 107–109), then the 3D pipeline (101–105). The game targets PC now.
+- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Updates 104–106 (the elements: showing them on the HUD, ailments out of battle, resting and camping; 103 is done; the 3D items moved to 107–109), then the 3D items (107–109). The game targets PC now.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -260,12 +260,20 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   cache key season4; seasons.ts `propSeason` guesses bushes / shrubs / grass / tufts / ferns / vines as 'leaves'
   (bare made leaf-only plants vanish, leaving their shadows); decks.ts `DECK_LIFT` (2/32 tile) added to every deck
   height in placeDecks (walk height and all deck drawing).
+- 103: game/body.ts: `BodyState` { meter −100…100, wet 0…1 } per hero id in GameState `body` (saved);
+  `feltTemp` (cold side + warmth×3.5 − 5, hot side + (warmth − 3)×2.5, wet −10, by a fire ≥ 68), `stepBody`
+  (target −100 / −65 / 0 / 65 / 100 by the felt thresholds; fill / recover / dry seconds), `weatherState`,
+  `slowOf`, `soothe`. Game `updateBody` (each frame out of battle, paused in events / sleep / transfers / on a
+  griffin; `bodyParty()` lists the hero and members with their positions and equipment; chip every chipSteps tiles
+  walked; `bodyHurt(id)` is the hook for Update 104's shake and rumble), `weatherStates` (hero id → state),
+  speedScale × (1 − slowOf(leader)) unless riding, `temperature()` honours MapData `fixedTemp` (clamped inside its
+  state band). Lights `byFire(x, z)`. Items: `warmth`, `warms` (useItem → `sootheHero`), `camp`.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. The Roadmap at the top of NOTES.md: Updates 103–106 (the elements), then 107–109 (3D).
+1. The Roadmap at the top of NOTES.md: Updates 104–106 (the elements), then 107–109 (3D).
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

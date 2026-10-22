@@ -32,6 +32,8 @@ export class GameState {
   enemyLevels: { spread: number } | null = null;
   /** The rented horse (one at a time): where it was left (its map and spot), whether the hero is riding, its stamina. */
   horse: HorseState | null = null;
+  /** Each hero's cold / heat meter and wetness (by hero id; out of battle, lasting through battles). */
+  readonly body = new Map<string, { meter: number; wet: number }>();
   /** Griffin roosts unlocked (by talking to their master): their name, map, and where the hero lands. */
   readonly roosts = new Map<string, RoostState>();
   /** EXP All key items switched off (by item id); on while held, otherwise. */
@@ -147,8 +149,10 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number> }): void {
+  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }> }): void {
     this.weaponsOff = !!d.weaponsOff;
+    this.body.clear();
+    for (const [k, v] of Object.entries(d.body ?? {})) if (v && typeof v === 'object') this.body.set(k, { meter: Math.max(-100, Math.min(100, Number(v.meter) || 0)), wet: Math.max(0, Math.min(1, Number(v.wet) || 0)) });
     this.forms.clear();
     for (const [k, v] of Object.entries(d.forms ?? {})) { const n = Math.round(Number(v) || 0); if (n > 0) this.forms.set(k, Math.min(2, n)); }
     this.roosts.clear();
@@ -181,9 +185,11 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number> } {
+  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }> } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
+    const body = [...this.body].filter(([, b]) => Math.abs(b.meter) > 0.5 || b.wet > 0.01);
+    if (body.length) out.body = Object.fromEntries(body.map(([k, b]) => [k, { meter: Math.round(b.meter * 10) / 10, wet: Math.round(b.wet * 100) / 100 }]));
     if (this.forms.size) out.forms = Object.fromEntries(this.forms);
     if (this.enemyLevels) out.enemyLevels = { ...this.enemyLevels };
     if (this.expAllOff.size) out.expAllOff = [...this.expAllOff];

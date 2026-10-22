@@ -245,6 +245,15 @@ export class Lights {
     }
   }
 
+  /** Is a spot within the warmth of a burning fire (a campfire, a torch, a brazier: anything with a flame that's lit)? */
+  byFire(x: number, z: number, reach = 2.5): boolean {
+    for (const l of this.lives) {
+      if (!l.flames.length || l.out || !l.on || l.light.intensity <= 0.05) continue;
+      if (Math.hypot(l.light.position.x - x, l.light.position.z - z) <= reach) return true;
+    }
+    return false;
+  }
+
   /** How brightly the map's lamps and fires light a spot right now (0 … 1), for stealth. */
   lightAt(x: number, z: number): number {
     let best = 0;

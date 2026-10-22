@@ -147,6 +147,7 @@ import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } fr
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
 import { toonWaterTime } from '../render/waterEdge';
+import { type BodyPlace, type BodySettings, type BodyState, type WeatherState, WEATHER_STATE_INFO, bodySettings, hurts, slowOf, soothe, stepBody, weatherState } from './body';
 import { modelStyle } from '../render/characterModel';
 import { alignFootProps, blockedTiles, footTiles, propCovers, stepOf } from '../world/props';
 import { propKey } from './GameState';
@@ -1808,6 +1809,7 @@ export class Game {
     this.updateCamera(dt);
     this.updateBubbles();
     this.updateEnvironment(dt);
+    if (!this.onTitle && !fighting) this.updateBody(dt);
     if (!this.onTitle && !fighting) this.combat.updateBack();
     if (this.buildings.length) { const p = this.player.position; fadeBuildings(this.buildings, p.x, p.y, p.z, dt); }
 
@@ -1948,7 +1950,7 @@ export class Game {
     i.sprintToggle = this.settings.sprint === 'toggle';
     if (!i.sprintToggle) i.runLatched = false;
     const run = this.settings.alwaysRun ? !i.isHeld('run') : i.isHeld('run') || i.runLatched || i.touchRun || stickRun;
-    const res = m.update(dt, { dx, dz, run, jump: space, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed });
+    const res = m.update(dt, { dx, dz, run, jump: space, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed * (this.riding ? 1 : 1 - slowOf(this.weatherStates.get(mainHero(this.db).id) ?? null, this.bodyCfg)) });
     if (!m.airborne && !m.climbing && this.trySeamless(dx, dz)) return;
     // Locked on, the hero keeps facing the target (strafing); otherwise they face where they walk, unless attacking.
     const lock = this.combat.lock;
@@ -2605,6 +2607,7 @@ export class Game {
       if (battle) for (const b of d.buffs ?? []) got.push(buffLabel(b.buff));
       if (d.levelUp && !ko && !battle) { const n = this.levelUpBy(who, d.levelUp); if (n) got.push(`now level ${m.data.level}`); }
       if (ko) { if (m.data.hp < 1) m.data.hp = 1; got.unshift('back on their feet'); }
+      if (d.warms && !battle && this.sootheHero(who, d.warms)) got.push(d.warms > 0 ? 'warmed up' : 'cooled down');
       if (!got.length) return `${d.name} wouldn’t do anything for ${m.def.name} right now.`;
       this.inventory.removeAt(i, 1);
       this.state.tally('itemsUsed');
@@ -2642,6 +2645,8 @@ export class Game {
     for (const b of d.buffs ?? []) { if (!battle) st.boost(b.buff, b.amount, b.seconds); gains.push(buffLabel(b.buff)); }
     if (d.levelUp && !heroKo && !battle) { const n = this.levelUpBy(0, d.levelUp); if (n) gains.push(`now level ${this.progress.level}`); }
     if (heroKo && this.stats.hp < 1) this.stats.change('hp', 'set', 1);
+    // A Hot Cocoa or a Chilled Tea (out of battle: the elements don't reach battles).
+    if (d.warms && !battle && this.sootheHero(0, d.warms)) gains.push(d.warms > 0 ? 'warmed up' : 'cooled down');
     if (!gains.length) return `${d.name} wouldn’t do anything right now.`;
     this.inventory.removeAt(i, 1);
     this.state.tally('itemsUsed');
@@ -4499,6 +4504,11 @@ export class Game {
           const kind = ({ clear: 'none', sun: 'none', sunny: 'none', off: 'none', fog: 'haze', mist: 'haze', thunder: 'storm', thunderstorm: 'storm', sand: 'sandstorm', leaf: 'leaves' } as Record<string, WeatherKind>)[said] ?? said;
           if (!WEATHER_KINDS.includes(kind as WeatherKind)) return `No weather called “${a[0]}”. Try: ${WEATHER_KINDS.join(', ')}.`;
           return run([{ cmd: 'weather', kind: kind as WeatherKind, amount: num(a[1], 1) }]);
+        } },
+      { name: 'body', args: '[meter -100…100] [wet 0…1]', help: 'The elements on each hero: their cold / heat meter, wetness and state (with numbers: set them for everyone)',
+        run: (a) => {
+          if (a.length) for (const h of this.bodyParty()) { const b = this.bodyOf(h.id); b.meter = Math.max(-100, Math.min(100, num(a[0], b.meter))); if (a[1] !== undefined) b.wet = Math.max(0, Math.min(1, num(a[1], b.wet))); }
+          return this.bodyParty().map((h) => { const b = this.bodyOf(h.id); return `${h.name}: meter ${Math.round(b.meter)}, wet ${Math.round(b.wet * 100)}%, ${this.weatherStateName(h.id) || 'normal'}, Warmth ${this.warmthOf(h.equip)}`; }).join(' · ') + ` · ${Math.round(this.temperature())}°F`;
         } },
       { name: 'season', args: '<spring|summer|autumn|winter|auto>', help: 'Show a season (auto: the real one)', complete: () => ['spring', 'summer', 'autumn', 'winter', 'auto'],
         run: (a) => { const v = need(a[0], 'season'); this.seasonTest = v === 'auto' ? null : v as Season; return `Season: ${v}`; } },
@@ -6571,11 +6581,125 @@ export class Game {
   /** The temperature where the player is (°F): season and hour, weather, the map's climate, an event's change. */
   temperature(): number {
     const env = this.stage?.env ?? this.time.environment;
-    if (env !== 'outdoor') return env === 'indoor' ? 68 : 55;
+    // A map's own temperature (a cave, a house): wandering a few degrees, but never into another state's range.
+    const fixed = this.stage ? undefined : this.mapData?.fixedTemp;
+    if (fixed !== undefined || env !== 'outdoor') {
+      const base = fixed ?? (env === 'indoor' ? 68 : 55), c = this.bodyCfg;
+      const edges = [-999, c.freezingAt, c.coldAt, c.hotAt, c.overheatAt, 999];
+      let lo = -999, hi = 999;
+      for (let i = 0; i < edges.length - 1; i++) if (base >= edges[i] && base < edges[i + 1]) { lo = edges[i] + 1; hi = edges[i + 1] - 1; }
+      const wander = Math.sin(this.state.clock * 0.7) * 2 + Math.sin(this.state.clock * 0.23 + 1.3) * 1.5;
+      let t = Math.max(Math.min(lo, base), Math.min(Math.max(hi, base), base + wander));
+      if (this.tempHere) t = this.tempHere.op === 'set' ? this.tempHere.value : t + this.tempHere.value;
+      return t;
+    }
     let t = this.baseTemp() + (WEATHER_TEMP[this.weather.kind] ?? 0) * Math.min(1, this.weather.amount || 0) + (this.mapData?.tempOffset ?? 0);
     if (this.tempHere) t = this.tempHere.op === 'set' ? this.tempHere.value : t + this.tempHere.value;
     return t;
   }
+
+  /* ---------------------------------------------------------------- the elements on the body */
+
+  private bodyCfgCache: { src: unknown; cfg: BodySettings } | null = null;
+  /** Database → Weather & temperature: cold, heat and wet on the body. */
+  private get bodyCfg(): BodySettings {
+    const c = this.bodyCfgCache;
+    if (c && c.src === this.db.body) return c.cfg;
+    const cfg = bodySettings(this.db.body);
+    this.bodyCfgCache = { src: this.db.body, cfg };
+    return cfg;
+  }
+  /** Each hero's weather state this moment (by hero id), for the HUD, the menus and the walking speed. */
+  readonly weatherStates = new Map<string, WeatherState | null>();
+  /** Distance walked toward the next chip of damage (Freezing, Overheating). */
+  private bodyWalk = 0;
+  private bodyLast: { x: number; z: number } | null = null;
+  /** Heroes told this time that they're freezing / overheating (told again once they've recovered). */
+  private readonly bodyWarned = new Set<string>();
+
+  /** A hero's body (cold / heat meter and wetness), kept in the save. */
+  private bodyOf(id: string): BodyState {
+    let b = this.state.body.get(id);
+    if (!b) { b = { meter: 0, wet: 0 }; this.state.body.set(id, b); }
+    return b;
+  }
+  /** How warm a set of gear keeps its wearer (0–10). */
+  private warmthOf(equip: Partial<Record<EquipSlot, string>>): number {
+    let w = 0;
+    for (const slot of EQUIP_SLOTS) { const id = equip[slot]; if (id) w += Math.max(0, this.items.get(id)?.warmth ?? 0); }
+    return Math.min(10, w);
+  }
+
+  /** The party out of battle, each where they stand: the hero you play first, then everyone following. */
+  private bodyParty(): { id: string; name: string; x: number; z: number; equip: Partial<Record<EquipSlot, string>>; swimming: boolean; hp: number; hurt: (n: number) => void; maxHp: number }[] {
+    const m = this.motion, lead = mainHero(this.db);
+    const out: ReturnType<Game['bodyParty']> = [{
+      id: lead.id, name: lead.name, x: m.x, z: m.z, equip: this.inventory.equip, swimming: m.swimming, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp,
+      hurt: (n) => this.stats.change('hp', 'add', -n),
+    }];
+    for (const mem of this.members()) {
+      const a = this.allies.find((x) => x.data === mem.data), x = a?.x ?? m.x, z = a?.z ?? m.z;
+      out.push({
+        id: mem.def.id, name: mem.def.name, x, z, equip: mem.data.equip, swimming: this.map.footWaterAt(Math.floor(x), Math.floor(z))?.kind === 'swim',
+        hp: mem.data.down ? 0 : mem.data.hp, maxHp: this.allyNumbers(mem.data, mem.def).max.hp, hurt: (n) => { mem.data.hp = Math.max(1, mem.data.hp - n); },
+      });
+    }
+    return out;
+  }
+
+  /**
+   * The elements, each frame out of battle: every hero's cold / heat meter and wetness follow where they stand; the
+   * worst state slows the walk; Freezing and Overheating chip health as they walk (never below 1). Paused in events,
+   * while sleeping and in the air on a griffin (flying is safe); a map can be set to keep the elements out.
+   */
+  private updateBody(dt: number): void {
+    const cfg = this.bodyCfg, m = this.motion;
+    const off = cfg.off || this.mapData?.noElements || this.mapData?.kind === 'battle';
+    if (off) { this.weatherStates.clear(); return; }
+    const paused = !!this.flight || !!this.sleeping || this.interpreter.running || !!this.transfer || this.dying;
+    const outdoor = (this.time.environment ?? 'outdoor') === 'outdoor' && this.mapData?.fixedTemp === undefined;
+    const temp = this.temperature(), hour = this.time.hour, outside = outdoor ? temp : this.baseTemp(false);
+    const raining = outdoor && (this.weather.kind === 'rain' || this.weather.kind === 'storm') && this.weather.amount > 0.05;
+    const sunny = outdoor && hour > 8 && hour < 18 && this.weather.kind === 'none' && temp > 75;
+    // Steps walked (tiles), for the chip of damage.
+    if (this.bodyLast && !paused) this.bodyWalk += Math.min(1, Math.hypot(m.x - this.bodyLast.x, m.z - this.bodyLast.z));
+    this.bodyLast = { x: m.x, z: m.z };
+    const chip = this.bodyWalk >= Math.max(1, cfg.chipSteps);
+    if (chip) this.bodyWalk = 0;
+    for (const h of this.bodyParty()) {
+      const b = this.bodyOf(h.id);
+      const place: BodyPlace = {
+        temp, warmth: this.warmthOf(h.equip), raining, swimming: h.swimming, sheltered: !outdoor,
+        byFire: !!this.lights?.byFire(h.x, h.z), damp: !!this.mapData?.damp, sunny, outside,
+      };
+      if (!paused && h.hp > 0) stepBody(b, place, dt, cfg);
+      const st = weatherState(b, place, cfg);
+      this.weatherStates.set(h.id, st);
+      if (!hurts(st)) { this.bodyWarned.delete(h.id); continue; }
+      if (!this.bodyWarned.has(h.id)) {
+        this.bodyWarned.add(h.id);
+        this.log.add(st === 'freezing' ? `${h.name} is freezing! Find a fire or shelter.` : `${h.name} is overheating! Find shade or water.`, 'hurt');
+      }
+      // A chip of damage as they walk: never below 1, never to someone already down.
+      if (chip && h.hp > 1) {
+        const n = Math.min(h.hp - 1, Math.max(1, Math.round(h.maxHp * cfg.chipPct / 100)));
+        if (n > 0) { h.hurt(n); this.audio.play('hurt'); this.bodyHurt(h.id); }
+      }
+    }
+  }
+  /** A hero just took a chip of damage from the elements (the HUD rumbles their panel; Update 104 adds the shake). */
+  private bodyHurt(_id: string): void { /* shown in Update 104 */ }
+
+  /** A consumable's warming or cooling on a hero (0: the one you play, 1…: party members). */
+  private sootheHero(who: number, warms: number): boolean {
+    const id = who === 0 ? mainHero(this.db).id : this.members()[who - 1]?.def.id;
+    if (!id || !warms) return false;
+    const b = this.bodyOf(id), was = b.meter;
+    soothe(b, warms);
+    return b.meter !== was;
+  }
+  /** The weather state's name for a hero, or ''. */
+  weatherStateName(id: string): string { const st = this.weatherStates.get(id); return st ? WEATHER_STATE_INFO[st].name : ''; }
 
   /** The ground's look follows the weather: damp after rain, frosted below freezing, parched in a heat wave. */
   private updateClimate(dt: number): void {

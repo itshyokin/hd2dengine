@@ -216,6 +216,11 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
     }, { step: 1, min: 0, max: 100 }), `Percent of the maximum, added to the amount (10 and 30 % = 10 + 30% of max ${g.toUpperCase()}).`);
     out.push(field('Level up (levels)', numberInput(d.levelUp ?? 0, (v) => { const n = Math.max(0, Math.min(99, Math.round(v))); if (n) d.levelUp = n; else delete d.levelUp; }, { step: 1, min: 0, max: 99 }),
       'Rare Candy: used from the bag, the hero gains exactly the EXP to their next level (this many times), with the level up as usual. 0: not a level-up item.'));
+    out.push(h('div', { class: 'field-row' },
+      field('Warms / cools', numberInput(d.warms ?? 0, (v) => { const n = Math.max(-100, Math.min(100, Math.round(v))); if (n) d.warms = n; else delete d.warms; }, { step: 5, min: -100, max: 100 }),
+        'Out of battle: moves the drinker’s cold / heat meter back toward normal. + warms (a Hot Cocoa: 100 takes them from Freezing all the way back), − cools (a Chilled Tea). 0: neither.'),
+      field('Camp value', numberInput(d.camp ?? 0, (v) => { const n = Math.max(0, Math.min(50, Math.round(v))); if (n) d.camp = n; else delete d.camp; }, { step: 1, min: 0, max: 50 }),
+        'What it’s worth as camping supplies when resting at a camp: 25 in all for Rested, 50 for Well Rested. 0: not a camping supply.')));
     out.push(checkbox('Revives: brings a knocked-out hero back with what it restores (at least 1 HP); it only works on the knocked out, and other items can’t help them', !!d.revive, (v) => { if (v) d.revive = true; else delete d.revive; }));
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Using it restores'),
       h('div', { class: 'field-row' }, ...(['hp', 'mp', 'sp'] as Gauge[]).flatMap((g) => [
@@ -414,7 +419,9 @@ function defenseForm(d: ItemDef, work: ItemsWork, rerender: () => void): HTMLEle
     field('Defence', numberInput(d.defense ?? 0, (v) => (d.defense = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }),
       'Against hits and arrows. Damage taken is reduced by defence ÷ (defence + 50): 10 takes away 17%, 50 takes away half.'),
     field('Magic defence', numberInput(d.magicDefense ?? 0, (v) => (d.magicDefense = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }),
-      'The same against spells.')));
+      'The same against spells.'),
+    field('Warmth (0–10)', numberInput(d.warmth ?? 0, (v) => { const n = Math.max(0, Math.min(10, Math.round(v))); if (n) d.warmth = n; else delete d.warmth; }, { step: 1, min: 0, max: 10 }),
+      'Out of battle: how warm it keeps its wearer. A hero’s gear adds up (10 at most): 10 keeps the cold off best, 0 keeps them coolest in the heat (a fur cloak in the snow, light clothes in the desert).')));
 }
 
 /** Any equipment: stats it adds (or takes away) while worn, and extra critical hit chance. */
