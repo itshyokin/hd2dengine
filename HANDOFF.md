@@ -18,7 +18,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - **Next work:** Update 104 (showing the elements: HUD and pause-menu frames, pills, balloons, the chip-damage shake
   and panel rumble, breath / drips / steam on the map) plus the owner's Oct 22 notes in NOTES.md under "Update 104
   also" (comfort zones, removing overworld enemy health bars, party chatter, the gear page rework). Then 105
-  (ailments out of battle) and 106 (resting and camping), then 107–109 (3D). The design preview for the frames,
+  (ailments out of battle) and 106 (resting and camping). The 3D roadmap (107–109) is dropped: sprites only. The design preview for the frames,
   pills and balloons is the owner's "Weather & Ailment HUD Preview" canvas (claude.ai artifact). Owner decisions from Oct 22 are written into those notes ("Decided:"); anything still
   marked "Open:" needs the owner first. The game targets PC now.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
@@ -278,7 +278,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. The Roadmap at the top of NOTES.md: Updates 104–106 (the elements), then 107–109 (3D).
+1. The Roadmap at the top of NOTES.md: Updates 104–106 (the elements), then the Future list (sprites only; no more 3D).
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

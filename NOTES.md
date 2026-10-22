@@ -2,7 +2,7 @@
 
 Kept in the project so they travel with the code. Tick them off as they're built.
 
-## Roadmap (planned Oct 21, updated Oct 22): PC first, the elements, then more 3D
+## Roadmap (planned Oct 21, updated Oct 22): PC first, sprites, the elements
 The game targets PC (a console port, PS1/PS2-style, may come much later as its own project). Tablet limits no longer
 decide things; the tablet editor keeps working.
 - [x] Update 98: "Stats can't be lowered" buff (Guard Spec: blocks lowering only, buffs still land); "Level up"
@@ -29,7 +29,7 @@ decide things; the tablet editor keeps working.
       Done: render/characterModel.ts (ModelRig: slots, guessing by name, root motion kept in place, LoD / FFX look
       with an outline shell, pictures), CharacterDef `model`, Database `modelLook`; CharacterSprite drives the rig
       behind the same calls as sheets; Database → Characters → 3D model window with a live preview. Enemies use
-      a 3D character through their Person look. Weapons on models: Update 108.
+      a 3D character through their Person look. Weapons on models: dropped (sprites only).
 - [ ] Updates 103–106: the elements (planned Oct 22). Out of battle only: weather states never change a battle, but
       last through one (Freezing before a fight, still Freezing after). Each hero: 1 ailment + 1 weather state +
       1 good state. Every character in the party is affected (the first is the leader); KO'd heroes (0 HP) take no
@@ -100,14 +100,9 @@ decide things; the tablet editor keeps working.
         downgraded by Rested; resting again restarts the timer). Inns give Well Rested. Event commands: Give buff
         (Rested / Well Rested, hours and minutes; also for blessings), Set weather state, Give / cure ailment; event
         conditions "if a hero is Freezing / Well Rested / Poisoned…".
-- [ ] Update 107: Additions with 3D models: each swing a part of a clip (Attack by default, changeable), the next
-      swing starting where the last ended; a missed button stops the chain there.
-- [ ] Update 108: equipment on 3D characters: body types (masculine, feminine, more later) in the Database; armor and
-      accessories get a model per body type, rigged to the base skeleton (bones matched by name; rigid pieces such as
-      hats follow a bone); weapons attach to empties named like #right_hand.
-- [ ] Update 109: 3D character builder (its own page): base model, + add parts per category (hat, armor, clothes,
-      accessory, weapon), hair style and colour, skin tone, facial expressions as planes over the face; export the
-      whole character as one GLB (for NPCs mostly).
+- Dropped (Oct 22): the 3D roadmap items (Additions with 3D models, equipment on 3D characters, the 3D character
+  builder). The game sticks with sprites. The 3D props and 3D characters already built (Updates 101–102) stay for
+  now; the owner may have them removed later.
 - [ ] Future (owner's notes, Oct 22; plan them before building):
   - NPC behaviour (brainstorm first): daily routines and routes, beds and homes, reacting to weather and events
     (heading indoors when it rains, shops closing in blizzards), schedules by hour.
