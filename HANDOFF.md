@@ -14,15 +14,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Update 104, Oct 22)
-- **In progress (Oct 22, owner away; asked for 105 and 106):** 105's code is committed (see the 105 technical note);
-  remaining for 105: README / NOTES tick. 106 is in progress: core committed (see the 106 technical note); still to
-  do: editor "Create rest point here" prefab, the sleep command's Inn checkbox in the editor, Database fields for
-  the Rested / Well Rested hours, browser tests, README / NOTES / standalone build. Then 106 (resting and camping: Rest point prefab, hours picker, camping supplies, Rested / Well Rested,
-  event commands). 104 is done (frames, pills, rumble, breath / drips / steam, HP tint, safe zones, chatter,
-  Equipment statuses, Jordan always walks in front). The 3D roadmap (107–109) is dropped: sprites only. The design preview for the frames,
-  pills and balloons is the owner's "Weather & Ailment HUD Preview" canvas (claude.ai artifact). Owner decisions from Oct 22 are written into those notes ("Decided:"); anything still
-  marked "Open:" needs the owner first. The game targets PC now.
+## Pick up here (state as of Update 106, Oct 22)
+- **Next work:** Updates 103–106 (the elements, safe zones, chatter, ailments out of battle, resting and camping)
+  are done as of Oct 22. Next: the Future list in NOTES.md (NPC routines, map management, button prompts that follow
+  custom controls, alchemy / crafting, removing copyrighted names), each to be planned with the owner first.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone

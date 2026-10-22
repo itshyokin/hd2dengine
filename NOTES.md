@@ -88,11 +88,11 @@ decide things; the tablet editor keeps working.
           good state); moving up and down shows what each does in a text box. To equip, pick the armor / weapon
           slot, then the item for it; items can also be equipped from the item menu (pick the armor or weapon →
           Equip).
-  - [ ] Update 105: ailments out of battle. One per hero, and a hero with one can't get another (Zombie too) until
+  - [x] Update 105: ailments out of battle. One per hero, and a hero with one can't get another (Zombie too) until
         it's cured. Poison and Burn chip HP to 1, then wear off. The rest (Paralyze, Sleep, Confusion, Blind,
         Silence, Zombie) stay until cured, a rest of 5+ hours, or an event cures them; shown only (balloon, pill).
         Stagger, Chill and Frozen end with the battle.
-  - [ ] Update 106: resting and camping. A "Rest point" event (like the enemy / transfer prefabs: put it on a
+  - [x] Update 106: resting and camping. A "Rest point" event (like the enemy / transfer prefabs: put it on a
         campfire prop); resting there also sets the respawn point. Rest how many hours: the party's panels refill
         20% an hour as the hours are picked; 1 hour already warms and dries the party; 5+ hours: full restore and
         cures every ailment. Then the camping supplies screen: each item's Camp value (food, potions, drinks);
@@ -104,6 +104,7 @@ decide things; the tablet editor keeps working.
         downgraded by Rested; resting again restarts the timer). Inns give Well Rested. Event commands: Give buff
         (Rested / Well Rested, hours and minutes; also for blessings), Set weather state, Give / cure ailment; event
         conditions "if a hero is Freezing / Well Rested / Poisoned…".
+        Done (105 + 106, Oct 22). EXP bonus counts on battle EXP (not quest rewards). Inns: Sleep → "An inn".
 - Dropped (Oct 22): the 3D roadmap items (Additions with 3D models, equipment on 3D characters, the 3D character
   builder). The game sticks with sprites. The 3D props and 3D characters already built (Updates 101–102) stay for
   now; the owner may have them removed later.

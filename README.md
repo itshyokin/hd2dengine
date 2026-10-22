@@ -532,7 +532,31 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
 - **Sleep** (event command): the camera lifts and tilts up from the hero to the sky, the HUD steps aside, the hours
   rush by overhead (the sky turning from day to night to dawn, the stars and the moon going round), then it comes back
   down. *Until morning* (7:00), *until night* (21:00) or *for a number of hours*; *Rest too* refills health, magic and
-  stamina. Time slept counts for fires and the calendar. Console: `sleep`, `sleep night`, `sleep 4`.
+  stamina. Time slept counts for fires and the calendar. Console: `sleep`, `sleep night`, `sleep 4`. *An inn*: the
+  party wakes Well Rested.
+
+### Resting and camping (Update 106)
+
+- **Rest points**: in the Events layer, click an empty tile and choose **Create rest point here**: a campfire (unless a prop is
+  already there) and an event that asks "Make camp here?". Its **Rest point** command (event command, under State)
+  also sets the respawn point.
+- **Rest how many hours?** (1–12, ← →): health and magic come back **20% an hour** (each hero's bars show it as you
+  pick); even **1 hour** warms and dries the party; **5+ hours** is a full restore that revives the knocked out and
+  cures every ailment, Zombie included.
+- **Camping supplies**: food, potions and drinks with a **Camp value** (Database → Items) from the bag. **25 points**
+  make the party **Rested** (+1 to every stat, +10% EXP from battles); **50 Well Rested** (+3, +25%, but shorter).
+  ↑ ↓ choose, ← → fewer / more, *Fill to Rested* / *Fill to Well Rested* pick the cheapest mix, *Clear*. Under 25
+  nothing is used ("Add X more to gain additional benefits"); past 50 it warns once before wasting points. Camping
+  with no supplies still rests the party.
+- **Good states**: a new one replaces the old one, but Rested never replaces Well Rested while it lasts; resting
+  again restarts the timer. How long each lasts (game hours): **Database → Weather & temperature → Resting and
+  camping** (2 and 1.5 by default). They show as a gold ★ pill on the HUD and pause menu, on the Equipment page's
+  statuses, and on the Status → Stats page as a gold **+3** beside every stat with the time left and an *EXP +25%
+  (Well Rested)* line.
+- **Event commands**: *Give buff (Rested / Well Rested)* for hours and minutes (or the Database's length; also for
+  blessings at a shrine), or take it away; *Set weather state* (Normal, Wet, Cold, Freezing, Hot, Overheating) for
+  the hero, everyone or one hero; *Give / cure an ailment* now picks who too. **Condition** *A hero is…*: the hero you
+  play, anyone in the party or one hero is (or isn't) Freezing, Wet, Poisoned, any ailment, Rested, Well Rested…
 
 ### The party on the map (turn-based)
 
@@ -654,6 +678,13 @@ them: Freezing before a fight, still Freezing after.
   Rest preferences**, 1–10 per activity, ties to whoever is higher in the party) and sits, lies down, casts now and
   then or swings at the dummy; step out and they fall in behind again.
 - Map enemies no longer show health bars or meters on the overworld (only the noticed ? / !).
+- **Ailments out of battle** (Update 105): one per hero; someone who has one can't get another (Zombie included, in
+  battle too). **Poison** and **Burn** cost health as the party walks (4% every 10 steps by default: *Poisoned /
+  Burned: lose … every …* in On the body), down to 1, then wear off. **Paralyze, Sleep, Confusion, Blind, Silence and
+  Zombie** only show out of battle and last until cured: an item, an event (*Give / cure an ailment*), or 5+ hours of
+  rest. **Chill, Frozen and Stagger** end with the battle (Database → Combat → Ailments: "lasts after battle"). Falling
+  to 0 health cures it. Each one shows as an RPG Maker-style **balloon** off the hero's face (bubbles, a flame, a bolt,
+  Zz…) on the HUD and the pause menu, with its pill beside the weather's.
 
 ### Time, night and map lighting
 
