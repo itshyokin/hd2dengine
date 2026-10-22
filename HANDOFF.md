@@ -15,7 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Update 103 (Additions as segments of the Attack action), then the 3D pipeline (101–105). The game targets PC now.
+- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Updates 103–106 (the elements: Warmth, weather states, ailments out of battle, resting and camping; the 3D items moved to 107–109), then the 3D pipeline (101–105). The game targets PC now.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
@@ -265,7 +265,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `npm run build:standalone` makes slightly smaller files.
 
 ## Next up (in order; details in NOTES.md)
-1. The Roadmap (planned Oct 21) at the top of NOTES.md: Update 103 onwards.
+1. The Roadmap at the top of NOTES.md: Updates 103–106 (the elements), then 107–109 (3D).
 2. **Other open items**: Story journal tab, enemy charging spells and Counterspell, Limit specials, class trainer
    screen and class stat bonuses, cooking fish and a reeling mini-game, sitting at campfires (hero and party),
    moving platforms, speech bubble position per message, message window background images, a Bestiary

@@ -2,7 +2,7 @@
 
 Kept in the project so they travel with the code. Tick them off as they're built.
 
-## Roadmap (planned Oct 21): PC first, 3D characters
+## Roadmap (planned Oct 21, updated Oct 22): PC first, the elements, then more 3D
 The game targets PC (a console port, PS1/PS2-style, may come much later as its own project). Tablet limits no longer
 decide things; the tablet editor keeps working.
 - [x] Update 98: "Stats can't be lowered" buff (Guard Spec: blocks lowering only, buffs still land); "Level up"
@@ -29,13 +29,51 @@ decide things; the tablet editor keeps working.
       Done: render/characterModel.ts (ModelRig: slots, guessing by name, root motion kept in place, LoD / FFX look
       with an outline shell, pictures), CharacterDef `model`, Database `modelLook`; CharacterSprite drives the rig
       behind the same calls as sheets; Database → Characters → 3D model window with a live preview. Enemies use
-      a 3D character through their Person look. Weapons on models: Update 104.
-- [ ] Update 103: Additions with 3D models: each swing a part of a clip (Attack by default, changeable), the next
+      a 3D character through their Person look. Weapons on models: Update 108.
+- [ ] Updates 103–106: the elements (planned Oct 22). Out of battle only: weather states never change a battle, but
+      last through one (Freezing before a fight, still Freezing after). Each hero: 1 ailment + 1 weather state +
+      1 good state. Every character in the party is affected (the first is the leader); KO'd heroes (0 HP) take no
+      chip damage, and falling to 0 HP cures their ailment. Everything is saved.
+  - [ ] Update 103: Warmth and temperature. Armor and accessories get Warmth 0–10 (10 best against cold, 0 coolest
+        in heat). Maps get Temperature: follows outside, or a fixed base (a cool cave, a warm house) that wanders a
+        few degrees but never into another state's range; and Damp / Dry (damp caves slowly make you Wet). Warmth
+        zones round lit fires, torches and braziers, and indoors. A cold / heat meter per hero fills with the
+        temperature over time (faster when Wet), less with the right Warmth. States: Comfortable (by a fire,
+        indoors or dressed right; can be set to always show), Wet, Cold, Freezing, Hot, Overheating. Database →
+        Weather & temperature: the temperatures for each (e.g. 40 / 25 / 85 / 100 °F), how fast the meter fills,
+        chip damage (every N steps, % of max HP, never below 1). Movement: Wet a little slower, Cold / Hot slower,
+        Freezing / Overheating slowest (the worst one counts). Rain and swimming wet you; fires, shelter and sun
+        dry you. Horses and griffins are never slowed; on a griffin the rider is immune until they land. Items
+        (potions, food, drinks) get Warms / Cools (Hot Cocoa, Chilled Tea) and a Camp value.
+  - [ ] Update 104: showing it. The HUD party panels and the pause menu's party cards get a frame per weather state
+        (Comfortable gold, Wet drops, Cold frost corners, Freezing frost and icicles with a cold pulse, Hot shimmer,
+        Overheating embers and a hot pulse) and a pill row (weather first, then the ailment, then the good state;
+        three at most, then "+N"). Ailments show an RPG Maker-style balloon off the face. Chip damage: a screen
+        shake, a hurt sound and that hero's panel rumbling (seconds set in the Database). Each ailment can recolour
+        the HP bar (off by default; a colour per ailment). On the map: breath puffs in the cold (thicker when
+        colder), wet heroes drip and squelch, overheated ones steam.
+  - [ ] Update 105: ailments out of battle. One per hero, and a hero with one can't get another (Zombie too) until
+        it's cured. Poison and Burn chip HP to 1, then wear off. The rest (Paralyze, Sleep, Confusion, Blind,
+        Silence, Zombie) stay until cured, a rest of 5+ hours, or an event cures them; shown only (balloon, pill).
+        Stagger, Chill and Frozen end with the battle.
+  - [ ] Update 106: resting and camping. A "Rest point" event (like the enemy / transfer prefabs: put it on a
+        campfire prop); resting there also sets the respawn point. Rest how many hours: the party's panels refill
+        20% an hour as the hours are picked; 1 hour already warms and dries the party; 5+ hours: full restore and
+        cures every ailment. Then the camping supplies screen: each item's Camp value (food, potions, drinks);
+        a bar to 50 with marks at 25 (Rested) and 50 (Well Rested), Fill buttons that pick the cheapest mix, a
+        warning before waste; under 25 nothing is spent ("Add X more to gain additional benefits"). Camping with
+        no supplies still restores fully. Rested: +1 to every stat and +10% EXP; Well Rested: +3 and +25% EXP,
+        shorter; their lengths set in the Database. Shown on the stat page as gold "+1" beside each stat with the
+        time left, and an "EXP +25% (Well Rested)" line. A new good state replaces the old (Well Rested is never
+        downgraded by Rested; resting again restarts the timer). Inns give Well Rested. Event commands: Give buff
+        (Rested / Well Rested, hours and minutes; also for blessings), Set weather state, Give / cure ailment; event
+        conditions "if a hero is Freezing / Well Rested / Poisoned…".
+- [ ] Update 107: Additions with 3D models: each swing a part of a clip (Attack by default, changeable), the next
       swing starting where the last ended; a missed button stops the chain there.
-- [ ] Update 104: equipment on 3D characters: body types (masculine, feminine, more later) in the Database; armor and
+- [ ] Update 108: equipment on 3D characters: body types (masculine, feminine, more later) in the Database; armor and
       accessories get a model per body type, rigged to the base skeleton (bones matched by name; rigid pieces such as
       hats follow a bone); weapons attach to empties named like #right_hand.
-- [ ] Update 105: 3D character builder (its own page): base model, + add parts per category (hat, armor, clothes,
+- [ ] Update 109: 3D character builder (its own page): base model, + add parts per category (hat, armor, clothes,
       accessory, weapon), hair style and colour, skin tone, facial expressions as planes over the face; export the
       whole character as one GLB (for NPCs mostly).
 - [ ] Later: desktop build (Windows app: Electron or Tauri; saves in a folder, real fullscreen, Steam-ready); an
