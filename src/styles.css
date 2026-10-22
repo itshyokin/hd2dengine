@@ -2216,10 +2216,29 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 /* Hurt by the elements: the hero's panel shakes for a moment. */
 .wf-rumble { animation: wf-rumble 0.12s linear infinite !important; }
 @keyframes wf-rumble { 0% { transform: translate(0, 0); } 25% { transform: translate(-2px, 1px); } 50% { transform: translate(2px, -1px); } 75% { transform: translate(-1px, -1px); } 100% { transform: translate(1px, 1px); } }
-.hud-ally .wf-pills { display: flex; gap: 4px; flex-wrap: wrap; grid-column: 2; }
+.hud-ally .wf-pills { position: absolute; right: 6px; top: -9px; display: flex; gap: 4px; z-index: 3; }
 .hud-top > .wf-pills { position: absolute; left: 14px; top: -9px; display: flex; gap: 4px; z-index: 2; }
 .hud-ally.wf, .hud-top.wf { border-style: solid; border-width: 2px; }
 .hud-ally { --wf-h: 56px; }
 .hud-top { --wf-h: 64px; }
 .pr-panel { --wf-h: 120px; }
 .pr-panel.wf { border-width: 3px; }
+
+/* ---------------- Ailments on the panels (Update 105): a balloon off the face, a pill beside the weather's ---------------- */
+.ail-balloon { position: absolute; z-index: 4; width: 25px; height: 21px; border-radius: 7px; background: #fffdf6; box-shadow: 0 0 0 1.5px #1a1622, 0 3px 6px rgba(0,0,0,0.35);
+  display: grid; place-items: center; pointer-events: none; animation: ail-bob 1.6s ease-in-out infinite; }
+.ail-balloon::after { content: ''; position: absolute; left: 5px; bottom: -6px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid #fffdf6; filter: drop-shadow(0 1.5px 0 #1a1622); }
+.ail-balloon svg { width: 15px; height: 15px; }
+.ail-balloon b { color: #c8302a; font: 900 13px var(--f-display); }
+.ail-zz { font: 800 11px var(--f-display); color: #4a58c8; letter-spacing: -1px; }
+@keyframes ail-bob { 50% { transform: translateY(-3px); } }
+.hud-ally { position: relative; }
+.hud-ally .ail-balloon { left: 20px; top: -15px; }
+.hud-party:not(.with-face) .hud-ally .ail-balloon { left: -6px; }
+.hud-ail { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.hud-ail .ail-balloon { left: 4px; top: -16px; }
+.hud-top > .hud-ail-pills { left: auto; right: 10px; }
+.wf-pills .ail-pill { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35); }
+.pr-art { position: relative; }
+.pr-art .ail-balloon { left: 58%; top: 4px; width: 30px; height: 25px; }
+.pr-art .ail-balloon svg { width: 18px; height: 18px; }

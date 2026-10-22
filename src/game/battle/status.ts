@@ -61,14 +61,15 @@ export class BattleStatus {
 
   /**
    * Try to give an ailment. Returns what happened: given, refreshed, frozen (a third chill), resisted (they can't
-   * get it, or they're guarding), or nothing (zombies get no other ailments; anyone with an ailment gets no second).
+   * get it, or they're guarding), or nothing (zombies get no other ailments; anyone with an ailment gets no second,
+   * Zombie included: Update 105).
    */
   give(a: Ailment, turns?: number): 'given' | 'refreshed' | 'frozen' | 'resisted' | 'none' {
     if (this.ward || this.resists.includes(a)) return 'resisted';
     if (this.zombie && a !== 'zombie') return 'none';
     // One ailment at a time: a fighter that's poisoned can't be burned too (Chill and the Frozen it leads to count as
-    // one; Stagger is only a moment, and Zombie wipes the rest).
-    if (a !== 'stagger' && a !== 'zombie' && this.list.some((o) => o !== 'zombie' && family(o) !== family(a))) return 'none';
+    // one; Stagger is only a moment). Zombie too: someone already poisoned can't become a zombie.
+    if (a !== 'stagger' && this.list.some((o) => o !== 'zombie' && family(o) !== family(a))) return 'none';
     let t = turns ?? BATTLE_AILMENT[a].turns;
     if (this.boss && Number.isFinite(t)) t = Math.max(1, Math.ceil(t / 2));
     if (a === 'zombie') { for (const k of [...this.turns.keys()]) this.turns.delete(k); this.chillStacks = 0; }

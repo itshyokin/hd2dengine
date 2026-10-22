@@ -6,6 +6,7 @@
  */
 import { weatherDecor, weatherFrameClass, weatherPill } from './weatherFrame';
 import { type WeatherState, hpTintStyle } from '../game/body';
+import { ailmentBalloon, ailmentPill } from './ailmentBalloon';
 import { elementDot } from './elementPill';
 import type { Element } from '../world/types';
 import type { PlayerStats } from '../game/stats';
@@ -66,7 +67,9 @@ export interface PartyCard { name: string; level?: number; face?: string; hp: nu
   /** Hurt by the elements just now: the card shakes. */
   rumble?: boolean;
   /** Their health bar's colour (their ailment's, when Database → Climate tints it). */
-  tint?: string | null }
+  tint?: string | null;
+  /** Their ailment: a balloon off the face and a pill beside the weather's. */
+  ailment?: { id?: string; tag: string; color: string; ink: string; name: string } }
 
 const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
 
@@ -113,7 +116,7 @@ export class StatusBars {
   private partyKey = '';
   private partyCount = 0;
   setParty(list: PartyCard[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint]));
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint, m.ailment?.id, m.ailment?.tag]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -123,11 +126,11 @@ export class StatusBars {
       const m = list[k];
       el.hidden = !m;
       el.dataset.empty = m ? '' : '1';
-      el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}${weatherFrameClass(m.weather)}${m.rumble ? ' wf-rumble' : ''}" style="${hpTintStyle(m.tint)}">${weatherDecor(m.weather)}${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
+      el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}${weatherFrameClass(m.weather)}${m.rumble ? ' wf-rumble' : ''}" style="${hpTintStyle(m.tint)}">${weatherDecor(m.weather)}${m.down ? '' : ailmentBalloon(m.ailment?.id, m.ailment?.name)}${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
-      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather ? `<span class="wf-pills">${weatherPill(m.weather)}</span>` : ''}</div>` : '';
+      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather || (m.ailment && !m.down) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment)}</span>` : ''}</div>` : '';
     });
   }
 
@@ -135,6 +138,24 @@ export class StatusBars {
   setHeroTint(color: string | null): void {
     const v = hpTintStyle(color);
     if (v) this.top.style.setProperty('--g-hp', v.slice('--g-hp:'.length, -1)); else this.top.style.removeProperty('--g-hp');
+  }
+
+  /** The hero's own ailment: a balloon at the gauges' corner and a pill beside the weather's. */
+  private heroAilKey = '';
+  private readonly heroAilEl = document.createElement('span');
+  private readonly heroAilPill = document.createElement('span');
+  setHeroAilment(a: PartyCard['ailment'] | null): void {
+    const key = a ? `${a.id}|${a.tag}|${a.color}` : '';
+    if (key === this.heroAilKey) return;
+    this.heroAilKey = key;
+    this.heroAilEl.remove(); this.heroAilPill.remove();
+    if (!a) return;
+    this.heroAilEl.innerHTML = ailmentBalloon(a.id, a.name);
+    this.heroAilEl.className = 'hud-ail';
+    this.top.appendChild(this.heroAilEl);
+    this.heroAilPill.className = 'wf-pills hud-ail-pills';
+    this.heroAilPill.innerHTML = ailmentPill(a);
+    this.top.appendChild(this.heroAilPill);
   }
 
   /** The hero's own gauges: the elements' frame and pill, and a shake when they're hurt by them. */

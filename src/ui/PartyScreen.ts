@@ -9,6 +9,7 @@
 import { elementPill } from './elementPill';
 import { weatherDecor, weatherFrameClass, weatherPill } from './weatherFrame';
 import { type WeatherState, hpTintStyle } from '../game/body';
+import { ailmentBalloon } from './ailmentBalloon';
 import { partyLayout, type PanelPart, type PartyLayout } from './partyLayout';
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
@@ -32,7 +33,7 @@ export interface PartyMemberView {
   /** Their elements (element stones worn), as pills. */
   elements?: import('../world/types').Element[];
   /** An ailment they carry (from the map, or left from a battle), as a pill ("PSN"). */
-  ailment?: { tag: string; color: string; ink: string; name: string };
+  ailment?: { tag: string; color: string; ink: string; name: string; id?: string };
   /** The elements on them (out of battle): the panel's frame and a pill. */
   weather?: WeatherState | null;
   /** Their health bar's colour (their ailment's, when Database → Climate tints it). */
@@ -210,7 +211,7 @@ export class PartyScreen {
       return `<div class="pr-panel pr-slot size-${P.size}${slotCls(k)}${k >= this.host.active ? ' bench' : ''}${c.down ? '' : weatherFrameClass(c.weather)}" data-k="${k}" role="option" aria-selected="${this.sel === k}" style="${box}${c.color ? `--hero:${c.color};` : ''}${hpTintStyle(c.tint)}">
         ${c.down ? '' : weatherDecor(c.weather)}
         ${show('levelUp') && c.skillPoints > 0 ? '<span class="pt-badge">LEVEL UP</span>' : ''}
-        ${show('picture') ? `<div class="pr-art"><img src="${c.art}" alt=""></div>` : '<div class="pr-gap"></div>'}
+        ${show('picture') ? `<div class="pr-art">${c.down ? '' : ailmentBalloon(c.ailment?.id, c.ailment?.name)}<img src="${c.art}" alt=""></div>` : '<div class="pr-gap"></div>'}
         ${show('name') || show('level') || show('ailment') || show('elements') ? `<div class="pr-name">${show('name') ? `<b>${esc(c.name)}</b>` : ''}${show('level') ? lv(c) : ''}${show('ailment') ? ail(c) : ''}${show('ailment') && !c.down ? weatherPill(c.weather) : ''}${show('elements') && c.elements?.length ? `<span class="pr-els">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>` : ''}
         ${show('hp') ? `<div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(c)}"><i style="width:${pct(c.hp[0], c.hp[1])}%"></i></div><span class="pr-num">${Math.round(c.hp[0])} / ${Math.round(c.hp[1])}</span></div>` : ''}
         ${show('mp') ? `<div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(c.mp[0], c.mp[1])}%"></i></div><span class="pr-num">${Math.round(c.mp[0])} / ${Math.round(c.mp[1])}</span></div>` : ''}

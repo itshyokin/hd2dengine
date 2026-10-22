@@ -1818,6 +1818,7 @@ export class Game {
     this.updateEnvironment(dt);
     if (!this.onTitle && !fighting) this.updateBody(dt);
     if (!this.onTitle && !fighting) this.updateChatter(dt);
+    if (!this.onTitle && !fighting) this.updateAilments();
     if (!this.onTitle && !fighting) this.combat.updateBack();
     if (this.buildings.length) { const p = this.player.position; fadeBuildings(this.buildings, p.x, p.y, p.z, dt); }
 
@@ -4681,7 +4682,7 @@ export class Game {
     const tb = this.combatCfg.turnBased;
     const a = this.ailmentOf(who);
     const p = a ? tb.statusPills[a] : undefined;
-    return a && p ? { tag: tb.statusWords === 'full' ? p.word : p.tag, color: p.color, ink: p.ink, name: effectName(a) } : undefined;
+    return a && p ? { tag: tb.statusWords === 'full' ? p.word : p.tag, color: p.color, ink: p.ink, name: effectName(a), id: a } : undefined;
   }
 
   /** What can be done for someone from their card. */
@@ -5076,7 +5077,9 @@ export class Game {
     const pills = this.combatCfg.turnBased.statusPills, onMap = new Set(this.combat.heroStatus.list.map((e) => e.id));
     for (const { who, turns } of list) {
       const rec: Record<string, number> = {};
-      for (const [a, t] of turns) if (pills[a]?.stays && t > 0 && !(who === 0 && onMap.has(a))) rec[a] = Number.isFinite(t) ? t : 99;
+      // One at a time (Update 105), and none for someone knocked out (falling to 0 cures it).
+      const down = who === 0 ? this.stats.hp <= 0 : !!this.members()[who - 1]?.data.down;
+      for (const [a, t] of turns) if (!down && !Object.keys(rec).length && pills[a]?.stays && t > 0 && !(who === 0 && onMap.has(a))) rec[a] = Number.isFinite(t) ? t : 99;
       if (who === 0) this.heroAilments = rec;
       else { const m = this.members()[who - 1]?.data; if (m) { if (Object.keys(rec).length) m.ailments = rec; else delete m.ailments; } }
     }
@@ -5902,10 +5905,11 @@ export class Game {
     const leadId = mainHero(this.db).id, leadWeather = this.weatherStates.get(leadId) ?? null, leadRumble = this.rumbling(leadId);
     this.hud.setHeroWeather(this.settings.hud?.stats?.compact ? null : leadWeather, !this.settings.hud?.stats?.compact && leadRumble);
     this.hud.setHeroTint(this.hpTint(0));
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0) }] : [];
+    this.hud.setHeroAilment(this.settings.hud?.stats?.compact || this.stats.hp <= 0 ? null : this.ailmentPill(0) ?? null);
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0), ailment: this.ailmentPill(0) }] : [];
     // The party's cards: the others of the three fighting (whoever leads the map).
     const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
-    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1) }; })]);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1), ailment: this.ailmentPill(this.members().findIndex((x) => x.data === d) + 1) }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -6817,6 +6821,37 @@ export class Game {
   private sayChatter(id: string, name: string, line: string): void {
     this.chatSay = { id, until: this.elapsed + chatterSeconds(line), bubble: { text: line, chat: true, color: '#2b2118', bubble: '#fffaf0', size: 15, bold: false, still: true } };
     this.log.add(`${name}: "${line}"`, 'chat');
+  }
+
+  /* ---------------------------------------------------------------- ailments out of battle (Update 105) */
+
+  private ailWalk = 0;
+  private ailLast: { x: number; z: number } | null = null;
+  /**
+   * Ailments on the map: Poison and Burn cost health as the party walks (Database → Weather & temperature: % every
+   * N steps), down to 1, then wear off; the rest only show (balloon and pill) until cured. Falling to 0 cures.
+   */
+  private updateAilments(): void {
+    if (!this.motion || this.mapData?.kind === 'battle') return;
+    const paused = !!this.flight || !!this.sleeping || this.interpreter.running || !!this.transfer || !!this.dying;
+    const m = this.motion;
+    if (this.ailLast && !paused) this.ailWalk += Math.min(1, Math.hypot(m.x - this.ailLast.x, m.z - this.ailLast.z));
+    this.ailLast = { x: m.x, z: m.z };
+    const party = this.bodyParty(), cfg = this.bodyCfg;
+    party.forEach((h, who) => { if (h.hp <= 0 && this.ailmentOf(who)) this.clearLingering(['all', 'zombie'], who); });
+    if (this.ailWalk < Math.max(1, cfg.ailmentSteps)) return;
+    this.ailWalk = 0;
+    party.forEach((h, who) => {
+      const a = this.ailmentOf(who);
+      if ((a !== 'poison' && a !== 'burn') || h.hp <= 0) return;
+      const n = Math.min(h.hp - 1, Math.max(1, Math.round(h.maxHp * cfg.ailmentPct / 100)));
+      if (n > 0) { h.hurt(n); this.audio.play('hurt'); this.bodyHurt(h.id); }
+      if (h.hp - n <= 1) {
+        this.clearLingering([a], who);
+        if (who === 0) this.combat.heroStatus.cure([a]);
+        this.log.add(`${h.name}’s ${a === 'poison' ? 'poison' : 'burn'} wore off`, 'info');
+      }
+    });
   }
 
   /** The safe zone the hero is resting in (its spots, keyed by its first spot), or null. */

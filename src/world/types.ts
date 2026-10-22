@@ -1825,6 +1825,9 @@ export interface BodyConfig {
   comfortAlways?: boolean;
   /** Seconds a hero's panel rumbles when they take a chip of damage. */
   rumble?: number;
+  /** Poison and Burn out of battle: lose this % of max health every this many steps, down to 1, then they wear off. */
+  ailmentSteps?: number;
+  ailmentPct?: number;
   /** Tint a hero's health bar the colour of their ailment (Poison purple, Burn orange…); off by default. */
   hpTint?: boolean;
   /** How much slower (%): wet, Cold / Hot, Freezing / Overheating. */

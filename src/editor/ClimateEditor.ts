@@ -79,7 +79,11 @@ export function bodySection(b: BodySettings, rerender: () => void): HTMLElement 
       checkbox('Tint a hero’s health bar the colour of their ailment (Poison purple, Burn orange…)', b.hpTint, (v) => { b.hpTint = v; }),
       checkbox('Always show Comfortable when nothing else shows (off: only while a fire, shelter or warm gear is keeping the weather off)', b.comfortAlways, (v) => { b.comfortAlways = v; }),
       h('p', { class: 'note' }, 'Each hero has a cold / heat meter that follows what they feel: the temperature where they stand (this map’s, Map Properties → Weather), warmed by their gear’s Warmth (0–10, Database → Gear: 10 keeps the cold off, 0 keeps them coolest in the heat), colder when wet. It fills over time: Cold / Hot past half way, Freezing / Overheating at the end, then slowly back when it’s mild. Rain and swimming soak them; fires (campfires, torches, braziers), shelter and the sun dry them. Freezing and Overheating cost health as they walk (never below 1). Battles never change any of this, and it lasts through them. On a griffin the rider is safe; horses are never slowed. Hot drinks warm and cold ones cool (an item’s Warms / cools). The console’s body command shows each hero’s meter.'),
-    ]));
+    ]),
+    h('div', { class: 'db-table body-table' },
+      ...row('Poisoned / Burned: lose', num(b.ailmentPct, (v) => (b.ailmentPct = Math.round(v * 10) / 10), 'Ailment health lost', 0.5, 0, 50), '% of max health'),
+      ...row('every', num(b.ailmentSteps, (v) => (b.ailmentSteps = Math.round(v)), 'Ailment steps between', 1, 1, 200), 'steps (down to 1, then it wears off)')),
+    h('p', { class: 'note' }, 'Ailments out of battle: one per hero (someone who has one can’t get another, Zombie included). Poison and Burn cost health as they walk, down to 1, then wear off; the rest stay until cured (an item, an event, or 5+ hours of rest). Chill, Frozen and Stagger end with the battle (Database → Combat → Ailments: “lasts after battle”). Falling to 0 health cures it.'));
 }
 
 /** The body settings: only what differs from the defaults (or undefined). */
