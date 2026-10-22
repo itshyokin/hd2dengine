@@ -92,7 +92,7 @@ import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, setAttrOrder, speedMultiplier } from './attributes';
 import { classStatGear, gearKindName, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
-import { buffLabel, effectColor, effectName, type EffectId } from './status';
+import { AILMENT_INFO, buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
 import type { CharacterDef, EncounterPick, EnemyDef, HorseDef, LevelRange, OverworldCamera, TroopDef } from '../world/types';
 import { atLevel, partyLevel, rollLevel } from './enemyLevels';
@@ -2856,7 +2856,8 @@ export class Game {
       const detail = d?.weapon ? `${d.weapon.damage} damage${d.weapon.class !== 'bow' ? ` · ${d.weapon.class}` : ''}` : d?.spell ? `${d.spell.damage} damage · ${d.spell.mp} MP` : d?.ammo ? `+${d.ammo.damage} damage${d.ammo.infinite ? ' · never run out' : ''}`
         : d?.defense || d?.magicDefense ? `${d.defense ? `+${d.defense} defence` : ''}${d.defense && d.magicDefense ? ' · ' : ''}${d.magicDefense ? `+${d.magicDefense} magic defence` : ''}` : d?.spell?.power ? `${POWER_NAMES[d.spell.power]} · ${d.spell.mp ? `${d.spell.mp} MP to start · ` : ''}${d.spell.mpPerSecond ?? 0} MP/s` : d?.description;
       const sh = this.state.forge.get(id)?.shard;
-      return { id, name: d?.name ?? id, icon: this.itemIcon(id), color: itemColor(d), detail, count, shard: sh ? { icon: this.itemIcon(sh), name: this.baseItems.get(sh)?.name ?? sh } : null };
+      const warm = d?.warmth !== undefined && (d.slot === 'armor' || d.slot === 'accessory' || d.slot === 'shield') ? `Warmth ${d.warmth}` : '';
+      return { id, name: d?.name ?? id, icon: this.itemIcon(id), color: itemColor(d), detail: warm ? (detail ? `${detail} · ${warm}` : warm) : detail, count, shard: sh ? { icon: this.itemIcon(sh), name: this.baseItems.get(sh)?.name ?? sh } : null };
     };
     const heroIds = () => [mainHero(this.db).id, ...this.members().map((m) => m.def.id)];
     // Can hero h wear it? Items can be kept to some heroes (Database → Items → Who can use it); arrows are the hero's.
@@ -2940,6 +2941,15 @@ export class Game {
         return { value: cur.id, options: adds.map((d) => [d.id, d.name] as [string, string]), note: `Rank ${rank} · ${cur.strikes.map((x) => (x.button === 'any' ? '★' : x.button ?? 'A')).join(' ')}` };
       },
       setStyle: (h, v) => { const a = this.abilitiesOf(h); if (a) a.addition = v; },
+      statuses: (h) => {
+        const id = heroIds()[h], st = this.weatherStates.get(id) ?? null, w = st ? WEATHER_STATE_INFO[st] : null;
+        const a = this.ailmentOf(h), ai = a ? this.combatCfg.turnBased.statusPills[a] : undefined;
+        return [
+          { label: 'Weather', name: w?.name ?? null, color: w?.color, text: w ? w.does : 'Nothing from the weather: not cold, hot or wet.' },
+          { label: 'Ailment', name: a ? effectName(a) : null, color: ai?.color, text: a ? `${effectName(a)}: ${(AILMENT_INFO[a as keyof typeof AILMENT_INFO]?.does ?? '').replace(/([^.!?])$/, '$1.')}` : 'No ailment. A hero can only have one at a time.' },
+          { label: 'Good state', name: null, text: 'No good state. Resting at camp with supplies gives Rested or Well Rested.' },
+        ];
+      },
       equip: (h, slot, id) => {
         if (slot === 'element1' || slot === 'element2') {
           const key = `elem:${h}:${slot === 'element2' ? 1 : 0}`;
@@ -4654,10 +4664,15 @@ export class Game {
   }
 
   /** Someone's ailment as a pill (the hero's from the map first, else one left from a battle), or none. */
+  /** Someone's ailment (the hero's from the map first, else one left from a battle), or undefined. */
+  private ailmentOf(who: number): BattleAilment | undefined {
+    return (who ? Object.keys(this.members()[who - 1]?.data.ailments ?? {})[0]
+      : this.combat.heroStatus.list.find((e) => !e.id.startsWith('buff:'))?.id ?? Object.keys(this.heroAilments)[0]) as BattleAilment | undefined;
+  }
+
   private ailmentPill(who: number): PartyMemberView['ailment'] {
     const tb = this.combatCfg.turnBased;
-    const a = (who ? Object.keys(this.members()[who - 1]?.data.ailments ?? {})[0]
-      : this.combat.heroStatus.list.find((e) => !e.id.startsWith('buff:'))?.id ?? Object.keys(this.heroAilments)[0]) as BattleAilment | undefined;
+    const a = this.ailmentOf(who);
     const p = a ? tb.statusPills[a] : undefined;
     return a && p ? { tag: tb.statusWords === 'full' ? p.word : p.tag, color: p.color, ink: p.ink, name: effectName(a) } : undefined;
   }

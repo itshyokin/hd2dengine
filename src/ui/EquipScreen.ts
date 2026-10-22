@@ -1,9 +1,9 @@
 /**
- * Equipment: the party across the top (← → another hero), every piece of equipment in the bag down the left, the
- * selected hero's gear in the middle and their numbers on the right. Moving over a piece in the list (or a choice for
- * a slot) shows every stat it would change for that hero (green up, red down). Heroes who can't use the piece are
- * greyed out, and it can only be put on one who can.
- * Keys: ↑ ↓ choose · Space equips (or, on the gear, changes that slot) · Y / R: between the list and the gear ·
+ * Equipment: the party across the top (← → another hero), the hero's statuses down the left (weather state, ailment,
+ * good state; moving over one explains it in the box below), the selected hero's gear in the middle and their numbers
+ * on the right. To equip, pick a slot, then the piece from the bag that fits it; moving over a choice shows every stat
+ * it would change for that hero (green up, red down).
+ * Keys: ↑ ↓ choose · Space changes the slot (or takes it off) · Y / R: between the gear and the statuses ·
  * ← → another hero · Esc goes back (LB / RB move between the Inventory's tabs).
  */
 import type { Input } from '../game/Input';
@@ -39,9 +39,14 @@ export interface EquipHost {
   /** The hero's Addition (what Attack performs; null: they have none, a plain attack): the ones learned, the one equipped. */
   style?(hero: number): { value: string; options: [string, string][]; note?: string } | null;
   setStyle?(hero: number, value: string): void;
+  /** The hero's statuses for the left column (Update 104): their weather state, ailment and good state. */
+  statuses?(hero: number): EquipStatus[];
   /** Put it on (null takes off). Returns a message, or null. */
   equip(hero: number, slot: EquipSlotId, id: string | null): string | null;
 }
+
+/** One row of the statuses column: what kind, what they have (null: none), its colour, and what it does. */
+export interface EquipStatus { label: string; name: string | null; color?: string; text: string }
 
 type Mode = { kind: 'list' } | { kind: 'slots' } | { kind: 'pick'; slot: EquipSlotId; index: number; list: (EquipChoice | null)[] };
 
@@ -79,14 +84,13 @@ export class EquipScreen {
     this.onClose = onClose;
     this.tabs = tabs;
     this.message = '';
-    const gear = this.host.gear();
-    if (at?.item && gear.some((g) => g.id === at.item)) { this.item = gear.findIndex((g) => g.id === at.item); this.mode = { kind: 'list' }; }
-    else if (at) {
+    // Opened on a piece (the bag's Equip): its slot, with the piece picked out in the choices.
+    this.mode = { kind: 'slots' };
+    if (at) {
       const k = this.host.slots(this.hero).findIndex((s) => s.slot === at.slot);
-      this.mode = { kind: 'slots' };
       if (k >= 0) { this.slot = k; this.pick(at.item); }
-    } else this.mode = gear.length ? { kind: 'list' } : { kind: 'slots' };
-    this.item = Math.max(0, Math.min(this.item, gear.length - 1));
+    }
+    this.item = 0;
     this.slot = Math.min(this.slot, this.host.slots(this.hero).length - 1);
     this.root.hidden = false;
     this.render();
@@ -130,11 +134,11 @@ export class EquipScreen {
     // Y / R: between the bag's list and the hero's gear.
     if (i.consume('switchWeapon')) { this.focus(m.kind === 'list' ? 'slots' : 'list'); return; }
     if (m.kind === 'list') {
-      const n = this.host.gear().length;
-      if (!n) { if (i.consume('up') || i.consume('down') || i.confirm()) this.focus('slots'); return; }
-      if (i.consume('up')) { this.item = (this.item + n - 1) % n; uiSound('menuMove'); this.render(); return; }
-      if (i.consume('down')) { this.item = (this.item + 1) % n; uiSound('menuMove'); this.render(); return; }
-      if (i.confirm()) this.equipListed();
+      // The statuses: ↑ ↓ read each one; Space goes back to the gear.
+      const n = this.statuses().length;
+      if (n && i.consume('up')) { this.item = (this.item + n - 1) % n; uiSound('menuMove'); this.render(); return; }
+      if (n && i.consume('down')) { this.item = (this.item + 1) % n; uiSound('menuMove'); this.render(); return; }
+      if (i.confirm()) this.focus('slots');
       return;
     }
     const st = this.host.style?.(this.hero), n = this.host.slots(this.hero).length + (st ? 1 : 0);
@@ -156,29 +160,12 @@ export class EquipScreen {
     this.render();
   }
 
+  private statuses(): EquipStatus[] { return this.host.statuses?.(this.hero) ?? []; }
+
   private focus(to: 'list' | 'slots'): void {
-    if (to === 'list' && !this.host.gear().length) { this.message = 'Nothing else in the bag to wear.'; uiSound('menuBack'); this.render(); return; }
+    if (to === 'list' && !this.statuses().length) { uiSound('menuBack'); return; }
     this.mode = { kind: to };
     uiSound('menuMove');
-    this.render();
-  }
-
-  /** Space on the list: put the piece on the selected hero (only one who can use it). */
-  private equipListed(): void {
-    const g = this.host.gear()[this.item];
-    if (!g) return;
-    if (!g.users[this.hero]) {
-      const heroes = this.host.heroes(), who = heroes.filter((_, k) => g.users[k]).map((x) => x.name);
-      uiSound('menuBack');
-      this.message = who.length ? `${heroes[this.hero].name} can’t use ${g.name}. ${who.join(', ')} can (← → to switch).` : `No one in the party can use ${g.name}.`;
-      this.render();
-      return;
-    }
-    uiSound('menuOk');
-    this.message = this.host.equip(this.hero, g.slot, g.id) ?? '';
-    const n = this.host.gear().length;
-    this.item = Math.max(0, Math.min(this.item, n - 1));
-    if (!n) this.mode = { kind: 'slots' };
     this.render();
   }
 
@@ -207,10 +194,10 @@ export class EquipScreen {
     const h = this.host, heroes = h.heroes(), slots = h.slots(this.hero), m = this.mode, gear = h.gear();
     if (this.hero >= heroes.length) this.hero = 0;
     const now = h.view(this.hero);
-    const listed = m.kind === 'list' ? gear[this.item] : undefined;
+    const sel = m.kind === 'pick' ? m.list[m.index] : undefined;
+    const listed = m.kind === 'pick' && sel ? gear.find((g) => g.id === sel.id) : undefined;
     let next: EquipView | null = null;
-    if (m.kind === 'pick') { const sel = m.list[m.index]; next = h.view(this.hero, { slot: m.slot, id: sel ? sel.id : null }); }
-    else if (listed && listed.users[this.hero]) next = h.view(this.hero, { slot: listed.slot, id: listed.id });
+    if (m.kind === 'pick') next = h.view(this.hero, { slot: m.slot, id: sel ? sel.id : null });
     const party = heroes.map((x, k) => (this.locked && k !== this.hero ? '' : `<button type="button" class="eq-hero${k === this.hero ? ' sel' : ''}${listed && !listed.users[k] ? ' cant' : ''}" data-hero="${k}"${listed && !listed.users[k] ? ` title="Can’t use ${esc(listed.name)}"` : ''}>
       <img src="${x.portrait}" alt=""><span><b>${esc(x.name)}</b><small>Level ${x.level}</small></span></button>`)).join('');
     const icon = (c: EquipChoice | null | undefined) => (c ? `<img src="${c.icon}" alt="">` : '<span class="eq-empty"></span>');
@@ -224,9 +211,12 @@ export class EquipScreen {
     const picker = m.kind === 'pick' ? `<div class="eq-pick" role="listbox">${m.list.length ? m.list.map((c, k) => `<button type="button" class="eq-choice${k === m.index ? ' sel' : ''}" data-choice="${k}" role="option" aria-selected="${k === m.index}">
         ${c ? icon(c) : '<span class="eq-empty off"></span>'}${c ? name(c) : '<span class="eq-name none">Take it off</span>'}${shard(c)}${c?.count && c.count > 1 ? `<span class="eq-count">× ${c.count}</span>` : '<span></span>'}
         ${c?.detail ? `<small>${esc(c.detail)}</small>` : ''}</button>`).join('') : '<p class="eq-none">Nothing in the bag fits here.</p>'}</div>` : '';
-    const list = gear.length ? gear.map((g, k) => `<button type="button" class="eq-item${m.kind === 'list' && k === this.item ? ' sel' : ''}${g.users[this.hero] ? '' : ' cant'}" data-item="${k}">
-        ${icon(g)}${name(g)}${shard(g)}${g.count && g.count > 1 ? `<span class="eq-count">× ${g.count}</span>` : '<span></span>'}${g.detail ? `<small>${esc(g.detail)}</small>` : ''}</button>`).join('')
-      : '<p class="eq-none">No other equipment in the bag.</p>';
+    const sts = this.statuses();
+    this.item = Math.max(0, Math.min(this.item, sts.length - 1));
+    const list = sts.map((x, k) => `<button type="button" class="eq-status${m.kind === 'list' && k === this.item ? ' sel' : ''}" data-item="${k}">
+        <span class="eq-label">${esc(x.label)}</span><span class="eq-st-name${x.name ? '' : ' none'}"${x.name && x.color ? ` style="--st:${x.color}"` : ''}>${esc(x.name ?? 'None')}</span></button>`).join('');
+    const shownStatus = sts[m.kind === 'list' ? this.item : -1];
+    const desc = shownStatus ? shownStatus.text : sel?.detail ?? (m.kind === 'pick' ? (m.list.length ? 'Take it off: the slot is left empty.' : 'Nothing in the bag fits this slot.') : 'Pick a slot to change it. Y / R: read the statuses.');
     const row = (label: string, a: number, b: number | undefined, unit = '') => {
       const d = b === undefined ? 0 : Math.round((b - a) * 10) / 10;
       return `<div class="eq-stat"><span>${label}</span><b>${Math.round(a)}${unit}</b>${b !== undefined && d !== 0 ? `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${Math.round(b)}${unit}</em>` : '<em></em>'}</div>`;
@@ -244,21 +234,22 @@ export class EquipScreen {
     ].join('');
     const many = heroes.length > 1, who = `${this.locked ? '' : '← → · '}${esc(this.input.label('subPrev'))} / ${esc(this.input.label('subNext'))}`, sw = esc(this.input.label('switchWeapon'));
     const note = m.kind === 'pick' ? '↑ ↓ compare · Space: equip · Esc: back'
-      : m.kind === 'list' ? `↑ ↓ compare · Space: put it on${many ? ` · ${who}: another hero` : ''} · ${sw}: ${esc(heroes[this.hero]?.name ?? '')}’s gear${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`
-        : `↑ ↓ choose a slot · Space: change it (or take it off; Addition: the next one)${many ? ` · ${who}: another hero` : ''} · ${sw}: the bag’s list${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`;
+      : m.kind === 'list' ? `↑ ↓ read each status${many ? ` · ${who}: another hero` : ''} · ${sw} or Space: ${esc(heroes[this.hero]?.name ?? '')}’s gear${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`
+        : `↑ ↓ choose a slot · Space: change it (or take it off; Addition: the next one)${many ? ` · ${who}: another hero` : ''} · ${sw}: statuses${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: close`;
     this.root.innerHTML = `<div class="inv-box eq-box">
       <div class="inv-head"><span class="menu-title">Equipment</span><span class="sk-points">${many ? `${who}: another hero` : ''}</span></div>
       ${tabStrip(this.tabs)}
       <div class="eq-body">
         <div class="eq-left"><div class="eq-party">${party}</div>
-        <div class="eq-list${m.kind === 'list' ? ' focus' : ''}"><div class="eq-col-title">In the bag</div>${list}</div></div>
+        <div class="eq-list eq-statuses${m.kind === 'list' ? ' focus' : ''}"><div class="eq-col-title">Status</div>${list}
+        <div class="eq-desc" aria-live="polite">${esc(desc)}</div></div></div>
         <div class="eq-mid${m.kind !== 'list' ? ' focus' : ''}"><div class="eq-col-title">${esc(heroes[this.hero]?.name ?? '')}’s gear</div><div class="eq-slots">${slotRows}${styleRow}</div>${picker}</div>
         <div class="eq-stats">${stats}</div>
       </div>
       <div class="inv-msg">${esc(this.message)}</div>
       <div class="menu-note">${note}</div>
     </div>`;
-    this.root.querySelector('.eq-item.sel, .eq-choice.sel')?.scrollIntoView({ block: 'nearest' });
+    this.root.querySelector('.eq-choice.sel')?.scrollIntoView({ block: 'nearest' });
     this.root.querySelectorAll<HTMLElement>('[data-slot]').forEach((b) => b.addEventListener('click', () => {
       const k = Number(b.dataset.slot);
       if (this.mode.kind === 'pick' && k === this.slot) { this.mode = { kind: 'slots' }; this.render(); return; }
@@ -266,9 +257,7 @@ export class EquipScreen {
     }));
     this.root.querySelector('[data-style]')?.addEventListener('click', () => { this.mode = { kind: 'slots' }; this.slot = slots.length; this.cycleStyle(1); });
     this.root.querySelectorAll<HTMLElement>('[data-item]').forEach((b) => b.addEventListener('click', () => {
-      const k = Number(b.dataset.item);
-      if (this.mode.kind === 'list' && this.item === k) { this.equipListed(); return; }
-      this.item = k; this.mode = { kind: 'list' }; uiSound('menuMove'); this.render();
+      this.item = Number(b.dataset.item); this.mode = { kind: 'list' }; uiSound('menuMove'); this.render();
     }));
     this.root.querySelectorAll<HTMLElement>('[data-choice]').forEach((b) => {
       b.addEventListener('pointerenter', () => { const mm = this.mode; if (mm.kind === 'pick' && mm.index !== Number(b.dataset.choice)) { mm.index = Number(b.dataset.choice); this.render(); } });
