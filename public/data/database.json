@@ -500,10 +500,7 @@
             "https://opengameart.org/content/lpc-expanded-simple-shirts"
           ]
         }
-      ],
-      "model": {
-        "file": "assets/models/characters/hero/idle_katrina.glb"
-      }
+      ]
     },
     "mira": {
       "name": "Devin",
