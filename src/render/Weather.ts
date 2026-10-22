@@ -150,7 +150,9 @@ export class Weather {
 
   /** Change the weather: the old fades out as the new fades in. */
   set(kind: WeatherKind, amount: number, center: THREE.Vector3): void {
-    amount = Math.max(0, Math.min(2, amount));
+    // A kind with no look (a typo, an old save): clear skies rather than a crash.
+    if (kind !== 'none' && !(kind in STYLES)) kind = 'none';
+    amount = Math.max(0, Math.min(2, Number.isFinite(amount) ? amount : 1));
     if (kind === this.kind && Math.abs(amount - this.amount) < 0.01) return;
     for (const l of this.layers) l.target = 0;
     this.kind = kind; this.amount = amount;

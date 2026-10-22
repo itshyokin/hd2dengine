@@ -4493,7 +4493,13 @@ export class Game {
       { name: 'audio_chiptune', args: '[true|false]', help: 'Hear the built-in chiptune instead of imported sounds and music (nothing in the Database changes)', complete: () => ['true', 'false'],
         run: (a) => { this.audio.chipTest = onOff(a[0], this.audio.chipTest); return this.audio.chipTest ? 'Chiptune test on: every effect and theme plays its built-in chip version. audio_chiptune false puts your sounds back.' : 'Chiptune test off: your own sounds are back.'; } },
       { name: 'weather', args: '<kind> [amount]', help: 'Change this map’s weather', complete: () => [...WEATHER_KINDS],
-        run: (a) => run([{ cmd: 'weather', kind: need(a[0], 'weather') as WeatherKind, amount: num(a[1], 1) }]) },
+        run: (a) => {
+          // Everyday names for the kinds (clear skies are "none").
+          const said = need(a[0], 'weather').toLowerCase();
+          const kind = ({ clear: 'none', sun: 'none', sunny: 'none', off: 'none', fog: 'haze', mist: 'haze', thunder: 'storm', thunderstorm: 'storm', sand: 'sandstorm', leaf: 'leaves' } as Record<string, WeatherKind>)[said] ?? said;
+          if (!WEATHER_KINDS.includes(kind as WeatherKind)) return `No weather called “${a[0]}”. Try: ${WEATHER_KINDS.join(', ')}.`;
+          return run([{ cmd: 'weather', kind: kind as WeatherKind, amount: num(a[1], 1) }]);
+        } },
       { name: 'season', args: '<spring|summer|autumn|winter|auto>', help: 'Show a season (auto: the real one)', complete: () => ['spring', 'summer', 'autumn', 'winter', 'auto'],
         run: (a) => { const v = need(a[0], 'season'); this.seasonTest = v === 'auto' ? null : v as Season; return `Season: ${v}`; } },
       { name: 'horse', args: '[horse id|home|on|off]', help: 'Get a horse for free (or send it home, get on, get off)', complete: () => [...horseList(this.db).map((x) => x.id), 'home', 'on', 'off'],
