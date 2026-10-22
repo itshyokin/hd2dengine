@@ -29,7 +29,13 @@ export interface EventContext {
   /** Health, magic and stamina to full for the party; ailments cured (not Zombie). */
   fullRest(): void;
   /** Give or cure an ailment on the hero. */
-  ailment(op: 'give' | 'cure', a: Ailment | 'all', seconds?: number): void;
+  ailment(op: 'give' | 'cure', a: Ailment | 'all', seconds?: number, hero?: string): void;
+  /** A rest point: the hours picker, camping supplies and sleep (the event waits while busy() says so). */
+  rest?(c: Extract<Command, { cmd: 'rest' }>): void;
+  /** Give or take away a good state (Rested / Well Rested). */
+  goodState?(c: Extract<Command, { cmd: 'goodState' }>): void;
+  /** Set heroes' weather state. */
+  heroWeather?(c: Extract<Command, { cmd: 'heroWeather' }>): void;
   /** Move the player to another map (or another spot on this one). */
   transfer(t: Extract<Command, { cmd: 'transfer' }>): void;
   /** Open the save screen (a save point); the event waits until it closes. */
@@ -191,8 +197,11 @@ export class Interpreter {
         this.ctx.fullRest();
         break;
       case 'ailment':
-        this.ctx.ailment(c.op, c.ailment, c.seconds);
+        this.ctx.ailment(c.op, c.ailment, c.seconds, c.hero);
         break;
+      case 'rest': message.close(); this.ctx.rest?.(c); break;
+      case 'goodState': this.ctx.goodState?.(c); break;
+      case 'heroWeather': this.ctx.heroWeather?.(c); break;
       case 'gauge':
         this.ctx.changeGauge(c.gauge, c.op, c.value);
         break;

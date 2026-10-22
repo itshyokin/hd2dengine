@@ -23,7 +23,7 @@ type Cmd = Command['cmd'];
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['roost', 'Griffin roost (fly)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -31,7 +31,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', roost: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -54,6 +54,9 @@ function defaultCommand(cmd: Cmd): Command {
     case 'gauge': return { cmd, gauge: 'hp', op: 'fill', value: 0 };
     case 'ailment': return { cmd, op: 'give', ailment: 'poison' };
     case 'fullRest': return { cmd };
+    case 'rest': return { cmd };
+    case 'goodState': return { cmd, hero: 'all', kind: 'wellRested' };
+    case 'heroWeather': return { cmd, hero: 'all', state: 'wet' };
     case 'tendFire': return { cmd };
     case 'transfer': return { cmd, map: '', x: 0, z: 0 };
     case 'save': return { cmd };
@@ -90,6 +93,14 @@ const whoName = (who: string): string => (!who ? 'The hero' : who === '@party' ?
 /** Heroes who can join (all but the first), for the party command (set by the editor that owns the database). */
 let heroList: () => [string, string][] = () => [];
 export function setHeroLookup(fn: () => [string, string][]): void { heroList = fn; }
+
+/** Who a hero command is for: '' the hero you play, 'all' everyone, or a hero's id. */
+const heroWhoName = (who: string | undefined): string => (!who ? 'The hero' : who === 'all' ? 'Everyone' : who === 'any' ? 'Anyone in the party' : (dbNow?.().heroes ?? []).find((x) => x.id === who)?.name ?? who);
+const heroWhoChoices = (everyone: 'all' | 'any'): [string, string][] => [['', 'The hero you play'], [everyone, everyone === 'all' ? 'Everyone in the party' : 'Anyone in the party'], ...(dbNow?.().heroes ?? []).slice(1).map((x) => [x.id, x.name] as [string, string])];
+const HERO_WEATHER: [string, string][] = [['normal', 'Normal (warm and dry)'], ['wet', 'Wet'], ['cold', 'Cold'], ['freezing', 'Freezing'], ['hot', 'Hot'], ['overheating', 'Overheating']];
+const HERO_STATES: [string, string][] = [['comfortable', 'Comfortable'], ['wet', 'Wet'], ['cold', 'Cold'], ['freezing', 'Freezing'], ['hot', 'Hot'], ['overheating', 'Overheating'],
+  ['ailment', 'Any ailment'], ...AILMENTS.filter((a) => a !== 'chill' && a !== 'stagger').map((a) => [a, AILMENT_INFO[a].name] as [string, string]),
+  ['good', 'Any good state'], ['rested', 'Rested'], ['wellRested', 'Well Rested']];
 
 /** Item names for summaries (set by the editor that owns the database). */
 let itemNames: (id: string) => string = (id) => id;
@@ -150,6 +161,7 @@ export function conditionText(c: Condition): string {
   if ('moon' in c) return `the moon is ${c.moon.length ? c.moon.map((m) => MOON_NAMES[m].toLowerCase()).join(' or ') : '(no phase picked)'} (real world)`;
   if ('temp' in c) return `it's ${c.op === '<=' ? 'at most' : 'at least'} ${c.temp}°F here`;
   if ('weather' in c) return `the weather is ${c.weather.length ? c.weather.map((k) => WEATHER_NAMES[k].toLowerCase()).join(' or ') : '(none picked)'}`;
+  if ('heroHas' in c) return `${heroWhoName(c.hero)} ${c.is === false ? 'is not' : c.hero === 'any' ? 'is' : 'is'} ${(HERO_STATES.find(([k]) => k === c.heroHas)?.[1] ?? c.heroHas).toLowerCase()}`;
   if ('weekday' in c) return `it's ${c.weekday.length ? c.weekday.map((d) => WEEKDAYS[d]).join(' or ') : '(no day picked)'} (real world)`;
   return `variable ${c.var || '(unnamed)'} ${c.op} ${c.value}`;
 }
@@ -174,8 +186,11 @@ function summary(c: Command): string {
     case 'transfer': return transferSummary(c);
     case 'save': return 'Let the player save (a save point)';
     case 'fullRest': return 'Health, magic and stamina to full; ailments cured';
+    case 'rest': return `Pick hours to rest${c.noSupplies ? '' : ', then camping supplies'}${c.noRespawn ? '' : '; sets the respawn point'}`;
+    case 'goodState': return `${heroWhoName(c.hero)}: ${c.kind === 'none' ? 'no good state' : `${c.kind === 'rested' ? 'Rested' : 'Well Rested'}${c.hours || c.minutes ? ` for ${c.hours ? `${c.hours} h` : ''}${c.hours && c.minutes ? ' ' : ''}${c.minutes ? `${c.minutes} m` : ''}` : ''}`}`;
+    case 'heroWeather': return `${heroWhoName(c.hero)}: ${HERO_WEATHER.find(([k]) => k === c.state)?.[1] ?? c.state}`;
     case 'tendFire': return 'Open the nearest fire’s fuel menu';
-    case 'ailment': return `${c.op === 'give' ? 'Give' : 'Cure'} ${c.ailment === 'all' ? 'all ailments' : AILMENT_INFO[c.ailment].name}${c.op === 'give' && c.seconds ? ` for ${c.seconds}s` : ''}`;
+    case 'ailment': return `${c.hero ? `${heroWhoName(c.hero)}: ` : ''}${c.op === 'give' ? 'Give' : 'Cure'} ${c.ailment === 'all' ? 'all ailments' : AILMENT_INFO[c.ailment].name}`;
     case 'gauge': return `${GAUGE_NAMES[c.gauge]} ${c.op === 'fill' ? 'to full' : c.op === 'set' ? `= ${c.value}` : c.value < 0 ? `− ${-c.value}` : `+ ${c.value}`}`;
     case 'giveItem': return `${c.count} × ${itemName(c.item)}${c.silent ? ' (quietly)' : ''}`;
     case 'takeItem': return `${c.count} × ${itemName(c.item)}`;
@@ -551,17 +566,32 @@ export class CommandEditor {
         return [h('p', { class: 'hint' }, 'For an inn bed or a campfire: health, magic and stamina back to full for the whole party, and ailments cured (Zombie needs its own cure). Pair it with “Set time of day” to sleep until morning.')];
       case 'tendFire':
         return [h('p', { class: 'hint' }, 'Opens the fuel menu of the fire nearest the hero (a fire prop with a burn time): how long it burns, and fuel from the bag to add. Use it as one of a campfire event’s choices. In text, \\fire shows how long the nearest fire burns, e.g. “The fire will burn for \\fire.”')];
+      case 'rest':
+        return [checkbox('Camping supplies (Rested / Well Rested)', !d.noSupplies, (v) => { if (v) delete d.noSupplies; else d.noSupplies = true; }),
+          checkbox('Sets the respawn point', !d.noRespawn, (v) => { if (v) delete d.noRespawn; else d.noRespawn = true; }),
+          h('p', { class: 'hint' }, 'A campfire or bedroll: the player picks how many hours to rest (health and magic come back 20% an hour; 1 hour already warms and dries the party; 5+ hours is a full restore that cures every ailment), then camping supplies from the bag (each item’s Camp value: 25 makes the party Rested, 50 Well Rested; under 25 nothing is spent), and the party sleeps. Use “Create rest point here” on an empty tile for a ready-made one.')];
+      case 'goodState':
+        return [field('Who', select(heroWhoChoices('all'), d.hero, (v) => (d.hero = v))),
+          field('Good state', select([['rested', 'Rested (+1 to every stat, +10% EXP)'], ['wellRested', 'Well Rested (+3 to every stat, +25% EXP)'], ['none', 'Take it away']], d.kind, (v) => (d.kind = v as typeof d.kind))),
+          h('div', { class: 'field-row' },
+            field('Hours', numberInput(d.hours ?? 0, (v) => { const n = Math.max(0, Math.round(v)); if (n) d.hours = n; else delete d.hours; }, { step: 1, min: 0 })),
+            field('Minutes', numberInput(d.minutes ?? 0, (v) => { const n = Math.max(0, Math.min(59, Math.round(v))); if (n) d.minutes = n; else delete d.minutes; }, { step: 5, min: 0, max: 59 }))),
+          h('p', { class: 'hint' }, 'Game time. 0 hours and 0 minutes: as long as Database → Weather & temperature → Resting and camping says. A blessing at a shrine can be a Well Rested. A new good state replaces the old one, but Rested never replaces Well Rested.')];
+      case 'heroWeather':
+        return [field('Who', select(heroWhoChoices('all'), d.hero, (v) => (d.hero = v))),
+          field('Weather state', select(HERO_WEATHER, d.state, (v) => (d.state = v as typeof d.state))),
+          h('p', { class: 'hint' }, 'Soak them (a bucket of water, falling in a river), chill them to the bone, or warm and dry them (Normal). It changes from there as usual with the weather where they stand.')];
       case 'ailment': {
         const secs = field('For (seconds)', numberInput(d.seconds ?? 0, (v) => { const n = Math.max(0, Math.round(v * 10) / 10); if (n) d.seconds = n; else delete d.seconds; }, { step: 1, min: 0 }), '0: its usual time (Zombie: until cured).');
-        secs.hidden = d.op !== 'give';
+        secs.hidden = true;
         const ailSel = select([...(d.op === 'cure' ? [['all', 'All ailments (not Zombie)'] as [string, string]] : []), ...AILMENTS.map((a) => [a, AILMENT_INFO[a].name] as [string, string])], d.ailment, (v) => (d.ailment = v as Ailment | 'all'));
         return [field('Do', select([['give', 'Give'], ['cure', 'Cure']], d.op, (v) => {
           d.op = v as 'give' | 'cure'; secs.hidden = d.op !== 'give';
           if (d.op === 'give' && d.ailment === 'all') d.ailment = 'poison';
           ailSel.replaceChildren(...[...(d.op === 'cure' ? [['all', 'All ailments (not Zombie)']] : []), ...AILMENTS.map((a) => [a, AILMENT_INFO[a].name])].map(([k, l]) => h('option', { value: k }, l)));
           ailSel.value = d.ailment;
-        })), field('Ailment', ailSel), secs,
-        h('p', { class: 'hint' }, 'The hero’s own resistances and gear that wards it off still count when giving. For a trap, a poison swamp or a cursed chest.')];
+        })), field('Who', select(heroWhoChoices('all'), d.hero ?? '', (v) => { if (v) d.hero = v; else delete d.hero; })), field('Ailment', ailSel), secs,
+        h('p', { class: 'hint' }, 'One ailment per hero: someone who already has one doesn’t get another. Their resistances and gear that wards it off count when giving. Poison and Burn wear off once they’re down to 1 health; the rest last until cured (an item, this command, or 5+ hours of rest). Chill and Stagger only happen in battle. For a trap, a poison swamp or a cursed chest.')];
       }
       case 'gauge': {
         const value = numberInput(d.value, (v) => (d.value = v), { step: 1 });
@@ -816,12 +846,12 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
       cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'self' ? { self: 'A', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
-        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
+        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
       render();
@@ -872,6 +902,13 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
       parts.push(field('When the weather is', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...WEATHER_KINDS.map((k) => checkbox(WEATHER_NAMES[k], c.weather.includes(k), (on) => {
         c.weather = on ? WEATHER_KINDS.filter((x) => x === k || c.weather.includes(x)) : c.weather.filter((x) => x !== k); onchange(c);
       }))), 'The weather on the map the player is on (Clear: none).'));
+    } else if (cur && 'heroHas' in cur) {
+      const c = cur;
+      parts.push(h('div', { class: 'field-row' },
+        field('Who', select(heroWhoChoices('any'), c.hero ?? '', (v) => { c.hero = v; onchange(c); })),
+        field('Is', select([['yes', 'is'], ['no', 'is not']], c.is === false ? 'no' : 'yes', (v) => { c.is = v === 'yes' ? undefined : false; onchange(c); })),
+        field('State', select(HERO_STATES, c.heroHas, (v) => { c.heroHas = v; onchange(c); }))),
+        h('p', { class: 'hint' }, 'Their weather state, an ailment, or a good state from resting. Anyone: true if at least one of the party is.'));
     } else if (cur && 'moon' in cur) {
       const c = cur;
       parts.push(field('When the moon is', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...MOON_PHASES.map((ph) => checkbox(MOON_NAMES[ph], c.moon.includes(ph), (on) => {

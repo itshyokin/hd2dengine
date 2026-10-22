@@ -30,6 +30,7 @@ export const DEFAULT_BODY: Required<Omit<BodyConfig, 'slow'>> & { slow: Required
   rumble: 2,
   hpTint: false,
   ailmentSteps: 10, ailmentPct: 4,
+  restedHours: 2, wellRestedHours: 1.5,
   slow: { wet: 10, mild: 20, severe: 35 },
 };
 export type BodySettings = typeof DEFAULT_BODY;

@@ -54,7 +54,7 @@ import { BattleScreen, type FighterView, type VictoryHero, type VictoryLoot, typ
 import { pickTroop, zoneAt } from '../world/zones';
 import { type BattleEntry, type BattleHost, TurnBattle } from './battle/TurnBattle';
 import { type BattleAddition, type BattleSpell, type Battler, type Opening, enemyAgility, weighted } from './battle/rules';
-import { type BattleAilment, BattleStatus, turnsFromSeconds } from './battle/status';
+import { BATTLE_AILMENT, type BattleAilment, BattleStatus, turnsFromSeconds } from './battle/status';
 import { HEAL_MP } from './party';
 import {
   additionBonus, additionList, additionRank, additionToNext, changeClass, findAddition, findClass, findSpell, heroTrees, learnAddition,
@@ -92,7 +92,7 @@ import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, setAttrOrder, speedMultiplier } from './attributes';
 import { classStatGear, gearKindName, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
-import { AILMENT_INFO, buffLabel, effectColor, effectName, type EffectId } from './status';
+import { AILMENTS, AILMENT_INFO, buffLabel, effectColor, effectName, type EffectId } from './status';
 import { STATUS_WORD } from './combat/Combat';
 import type { CharacterDef, EncounterPick, EnemyDef, HorseDef, LevelRange, OverworldCamera, TroopDef } from '../world/types';
 import { atLevel, partyLevel, rollLevel } from './enemyLevels';
@@ -149,6 +149,8 @@ import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, fo
 import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, pickChatter } from './chatter';
+import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
+import { RestScreen } from '../ui/RestScreen';
 import type { ChatterTrigger } from '../world/types';
 import { isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
 import { type BodyPlace, type BodySettings, type BodyState, type WeatherState, WEATHER_STATE_INFO, bodySettings, hurts, slowOf, soothe, stepBody, weatherState } from './body';
@@ -344,6 +346,7 @@ export class Game {
   private saveScreen!: SaveScreen;
   private creation!: CreationScreen;
   private equipScreen!: EquipScreen;
+  private restScreen!: RestScreen;
   private partyScreen!: PartyScreen;
   private pauseShell!: PauseShell;
   /** Where the hero stands in the lineup: 0 first; past the first three, on the bench. */
@@ -578,7 +581,7 @@ export class Game {
 
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
-    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind };
+    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what) };
     this.message.tick = () => { if (this.settings.textTicks !== false) this.audio.play('textTick', undefined, undefined, 0.8); };
     this.touch = new TouchControls(this.ui, this.input);
     this.hud = new StatusBars(this.ui);
@@ -648,12 +651,23 @@ export class Game {
         const m = h ? this.members()[h - 1] : null;
         const own = { ...(m ? m.data.stats : this.progress.stats) };
         for (const k of ATTRS) own[k] += extra[k];
-        return m ? heroTotals(own, this.statGear(m.data.equip, m.data.abilities, this.memberSkills(m.data)), (k) => this.memberSkills(m.data).get(k)) : heroTotals(own, this.statGear(), (k) => (this.skills?.get(k) ?? 0) + this.combat.heroStatus.buff(k));
+        return m ? heroTotals(own, this.statGear(m.data.equip, m.data.abilities, this.memberSkills(m.data)), (k) => this.memberSkills(m.data).get(k) + this.goodBonus(m.data.id, k)) : heroTotals(own, this.statGear(), (k) => (this.skills?.get(k) ?? 0) + this.combat.heroStatus.buff(k) + this.goodBonus(mainHero(this.db).id, k));
       },
       spend: (h, add) => (h ? spendMember(this.members()[h - 1].data, add) : this.progress.spend(add)),
     });
     this.creation = new CreationScreen(this.ui, this.input);
     this.equipScreen = new EquipScreen(this.ui, this.input, this.equipHost());
+    this.restScreen = new RestScreen(this.ui, this.input, {
+      party: () => this.bodyParty().map((p, who) => {
+        const m = who ? this.members()[who - 1] : null, mx = m ? this.allyNumbers(m.data, m.def).max : null;
+        return { name: p.name, face: who ? (m!.def.face ? this.resolveFile(m!.def.face) : this.memberPortrait(m!.def)) : this.portraitUrl ?? '', hp: [Math.max(0, p.hp), p.maxHp], mp: m ? [m.data.mp, mx!.mp] : [this.stats.mp, this.stats.cfg.max.mp], down: p.hp <= 0 };
+      }),
+      supplies: () => {
+        const seen = new Map<string, number>();
+        for (const st of this.inventory.slots) if (st && !seen.has(st.id)) { const d = this.items.get(st.id); if (d?.camp && d.camp > 0) seen.set(st.id, this.inventory.count(st.id)); }
+        return [...seen].map(([id, count]) => { const d = this.items.get(id)!; return { id, name: d.name, icon: this.itemIcon(id), camp: d.camp ?? 0, count, price: d.price ?? 1 }; });
+      },
+    });
     // A hero's Status page: who they are, ailments, their numbers and what they wear.
     this.charScreen = new CharacterScreen(this.ui, this.input, {
       hero: (h) => {
@@ -670,6 +684,7 @@ export class Game {
       view: (h) => this.equipHost().view(h),
       ailments: (h) => h ? [] : this.combat.heroStatus.list.map((e) => ({ name: effectName(e.id), icon: statusIconUrl(e.id), left: Number.isFinite(e.total) ? `${Math.ceil(e.left)}s` : undefined })),
       ranks: (h) => this.heroRanks(h),
+      good: (h) => { const g = this.goodOf(this.heroIdOf(h)); return g ? { name: GOOD_INFO[g.kind].name, stat: GOOD_INFO[g.kind].stat, exp: GOOD_INFO[g.kind].exp, left: hoursLabel(g.until - this.state.clock) } : null; },
       order: () => this.lineupWhos(),
     });
     // Party (the pause menu's first tab): the three fighting as cards; Status, Equipment, Skill Tree… and Swap.
@@ -819,7 +834,10 @@ export class Game {
       isFading: () => this.fade.t < 1,
       refreshEvents: () => this.refreshEvents(),
       changeGauge: (g, op, v) => this.stats.change(g, op, v),
-      ailment: (op, a, secs) => this.ailmentCommand(op, a, secs),
+      ailment: (op, a, secs, hero) => this.ailmentCommand(op, a, secs, false, hero),
+      rest: (c) => this.startRest(c),
+      goodState: (c) => this.goodStateCommand(c),
+      heroWeather: (c) => this.heroWeatherCommand(c),
       transfer: (t) => this.requestTransfer(t.map, { x: t.x + 0.5, z: t.z + 0.5, dir: t.dir }, t.fade ?? 'black', { autosave: true }),
       openSave: () => this.openSaveScreen(true),
       items: {
@@ -860,7 +878,7 @@ export class Game {
         if (!list.length) return;
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined, pick });
       },
-      busy: () => this.battle.active || this.battlePending || !!this.sleeping || this.flightPick || !!this.flight,
+      busy: () => this.battle.active || this.battlePending || !!this.sleeping || this.restScreen.isOpen || this.flightPick || !!this.flight,
       sleep: (c) => this.startSleep(c),
       statRank: (c) => { const n = this.setStatRank(c.hero, c.stat, c.rank); return n.length ? `${n.join(', ')}: ${ATTR_INFO[c.stat].name} now grows at Rank ${c.rank}.` : null; },
       temperature: (op, value) => { this.tempHere = op === 'reset' ? null : { op, value: value ?? 0 }; },
@@ -1725,7 +1743,7 @@ export class Game {
     this.updateFps(raw);
     const dt = Math.min(raw, 0.05);
     this.elapsed += dt;
-    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
+    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.restScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
@@ -1747,6 +1765,7 @@ export class Game {
       else if (this.worldMap.isOpen) this.worldMap.update(dt);
       else if (this.achScreen.isOpen) this.achScreen.update();
       else if (this.saveScreen.isOpen) this.saveScreen.update();
+      else if (this.restScreen.isOpen) this.restScreen.update();
       else if (this.equipScreen.isOpen) this.equipScreen.update();
       else if (this.partyScreen.isOpen) this.partyScreen.update();
       else if (this.charScreen.isOpen) this.charScreen.update();
@@ -2913,7 +2932,7 @@ export class Game {
         if (mem) {
           const gear = { ...mem.data.equip };
           if (change && change.slot !== 'ammo') { if (change.id) gear[change.slot as EquipSlot] = change.id; else delete gear[change.slot as EquipSlot]; }
-          const n = this.allyNumbers({ ...mem.data, equip: gear }, mem.def), t = heroTotals(mem.data.stats, this.statGear(gear, mem.data.abilities, this.memberSkills(mem.data)), (k) => this.memberSkills(mem.data).get(k));
+          const n = this.allyNumbers({ ...mem.data, equip: gear }, mem.def), t = heroTotals(mem.data.stats, this.statGear(gear, mem.data.abilities, this.memberSkills(mem.data)), (k) => this.memberSkills(mem.data).get(k) + this.goodBonus(mem.data.id, k));
           return { ...t, melee: n.melee, bow: n.bow, spell: n.spell };
         }
         const gear = { ...this.inventory.equip };
@@ -2948,7 +2967,9 @@ export class Game {
         return [
           { label: 'Weather', name: w?.name ?? null, color: w?.color, text: w ? w.does : 'Nothing from the weather: not cold, hot or wet.' },
           { label: 'Ailment', name: a ? effectName(a) : null, color: ai?.color, text: a ? `${effectName(a)}: ${(AILMENT_INFO[a as keyof typeof AILMENT_INFO]?.does ?? '').replace(/([^.!?])$/, '$1.')}` : 'No ailment. A hero can only have one at a time.' },
-          { label: 'Good state', name: null, text: 'No good state. Resting at camp with supplies gives Rested or Well Rested.' },
+          (() => { const g = this.goodOf(id); return g
+            ? { label: 'Good state', name: GOOD_INFO[g.kind].name, color: GOOD_INFO[g.kind].color, text: `${GOOD_INFO[g.kind].name}: +${GOOD_INFO[g.kind].stat} to every stat and +${GOOD_INFO[g.kind].exp}% EXP from battles. ${hoursLabel(g.until - this.state.clock)} left (game time).` }
+            : { label: 'Good state', name: null, text: 'No good state. Camping with 25 points of supplies makes the party Rested (+1 to every stat, +10% EXP); 50 makes them Well Rested (+3, +25%). Inns give Well Rested.' }; })(),
         ];
       },
       equip: (h, slot, id) => {
@@ -3977,7 +3998,7 @@ export class Game {
 
   /** The hero's stats with what they wear and their skills (crit chance, defences). */
   heroTotals(gear: Partial<Record<EquipSlot, string>> = this.inventory.equip): HeroTotals {
-    return heroTotals(this.progress.stats, this.statGear(gear), (k) => (this.skills?.get(k) ?? 0) + (this.combat?.heroStatus.buff(k) ?? 0));
+    return heroTotals(this.progress.stats, this.statGear(gear), (k) => (this.skills?.get(k) ?? 0) + (this.combat?.heroStatus.buff(k) ?? 0) + this.goodBonus(mainHero(this.db).id, k));
   }
 
   /** A hero's growth ranks now (0: the hero you play): the Database's, changed by potions and events, lifted by worn gear. */
@@ -4012,21 +4033,142 @@ export class Game {
     return proficientWith(sk, cls) && gearSkill(this.db, a, w, sk) !== 'untrained' ? 1 : UNTRAINED_DAMAGE;
   }
 
-  /** Give or cure an ailment on the hero (events, ailment tiles). */
-  ailmentCommand(op: 'give' | 'cure', a: Ailment | 'all', seconds?: number, quiet = false): void {
-    const st = this.combat.heroStatus, p = this.player.position;
+  /** Which party member a hero id means ('' or the first hero: 0), or -1 when they aren't in the party. */
+  private whoOf(id: string): number {
+    if (!id || id === mainHero(this.db).id) return 0;
+    const k = this.members().findIndex((m) => m.def.id === id);
+    return k < 0 ? -1 : k + 1;
+  }
+  /** The party members a command means: '' the hero, 'all' everyone, or a hero's id. */
+  private whosFor(hero: string | undefined): number[] {
+    if (hero === 'all' || hero === 'any') return [0, ...this.members().map((_, k) => k + 1)];
+    const w = this.whoOf(hero ?? '');
+    return w < 0 ? [] : [w];
+  }
+  private heroIdOf(who: number): string { return who ? this.members()[who - 1]?.def.id ?? '' : mainHero(this.db).id; }
+
+  /**
+   * Give or cure an ailment (events, ailment tiles). Out of battle (Update 105): one per hero; someone who has one
+   * gets no other (Zombie included); resistances and warding gear count; Chill and Stagger only happen in battle.
+   */
+  ailmentCommand(op: 'give' | 'cure', a: Ailment | 'all', seconds?: number, quiet = false, hero?: string): void {
+    void seconds;
+    const p = this.player.position;
     if (op === 'cure') {
-      const cured = st.cure([a]);
-      this.clearLingering([a], 0);
-      if (cured.length && !quiet) this.overlay.float(`${cured.map(effectName).join(', ')} cured`, p.x, p.y + 1.7, p.z, 'info');
+      const out: string[] = [];
+      for (const who of this.whosFor(hero)) {
+        if (who === 0) out.push(...this.combat.heroStatus.cure([a]).map(String));
+        out.push(...this.clearLingering([a], who));
+      }
+      if (out.length && !quiet) this.overlay.float(`${[...new Set(out)].map((x) => effectName(x as never)).join(', ')} cured`, p.x, p.y + 1.7, p.z, 'info');
       return;
     }
-    if (a === 'all') return;
-    st.setOwner({ resists: [...(mainHero(this.db).resists ?? []), ...this.wornGear().flatMap((g) => g?.protects ?? [])] });
-    const r = st.inflict(a, seconds);
-    if (quiet && r !== 'applied' && r !== 'frozen') return;
-    if (r === 'applied' || r === 'refreshed' || r === 'frozen') this.overlay.float(r === 'frozen' ? 'Frozen!' : effectName(a), p.x, p.y + 1.7, p.z, 'info', effectColor(r === 'frozen' ? 'frozen' : a));
-    if (r === 'applied' || r === 'frozen') this.log.add(`You are ${STATUS_WORD[r === 'frozen' ? 'frozen' : a]}`, 'hurt');
+    if (a === 'all' || a === 'chill' || a === 'stagger') return;
+    for (const who of this.whosFor(hero)) {
+      const m = who ? this.members()[who - 1] : null;
+      if (m ? m.data.down : this.stats.hp <= 0) continue;
+      if (this.ailmentOf(who)) continue;
+      const def = m ? m.def : mainHero(this.db);
+      const resists = [...(def.resists ?? []), ...this.wornGear(m ? m.data.equip : undefined).flatMap((g) => g?.protects ?? [])];
+      if (resists.includes(a)) continue;
+      const turns = BATTLE_AILMENT[a].turns, rec = { [a]: Number.isFinite(turns) ? Math.max(1, turns) : 99 };
+      if (m) m.data.ailments = rec; else this.heroAilments = rec;
+      const at = m ? this.allies.find((x) => x.data === m.data) : null, pos = at ? { x: at.x, y: at.y, z: at.z } : p;
+      this.overlay.float(effectName(a), pos.x, pos.y + 1.7, pos.z, 'info', effectColor(a));
+      this.log.add(`${def.name} is ${STATUS_WORD[a].toLowerCase()}`, 'hurt');
+    }
+  }
+
+  /* ---------------------------------------------------------------- good states and resting (Update 106) */
+
+  /** A hero's good state while it lasts. */
+  private goodOf(id: string): GoodState | undefined {
+    const g = this.state.good.get(id);
+    return g && g.until > this.state.clock ? g : undefined;
+  }
+  /** What a good state adds to a stat (Rested +1, Well Rested +3 to every stat). */
+  private goodBonus(id: string, k: string): number {
+    const g = this.goodOf(id);
+    return g && (ATTRS as readonly string[]).includes(k) ? GOOD_INFO[g.kind].stat : 0;
+  }
+  /** Give a good state (for these hours; unset: the Database's), by the replacement rule. */
+  private giveGood(hero: string, kind: GoodKind, hours?: number): void {
+    const names: string[] = [];
+    for (const who of this.whosFor(hero)) {
+      const id = this.heroIdOf(who), cur = this.state.good.get(id);
+      const next = nextGood(cur, kind, this.state.clock, hours ?? goodHours(this.db.body, kind));
+      if (!next) continue;
+      this.state.good.set(id, next);
+      if (next.kind === kind) names.push(who ? this.members()[who - 1].def.name : mainHero(this.db).name);
+    }
+    if (names.length) this.log.add(`${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} ${GOOD_INFO[kind].name}: +${GOOD_INFO[kind].stat} to every stat, +${GOOD_INFO[kind].exp}% EXP`, 'level');
+    this.applySkillStats();
+  }
+  private goodStateCommand(c: Extract<Command, { cmd: 'goodState' }>): void {
+    if (c.kind === 'none') { for (const who of this.whosFor(c.hero)) this.state.good.delete(this.heroIdOf(who)); this.applySkillStats(); return; }
+    const h = (c.hours ?? 0) + (c.minutes ?? 0) / 60;
+    this.giveGood(c.hero, c.kind, h > 0 ? h : undefined);
+  }
+  private heroWeatherCommand(c: Extract<Command, { cmd: 'heroWeather' }>): void {
+    for (const who of this.whosFor(c.hero)) {
+      const b = this.bodyOf(this.heroIdOf(who));
+      switch (c.state) {
+        case 'normal': b.meter = 0; b.wet = 0; break;
+        case 'wet': b.wet = 1; break;
+        case 'cold': b.meter = -65; break;
+        case 'freezing': b.meter = -100; break;
+        case 'hot': b.meter = 65; break;
+        case 'overheating': b.meter = 100; break;
+      }
+    }
+  }
+  /** Conditions: does a hero ('' the hero, 'any', an id) have a weather state, an ailment or a good state? */
+  private heroHas(hero: string, what: string): boolean {
+    return this.whosFor(hero).some((who) => {
+      const id = this.heroIdOf(who), a = this.ailmentOf(who), g = this.goodOf(id);
+      if (what === 'ailment') return !!a;
+      if (what === 'good') return !!g;
+      if (what === 'rested' || what === 'wellRested') return g?.kind === what;
+      if ((AILMENTS as readonly string[]).includes(what) || what === 'frozen') return a === what;
+      return this.weatherStates.get(id) === what;
+    });
+  }
+
+  /** A rest point: set the respawn point, then the hours and supplies screen; then the party sleeps. */
+  private startRest(c: Extract<Command, { cmd: 'rest' }>): void {
+    if (!c.noRespawn) this.setRespawn();
+    this.restScreen.show({ supplies: !c.noSupplies }, (r) => {
+      if (!r) return;
+      const pts = Object.entries(r.use).reduce((sum, [id, n]) => sum + (this.items.get(id)?.camp ?? 0) * n, 0);
+      const good = goodFromPoints(pts);
+      if (good) for (const [id, n] of Object.entries(r.use)) this.inventory.remove(id, n);
+      if (good) this.refreshRing();
+      this.startSleep({ cmd: 'sleep', until: 'hours', hours: r.hours });
+      if (this.sleeping) this.sleeping.done = () => this.finishRest(r.hours, good);
+    });
+  }
+
+  /** Waking from a rest: 20% back an hour; 1 hour warms and dries; 5+ hours restores and cures everything. */
+  private finishRest(hours: number, good: GoodKind | null): void {
+    const share = restShare(hours);
+    if (hours >= FULL_REST_HOURS) {
+      this.fullRest(true);
+      this.clearLingering(['all', 'zombie']);
+    } else {
+      const st = this.stats, mx = st.cfg.max;
+      st.change('hp', 'add', mx.hp * share); st.change('mp', 'add', mx.mp * share); st.change('sp', 'add', mx.sp * share);
+      for (const m of this.members()) {
+        if (m.data.down) continue;
+        const n = this.allyNumbers(m.data, m.def).max;
+        m.data.hp = Math.min(n.hp, m.data.hp + Math.round(n.hp * share));
+        m.data.mp = Math.min(n.mp, m.data.mp + Math.round(n.mp * share));
+      }
+    }
+    if (hours >= 1) for (const p of this.bodyParty()) { const b = this.bodyOf(p.id); b.meter = 0; b.wet = 0; }
+    if (good) this.giveGood('all', good);
+    this.log.add(hours >= FULL_REST_HOURS ? `Rested ${hours} hours: everyone fully restored` : `Rested ${hours} hour${hours === 1 ? '' : 's'}: health and magic +${Math.round(share * 100)}%`, 'info');
+    this.audio.play('save');
+    this.state.tally('rests');
   }
 
   /** The hero's starting stats from the database (character creation replaces them on a new game). */
@@ -4653,14 +4795,14 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null, tint: this.hpTint(0),
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null, tint: this.hpTint(0), good: this.goodPill(0),
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null, tint: m.data.down ? null : this.hpTint(who),
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null, tint: m.data.down ? null : this.hpTint(who), good: this.goodPill(who),
     };
   }
 
@@ -4669,6 +4811,12 @@ export class Game {
   private ailmentOf(who: number): BattleAilment | undefined {
     return (who ? Object.keys(this.members()[who - 1]?.data.ailments ?? {})[0]
       : this.combat.heroStatus.list.find((e) => !e.id.startsWith('buff:'))?.id ?? Object.keys(this.heroAilments)[0]) as BattleAilment | undefined;
+  }
+
+  /** Someone's good state as a pill (name, colours, time left), or undefined. */
+  private goodPill(who: number): { name: string; color: string; ink: string; left: string } | undefined {
+    const g = this.goodOf(this.heroIdOf(who));
+    return g ? { name: GOOD_INFO[g.kind].name, color: GOOD_INFO[g.kind].color, ink: GOOD_INFO[g.kind].ink, left: hoursLabel(g.until - this.state.clock) } : undefined;
   }
 
   /** Database → Climate → tint health bars: their ailment's colour, else null. */
@@ -5210,7 +5358,7 @@ export class Game {
     }
     const m = this.members()[who - 1];
     if (!m) return null;
-    const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.statGear(m.data.equip, m.data.abilities, this.memberSkills(m.data)), (k) => this.memberSkills(m.data).get(k));
+    const n = this.allyNumbers(m.data, m.def), t = heroTotals(m.data.stats, this.statGear(m.data.equip, m.data.abilities, this.memberSkills(m.data)), (k) => this.memberSkills(m.data).get(k) + this.goodBonus(m.data.id, k));
     const style = fightingStyle(m.def, m.data, n), msk = this.memberSkills(m.data), ab = (m.data.abilities ??= {});
     const spells = this.battleSpells(ab, powerMultiplier(t.attrs.mag) * (1 + msk.get('spellDamage') / 100), 1 - Math.min(75, msk.get('spellCost')) / 100);
     // Healers who know no healing spell keep their own Heal.
@@ -5726,7 +5874,14 @@ export class Game {
       for (const st of this.inventory.slots) { const d = st ? this.items.get(st.id) : undefined; if (d?.exp?.all && !this.state.expAllOff.has(d.id) && d.exp.share > pct) { pct = d.exp.share; name = d.name; } }
       return { pct, name };
     };
+    // Rested / Well Rested: +10% / +25% EXP on top (Update 106).
     const share = (who: number): { gained: number; note: string; via?: string; bonus?: VictoryHero['bonus'] } => {
+      const r = share0(who), g = this.goodOf(this.heroIdOf(who));
+      if (!g || r.gained <= 0) return r;
+      const extra = Math.round((r.gained * GOOD_INFO[g.kind].exp) / 100), bit = `${GOOD_INFO[g.kind].name} +${extra}`;
+      return { ...r, gained: r.gained + extra, note: r.note ? `${r.note} · ${bit}` : bit, bonus: r.bonus ? { gained: r.bonus.gained + extra, bits: [...r.bonus.bits, bit] } : r.bonus };
+    };
+    const share0 = (who: number): { gained: number; note: string; via?: string; bonus?: VictoryHero['bonus'] } => {
       const e = this.earned.get(who);
       if (e) {
         const ko = noKo && e.base > 0 ? Math.round((e.base * b.noKo) / 100) : 0;
@@ -5905,11 +6060,11 @@ export class Game {
     const leadId = mainHero(this.db).id, leadWeather = this.weatherStates.get(leadId) ?? null, leadRumble = this.rumbling(leadId);
     this.hud.setHeroWeather(this.settings.hud?.stats?.compact ? null : leadWeather, !this.settings.hud?.stats?.compact && leadRumble);
     this.hud.setHeroTint(this.hpTint(0));
-    this.hud.setHeroAilment(this.settings.hud?.stats?.compact || this.stats.hp <= 0 ? null : this.ailmentPill(0) ?? null);
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0), ailment: this.ailmentPill(0) }] : [];
+    this.hud.setHeroAilment(this.settings.hud?.stats?.compact || this.stats.hp <= 0 ? null : this.ailmentPill(0) ?? null, this.settings.hud?.stats?.compact ? null : this.goodPill(0));
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0), ailment: this.ailmentPill(0), good: this.goodPill(0) }] : [];
     // The party's cards: the others of the three fighting (whoever leads the map).
     const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
-    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1), ailment: this.ailmentPill(this.members().findIndex((x) => x.data === d) + 1) }; })]);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1), ailment: this.ailmentPill(this.members().findIndex((x) => x.data === d) + 1), good: this.goodPill(this.members().findIndex((x) => x.data === d) + 1) }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -5959,7 +6114,7 @@ export class Game {
 
   private allyNumbers(m: MemberData, def: HeroDef): AllyNumbers {
     const sk = this.memberSkills(m), pct = (k: Parameters<Skills['get']>[0]) => 1 + sk.get(k) / 100;
-    const t = heroTotals(m.stats, this.statGear(m.equip, m.abilities, sk), (k) => sk.get(k));
+    const t = heroTotals(m.stats, this.statGear(m.equip, m.abilities, sk), (k) => sk.get(k) + this.goodBonus(m.id, k));
     const g = (slot: EquipSlot) => (m.equip[slot] ? this.items.get(m.equip[slot]!) : undefined);
     const w = g('weapon'), cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
     const ct = this.combatCfg.classes[cls];
@@ -6839,6 +6994,13 @@ export class Game {
     this.ailLast = { x: m.x, z: m.z };
     const party = this.bodyParty(), cfg = this.bodyCfg;
     party.forEach((h, who) => { if (h.hp <= 0 && this.ailmentOf(who)) this.clearLingering(['all', 'zombie'], who); });
+    // Good states running out (game time).
+    for (const [id, g] of this.state.good) if (g.until <= this.state.clock) {
+      this.state.good.delete(id);
+      const name = party.find((p) => p.id === id)?.name;
+      if (name) this.log.add(`${name} is no longer ${GOOD_INFO[g.kind].name}`, 'info');
+      this.applySkillStats();
+    }
     if (this.ailWalk < Math.max(1, cfg.ailmentSteps)) return;
     this.ailWalk = 0;
     party.forEach((h, who) => {
@@ -6952,7 +7114,7 @@ export class Game {
   /* ---------------------------------------------------------------- sleeping */
 
   /** A sleep under way: up (tilting to the sky), pass (the hours rushing by), down (back to the hero). */
-  private sleeping: { phase: 'up' | 'pass' | 'down'; t: number; from: number; hours: number; rest: boolean } | null = null;
+  private sleeping: { phase: 'up' | 'pass' | 'down'; t: number; from: number; hours: number; rest: boolean; inn?: boolean; done?: () => void } | null = null;
   /** How far the camera has tilted up to the sky (0 … 1). */
   private sleepLook = 0;
   private readonly skyLook = new THREE.Vector3();
@@ -6964,7 +7126,7 @@ export class Game {
     let hours = wrapHour(target - now);
     if (hours < 0.25) hours += 24;
     if (c.until === 'hours') hours = Math.max(0.25, c.hours ?? 8);
-    this.sleeping = { phase: 'up', t: 0, from: now, hours, rest: !!c.rest };
+    this.sleeping = { phase: 'up', t: 0, from: now, hours, rest: !!c.rest, inn: !!c.inn };
     this.audio.play('menuOk');
   }
 
@@ -6982,7 +7144,14 @@ export class Game {
       this.fireCheck = 0;
       this.time.set(h, true);
       this.time.update(0);
-      if (k >= 1) { s.phase = 'down'; s.t = 0; if (s.rest) this.fullRest(); this.chatter({ trigger: 'camp' }, { boost: 1.5 }); }
+      if (k >= 1) {
+        s.phase = 'down'; s.t = 0;
+        if (s.rest) this.fullRest();
+        // An inn: everyone wakes Well Rested.
+        if (s.inn) this.giveGood('all', 'wellRested');
+        s.done?.();
+        this.chatter({ trigger: 'camp' }, { boost: 1.5 });
+      }
       return;
     }
     this.sleepLook = Math.max(0, 1 - s.t / DOWN);

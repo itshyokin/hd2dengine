@@ -2242,3 +2242,49 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .pr-art { position: relative; }
 .pr-art .ail-balloon { left: 58%; top: 4px; width: 30px; height: 25px; }
 .pr-art .ail-balloon svg { width: 18px; height: 18px; }
+
+/* ---------------- Resting (Update 106): hours, then camping supplies ---------------- */
+.rest-box { width: min(620px, 100%); }
+.rs-q { margin: 10px 0 4px; font-weight: 700; color: #f3ead8; }
+.rs-hours { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 6px 0 4px; }
+.rs-hours b { font: 800 44px var(--f-display); color: #ffd36a; min-width: 1.4em; text-align: center; }
+.rs-hours span { color: #c9c1ad; }
+.rs-hours button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #f3ead8; cursor: pointer; }
+.rs-notes { margin: 4px 0 10px; padding-left: 18px; color: #cfe8c8; font-size: 13px; }
+.rs-party { display: grid; gap: 6px; }
+.rs-hero { display: grid; grid-template-columns: 34px 90px 1fr 1fr; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; background: rgba(255,255,255,0.04); }
+.rs-hero.down { opacity: 0.6; }
+.rs-hero img { width: 34px; height: 34px; border-radius: 7px; image-rendering: pixelated; object-fit: cover; }
+.rs-hero b { font-size: 13px; color: #f3ead8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-bar { position: relative; height: 16px; border-radius: 5px; background: rgba(0,0,0,0.45); overflow: hidden; }
+.rs-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--g-hp); }
+.rs-bar.mp i { background: var(--g-mp); }
+.rs-bar i.rs-gain { opacity: 0.38; }
+.rs-bar span { position: relative; display: block; text-align: center; font: 700 10.5px var(--f-body); color: #fff; line-height: 16px; text-shadow: 0 1px 2px #000; }
+.rs-btns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.rs-btns .btn { padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #f3ead8; font: inherit; cursor: pointer; }
+.rs-btns .btn.primary { background: var(--ember); color: var(--ember-ink, #2a1600); border-color: transparent; font-weight: 800; }
+.rs-btns .btn.sel { outline: 2px solid #ffd36a; outline-offset: 2px; }
+.rs-meter { position: relative; height: 20px; margin-top: 12px; border-radius: 10px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.12); overflow: hidden; }
+.rs-meter i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#c8b48a, #8a7650); }
+.rs-meter.rested i { background: linear-gradient(#ffe39a, #e8b84a); }
+.rs-meter.wellRested i { background: linear-gradient(#ffd07a, #f08a2a); }
+.rs-meter em { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255,255,255,0.7); }
+.rs-meter span { position: relative; display: block; text-align: center; font: 800 12px/20px var(--f-body); color: #fff; text-shadow: 0 1px 2px #000; }
+.rs-marks { position: relative; height: 16px; margin: 2px 4px 0; font-size: 11px; color: #c9c1ad; }
+.rs-marks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.rs-marks span:last-child { transform: translateX(-100%); }
+.rs-status { margin: 8px 0; font-size: 13px; color: #ffe2b8; }
+.rs-status.warn { color: #ff9a7a; font-weight: 700; }
+.rs-items { display: grid; gap: 4px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+.rs-item { display: grid; grid-template-columns: 28px 1fr 28px 30px 28px; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; border: 1px solid transparent; background: rgba(255,255,255,0.04); }
+.rs-item.sel { border-color: var(--ember); background: rgba(255,176,74,0.1); }
+.rs-item img { width: 28px; height: 28px; image-rendering: pixelated; }
+.rs-name { color: #f3ead8; font-size: 13px; display: grid; }
+.rs-name small { color: #8f95a8; font-size: 11px; }
+.rs-item button { width: 28px; height: 26px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #f3ead8; cursor: pointer; }
+.rs-item b { text-align: center; color: #ffd36a; }
+/* Good state pills and the stat page's gold bonus */
+.good-pill { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3); }
+.good-bonus { color: #ffd36a; font-weight: 800; margin-left: 4px; }
+.good-bonus small { color: #c9a95a; font-weight: 600; margin-left: 3px; }

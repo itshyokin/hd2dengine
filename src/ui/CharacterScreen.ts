@@ -21,6 +21,8 @@ export interface CharacterHost {
   ailments(h: number): { name: string; icon: string; left?: string }[];
   /** Each stat's progression rank (A … F), shown as a pill beside it. */
   ranks?(h: number): Record<Attr, Rank>;
+  /** Their good state (Rested / Well Rested): + to every stat, + EXP, and the time left. */
+  good?(h: number): { name: string; stat: number; exp: number; left: string } | null;
   /** Everyone, in lineup order (LT / RT step through them). */
   order?(): number[];
 }
@@ -100,17 +102,18 @@ export class CharacterScreen {
         ${ail.length || who.ailment ? `<div class="cs-ail">${who.ailment && !ail.length ? `<span><span class="st-pill" style="background:${who.ailment.color};color:${who.ailment.ink}">${esc(who.ailment.tag)}</span> ${esc(who.ailment.name)} <small>until cured or rested</small></span>` : ''}${ail.map((a) => `<span><img src="${a.icon}" alt=""> ${esc(a.name)}${a.left ? ` <small>${esc(a.left)}</small>` : ''}</span>`).join('')}</div>` : '<p class="cs-none">None.</p>'}
 `;
     } else if (this.page === 1) {
-      const v = h.view(k), rk = h.ranks?.(k);
+      const v = h.view(k), rk = h.ranks?.(k), gd = h.good?.(k) ?? null;
+      const plus = gd ? `<span class="good-bonus" title="${esc(gd.name)}: ${esc(gd.left)} left">+${gd.stat}</span>` : '';
       const cell = (label: string, val: number | string, pill = '') => `<div class="cs-cell"><span>${label}</span>${pill}<b>${val}</b></div>`;
       body = `<div class="cs-sec">Health and magic</div>
         ${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}${bar('SP', g.sp, 'sp')}
         <div class="cs-cols">
-          <div><div class="cs-sec">Stats</div><div class="cs-list">${ATTRS.map((a) => cell(ATTR_INFO[a].name, String(Math.round(v.attrs[a])).padStart(2, '0'), rk ? rankPill(rk[a]) : '')).join('')}</div></div>
+          <div><div class="cs-sec">Stats${gd ? ` <span class="good-bonus">${esc(gd.name)}<small>${esc(gd.left)} left</small></span>` : ''}</div><div class="cs-list">${ATTRS.map((a) => cell(ATTR_INFO[a].name, `${String(Math.round(v.attrs[a])).padStart(2, '0')}${plus}`, rk ? rankPill(rk[a]) : '')).join('')}</div></div>
           <div><div class="cs-sec">In battle</div><div class="cs-list">${cell('Melee damage', Math.round(v.melee))}${cell('Bow damage', Math.round(v.bow))}${cell('Spell damage', Math.round(v.spell))}
             ${cell('Critical hits', `${Math.round(v.crit)}%`)}${cell('Defence', Math.round(v.armour))}${cell('Magic defence', Math.round(v.magicArmour))}</div></div>
         </div>
         <div class="cs-sec">EXP</div>
-        <div class="cs-grid">${cell('EXP points', g.xp.have)}${cell('Next level', g.xp.next === null ? '—' : Math.max(0, g.xp.next - g.xp.have))}</div>
+        <div class="cs-grid">${cell('EXP points', g.xp.have)}${cell('Next level', g.xp.next === null ? '—' : Math.max(0, g.xp.next - g.xp.have))}${gd ? cell('Bonus', `<span class="good-bonus">EXP +${gd.exp}% (${esc(gd.name)})</span>`) : ''}</div>
         <div class="cs-bar xp"><span>EXP</span><div><i style="width:${g.xp.next === null ? 100 : pct(g.xp.have, g.xp.next)}%"></i></div><b>${g.xp.next === null ? 'MAX' : `${g.xp.have} / ${g.xp.next}`}</b></div>`;
     } else {
       const slots = h.slots(k).map((s) => `<div class="cs-slot"><span class="eq-label">${esc(s.label)}</span>${s.item ? `<img src="${s.item.icon}" alt="">` : '<span class="eq-empty"></span>'}

@@ -25,6 +25,12 @@ export function ailmentBalloon(a: string | null | undefined, name?: string): str
   return `<span class="ail-balloon" title="${(name ?? a).replace(/"/g, '')}" role="img" aria-label="${(name ?? a).replace(/"/g, '')}">${ICON[a] ?? `<b>!</b>`}</span>`;
 }
 
+/** A good state's pill (Rested, Well Rested): gold, with the time left in its tooltip. */
+export function goodPill(g: { name: string; color: string; ink: string; left?: string } | null | undefined): string {
+  if (!g) return '';
+  return `<span class="wf-pill good-pill" style="background:${g.color};color:${g.ink}" title="${g.name}${g.left ? `: ${g.left} left` : ''}">★ ${g.name}</span>`;
+}
+
 /** The ailment's pill (its colours from Database → Combat → Ailments). */
 export function ailmentPill(p: { tag: string; color: string; ink: string; name: string } | null | undefined): string {
   if (!p) return '';

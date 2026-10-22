@@ -23,7 +23,7 @@ export class GameState {
   /** Quests (for quest conditions). */
   quests: QuestBook | null = null;
   /** The temperature (°F) and weather where the player is (for those conditions). */
-  env: { temp(): number; weather(): WeatherKind } | null = null;
+  env: { temp(): number; weather(): WeatherKind; heroHas?(hero: string, what: string): boolean } | null = null;
   /** Movement abilities the player has right now. */
   readonly abilities = new Map<Ability, boolean>(ABILITIES.map((a) => [a, true]));
   /** "Overworld weapons: off" (an event, for indoors or restricted areas): the field sword and bow can't be used. */
@@ -34,6 +34,8 @@ export class GameState {
   horse: HorseState | null = null;
   /** Each hero's cold / heat meter and wetness (by hero id; out of battle, lasting through battles). */
   readonly body = new Map<string, { meter: number; wet: number }>();
+  /** Each hero's good state from resting (Rested / Well Rested) and when it ends (on `clock`). */
+  readonly good = new Map<string, { kind: 'rested' | 'wellRested'; until: number }>();
   /** Griffin roosts unlocked (by talking to their master): their name, map, and where the hero lands. */
   readonly roosts = new Map<string, RoostState>();
   /** EXP All key items switched off (by item id); on while held, otherwise. */
@@ -127,6 +129,7 @@ export class GameState {
     if ('moon' in c) return c.moon.includes(moonPhase());
     if ('temp' in c) { const t = this.env?.temp() ?? 70; return c.op === '<=' ? t <= c.temp : t >= c.temp; }
     if ('weather' in c) return c.weather.includes(this.env?.weather() ?? 'none');
+    if ('heroHas' in c) return (this.env?.heroHas?.(c.hero ?? '', c.heroHas) ?? false) === (c.is ?? true);
     const v = this.getVar(c.var);
     switch (c.op) {
       case '>=': return v >= c.value;
@@ -149,9 +152,11 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }> }): void {
+  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }> }): void {
     this.weaponsOff = !!d.weaponsOff;
     this.body.clear();
+    this.good.clear();
+    for (const [k, v] of Object.entries(d.good ?? {})) if (v && (v.kind === 'rested' || v.kind === 'wellRested') && Number.isFinite(v.until)) this.good.set(k, { kind: v.kind, until: v.until });
     for (const [k, v] of Object.entries(d.body ?? {})) if (v && typeof v === 'object') this.body.set(k, { meter: Math.max(-100, Math.min(100, Number(v.meter) || 0)), wet: Math.max(0, Math.min(1, Number(v.wet) || 0)) });
     this.forms.clear();
     for (const [k, v] of Object.entries(d.forms ?? {})) { const n = Math.round(Number(v) || 0); if (n > 0) this.forms.set(k, Math.min(2, n)); }
@@ -185,10 +190,12 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }> } {
+  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }> } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
     const body = [...this.body].filter(([, b]) => Math.abs(b.meter) > 0.5 || b.wet > 0.01);
+    const good = [...this.good].filter(([, g]) => g.until > this.clock);
+    if (good.length) out.good = Object.fromEntries(good.map(([k, g]) => [k, { kind: g.kind, until: Math.round(g.until * 1000) / 1000 }]));
     if (body.length) out.body = Object.fromEntries(body.map(([k, b]) => [k, { meter: Math.round(b.meter * 10) / 10, wet: Math.round(b.wet * 100) / 100 }]));
     if (this.forms.size) out.forms = Object.fromEntries(this.forms);
     if (this.enemyLevels) out.enemyLevels = { ...this.enemyLevels };

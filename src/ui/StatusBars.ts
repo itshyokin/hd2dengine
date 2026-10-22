@@ -6,7 +6,7 @@
  */
 import { weatherDecor, weatherFrameClass, weatherPill } from './weatherFrame';
 import { type WeatherState, hpTintStyle } from '../game/body';
-import { ailmentBalloon, ailmentPill } from './ailmentBalloon';
+import { ailmentBalloon, ailmentPill, goodPill } from './ailmentBalloon';
 import { elementDot } from './elementPill';
 import type { Element } from '../world/types';
 import type { PlayerStats } from '../game/stats';
@@ -69,7 +69,9 @@ export interface PartyCard { name: string; level?: number; face?: string; hp: nu
   /** Their health bar's colour (their ailment's, when Database → Climate tints it). */
   tint?: string | null;
   /** Their ailment: a balloon off the face and a pill beside the weather's. */
-  ailment?: { id?: string; tag: string; color: string; ink: string; name: string } }
+  ailment?: { id?: string; tag: string; color: string; ink: string; name: string };
+  /** Their good state (Rested / Well Rested), the third pill. */
+  good?: { name: string; color: string; ink: string; left?: string } }
 
 const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
 
@@ -116,7 +118,7 @@ export class StatusBars {
   private partyKey = '';
   private partyCount = 0;
   setParty(list: PartyCard[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint, m.ailment?.id, m.ailment?.tag]));
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint, m.ailment?.id, m.ailment?.tag, m.good?.name]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -130,7 +132,7 @@ export class StatusBars {
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
-      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather || (m.ailment && !m.down) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment)}</span>` : ''}</div>` : '';
+      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather || (!m.down && (m.ailment || m.good)) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment) + goodPill(m.good)}</span>` : ''}</div>` : '';
     });
   }
 
@@ -144,17 +146,19 @@ export class StatusBars {
   private heroAilKey = '';
   private readonly heroAilEl = document.createElement('span');
   private readonly heroAilPill = document.createElement('span');
-  setHeroAilment(a: PartyCard['ailment'] | null): void {
-    const key = a ? `${a.id}|${a.tag}|${a.color}` : '';
+  setHeroAilment(a: PartyCard['ailment'] | null, good?: PartyCard['good'] | null): void {
+    const key = `${a ? `${a.id}|${a.tag}|${a.color}` : ''}|${good?.name ?? ''}`;
     if (key === this.heroAilKey) return;
     this.heroAilKey = key;
     this.heroAilEl.remove(); this.heroAilPill.remove();
-    if (!a) return;
-    this.heroAilEl.innerHTML = ailmentBalloon(a.id, a.name);
-    this.heroAilEl.className = 'hud-ail';
-    this.top.appendChild(this.heroAilEl);
+    if (a) {
+      this.heroAilEl.innerHTML = ailmentBalloon(a.id, a.name);
+      this.heroAilEl.className = 'hud-ail';
+      this.top.appendChild(this.heroAilEl);
+    }
+    if (!a && !good) return;
     this.heroAilPill.className = 'wf-pills hud-ail-pills';
-    this.heroAilPill.innerHTML = ailmentPill(a);
+    this.heroAilPill.innerHTML = ailmentPill(a) + goodPill(good);
     this.top.appendChild(this.heroAilPill);
   }
 

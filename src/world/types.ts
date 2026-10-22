@@ -277,7 +277,13 @@ export type Condition =
   /** The temperature here (°F) is at least / at most this. */
   | { temp: number; op: '>=' | '<=' }
   /** The weather here is one of these. */
-  | { weather: WeatherKind[] };
+  | { weather: WeatherKind[] }
+  /**
+   * A hero has a state (Update 106): a weather state (wet, cold, freezing, hot, overheating, comfortable), an ailment,
+   * any ailment ('ailment'), or a good state (rested, wellRested, 'good': either). hero: '' the hero you play, 'any'
+   * anyone in the party, or a hero's id.
+   */
+  | { heroHas: string; hero?: string; is?: boolean };
 
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
@@ -299,11 +305,20 @@ export type Command =
    */
   /** Change how a hero's stat grows each level (for good). hero: an id, '' for the hero you play, 'all' for everyone. */
   | { cmd: 'statRank'; hero: string; stat: 'str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf'; rank: import('../game/statRanks').Rank }
-  | { cmd: 'sleep'; until?: 'morning' | 'night' | 'hours'; hours?: number; rest?: boolean }
+  | { cmd: 'sleep'; until?: 'morning' | 'night' | 'hours'; hours?: number; rest?: boolean; /** An inn: the party wakes Well Rested. */ inn?: boolean }
+  /**
+   * A rest point (a campfire; Update 106): the player picks how many hours to rest, then camping supplies (for
+   * Rested / Well Rested), and the party sleeps. Also sets the respawn point (unless `noRespawn`).
+   */
+  | { cmd: 'rest'; noSupplies?: boolean; noRespawn?: boolean }
+  /** Give a good state (Rested, Well Rested: also for blessings) for hours and minutes (unset: the Database's), or take it away ('none'). */
+  | { cmd: 'goodState'; hero: string; kind: 'rested' | 'wellRested' | 'none'; hours?: number; minutes?: number }
+  /** Set a hero's weather state (soak them, chill them to Freezing…; 'normal' warms and dries them). */
+  | { cmd: 'heroWeather'; hero: string; state: 'normal' | 'wet' | 'cold' | 'freezing' | 'hot' | 'overheating' }
   | { cmd: 'ability'; ability: Ability; on: boolean }
   | { cmd: 'gauge'; gauge: Gauge; op: 'add' | 'set' | 'fill'; value: number }
   /** Give the hero an ailment (for `seconds`, 0: its usual time), or cure one ('all': every one but Zombie). */
-  | { cmd: 'ailment'; op: 'give' | 'cure'; ailment: Ailment | 'all'; seconds?: number }
+  | { cmd: 'ailment'; op: 'give' | 'cure'; ailment: Ailment | 'all'; seconds?: number; /** '' (unset) the hero you play, 'all' the party, or a hero's id. */ hero?: string }
   /** Open the nearest fire's fuel menu (add firewood, see how long it burns). */
   | { cmd: 'tendFire' }
   /** A full rest (campfire, inn): health, magic and stamina to full for the whole party, ailments cured (not Zombie). */
@@ -1828,6 +1843,9 @@ export interface BodyConfig {
   /** Poison and Burn out of battle: lose this % of max health every this many steps, down to 1, then they wear off. */
   ailmentSteps?: number;
   ailmentPct?: number;
+  /** Resting and camping (Update 106): how long Rested and Well Rested last, in game hours (2 and 1.5). */
+  restedHours?: number;
+  wellRestedHours?: number;
   /** Tint a hero's health bar the colour of their ailment (Poison purple, Burn orange…); off by default. */
   hpTint?: boolean;
   /** How much slower (%): wet, Cold / Hot, Freezing / Overheating. */
