@@ -1505,6 +1505,8 @@ export class Game {
     // The sounds differ in loudness; this evens them out (then a little random variety).
     const even: Record<string, number> = { grass: 1.3, dirt: 0.55, stone: 0.95, wood: 0.55, sand: 1.5, snow: 1.15, water: 1.2, metal: 0.8, carpet: 0.45 };
     this.audio.play(`step${mat[0].toUpperCase()}${mat.slice(1)}`, undefined, undefined, 0.5 * loud * (even[mat] ?? 1) * (0.85 + Math.random() * 0.3));
+    // Wet through: a soft squelch under the usual step.
+    if (this.weatherStates.get(mainHero(this.db).id) === 'wet' && mat !== 'water') this.audio.play('stepWater', undefined, undefined, 0.22 * loud * (0.8 + Math.random() * 0.4));
   }
 
   /** An EXP orb reached the hero: counted now, shown as one "+N EXP" once the burst of orbs is over. */

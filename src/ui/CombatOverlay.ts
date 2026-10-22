@@ -113,7 +113,7 @@ export class CombatOverlay {
   /** Call before tagging this frame's enemies. */
   beginTags(): void { this.seen.clear(); }
 
-  /** Health bar, awareness icon and lock marker above an enemy. */
+  /** Whether an enemy on the map has noticed the hero (? then !), above it. */
   tag(key: object, x: number, y: number, z: number, info: TagInfo): void {
     this.seen.add(key);
     let el = this.tags.get(key);
@@ -132,16 +132,9 @@ export class CombatOverlay {
     const icon = info.alert ? (info.alertAge < 1.6 ? '!' : '') : info.awareness >= 0.35 ? '?' : '';
     if (aware.textContent !== icon) aware.textContent = icon;
     aware.className = `aware${info.alert ? ' alert' : ''}`;
-    el.querySelector<HTMLElement>('.lock')!.hidden = !info.locked;
-    const elems = el.querySelector<HTMLElement>('.elems')!, ek = info.locked ? (info.elements ?? []).join('|') : '';
-    if (elems.dataset.k !== ek) { elems.dataset.k = ek; elems.innerHTML = ek ? info.elements!.map((u) => `<img src="${u}" alt="">`).join('') : ''; }
-    elems.hidden = !ek;
-    const sts = el.querySelector<HTMLElement>('.sts')!, sk = (info.status ?? []).join('|');
-    if (sts.dataset.k !== sk) { sts.dataset.k = sk; sts.innerHTML = sk ? info.status!.map((u) => `<img src="${u}" alt="">`).join('') : ''; }
-    sts.hidden = !sk;
-    const bar = el.querySelector<HTMLElement>('.ehp')!;
-    bar.hidden = !(info.hp < info.max || info.locked);
-    (bar.firstElementChild as HTMLElement).style.width = `${Math.max(0, info.hp / info.max) * 100}%`;
+    // Battles are turn-based now: no health bar, lock marker, elements or ailments over enemies on the map (left
+    // from the action battles); only whether they've noticed the hero.
+    for (const c of ['.lock', '.elems', '.sts', '.ehp']) el.querySelector<HTMLElement>(c)!.hidden = true;
   }
 
   /** Remove markers of enemies that weren't tagged this frame. */

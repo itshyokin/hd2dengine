@@ -277,9 +277,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   end of styles.css); StatusBars PartyCard `weather` / `rumble`, `setHeroWeather` (hud-top frame and pill);
   PartyScreen PartyMemberView `weather` (pr-panel frame and pill); Game `bodyHurt` (screen shake `bodyShake` added
   to the camera's shake, `rumbleUntil` per hero for Database `body.rumble` seconds), `bodyEffects` (breath below
-  45°F, drips when Wet, steam when Hot / Overheating, via Bursts). Still to do in 104: ailment balloons (with 105),
-  squelchy wet footsteps, and the owner's "Update 104 also" notes (comfort zones, overworld enemy bars, chatter,
-  gear page).
+  45°F, drips when Wet, steam when Hot / Overheating, via Bursts); wet footsteps add a soft stepWater squelch;
+  CombatOverlay tags show only the noticed ? / ! over map enemies (no health bar, lock, elements, ailments). Still
+  to do in 104: ailment balloons (with 105), and the owner's "Update 104 also" notes (comfort zones, chatter, gear
+  page).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
