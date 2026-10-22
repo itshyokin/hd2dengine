@@ -48,14 +48,18 @@ decide things; the tablet editor keeps working.
         Done: game/body.ts (meter, wet, felt temperature, states, slow, soothe), GameState `body`, Game
         `updateBody` / `weatherStates` / console `body`, Lights `byFire`, MapData fixedTemp / damp / noElements,
         ItemDef warmth / warms / camp, Database `body` (Weather & temperature → On the body).
-  - [ ] Update 104: showing it. The HUD party panels and the pause menu's party cards get a frame per weather state
+  - [x] Update 104: showing it. The HUD party panels and the pause menu's party cards get a frame per weather state
         (Comfortable gold, Wet drops, Cold frost corners, Freezing frost and icicles with a cold pulse, Hot shimmer,
         Overheating embers and a hot pulse) and a pill row (weather first, then the ailment, then the good state;
         three at most, then "+N"). Ailments show an RPG Maker-style balloon off the face. Chip damage: a screen
         shake, a hurt sound and that hero's panel rumbling (seconds set in the Database). Each ailment can recolour
         the HP bar (off by default; a colour per ailment). On the map: breath puffs in the cold (thicker when
         colder), wet heroes drip and squelch, overheated ones steam.
-  - [ ] Update 104 also (owner's notes, Oct 22):
+        Done, except the ailment balloons (moved to 105, with the ailments themselves) and the third pill row (good
+        states come in 106): ui/weatherFrame.ts, HUD / pause frames and pills, chip shake + sound + rumble, breath /
+        drips / steam, the optional health-bar tint (one colour per ailment: its pill's).
+  - [x] Update 104 also (owner's notes, Oct 22): all done (safe zones painted on the Spawns layer, not rectangles;
+        chatter in Database → Characters → Chatter; Equipment page statuses; Jordan always walks in front).
         - Comfort zones: placeable areas (a new layer that places and stretches rectangles on tiles like events, not
           events: rest points are events) that keep the elements off: no cold, heat or wet inside (a shelter, a
           market's awnings, a warm inn yard). Decided: a zone counts as sheltered (no rain) and makes heroes

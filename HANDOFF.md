@@ -14,11 +14,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Update 103, Oct 22)
-- **Next work:** Update 104 (showing the elements: HUD and pause-menu frames, pills, balloons, the chip-damage shake
-  and panel rumble, breath / drips / steam on the map) plus the owner's Oct 22 notes in NOTES.md under "Update 104
-  also" (comfort zones, removing overworld enemy health bars, party chatter, the gear page rework). Then 105
-  (ailments out of battle) and 106 (resting and camping). The 3D roadmap (107–109) is dropped: sprites only. The design preview for the frames,
+## Pick up here (state as of Update 104, Oct 22)
+- **Next work:** Update 105 (ailments out of battle, plus the RPG Maker-style ailment balloons off the face moved
+  from 104), then 106 (resting and camping: Rest point prefab, hours picker, camping supplies, Rested / Well Rested,
+  event commands). 104 is done (frames, pills, rumble, breath / drips / steam, HP tint, safe zones, chatter,
+  Equipment statuses, Jordan always walks in front). The 3D roadmap (107–109) is dropped: sprites only. The design preview for the frames,
   pills and balloons is the owner's "Weather & Ailment HUD Preview" canvas (claude.ai artifact). Owner decisions from Oct 22 are written into those notes ("Decided:"); anything still
   marked "Open:" needs the owner first. The game targets PC now.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
@@ -273,7 +273,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   walked; `bodyHurt(id)` is the hook for Update 104's shake and rumble), `weatherStates` (hero id → state),
   speedScale × (1 − slowOf(leader)) unless riding, `temperature()` honours MapData `fixedTemp` (clamped inside its
   state band). Lights `byFire(x, z)`. Items: `warmth`, `warms` (useItem → `sootheHero`), `camp`.
-- 104 (in progress): ui/weatherFrame.ts (`weatherFrameClass`, `weatherDecor`, `weatherPill`; `.wf-*` styles at the
+- 104: ui/weatherFrame.ts (`weatherFrameClass`, `weatherDecor`, `weatherPill`; `.wf-*` styles at the
   end of styles.css); StatusBars PartyCard `weather` / `rumble`, `setHeroWeather` (hud-top frame and pill);
   PartyScreen PartyMemberView `weather` (pr-panel frame and pill); Game `bodyHurt` (screen shake `bodyShake` added
   to the camera's shake, `rumbleUntil` per hero for Database `body.rumble` seconds), `bodyEffects` (breath below
@@ -293,8 +293,12 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   `sayChatter` shows an EventBubble `chat: true` (`.ev-bubble.chat`) over the speaker via updateBubbles and logs it
   (LogKind 'chat'). Editor: Database → Characters has a Looks | Chatter switch (editor/ChatterEditor.ts,
   `cleanChatter` used by cleanHeroes). The hero you play is always the walking sprite (refreshLeader); followers are
-  the active lineup minus the hero, in list order. Still to do in 104: ailment balloons (with 105), the gear page,
-  the optional HP-bar recolour.
+  the active lineup minus the hero, in list order.
+  Equipment page: EquipHost `statuses(hero)` → EquipStatus rows (Weather / Ailment / Good state; Good state is a
+  placeholder until 106) in place of the bag list ('list' mode now means the statuses column) with `.eq-desc`;
+  equipping is slot → pick; `show(at)` opens on the item's slot with it picked out. Game `ailmentOf(who)`.
+  HP tint: BodyConfig `hpTint` (off), `hpTintStyle` (body.ts) sets `--g-hp` on the HUD card / `.hud-top` (StatusBars
+  `setHeroTint`) and the pause pr-panel (PartyMemberView `tint`), from Game `hpTint(who)` (statusPills colour).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.

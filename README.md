@@ -540,8 +540,15 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   battle (so a party member can't start one by wandering into a foe). They walk behind the hero and **hop where the
   hero jumped**, over gaps and fences. **Database → Combat → The party follows the hero on the map** (on by default);
   off, only the hero walks the map and the party appears in battles.
-- **Whoever leads the lineup walks the map**: put Katrina first in Party → Swap and she's drawn in the hero's place,
-  with the hero you play walking behind (controls, stats and gear stay the hero's).
+- **The hero you play always walks in front** (Jordan, the first hero), wherever he is in the lineup; the party
+  members fighting with him walk behind in the list's order, the same order as the HUD panels and the pause menu.
+- **Party chatter**: now and then a hero says a line in a speech bubble over their head that follows them (one at a
+  time, and rarely). Write it in **Database → Characters → Chatter**, per hero: a *Chatter amount* (0 never … 10 all
+  the time; the hero you play talks a third as often), *General* lines per trigger (getting Cold / Freezing / Hot /
+  Overheating / Wet, warm and comfortable again, rain / snow / a storm starting, the weather clearing, the wind
+  picking up or dying down, entering a rest area, making camp or sleeping, a map for the first time; one line per row,
+  one picked at random) and *Map chatter* (a map and a line: "This is Reach City. I grew up here!", likeliest the
+  first time there). Every line said goes in the adventure log.
 
 ### Stats and growth ranks
 
@@ -631,6 +638,22 @@ them: Freezing before a fight, still Freezing after.
   off switch.
 - Console: `body` shows each hero's meter, wetness, state and Warmth (and the temperature); `body -100` makes everyone
   Freezing, `body 0 1` soaked and otherwise normal.
+- **Seeing it** (Update 104): each hero's HUD panel and pause-menu card gets a frame and a pill for their state:
+  Comfortable gold, Wet with drops running down, Cold with frost in the corners, Freezing frosted all round with
+  icicles, Hot shimmering, Overheating with rising embers. A chip of damage shakes the screen with a hurt sound, and
+  that hero's panel rumbles. On the map: breath puffs in the cold (below 45°F, thicker the colder), wet heroes drip
+  and their footsteps squelch, Hot ones steam. *Tint a hero's health bar the colour of their ailment* (On the body;
+  off by default) colours the health bar like the ailment's pill.
+- **Equipment page**: the left column shows the hero's statuses (weather state, ailment, good state); move over one
+  to read what it does. To change gear, pick a slot, then the piece from the bag (or the bag's Equip…). Gear shows
+  its Warmth.
+- **Safe zones** (Spawns layer → Safe zones): paint *Safe ground* where the elements can't reach (everyone is
+  Comfortable: sheltered and as good as by a fire), monsters never come in and there are no random battles. Paint
+  spots inside it: *Seat*, *Lie down*, *Practise magic*, *Training dummy* (put a dummy prop just north of it). While
+  the hero you play is in the zone, each party member goes to a spot (the one they like best: **Database → Heroes →
+  Rest preferences**, 1–10 per activity, ties to whoever is higher in the party) and sits, lies down, casts now and
+  then or swings at the dummy; step out and they fall in behind again.
+- Map enemies no longer show health bars or meters on the overworld (only the noticed ? / !).
 
 ### Time, night and map lighting
 
