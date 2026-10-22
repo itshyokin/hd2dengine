@@ -2169,3 +2169,45 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .battle .bcmd.with-bars > .bcmd-label { grid-column: 2; grid-row: 1; }
 .battle .bcmd.with-bars > .bcmd-right { grid-column: 3; grid-row: 1; }
 .battle .bcmd.with-bars > .bcmd-bars { grid-column: 2 / -1; grid-row: 2; margin-top: 2px; }
+
+/* ---------------- The elements on a hero's panel (Update 104): a frame per weather state, its pill, a rumble when hurt ---------------- */
+.wf { position: relative; }
+.wf-fx { position: absolute; inset: 0; pointer-events: none; overflow: visible; border-radius: inherit; z-index: 1; }
+.wf-comfortable { border-color: #e8b860 !important; box-shadow: inset 0 0 14px rgba(255,190,90,0.22), 0 0 8px rgba(255,190,90,0.22); }
+.wf-wet { border-color: #4f9ee0 !important; box-shadow: inset 0 0 14px rgba(79,158,224,0.35), 0 0 0 1px rgba(79,158,224,0.25); }
+.wf-cold { border-color: #9fd4ff !important; box-shadow: inset 0 0 16px rgba(159,212,255,0.28); }
+.wf-freezing { border-color: #e6f6ff !important; background-image: linear-gradient(rgba(170,215,255,0.16), rgba(170,215,255,0.16)); box-shadow: inset 0 0 20px rgba(200,235,255,0.45), 0 0 10px rgba(200,235,255,0.35); animation: wf-coldpulse 2.6s ease-in-out infinite; }
+.wf-hot { border-color: #ff9a3c !important; box-shadow: inset 0 0 16px rgba(255,140,50,0.3); }
+.wf-overheating { border-color: #ff5a2a !important; background-image: linear-gradient(rgba(255,90,40,0.13), rgba(255,90,40,0.13)); box-shadow: inset 0 0 20px rgba(255,90,40,0.45), 0 0 12px rgba(255,90,40,0.4); animation: wf-hotpulse 1.4s ease-in-out infinite; }
+@keyframes wf-coldpulse { 50% { box-shadow: inset 0 0 28px rgba(200,235,255,0.6), 0 0 16px rgba(200,235,255,0.5); } }
+@keyframes wf-hotpulse { 50% { box-shadow: inset 0 0 28px rgba(255,90,40,0.65), 0 0 18px rgba(255,90,40,0.55); } }
+.wf-drip { position: absolute; top: -1px; width: 3px; height: 6px; border-radius: 2px 2px 3px 3px; background: #8cc8ff; animation: wf-drip 2.4s linear infinite; }
+@keyframes wf-drip { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(calc(var(--wf-h, 60px))); opacity: 0; } }
+.wf-ember { position: absolute; bottom: 1px; width: 3px; height: 3px; background: #ffb04a; box-shadow: 0 0 5px #ff7a2a; animation: wf-rise 1.8s linear infinite; }
+@keyframes wf-rise { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(calc(-1 * var(--wf-h, 60px))); opacity: 0; } }
+.wf-shimmer { position: absolute; inset: 0; border-radius: inherit; background: repeating-linear-gradient(0deg, rgba(255,170,90,0) 0 5px, rgba(255,170,90,0.07) 5px 8px); animation: wf-shim 1.6s linear infinite; }
+@keyframes wf-shim { to { background-position: 0 -16px; } }
+.wf-frost { position: absolute; width: 34px; height: 25px; }
+.wf-frost.wf-tl { left: -2px; top: -2px; }
+.wf-frost.wf-tr { right: -2px; top: -2px; transform: scaleX(-1); }
+.wf-frost.wf-br { right: -2px; bottom: -2px; transform: scale(-1, -1); }
+.wf-frost.wf-bl { left: -2px; bottom: -2px; transform: scaleY(-1); }
+.wf-icicles { position: absolute; left: 6%; right: 6%; bottom: -9px; width: 88%; height: 10px; }
+.wf-pill { display: inline-flex; align-items: center; gap: 4px; height: 16px; padding: 0 6px 0 5px; border-radius: 8px; font: 700 10px var(--f-body); letter-spacing: 0.02em; line-height: 1; vertical-align: middle; white-space: nowrap; }
+.wf-pill svg { flex: none; }
+.wf-pill-comfortable { background: #3a2a10; color: #ffd98a; box-shadow: inset 0 0 0 1px #b8873a; }
+.wf-pill-wet { background: #16334f; color: #9fd2ff; box-shadow: inset 0 0 0 1px #3f7fb8; }
+.wf-pill-cold { background: #1b3247; color: #cfeaff; box-shadow: inset 0 0 0 1px #6aa8d8; }
+.wf-pill-freezing { background: #dff2ff; color: #123a5c; }
+.wf-pill-hot { background: #46220e; color: #ffb27a; box-shadow: inset 0 0 0 1px #d86a2a; }
+.wf-pill-overheating { background: #ff6a2a; color: #2a0d02; }
+/* Hurt by the elements: the hero's panel shakes for a moment. */
+.wf-rumble { animation: wf-rumble 0.12s linear infinite !important; }
+@keyframes wf-rumble { 0% { transform: translate(0, 0); } 25% { transform: translate(-2px, 1px); } 50% { transform: translate(2px, -1px); } 75% { transform: translate(-1px, -1px); } 100% { transform: translate(1px, 1px); } }
+.hud-ally .wf-pills { display: flex; gap: 4px; flex-wrap: wrap; grid-column: 2; }
+.hud-top > .wf-pills { position: absolute; left: 14px; top: -9px; display: flex; gap: 4px; z-index: 2; }
+.hud-ally.wf, .hud-top.wf { border-style: solid; border-width: 2px; }
+.hud-ally { --wf-h: 56px; }
+.hud-top { --wf-h: 64px; }
+.pr-panel { --wf-h: 120px; }
+.pr-panel.wf { border-width: 3px; }

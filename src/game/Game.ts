@@ -4621,14 +4621,14 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0),
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null,
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who),
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null,
     };
   }
 
@@ -5855,10 +5855,12 @@ export class Game {
     const pr = this.progress;
     const heroEls = this.heroAffinity(0).elements;
     this.hud.setHeroElements(heroEls);
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls }] : [];
+    const leadId = mainHero(this.db).id, leadWeather = this.weatherStates.get(leadId) ?? null, leadRumble = this.rumbling(leadId);
+    this.hud.setHeroWeather(this.settings.hud?.stats?.compact ? null : leadWeather, !this.settings.hud?.stats?.compact && leadRumble);
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble }] : [];
     // The party's cards: the others of the three fighting (whoever leads the map).
     const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
-    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements }; })]);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id) }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -6402,7 +6404,7 @@ export class Game {
       this.skyLook.set(t.x, t.y + 0.6, t.z).lerp(this.skyAim, e);
       this.camera.lookAt(this.skyLook);
     }
-    const sh = this.combat.shake;
+    const sh = this.combat.shake + (this.bodyShake > 0 ? 0.09 * Math.min(1, this.bodyShake / 0.35) : 0);
     if (sh > 0) this.camera.position.add(this.projected.set((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh, 0));
     // Keep the player in the sharp band of the tilt-shift.
     this.projected.copy(this.player.position);
@@ -6631,16 +6633,16 @@ export class Game {
   }
 
   /** The party out of battle, each where they stand: the hero you play first, then everyone following. */
-  private bodyParty(): { id: string; name: string; x: number; z: number; equip: Partial<Record<EquipSlot, string>>; swimming: boolean; hp: number; hurt: (n: number) => void; maxHp: number }[] {
+  private bodyParty(): { id: string; name: string; x: number; z: number; y: number; dir: Dir; shown: boolean; equip: Partial<Record<EquipSlot, string>>; swimming: boolean; hp: number; hurt: (n: number) => void; maxHp: number }[] {
     const m = this.motion, lead = mainHero(this.db);
     const out: ReturnType<Game['bodyParty']> = [{
-      id: lead.id, name: lead.name, x: m.x, z: m.z, equip: this.inventory.equip, swimming: m.swimming, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp,
+      id: lead.id, name: lead.name, x: m.x, z: m.z, y: this.player.position.y, dir: this.player.dir, shown: this.player.mesh.visible, equip: this.inventory.equip, swimming: m.swimming, hp: this.stats.hp, maxHp: this.stats.cfg.max.hp,
       hurt: (n) => this.stats.change('hp', 'add', -n),
     }];
     for (const mem of this.members()) {
       const a = this.allies.find((x) => x.data === mem.data), x = a?.x ?? m.x, z = a?.z ?? m.z;
       out.push({
-        id: mem.def.id, name: mem.def.name, x, z, equip: mem.data.equip, swimming: this.map.footWaterAt(Math.floor(x), Math.floor(z))?.kind === 'swim',
+        id: mem.def.id, name: mem.def.name, x, z, y: a?.y ?? this.player.position.y, dir: a?.sprite.dir ?? 'down', shown: !!a && a.sprite.mesh.visible, equip: mem.data.equip, swimming: this.map.footWaterAt(Math.floor(x), Math.floor(z))?.kind === 'swim',
         hp: mem.data.down ? 0 : mem.data.hp, maxHp: this.allyNumbers(mem.data, mem.def).max.hp, hurt: (n) => { mem.data.hp = Math.max(1, mem.data.hp - n); },
       });
     }
@@ -6654,6 +6656,7 @@ export class Game {
    */
   private updateBody(dt: number): void {
     const cfg = this.bodyCfg, m = this.motion;
+    this.bodyShake = Math.max(0, this.bodyShake - dt);
     const off = cfg.off || this.mapData?.noElements || this.mapData?.kind === 'battle';
     if (off) { this.weatherStates.clear(); return; }
     const paused = !!this.flight || !!this.sleeping || this.interpreter.running || !!this.transfer || this.dying;
@@ -6675,6 +6678,7 @@ export class Game {
       if (!paused && h.hp > 0) stepBody(b, place, dt, cfg);
       const st = weatherState(b, place, cfg);
       this.weatherStates.set(h.id, st);
+      if (!paused && h.shown && h.hp > 0) this.bodyEffects(h, st, temp, dt);
       if (!hurts(st)) { this.bodyWarned.delete(h.id); continue; }
       if (!this.bodyWarned.has(h.id)) {
         this.bodyWarned.add(h.id);
@@ -6687,8 +6691,36 @@ export class Game {
       }
     }
   }
-  /** A hero just took a chip of damage from the elements (the HUD rumbles their panel; Update 104 adds the shake). */
-  private bodyHurt(_id: string): void { /* shown in Update 104 */ }
+  /** Breath, drips and steam on the map, per hero, every so often. */
+  private readonly bodyFxT = new Map<string, number>();
+  private bodyEffects(h: { id: string; x: number; y: number; z: number; dir: Dir }, st: WeatherState | null, temp: number, dt: number): void {
+    let t = (this.bodyFxT.get(h.id) ?? Math.random()) - dt;
+    if (t > 0) { this.bodyFxT.set(h.id, t); return; }
+    const [dx, dz] = DIR_VECTOR[h.dir];
+    if (temp < 45) {
+      // Breath in the cold: a puff from the mouth every couple of seconds, thicker and longer the colder it is.
+      const cold = Math.min(1, (45 - temp) / 40);
+      this.bursts.spawn(h.x + dx * 0.18, h.y + 1.05, h.z + dz * 0.18 + 0.02, { color: '#eef4ff', n: 3 + Math.round(cold * 4), speed: 0.18 + cold * 0.12, up: 0.22, life: 0.9 + cold * 0.8, size: 0.1 + cold * 0.06, gravity: -0.12 });
+      t = 1.5 + Math.random() * 1.2 - cold * 0.4;
+    }
+    if (st === 'wet') { this.bursts.spawn(h.x + (Math.random() - 0.5) * 0.3, h.y + 0.6 + Math.random() * 0.5, h.z + 0.05, { color: '#8cc8ff', n: 1, speed: 0.05, up: 0, life: 0.5, size: 0.05, gravity: 7 }); t = Math.min(t > 0 ? t : 9, 0.35 + Math.random() * 0.3); }
+    if (st === 'hot' || st === 'overheating') {
+      this.bursts.spawn(h.x + (Math.random() - 0.5) * 0.25, h.y + 1.25, h.z + 0.04, { color: '#e8e2da', n: st === 'overheating' ? 4 : 2, speed: 0.08, up: 0.35, life: 1.1, size: 0.11, gravity: -0.25 });
+      t = Math.min(t > 0 ? t : 9, st === 'overheating' ? 0.5 : 1.2);
+    }
+    this.bodyFxT.set(h.id, t > 0 ? t : 1.5);
+  }
+
+  /** A hero just took a chip of damage from the elements: a short screen shake, and their panel rumbles a while. */
+  private bodyHurt(id: string): void {
+    this.bodyShake = 0.35;
+    this.rumbleUntil.set(id, performance.now() + this.bodyCfg.rumble * 1000);
+  }
+  /** Seconds left of the elements' screen shake. */
+  private bodyShake = 0;
+  /** When each hero's panel stops rumbling (performance.now() ms), by hero id. */
+  private readonly rumbleUntil = new Map<string, number>();
+  private rumbling(id: string): boolean { return (this.rumbleUntil.get(id) ?? 0) > performance.now(); }
 
   /** A consumable's warming or cooling on a hero (0: the one you play, 1…: party members). */
   private sootheHero(who: number, warms: number): boolean {

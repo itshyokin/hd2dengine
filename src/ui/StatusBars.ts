@@ -4,6 +4,8 @@
  * and a round mini-map under them. Top left: the selected weapon. Each party member's card is its own piece.
  * Low health pulses red around the screen edges, and a hit flashes it, so a draining bar is hard to miss.
  */
+import { weatherDecor, weatherFrameClass, weatherPill } from './weatherFrame';
+import type { WeatherState } from '../game/body';
 import { elementDot } from './elementPill';
 import type { Element } from '../world/types';
 import type { PlayerStats } from '../game/stats';
@@ -58,7 +60,11 @@ interface Row { fill: HTMLElement; ghost: HTMLElement; num: HTMLElement; row: HT
 /** One party card's numbers. */
 export interface PartyCard { name: string; level?: number; face?: string; hp: number; maxHp: number; mp: number; maxMp: number; down: boolean; xp?: number; toNext?: number;
   /** Their elements (element stones worn), as circles by the name. */
-  elements?: Element[] }
+  elements?: Element[];
+  /** The elements on them (out of battle): the frame and pill. */
+  weather?: WeatherState | null;
+  /** Hurt by the elements just now: the card shakes. */
+  rumble?: boolean }
 
 const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
 
@@ -105,7 +111,7 @@ export class StatusBars {
   private partyKey = '';
   private partyCount = 0;
   setParty(list: PartyCard[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements]));
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -115,12 +121,33 @@ export class StatusBars {
       const m = list[k];
       el.hidden = !m;
       el.dataset.empty = m ? '' : '1';
-      el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}">${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
+      el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}${weatherFrameClass(m.weather)}${m.rumble ? ' wf-rumble' : ''}">${weatherDecor(m.weather)}${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
-      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}</div>` : '';
+      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather ? `<span class="wf-pills">${weatherPill(m.weather)}</span>` : ''}</div>` : '';
     });
+  }
+
+  /** The hero's own gauges: the elements' frame and pill, and a shake when they're hurt by them. */
+  private heroWeatherKey = '';
+  private readonly heroWeatherEl = document.createElement('span');
+  setHeroWeather(st: WeatherState | null, rumble: boolean): void {
+    const key = `${st}|${rumble}`;
+    if (key === this.heroWeatherKey) return;
+    const stChanged = this.heroWeatherKey.split('|')[0] !== String(st);
+    this.heroWeatherKey = key;
+    this.top.classList.remove('wf', 'wf-comfortable', 'wf-wet', 'wf-cold', 'wf-freezing', 'wf-hot', 'wf-overheating');
+    if (st) this.top.classList.add('wf', `wf-${st}`);
+    this.top.classList.toggle('wf-rumble', rumble);
+    if (stChanged) {
+      this.top.querySelector(':scope > .wf-fx')?.remove();
+      const fx = weatherDecor(st);
+      if (fx) this.top.insertAdjacentHTML('afterbegin', fx);
+      this.heroWeatherEl.className = 'wf-pills';
+      this.heroWeatherEl.innerHTML = weatherPill(st);
+      if (st) { if (!this.heroWeatherEl.isConnected) this.top.appendChild(this.heroWeatherEl); } else this.heroWeatherEl.remove();
+    }
   }
 
   /** Stamina: a green ring around a dash icon, emptying as it's used; it fades out once full. */
