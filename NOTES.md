@@ -55,6 +55,24 @@ decide things; the tablet editor keeps working.
         shake, a hurt sound and that hero's panel rumbling (seconds set in the Database). Each ailment can recolour
         the HP bar (off by default; a colour per ailment). On the map: breath puffs in the cold (thicker when
         colder), wet heroes drip and squelch, overheated ones steam.
+  - [ ] Update 104 also (owner's notes, Oct 22):
+        - Comfort zones: placeable areas (a new layer that places and stretches rectangles on tiles like events, not
+          events: rest points are events) that keep the elements off: no cold, heat or wet inside (a shelter, a
+          market's awnings, a warm inn yard). Open: does a zone also count as "sheltered" (no rain) and make heroes
+          Comfortable? Suggested: yes to both, with a per-zone temperature option later.
+        - Remove the enemy health bars / meters on the overworld (left over from the action battle system).
+        - Party chatter: followers say a line in a speech bubble that follows the speaker (one at a time, picked at
+          random, with a cooldown so it stays rare). Database → Characters → Chatter, written per character so it
+          fits their personality. Two sections: General (triggers: getting Cold / Freezing / Hot / Overheating /
+          Wet / Comfortable, the weather turning to rain / snow / storm…, the wind picking up / dying down, entering
+          a rest area or camp, entering a new map) with several lines per trigger; and Map chatter (+ / − rows: pick
+          a map from a dropdown, write a line beside it; several lines for one map: one at random), e.g. "This is
+          Reach City. I grew up here!". Open: how often (a cooldown in seconds), and whether the hero you play
+          talks too.
+        - Gear page: the left-hand item list is replaced by the hero's current statuses (weather state, ailment,
+          good state); moving up and down shows what each does in a text box. To equip, pick the armor / weapon
+          slot, then the item for it; items can also be equipped from the item menu (pick the armor or weapon →
+          Equip).
   - [ ] Update 105: ailments out of battle. One per hero, and a hero with one can't get another (Zombie too) until
         it's cured. Poison and Burn chip HP to 1, then wear off. The rest (Paralyze, Sleep, Confusion, Blind,
         Silence, Zombie) stay until cured, a rest of 5+ hours, or an event cures them; shown only (balloon, pill).
@@ -79,6 +97,21 @@ decide things; the tablet editor keeps working.
 - [ ] Update 109: 3D character builder (its own page): base model, + add parts per category (hat, armor, clothes,
       accessory, weapon), hair style and colour, skin tone, facial expressions as planes over the face; export the
       whole character as one GLB (for NPCs mostly).
+- [ ] Future (owner's notes, Oct 22; plan them before building):
+  - NPC behaviour (brainstorm first): daily routines and routes, beds and homes, reacting to weather and events
+    (heading indoors when it rains, shops closing in blizzards), schedules by hour.
+  - Maps: a better map picker, deleting maps, map groups / folders.
+  - Button prompts and help text follow the player's custom controls (keyboard and controller).
+  - Alchemy / crafting: an Alchemy Set (a key item, or a prop on the map) opens a crafting screen: three boxes on a
+    wooden bench with a beaker behind each (up to three materials, several of each), "=", a big round beaker showing
+    the result, and a CRAFT button. Each press makes one more while the materials last (3 of each: three crafts),
+    e.g. firewood + fur + stone = Stone Axe. Crafting makes items, armor and weapons; the Forge upgrades them.
+    Database → Crafting: add / remove recipes, each up to three material items (from the item list) and the result;
+    key items can't be crafted. Open: does the order of the materials matter (suggested: no), and how many does
+    one craft make (suggested: a count per recipe).
+  - Remove copyrighted material, names and references from the engine, code and descriptions (game names used as
+    style references in the UI text and docs: Pokémon, Legend of Dragoon, Final Fantasy, RPG Maker, Halo, Baldur's
+    Gate…; built-in names; anything taken from other games). Third-party art keeps its licence credits.
 - [ ] Later: desktop build (Windows app: Electron or Tauri; saves in a folder, real fullscreen, Steam-ready); an
       optional "PS2 era" render mode.
 

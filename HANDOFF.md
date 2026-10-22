@@ -15,7 +15,12 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Update 90)
-- **Next work:** the Roadmap in NOTES.md (planned Oct 21): Updates 104–106 (the elements: showing them on the HUD, ailments out of battle, resting and camping; 103 is done; the 3D items moved to 107–109), then the 3D items (107–109). The game targets PC now.
+- **Next work:** Update 104 (showing the elements: HUD and pause-menu frames, pills, balloons, the chip-damage shake
+  and panel rumble, breath / drips / steam on the map) plus the owner's Oct 22 notes in NOTES.md under "Update 104
+  also" (comfort zones, removing overworld enemy health bars, party chatter, the gear page rework). Then 105
+  (ailments out of battle) and 106 (resting and camping), then 107–109 (3D). The design preview for the frames,
+  pills and balloons is the owner's "Weather & Ailment HUD Preview" canvas (claude.ai artifact). Several items in
+  NOTES.md are marked "Open:": settle those with the owner before building them. The game targets PC now.
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone
