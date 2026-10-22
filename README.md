@@ -1566,9 +1566,12 @@ older single water look becomes its first style.
   underground maps don't change. The playtest panel has season buttons for testing.
 - Outdoors everything green follows the season: fresh green in spring, green-gold in summer, autumn's even straw-gold
   grass with each tree and bush turning wholly red, orange or gold (one colour per plant, no patches), and snow in winter
-  (grass under it, a dusting on evergreen leaves).
-- Props have a **Seasons** setting (prop importer): *keeps its leaves* (pines, flowers: snowy in winter), *bare in
-  winter* (oaks, bushes: only branches) or *doesn't change*. Unset, it's guessed from the name.
+  (grass under it; leaves that stay turn icy blue, frost too, so plants stand out against the snow).
+- Props have a **Seasons** setting (prop importer): *keeps its leaves* (pines, bushes, grass, flowers: icy blue in
+  winter), *bare in winter* (oaks and other broadleaf trees: only branches) or *doesn't change*. Unset, it's guessed
+  from the name.
+- **Bridges and platforms** stand 2 px (1/16 tile) above the banks they join, so they never flicker against the ground,
+  water or winter ice under them.
 - **Ice**: in winter, still water (no current, not lava or goo) freezes over. The hero walks onto it and slides,
   steering only a little, until a prop, a bank or dry ground stops them. Rivers keep flowing. Going into or out of
   winter, the map is rebuilt with a quick fade.

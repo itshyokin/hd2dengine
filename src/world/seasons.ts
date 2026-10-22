@@ -42,7 +42,8 @@ export type PropSeason = 'leaves' | 'bare' | 'off';
 export function propSeason(d: Pick<PropDef, 'season' | 'name'> & { id?: string }): PropSeason {
   if (d.season) return d.season;
   const n = `${d.id ?? ''} ${d.name ?? ''}`.toLowerCase();
-  if (/pine|fir|spruce|conifer|evergreen|cactus|palm|flower|mushroom/.test(n)) return 'leaves';
-  if (/tree|oak|maple|birch|bush|shrub|hedge|sapling|vine|tuft|grass|fern|leaf|plant|willow/.test(n)) return 'bare';
+  // Evergreens and small plants keep their leaves (icy blue in winter): a bush that lost them would vanish entirely.
+  if (/pine|fir|spruce|conifer|evergreen|cactus|palm|flower|mushroom|bush|shrub|hedge|vine|tuft|grass|fern|plant/.test(n)) return 'leaves';
+  if (/tree|oak|maple|birch|sapling|leaf|willow/.test(n)) return 'bare';
   return 'off';
 }
