@@ -58,6 +58,9 @@ export function placeDecks(map: TileMap, data: MapData, defOf: (type: string) =>
       y = Math.max(y, map.standY(nx + 0.5, nz + 0.5));
     }
     if (!Number.isFinite(y)) y = Math.max(...group.map((c) => map.standY(c.x + 0.5, c.z + 0.5)));
+    // A hair above the banks (2 px at 32 px per tile): never level with the ground, water or winter ice under it
+    // (which would flicker). Walkers step up onto it.
+    y += DECK_LIFT;
     for (const c of group) { c.y = y; map.setDeck(c.x, c.z, y, c.def.dir ?? 'any'); }
   }
   return [...cells.values()];
@@ -97,6 +100,9 @@ export function deckIcon(d: DeckDef): HTMLCanvasElement {
 }
 
 /* ------------------------------------------------------------------ meshes */
+
+/** How far a bridge or platform stands above the banks it joins (tiles): 2 pixels at 32 per tile. */
+export const DECK_LIFT = 2 / 32;
 
 /** Build the bridges and platforms (after `placeDecks`). */
 export function buildDecks(scene: THREE.Object3D, map: TileMap, all: DeckCell[]): void {

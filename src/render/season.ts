@@ -30,7 +30,9 @@ vec3 hdWeatherLook(vec3 c, float ground) {
   float wet = uHdWeather.x;
   c = mix(vec3(lum), c, 1.0 + 0.3 * wet) * (1.0 - 0.22 * wet);
   float frost = uHdWeather.y * (ground > 0.5 ? 0.55 + 0.35 * leaf : 0.25 + 0.45 * leaf);
-  c = mix(c, vec3(0.84, 0.9, 1.0) * (0.55 + lum * 0.6), frost);
+  // Frost: white-blue on the ground, icy blue on plants (white would vanish against the snow).
+  vec3 rime = ground > 0.5 ? vec3(0.84, 0.9, 1.0) * (0.55 + lum * 0.6) : vec3(0.3, 0.56, 0.92) * (0.45 + lum * 0.9);
+  c = mix(c, rime, frost);
   float heat = uHdWeather.z * leaf * (ground > 0.5 ? 0.6 : 0.25);
   c = mix(c, vec3(lum * 1.35, lum * 1.12, lum * 0.5), heat);
   return c;
@@ -53,7 +55,11 @@ vec3 hdSeasonColor(vec3 c, vec2 world, vec2 origin, float ground, float bare, ou
   vec3 turned = ground > 0.5 ? vec3(1.0, 0.8, 0.34) * min(lum * 1.95, 1.1) : fall * min(0.18 + lum * 2.1, 1.25);
   vec3 autumn = mix(c, turned, fallMask);
   vec3 snow = vec3(0.84, 0.89, 0.98) * (0.6 + lum * 0.5);
-  vec3 winter = mix(c, snow, leaf * (ground > 0.5 ? 1.0 : 0.62));
+  // Leaves (bushes, evergreens, grass tufts) turn icy blue rather than white, so they stand out against the snow;
+  // their light and shade kept from the green they were.
+  // (Linear colour: about rgb(108, 168, 228) on screen for a mid green.)
+  vec3 ice = vec3(0.16, 0.42, 0.85) * (0.35 + lum * 1.1);
+  vec3 winter = ground > 0.5 ? mix(c, snow, leaf) : mix(c, ice, leaf * 0.9);
   if (ground > 0.5) winter = mix(winter, vec3(0.8, 0.85, 0.95), 0.12);
   if (bare > 0.5 && leaf > 0.35) gone = uHdSeason.w;
   return spring * uHdSeason.x + summer * uHdSeason.y + autumn * uHdSeason.z + winter * uHdSeason.w + c * (1.0 - dot(uHdSeason, vec4(1.0)));
@@ -74,7 +80,7 @@ export function patchSeason<T extends THREE.Material>(mat: T, mode: SeasonMode):
   { float hdGone; diffuseColor.rgb = hdSeasonColor(diffuseColor.rgb, vHdWorld, vHdOrigin, ${mode === 'ground' ? '1.0' : '0.0'}, ${mode === 'bare' ? '1.0' : '0.0'}, hdGone); if (hdGone > 0.5) discard; diffuseColor.rgb = hdWeatherLook(diffuseColor.rgb, ${mode === 'ground' ? '1.0' : '0.0'}); }`);
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season3:${mode}`;
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season4:${mode}`;
   return mat;
 }
 

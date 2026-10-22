@@ -256,6 +256,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   ratio to the main skeleton, and loads extra FBX files with a LoadingManager that blanks textures (also any
   texture path on another computer, C:/…). CharacterModel `trim` per slot ({ from, to } frames at MODEL_FPS 30;
   `trimClip` via AnimationUtils.subclip, cached).
+- 102d: season.ts winter leaves and frost on plants are icy blue (linear colour: about rgb(108,168,228) on screen),
+  cache key season4; seasons.ts `propSeason` guesses bushes / shrubs / grass / tufts / ferns / vines as 'leaves'
+  (bare made leaf-only plants vanish, leaving their shadows); decks.ts `DECK_LIFT` (2/32 tile) added to every deck
+  height in placeDecks (walk height and all deck drawing).
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
