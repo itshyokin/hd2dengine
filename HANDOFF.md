@@ -18,6 +18,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - **Next work:** Updates 103–106 (the elements, safe zones, chatter, ailments out of battle, resting and camping)
   are done as of Oct 22. Next: the Future list in NOTES.md (NPC routines, map management, button prompts that follow
   custom controls, alchemy / crafting, removing copyrighted names), each to be planned with the owner first.
+- Oct 22 late: Database → Player → Party size (`db.activeParty` 3 | 4; Game `activeMembers` getter replaces the
+  ACTIVE_MEMBERS constant in activeWhos / lineup / PartyScreen `active`). Added quickly at the end of the weekly
+  limit and only type-checked: test a 4-hero battle (BattleStage places extra fighters a step behind the markers;
+  the battle HUD / Pocket layout with 4 heroes is untested).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky
   cliffs like HGSS ledges, handheld-style Party and Status screens. The old ABS/real-time systems are gone

@@ -688,9 +688,11 @@ export class Game {
       order: () => this.lineupWhos(),
     });
     // Party (the pause menu's first tab): the three fighting as cards; Status, Equipment, Skill Tree… and Swap.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const g0 = this;
     this.partyScreen = new PartyScreen(this.ui, this.input, {
       members: () => this.lineupWhos().map((w) => this.partyView(w)),
-      active: ACTIVE_MEMBERS + 1,
+      get active() { return g0.activeMembers + 1; },
       actions: (who) => this.partyActions(who),
       run: (who, id, back) => this.partyRun(who, id, back),
       swap: (a, b) => this.swapLineup(a, b),
@@ -4745,13 +4747,15 @@ export class Game {
   /** The party in lineup order as `who`s (0 the hero, k the k-th member): the first three fight. */
   private lineupWhos(): number[] {
     const order = this.members().map((_, k) => k + 1);
-    const at = this.combatCfg.turnBased.heroLocked ? Math.min(this.heroAt, ACTIVE_MEMBERS) : this.heroAt;
+    const at = this.combatCfg.turnBased.heroLocked ? Math.min(this.heroAt, this.activeMembers) : this.heroAt;
     order.splice(Math.max(0, Math.min(at, order.length)), 0, 0);
     return order;
   }
 
   /** Who fights (and walks along on the map). */
-  private activeWhos(): number[] { return this.lineupWhos().slice(0, ACTIVE_MEMBERS + 1); }
+  private activeWhos(): number[] { return this.lineupWhos().slice(0, this.activeMembers + 1); }
+  /** Party members fighting beside the hero (Database → Player → Party size: 3 or 4 active). */
+  private get activeMembers(): number { return this.db.activeParty === 4 ? ACTIVE_MEMBERS + 1 : ACTIVE_MEMBERS; }
 
   /** Reorder the party (a list of `who`s). */
   private setLineup(order: number[]): void {
@@ -4767,7 +4771,7 @@ export class Game {
     if (i < 0 || j < 0) return;
     [order[i], order[j]] = [order[j], order[i]];
     // The hero who always fights can't end up on the bench.
-    if (this.combatCfg.turnBased.heroLocked && order.indexOf(0) > ACTIVE_MEMBERS) return;
+    if (this.combatCfg.turnBased.heroLocked && order.indexOf(0) > this.activeMembers) return;
     this.setLineup(order);
   }
 

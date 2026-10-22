@@ -144,6 +144,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const questState = { sel: 0 };
   const heroes = heroesWork(store.db.heroes, store.db.player), heroState = { sel: 0 };
   let charView: 'looks' | 'chatter' = 'looks';
+  let activeParty: 3 | 4 = store.db.activeParty === 4 ? 4 : 3;
   const chatState = { sel: 0 };
   const spells: SpellEntry[] = JSON.parse(JSON.stringify(spellList(store.db)));
   const additions: AdditionDef[] = JSON.parse(JSON.stringify(additionList(store.db)));
@@ -389,6 +390,10 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'time') { content.replaceChildren(...timeTab()); return; }
     if (tab === 'camera') { content.replaceChildren(...cameraTab()); return; }
     content.replaceChildren(
+      h('section', { class: 'db-section' },
+        h('h3', {}, 'Party size'),
+        field('Active characters', select([['3', '3 active (the hero + 2)'], ['4', '4 active (the hero + 3)']], String(activeParty), (v) => { activeParty = v === '4' ? 4 : 3; }),
+          'How many fight in battle and walk on the map at once; the rest wait on the bench.')),
       h('section', { class: 'db-section' },
         h('h3', {}, 'Health, magic and stamina'),
         h('div', { class: 'db-table gauges', role: 'table' },
@@ -672,6 +677,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (tFinal) db.time = C(tFinal); else delete db.time;
       if (camOut) db.overworldCamera = C(camOut); else delete db.overworldCamera;
       if (statOut) db.statOrder = statOut; else delete db.statOrder;
+      if (activeParty === 4) db.activeParty = 4; else delete db.activeParty;
       if (armorOut) db.armorTypes = C(armorOut); else delete db.armorTypes;
       if (weaponOut) db.weaponTypes = C(weaponOut); else delete db.weaponTypes;
       if (itemsOut) db.items = C(itemsOut); else delete db.items;

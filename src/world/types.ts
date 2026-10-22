@@ -1003,6 +1003,8 @@ export interface Database {
   achievements?: import('../game/achievements').AchievementDef[];
   /** The developer console (the ` key): in playtests only (default), always, or never. */
   devConsole?: 'playtest' | 'always' | 'off';
+  /** How many heroes fight and walk on the map at once, the hero you play included (3 unset, or 4). */
+  activeParty?: 3 | 4;
   startMap: string;
   start: { x: number; z: number; dir?: Dir };
   startHour: number;
