@@ -284,8 +284,17 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
   Spawns layer (store `safeMark`, `safeGrid()` / `editSafe`, MapView `drawSafe`); in the game they count as
   sheltered and by a fire (Comfortable), enemies keep out (Game `safeTiles()` circles in `safeZones()`), no random
   battles there, and `updateRestZone` sends followers to spots (Ally `setRest` / `updateRest`: sit, lie, spellcast or
-  swing now and then). Database → Heroes → Rest preferences. Still to do in 104: ailment balloons (with 105), party
-  chatter, the gear page.
+  swing now and then). Database → Heroes → Rest preferences.
+  Party chatter: game/chatter.ts (`CHATTER_TRIGGERS`, `pickChatter` weighted by HeroDef `chatter.amount` 0–10, the
+  hero you play a third as often, `chatterSeconds`); HeroDef `chatter {amount, lines{trigger: string[]}, maps[{map,
+  line}]}`; Game `chatter(what, opts)` queues one line (1–2.5 s delay, 90 s per trigger, 25–45 s quiet after a line),
+  `updateChatter` watches weather kind / wind (≥0.55 up, <0.35 down) / map entry (`chatFirst` from `visited`),
+  weather-state changes in updateBody and safe-zone entry in updateRestZone, waking from sleep ('camp');
+  `sayChatter` shows an EventBubble `chat: true` (`.ev-bubble.chat`) over the speaker via updateBubbles and logs it
+  (LogKind 'chat'). Editor: Database → Characters has a Looks | Chatter switch (editor/ChatterEditor.ts,
+  `cleanChatter` used by cleanHeroes). The hero you play is always the walking sprite (refreshLeader); followers are
+  the active lineup minus the hero, in list order. Still to do in 104: ailment balloons (with 105), the gear page,
+  the optional HP-bar recolour.
 - Tooling note: in the cloud workspace npm install is blocked, so typecheck with a global tsc and build the
   standalone files with bun (`bun tools/build-standalone.mjs` with a small esbuild stand-in); the owner's own
   `npm run build:standalone` makes slightly smaller files.
