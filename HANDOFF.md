@@ -14,7 +14,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Update 90)
+## Pick up here (state as of Update 103, Oct 22)
 - **Next work:** Update 104 (showing the elements: HUD and pause-menu frames, pills, balloons, the chip-damage shake
   and panel rumble, breath / drips / steam on the map) plus the owner's Oct 22 notes in NOTES.md under "Update 104
   also" (comfort zones, removing overworld enemy health bars, party chatter, the gear page rework). Then 105
