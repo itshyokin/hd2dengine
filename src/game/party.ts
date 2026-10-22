@@ -15,6 +15,7 @@ import { ATTRS, ATTR_MAX, baseAttrs } from './attributes';
 import { CharacterSprite } from './CharacterSprite';
 import { SWIM_SINK } from './PlayerMotion';
 import type { SpriteLibrary } from '../render/sprites';
+import type { RestSpot } from '../world/safeZones';
 import { MAX_LEVEL_LIMIT, xpToNext, type XpRules } from './combat/config';
 
 /** Party members besides the hero (eight in all). */
@@ -163,6 +164,48 @@ export class Ally {
     if (data.down) this.sprite.play('hurt', 0.3, 0, () => this.sprite.hold('hurt', 5));
   }
 
+  /** Resting at a spot in a safe zone while the player is in it (null: following). */
+  private rest: { x: number; z: number; act: RestSpot['act']; t: number; posed: boolean } | null = null;
+  get resting(): boolean { return !!this.rest; }
+  /** Go and rest at a spot (sit, lie down, practise magic, train), or stop and fall in behind again (null). */
+  setRest(spot: RestSpot | null): void {
+    if (!spot) { if (this.rest) { this.rest = null; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; } return; }
+    const x = spot.x + 0.5, z = spot.z + 0.5;
+    if (this.rest && this.rest.x === x && this.rest.z === z) return;
+    this.rest = { x, z, act: spot.act, t: 1 + Math.random() * 2, posed: false };
+    this.sprite.hold(null);
+  }
+  /** At the spot: walk there, then sit / lie / practise / train until called away. Returns true while resting. */
+  private updateRest(dt: number, h: AllyHost): boolean {
+    const r = this.rest;
+    if (!r) return false;
+    const far = Math.hypot(r.x - this.x, r.z - this.z);
+    if (far > 0.12) {
+      if (r.posed) { r.posed = false; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; }
+      const moving = this.moveToward(r.x, r.z, WALK, dt, 0.05, false);
+      if (!moving) { this.stuck += dt; if (this.stuck > 2) this.place(r.x, r.z, h.map); }
+      this.finish(dt, moving, false);
+      return true;
+    }
+    if (!r.posed) {
+      r.posed = true;
+      // Facing the camera, except at a training dummy (it stands just north of the spot).
+      this.sprite.faceVector(0, r.act === 'train' ? -1 : 1);
+      if (r.act === 'sit' && this.sprite.has('sit')) this.sprite.hold('sit', 0);
+      if (r.act === 'lie') { if (this.sprite.has('hurt')) this.sprite.hold('hurt', 5); else this.sprite.mesh.rotation.z = Math.PI / 2 * 0.9; }
+    }
+    if (r.act === 'magic' || r.act === 'train') {
+      r.t -= dt;
+      if (r.t <= 0) {
+        r.t = 2.4 + Math.random() * 2.4;
+        if (r.act === 'magic') this.sprite.play('spellcast', 0.7);
+        else for (const a of ['slash', 'thrust', 'backslash']) if (this.sprite.play(a, 0.45)) break;
+      }
+    }
+    this.finish(dt, false, false);
+    return true;
+  }
+
   get name(): string { return this.def.name; }
   get down(): boolean { return !!this.data.down; }
   dispose(): void { this.sprite.mesh.removeFromParent(); }
@@ -199,6 +242,7 @@ export class Ally {
     }
     if (h.calm && h.regenHp) this.data.hp = Math.min(n.max.hp, this.data.hp + dt * 0.5);
 
+    if (this.updateRest(dt, h)) return;
     let moving = false, running = false;
     // Following: a spot on the hero's trail, hopping where the hero jumped.
     if (this.hopT <= 0) for (const j of h.jumps()) {

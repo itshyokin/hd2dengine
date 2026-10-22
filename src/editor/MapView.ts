@@ -623,11 +623,26 @@ export class MapView {
     if (changed) { st.changed = true; s.changed(); }
   }
 
-  /** Paint (or erase) the encounter zone letter under the brush. */
+  /** Paint (or erase) the encounter zone letter under the brush (or the safe zone mark, when one is picked). */
   private applyZone(t: Pt): void {
     const s = this.store, st = this.stroke;
     if (!st || st.kind !== 'zones') return;
     const n = s.brushSize, o = Math.floor((n - 1) / 2);
+    if (s.safeMark !== null) {
+      const mark = s.safeMark;
+      const done = s.editSafe((grid, w) => {
+        let any = false;
+        for (let dz = 0; dz < n; dz++) for (let dx = 0; dx < n; dx++) {
+          const x = t.x - o + dx, z = t.z - o + dz;
+          if (!s.inMap(x, z)) continue;
+          const i = z * w + x;
+          if (grid[i] !== mark) { grid[i] = mark; any = true; }
+        }
+        return any;
+      });
+      if (done) { st.changed = true; s.changed(); }
+      return;
+    }
     const changed = s.editZones((grid, w) => {
       let any = false;
       for (let dz = 0; dz < n; dz++) for (let dx = 0; dx < n; dx++) {
@@ -1334,8 +1349,32 @@ export class MapView {
     ctx.restore();
   }
 
+  /** Safe zones: soft green cells, their rest spots marked (faint on other layers). */
+  private drawSafe(ctx: CanvasRenderingContext2D): void {
+    const s = this.store, m = s.map, grid = s.safeGrid(), on = s.mode === 'zones';
+    if (grid.every((c) => c === '.')) return;
+    const ICON: Record<string, string> = { S: '🪑', L: '☾', M: '✦', T: '⚔' };
+    ctx.save();
+    for (let z = 0; z < m.height; z++)
+      for (let x = 0; x < m.width; x++) {
+        const c = grid[z * m.width + x];
+        if (c === '.') continue;
+        ctx.globalAlpha = on ? 0.32 : 0.1;
+        ctx.fillStyle = '#5ad08a';
+        ctx.fillRect(x * TS, z * TS, TS, TS);
+        if (on && c !== 's') {
+          ctx.globalAlpha = 0.95;
+          ctx.font = `${Math.round(TS * 0.55)}px system-ui, sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#0d2a18';
+          ctx.fillText(ICON[c] ?? c, x * TS + TS / 2, z * TS + TS / 2 + 1);
+        }
+      }
+    ctx.restore();
+  }
+
   /** Encounter zones: each letter's cells tinted in its colour with the letter on them (faint on other layers). */
   private drawZones(ctx: CanvasRenderingContext2D): void {
+    this.drawSafe(ctx);
     const s = this.store, m = s.map, grid = s.zoneGrid(), on = s.mode === 'zones';
     if (grid.every((c) => c === '.')) return;
     ctx.save();

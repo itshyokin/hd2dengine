@@ -147,6 +147,7 @@ import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } fr
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
 import { toonWaterTime } from '../render/waterEdge';
+import { isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
 import { type BodyPlace, type BodySettings, type BodyState, type WeatherState, WEATHER_STATE_INFO, bodySettings, hurts, slowOf, soothe, stepBody, weatherState } from './body';
 import { modelStyle } from '../render/characterModel';
 import { alignFootProps, blockedTiles, footTiles, propCovers, stepOf } from '../world/props';
@@ -3276,8 +3277,18 @@ export class Game {
   /** Lit campfires (fires that are respawn points), each with the ground around it no enemy enters. */
   private safeZones(): { x: number; z: number; r: number }[] {
     const r = this.combatCfg.campSafe;
-    if (!(r > 0)) return [];
-    return this.litFires().filter((f) => this.sprites.def(f.type)?.respawn).map((f) => ({ x: f.x, z: f.z, r }));
+    const camps = r > 0 ? this.litFires().filter((f) => this.sprites.def(f.type)?.respawn).map((f) => ({ x: f.x, z: f.z, r })) : [];
+    return camps.length ? [...camps, ...this.safeTiles()] : this.safeTiles();
+  }
+  /** Painted safe zones (Spawns layer) as little circles, one per tile, for enemies to keep out of. Cached per map. */
+  private safeTileCache: { src: unknown; list: { x: number; z: number; r: number }[] } = { src: null, list: [] };
+  private safeTiles(): { x: number; z: number; r: number }[] {
+    const g = this.mapData?.safeGrid;
+    if (this.safeTileCache.src === g) return this.safeTileCache.list;
+    const list: { x: number; z: number; r: number }[] = [];
+    g?.forEach((row, z) => { for (let x = 0; x < row.length; x++) if (isSafeMark(row[x])) list.push({ x: x + 0.5, z: z + 0.5, r: 0.8 }); });
+    this.safeTileCache = { src: g, list };
+    return list;
   }
 
   /** Fire props burning now on this map (ones that never go out, and burning ones that do). Cached for a frame. */
@@ -4881,6 +4892,8 @@ export class Game {
     const d = Math.hypot(p.x - from.x, p.z - from.z);
     if (d <= 0 || d > 2) return;
     // A painted encounter zone under the hero, if any; otherwise the map's own random encounters (if it has them).
+    // Safe zones: never a random battle.
+    if (safeAt(m, p.x, p.z)) return;
     const letter = hasZones ? zoneAt(m, p.x, p.z) : null, zone = letter ? m.zones?.[letter] : undefined;
     if (!zone?.troops.length) {
       if (!t?.enemies.length) return;
@@ -5849,6 +5862,7 @@ export class Game {
     const m = this.motion, last = this.trail[this.trail.length - 1];
     if (!last || Math.hypot(m.x - last.x, m.z - last.z) > 0.2) { this.trail.push({ x: m.x, z: m.z }); if (this.trail.length > 120) this.trail.shift(); }
     const host = this.allyHost();
+    this.updateRestZone();
     for (const a of this.allies) a.update(dt, host);
     if (this.calmFor > 2.5) for (const a of this.fighters) if (a.data.pendingXp) this.allyXp(a);
     // A hero who reached a new form's level transforms once things are calm (after the battle that took them there).
@@ -6673,9 +6687,11 @@ export class Game {
     if (chip) this.bodyWalk = 0;
     for (const h of this.bodyParty()) {
       const b = this.bodyOf(h.id);
+      // A safe zone keeps the elements out: sheltered, and as good as by a fire.
+      const safe = !!this.mapData && safeAt(this.mapData, h.x, h.z);
       const place: BodyPlace = {
-        temp, warmth: this.warmthOf(h.equip), raining, swimming: h.swimming, sheltered: !outdoor,
-        byFire: !!this.lights?.byFire(h.x, h.z), damp: !!this.mapData?.damp, sunny, outside,
+        temp, warmth: this.warmthOf(h.equip), raining, swimming: h.swimming, sheltered: !outdoor || safe,
+        byFire: safe || !!this.lights?.byFire(h.x, h.z), damp: !!this.mapData?.damp, sunny, outside,
       };
       if (!paused && h.hp > 0) stepBody(b, place, dt, cfg);
       const st = weatherState(b, place, cfg);
@@ -6693,6 +6709,27 @@ export class Game {
       }
     }
   }
+  /** The safe zone the hero is resting in (its spots, keyed by its first spot), or null. */
+  private restZone: string | null = null;
+  /**
+   * Safe zones: while the hero you play stands in one, the party goes to its rest spots (each the spot they like
+   * best, Database → Heroes → Rest preferences); stepping out calls everyone back behind them.
+   */
+  private updateRestZone(): void {
+    const m = this.motion, d = this.mapData;
+    const calm = !this.battle.active && !this.battlePending && !this.flight && !this.transfer && !!d?.safeGrid;
+    const spots = calm ? zoneSpots(d!, m.x, m.z) : [];
+    const key = spots.length ? `${this.mapName}:${spots[0].x},${spots[0].z}` : null;
+    if (key === this.restZone) return;
+    this.restZone = key;
+    const free = this.allies.filter((a) => !a.down && !a.passive);
+    if (!key) { for (const a of this.allies) a.setRest(null); return; }
+    // In party order (the list's order): ties go to whoever is higher.
+    free.sort((a, b) => this.members().findIndex((x) => x.data === a.data) - this.members().findIndex((x) => x.data === b.data));
+    const got = shareSpots(spots, free.map((a) => a.def.restPrefs ?? {}));
+    free.forEach((a, i) => a.setRest(got[i]));
+  }
+
   /** Breath, drips and steam on the map, per hero, every so often. */
   private readonly bodyFxT = new Map<string, number>();
   private bodyEffects(h: { id: string; x: number; y: number; z: number; dir: Dir }, st: WeatherState | null, temp: number, dt: number): void {

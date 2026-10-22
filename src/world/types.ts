@@ -708,6 +708,8 @@ export interface MapData {
    * for none. Each zone's troops and how often battles come are in `zones`.
    */
   zoneGrid?: string[];
+  /** Safe zones (world/safeZones.ts): one character per cell, "." none, s safe ground, S seat, L lie down, M practise magic, T training dummy. */
+  safeGrid?: string[];
   zones?: Record<string, EncounterZone>;
   /**
    * 'battle': a battle map (a stage for turn-based battles: forest clearing, plains, city street…), listed apart in
@@ -879,6 +881,8 @@ export interface HeroForm { level: number; look?: string; face?: string }
 export interface HeroDef {
   id: string;
   name: string;
+  /** In a safe zone: how much they like each rest activity, 1 (rarely) … 10 (goes for it most often); unset 5. */
+  restPrefs?: Partial<Record<RestActivity, number>>;
   /**
    * No Additions: Attack is a plain attack, never an Addition (archers, mages). Everyone else starts with Quick Strike
    * equipped and can equip any Addition they learn (Equipment page).
@@ -1813,3 +1817,6 @@ export interface BodyConfig {
   /** How much slower (%): wet, Cold / Hot, Freezing / Overheating. */
   slow?: { wet?: number; mild?: number; severe?: number };
 }
+
+/** What a party member does at a rest spot in a safe zone. */
+export type RestActivity = 'sit' | 'lie' | 'magic' | 'train';

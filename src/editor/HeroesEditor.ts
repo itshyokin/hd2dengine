@@ -1,3 +1,4 @@
+import { REST_ACTIVITIES } from '../world/safeZones';
 import { DEFAULT_RANK, RANKS, RANK_COLORS, RANK_GAIN, type Rank } from '../game/statRanks';
 import { soundField } from './CommandEditor';
 /**
@@ -49,6 +50,7 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     if (x.noAdditions) c.noAdditions = true;
     if (x.noAdditions && x.plainAttack === 'ranged') c.plainAttack = 'ranged';
     if (x.battleOffset) c.battleOffset = x.battleOffset;
+    if (x.restPrefs && Object.values(x.restPrefs).some((v) => v !== undefined && v !== 5)) c.restPrefs = Object.fromEntries(Object.entries(x.restPrefs).filter(([, v]) => v !== undefined && v !== 5));
     if (i > 0 && x.gear && Object.values(x.gear).some(Boolean)) c.gear = Object.fromEntries(Object.entries(x.gear).filter(([, v]) => v));
     if (i === 0 && x.creation) {
       const cr: CreationSettings = {};
@@ -156,6 +158,12 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
           'Raise (+) or lower (−) them on battle maps, if their art floats or sinks.'),
         h('p', { class: 'note' }, 'More are learned in the game from skill-tree skills, events and trainers.')),
       defenceSection(x, rerender, 'They'),
+      h('section', { class: 'db-section' }, h('h3', {}, 'Rest preferences'),
+        h('div', { class: 'field-row' }, ...REST_ACTIVITIES.map(([act, name]) => field(name, numberInput(x.restPrefs?.[act] ?? 5, (v) => {
+          const n = Math.max(1, Math.min(10, Math.round(v)));
+          if (n === 5) { if (x.restPrefs) { delete x.restPrefs[act]; if (!Object.keys(x.restPrefs).length) delete x.restPrefs; } } else (x.restPrefs ??= {})[act] = n;
+        }, { step: 1, min: 1, max: 10, class: 'db-num', 'aria-label': `${name} preference` })))),
+        h('p', { class: 'note' }, 'In a safe zone (painted on the Spawns layer), each party member goes to a spot while the player is there: 10 goes for that kind of spot most often, 1 rarely; ties go to whoever is higher in the party order.')),
       field('Can’t get', ailmentChips(() => x.resists, (v) => { if (v) x.resists = v as Ailment[]; else delete x.resists; }, rerender, 'Can’t get'), 'Ailments this hero never gets (equipment can ward off more).'),
       ...(cr ? [h('section', { class: 'db-section' }, h('h3', {}, 'Setting up stats'),
         checkbox('The player sets up the hero’s stats after New Game (Default or Custom)', cr.enabled !== false, (v) => { cr.enabled = v ? undefined : false; rerender(); }),

@@ -1,4 +1,5 @@
 /** Editor state: the open map, the current tool, selection, and undo history. */
+import { formatSafe, parseSafe } from '../world/safeZones';
 import { setAttrOrder } from '../game/attributes';
 import { type HeightStyle, formatHeightStyles, parseHeightStyles } from '../world/heights';
 import { formatFishing, parseFishing } from '../world/fishing';
@@ -454,6 +455,25 @@ export class EditorStore {
   zoneAt(x: number, z: number): string {
     return this.inMap(x, z) ? this.zoneGrid()[z * this.map.width + x] : '.';
   }
+
+  /** Safe zones (world/safeZones.ts): a mark or "." per cell, parsed and cached. */
+  private sCache: { src: string[] | undefined; w: number; h: number; grid: string[] } | null = null;
+  safeGrid(): string[] {
+    const m = this.map, c = this.sCache;
+    if (c && c.src === m.safeGrid && c.w === m.width && c.h === m.height) return c.grid;
+    const grid = parseSafe(m.safeGrid, m.width, m.height);
+    this.sCache = { src: m.safeGrid, w: m.width, h: m.height, grid };
+    return grid;
+  }
+  editSafe(fn: (grid: string[], w: number) => boolean): boolean {
+    const grid = this.safeGrid();
+    if (!fn(grid, this.map.width)) return false;
+    this.map.safeGrid = formatSafe(grid, this.map.width, this.map.height) ?? undefined;
+    this.sCache = { src: this.map.safeGrid, w: this.map.width, h: this.map.height, grid };
+    return true;
+  }
+  /** Spawns layer: painting a safe zone mark (s, S, L, M, T, "." to erase) instead of an encounter zone letter. */
+  safeMark: string | null = null;
 
   editZones(fn: (grid: string[], w: number) => boolean): boolean {
     const grid = this.zoneGrid();

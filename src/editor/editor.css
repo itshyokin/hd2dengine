@@ -855,3 +855,6 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .char-3d-style .field-row { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
 /* Database → Weather & temperature → On the body: name, number, unit per row. */
 .db-table.body-table { grid-template-columns: max-content 84px minmax(0, 1fr); align-items: center; gap: 6px 10px; }
+/* Spawns layer: safe zone marks. */
+.zone-chip.safe-chip { background: #5ad08a; color: #0d2a18; }
+.zone-chip.safe-chip[data-mark="."] { background: transparent; color: inherit; }

@@ -39,7 +39,7 @@ export function formatAssets(a: AssetRegistry): string {
  * events pretty-printed.
  */
 const MAP_KEYS_ORDERED = new Set(['name', 'kind', 'width', 'height', 'environment', 'border', 'music', 'battleMusic', 'battleMap', 'battleTransitions', 'encounters', 'zones', 'ambience', 'ambienceNight', 'wind', 'uniqueWeather', 'weatherZone', 'weather', 'atmosphere',
-  'cliffTile', 'theme', 'season', 'tempOffset', 'ambienceCold', 'terrain', 'heights', 'water', 'ramps', 'passage', 'zoneGrid', 'markers', 'battleCamera', 'lights', 'events']);
+  'cliffTile', 'theme', 'season', 'tempOffset', 'ambienceCold', 'terrain', 'heights', 'water', 'ramps', 'passage', 'zoneGrid', 'safeGrid', 'markers', 'battleCamera', 'lights', 'events']);
 
 export function formatMap(map: MapData): string {
   const { props, buildings, ...rest } = map;
@@ -53,6 +53,7 @@ export function formatMap(map: MapData): string {
     water: rest.water?.length ? rest.water : undefined, ramps: rest.ramps?.length ? rest.ramps : undefined,
     passage: rest.passage?.some((r) => /[^.]/.test(r)) ? rest.passage : undefined,
     zoneGrid: rest.zoneGrid?.some((r) => /[^.]/.test(r)) ? rest.zoneGrid : undefined,
+    safeGrid: rest.safeGrid?.some((r) => /[^.]/.test(r)) ? rest.safeGrid : undefined,
     markers: rest.markers?.length ? rest.markers : undefined, battleCamera: rest.battleCamera, lights: rest.lights, events: rest.events,
   };
   let head = JSON.stringify(ordered, null, 2).replace(/\n}$/, '');

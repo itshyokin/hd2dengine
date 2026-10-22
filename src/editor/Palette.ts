@@ -20,6 +20,7 @@ import { openLpcLibrary } from './LpcLibrary';
 import type { BuildingTool, EditorStore, HeightTool, LightType, Mode, ObjectTool, TerrainTool } from './store';
 import type { WaterKind } from '../world/heights';
 import type { FishZone, WaterStyle } from '../world/types';
+import { SAFE_MARKS } from '../world/safeZones';
 import { WATER_PRESETS, WATER_SYMBOLS, isToonWater, waterStyles } from '../world/waterStyles';
 import { defaultZone } from '../world/fishing';
 import { PASSAGE_FLAGS, type PassageFlag } from '../world/passage';
@@ -626,13 +627,26 @@ export class Palette {
     const next = ZONE_LETTERS.find((l) => !used.has(l));
     if (next) letters.push(next);
     const edit = (fn: () => void) => { s.checkpoint(); fn(); s.changed(); s.emit('ui'); };
-    const btn = (l: string) => h('button', { type: 'button', class: 'swatch zone-swatch', 'aria-pressed': String(s.zoneLetter === l), title: l === '.' ? 'Erase' : `Zone ${l}`,
-      onclick: () => { s.zoneLetter = l; s.emit('ui'); } },
+    const btn = (l: string) => h('button', { type: 'button', class: 'swatch zone-swatch', 'aria-pressed': String(s.safeMark === null && s.zoneLetter === l), title: l === '.' ? 'Erase' : `Zone ${l}`,
+      onclick: () => { s.zoneLetter = l; s.safeMark = null; s.emit('ui'); } },
       h('span', { class: 'zone-chip', style: l === '.' ? '' : `background:${zoneColor(l)}` }, l === '.' ? '✕' : l),
       h('span', { class: 'swatch-name' }, l === '.' ? 'Erase' : m.zones?.[l]?.name || `Zone ${l}`),
       h('span', { class: 'swatch-note' }, l === '.' ? 'No random battles here.' : `${grid.filter((c) => c === l).length} tiles · ${m.zones?.[l]?.troops.length ?? 0} troop${(m.zones?.[l]?.troops.length ?? 0) === 1 ? '' : 's'}`));
     const out: HTMLElement[] = [];
     out.push(this.brush(), h('div', { class: 'section-label' }, 'Paint'), h('div', { class: 'swatches' }, ...letters.map(btn), btn('.')));
+    // Safe zones: the opposite of spawns (no monsters, no battles, no weather), with rest spots for the party.
+    const safeGrid = s.safeGrid();
+    const safeBtn = (mark: string, name: string, note: string) => h('button', { type: 'button', class: 'swatch zone-swatch', 'aria-pressed': String(s.safeMark === mark), title: name,
+      onclick: () => { s.safeMark = mark; s.emit('ui'); } },
+      h('span', { class: 'zone-chip safe-chip', 'data-mark': mark }, ({ s: '◇', S: '🪑', L: '☾', M: '✦', T: '⚔', '.': '✕' } as Record<string, string>)[mark] ?? mark),
+      h('span', { class: 'swatch-name' }, name),
+      h('span', { class: 'swatch-note' }, mark === '.' ? note : `${safeGrid.filter((c) => c === mark).length} tiles · ${note}`));
+    out.push(h('div', { class: 'section-label' }, 'Safe zones'),
+      h('div', { class: 'swatches' }, ...SAFE_MARKS.map((k) => safeBtn(k.mark, k.name, k.note)), safeBtn('.', 'Erase safe ground', 'Back to ordinary ground.')));
+    if (s.safeMark !== null) {
+      out.push(h('p', { class: 'note' }, 'A safe zone keeps the elements out (no cold, heat or rain: the party is Comfortable), monsters never come into it, and there are no random battles on it. Paint its ground, then its spots: while the player is in the zone, each party member goes to a free spot they like (Database → Heroes → Rest preferences) and sits, lies down, practises magic or trains there, until the player leaves; then they fall in behind again. A training dummy spot: put a dummy prop just north of it.'));
+      return out;
+    }
     const l = s.zoneLetter;
     if (l === '.') {
       out.push(h('p', { class: 'note' }, 'Erase: tiles with no zone have no random battles. Pick a zone letter above to paint it and choose its troops.'));

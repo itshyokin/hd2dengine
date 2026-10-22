@@ -255,6 +255,10 @@ export class Inspector {
           const rows = Array.from({ length: hgt }, (_, z) => (m.zoneGrid![z] ?? '').padEnd(w, '.').slice(0, w));
           m.zoneGrid = rows.some((r) => /[^.]/.test(r)) ? rows : undefined;
         }
+        if (m.safeGrid) {
+          const rows = Array.from({ length: hgt }, (_, z) => (m.safeGrid![z] ?? '').padEnd(w, '.').slice(0, w));
+          m.safeGrid = rows.some((r) => /[^.]/.test(r)) ? rows : undefined;
+        }
         m.width = w; m.height = hgt;
         m.props = m.props.filter((p) => p.x < w && p.z < hgt);
         m.lights = m.lights.filter((l) => l.x < w && l.z < hgt);
