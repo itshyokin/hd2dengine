@@ -58,8 +58,11 @@ decide things; the tablet editor keeps working.
   - [ ] Update 104 also (owner's notes, Oct 22):
         - Comfort zones: placeable areas (a new layer that places and stretches rectangles on tiles like events, not
           events: rest points are events) that keep the elements off: no cold, heat or wet inside (a shelter, a
-          market's awnings, a warm inn yard). Open: does a zone also count as "sheltered" (no rain) and make heroes
-          Comfortable? Suggested: yes to both, with a per-zone temperature option later.
+          market's awnings, a warm inn yard). Decided: a zone counts as sheltered (no rain) and makes heroes
+          Comfortable, and monsters never enter it: a truly safe place. Spots inside it are painted like water or
+          terrain types: Seat, Lay down (more later: Crouch, Lean…). Entering the zone, every party member except
+          the hero you play picks a free spot at random and sits / lies there (Sit and KO-like poses, or the sheet's
+          sit) until the player leaves the zone; then they stand and fall in behind again.
         - Remove the enemy health bars / meters on the overworld (left over from the action battle system).
         - Party chatter: followers say a line in a speech bubble that follows the speaker (one at a time, picked at
           random, with a cooldown so it stays rare). Database → Characters → Chatter, written per character so it
@@ -67,8 +70,9 @@ decide things; the tablet editor keeps working.
           Wet / Comfortable, the weather turning to rain / snow / storm…, the wind picking up / dying down, entering
           a rest area or camp, entering a new map) with several lines per trigger; and Map chatter (+ / − rows: pick
           a map from a dropdown, write a line beside it; several lines for one map: one at random), e.g. "This is
-          Reach City. I grew up here!". Open: how often (a cooldown in seconds), and whether the hero you play
-          talks too.
+          Reach City. I grew up here!". Decided: the hero you play talks too, and it's rare. Each character has
+          a Chatter amount (how talkative: a whiny one often, a stoic knight almost never). Every line said goes in
+          the adventure log, so players can scroll back to anything they missed.
         - Gear page: the left-hand item list is replaced by the hero's current statuses (weather state, ailment,
           good state); moving up and down shows what each does in a text box. To equip, pick the armor / weapon
           slot, then the item for it; items can also be equipped from the item menu (pick the armor or weapon →
@@ -107,8 +111,10 @@ decide things; the tablet editor keeps working.
     the result, and a CRAFT button. Each press makes one more while the materials last (3 of each: three crafts),
     e.g. firewood + fur + stone = Stone Axe. Crafting makes items, armor and weapons; the Forge upgrades them.
     Database → Crafting: add / remove recipes, each up to three material items (from the item list) and the result;
-    key items can't be crafted. Open: does the order of the materials matter (suggested: no), and how many does
-    one craft make (suggested: a count per recipe).
+    key items can't be crafted. Decided: the order of the materials doesn't matter, only that they're right; a
+    recipe takes two or three materials (a stone knife + fur = leather); one craft makes one, and the CRAFT button
+    keeps going while the materials last (2 stone knives + 3 fur: two leather). Open: a "kept, not used up" flag for
+    tool materials (the knife in that example), if wanted.
   - Remove copyrighted material, names and references from the engine, code and descriptions (game names used as
     style references in the UI text and docs: Pokémon, Legend of Dragoon, Final Fantasy, RPG Maker, Halo, Baldur's
     Gate…; built-in names; anything taken from other games). Third-party art keeps its licence credits.
