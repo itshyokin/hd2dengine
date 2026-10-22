@@ -8,7 +8,7 @@
  */
 import { elementPill } from './elementPill';
 import { weatherDecor, weatherFrameClass, weatherPill } from './weatherFrame';
-import type { WeatherState } from '../game/body';
+import { type WeatherState, hpTintStyle } from '../game/body';
 import { partyLayout, type PanelPart, type PartyLayout } from './partyLayout';
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
@@ -35,6 +35,8 @@ export interface PartyMemberView {
   ailment?: { tag: string; color: string; ink: string; name: string };
   /** The elements on them (out of battle): the panel's frame and a pill. */
   weather?: WeatherState | null;
+  /** Their health bar's colour (their ailment's, when Database → Climate tints it). */
+  tint?: string | null;
 }
 
 export interface PartyAction { id: string; label: string; detail?: string; disabled?: boolean }
@@ -205,7 +207,7 @@ export class PartyScreen {
       const P = L.panels[Math.min(k, 3)], extra = Math.max(0, k - 3), show = (part: PanelPart) => !P.hide?.includes(part);
       const box = `left:${P.x}%;top:${P.y + extra * P.h * 1.04}%;width:${P.w}%;height:${P.h}%;`;
       const xp = c.xp.next === null ? 100 : pct(c.xp.have, c.xp.next);
-      return `<div class="pr-panel pr-slot size-${P.size}${slotCls(k)}${k >= this.host.active ? ' bench' : ''}${c.down ? '' : weatherFrameClass(c.weather)}" data-k="${k}" role="option" aria-selected="${this.sel === k}" style="${box}${c.color ? `--hero:${c.color};` : ''}">
+      return `<div class="pr-panel pr-slot size-${P.size}${slotCls(k)}${k >= this.host.active ? ' bench' : ''}${c.down ? '' : weatherFrameClass(c.weather)}" data-k="${k}" role="option" aria-selected="${this.sel === k}" style="${box}${c.color ? `--hero:${c.color};` : ''}${hpTintStyle(c.tint)}">
         ${c.down ? '' : weatherDecor(c.weather)}
         ${show('levelUp') && c.skillPoints > 0 ? '<span class="pt-badge">LEVEL UP</span>' : ''}
         ${show('picture') ? `<div class="pr-art"><img src="${c.art}" alt=""></div>` : '<div class="pr-gap"></div>'}

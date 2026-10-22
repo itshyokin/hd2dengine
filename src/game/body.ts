@@ -28,6 +28,7 @@ export const DEFAULT_BODY: Required<Omit<BodyConfig, 'slow'>> & { slow: Required
   chipSteps: 12, chipPct: 3,
   comfortAlways: false,
   rumble: 2,
+  hpTint: false,
   slow: { wet: 10, mild: 20, severe: 35 },
 };
 export type BodySettings = typeof DEFAULT_BODY;
@@ -109,6 +110,9 @@ export function slowOf(st: WeatherState | null, s: BodySettings): number {
   if (st === 'wet') return s.slow.wet / 100;
   return 0;
 }
+
+/** The style that tints a panel's health bar (its `--g-hp`) to a colour, or ''. */
+export const hpTintStyle = (color: string | null | undefined): string => (color ? `--g-hp:linear-gradient(color-mix(in srgb, ${color} 55%, #fff), ${color});` : '');
 
 /** Does this state cost health as they walk? */
 export const hurts = (st: WeatherState | null): boolean => st === 'freezing' || st === 'overheating';

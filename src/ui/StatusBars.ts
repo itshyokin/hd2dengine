@@ -5,7 +5,7 @@
  * Low health pulses red around the screen edges, and a hit flashes it, so a draining bar is hard to miss.
  */
 import { weatherDecor, weatherFrameClass, weatherPill } from './weatherFrame';
-import type { WeatherState } from '../game/body';
+import { type WeatherState, hpTintStyle } from '../game/body';
 import { elementDot } from './elementPill';
 import type { Element } from '../world/types';
 import type { PlayerStats } from '../game/stats';
@@ -64,7 +64,9 @@ export interface PartyCard { name: string; level?: number; face?: string; hp: nu
   /** The elements on them (out of battle): the frame and pill. */
   weather?: WeatherState | null;
   /** Hurt by the elements just now: the card shakes. */
-  rumble?: boolean }
+  rumble?: boolean;
+  /** Their health bar's colour (their ailment's, when Database → Climate tints it). */
+  tint?: string | null }
 
 const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
 
@@ -111,7 +113,7 @@ export class StatusBars {
   private partyKey = '';
   private partyCount = 0;
   setParty(list: PartyCard[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble]));
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -121,12 +123,18 @@ export class StatusBars {
       const m = list[k];
       el.hidden = !m;
       el.dataset.empty = m ? '' : '1';
-      el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}${weatherFrameClass(m.weather)}${m.rumble ? ' wf-rumble' : ''}">${weatherDecor(m.weather)}${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
+      el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}${weatherFrameClass(m.weather)}${m.rumble ? ' wf-rumble' : ''}" style="${hpTintStyle(m.tint)}">${weatherDecor(m.weather)}${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
       <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather ? `<span class="wf-pills">${weatherPill(m.weather)}</span>` : ''}</div>` : '';
     });
+  }
+
+  /** The hero's own health bar in their ailment's colour (null: the usual). */
+  setHeroTint(color: string | null): void {
+    const v = hpTintStyle(color);
+    if (v) this.top.style.setProperty('--g-hp', v.slice('--g-hp:'.length, -1)); else this.top.style.removeProperty('--g-hp');
   }
 
   /** The hero's own gauges: the elements' frame and pill, and a shake when they're hurt by them. */

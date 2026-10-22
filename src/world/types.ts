@@ -1825,6 +1825,8 @@ export interface BodyConfig {
   comfortAlways?: boolean;
   /** Seconds a hero's panel rumbles when they take a chip of damage. */
   rumble?: number;
+  /** Tint a hero's health bar the colour of their ailment (Poison purple, Burn orange…); off by default. */
+  hpTint?: boolean;
   /** How much slower (%): wet, Cold / Hot, Freezing / Overheating. */
   slow?: { wet?: number; mild?: number; severe?: number };
 }

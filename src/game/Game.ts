@@ -4652,14 +4652,14 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null,
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null, tint: this.hpTint(0),
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null,
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null, tint: m.data.down ? null : this.hpTint(who),
     };
   }
 
@@ -4668,6 +4668,13 @@ export class Game {
   private ailmentOf(who: number): BattleAilment | undefined {
     return (who ? Object.keys(this.members()[who - 1]?.data.ailments ?? {})[0]
       : this.combat.heroStatus.list.find((e) => !e.id.startsWith('buff:'))?.id ?? Object.keys(this.heroAilments)[0]) as BattleAilment | undefined;
+  }
+
+  /** Database → Climate → tint health bars: their ailment's colour, else null. */
+  private hpTint(who: number): string | null {
+    if (!this.bodyCfg.hpTint) return null;
+    const a = this.ailmentOf(who);
+    return a ? this.combatCfg.turnBased.statusPills[a]?.color ?? null : null;
   }
 
   private ailmentPill(who: number): PartyMemberView['ailment'] {
@@ -5894,10 +5901,11 @@ export class Game {
     this.hud.setHeroElements(heroEls);
     const leadId = mainHero(this.db).id, leadWeather = this.weatherStates.get(leadId) ?? null, leadRumble = this.rumbling(leadId);
     this.hud.setHeroWeather(this.settings.hud?.stats?.compact ? null : leadWeather, !this.settings.hud?.stats?.compact && leadRumble);
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble }] : [];
+    this.hud.setHeroTint(this.hpTint(0));
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0) }] : [];
     // The party's cards: the others of the three fighting (whoever leads the map).
     const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
-    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id) }; })]);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1) }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
