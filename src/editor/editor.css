@@ -858,3 +858,13 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 /* Spawns layer: safe zone marks. */
 .zone-chip.safe-chip { background: #5ad08a; color: #0d2a18; }
 .zone-chip.safe-chip[data-mark="."] { background: transparent; color: inherit; }
+
+/* Database → Characters → Chatter */
+.char-view-bar { margin-bottom: 12px; }
+.chat-amount-row { display: flex; align-items: center; gap: 10px; }
+.chat-amount { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.chat-grid { display: grid; gap: 8px; }
+.chat-row { display: grid; grid-template-columns: 190px 1fr; gap: 10px; align-items: start; }
+.chat-row.map { grid-template-columns: 180px 1fr auto; align-items: center; margin-bottom: 6px; }
+.chat-trigger { font-size: 12.5px; padding-top: 6px; color: var(--ink, inherit); }
+.chat-lines { width: 100%; resize: vertical; min-height: 34px; font: inherit; font-size: 12.5px; }

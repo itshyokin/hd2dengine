@@ -878,11 +878,22 @@ export interface CreationSettings {
 /** A hero's later form: the level it comes at, its look (a Characters id) and face art. */
 export interface HeroForm { level: number; look?: string; face?: string }
 
+/** What a General chatter line is for (game/chatter.ts). */
+export type ChatterTrigger = 'cold' | 'freezing' | 'hot' | 'overheating' | 'wet' | 'comfortable' | 'rain' | 'snow' | 'storm' | 'clear' | 'windUp' | 'windDown' | 'rest' | 'camp' | 'newMap';
+/** A hero's chatter: how talkative (0 never … 10 often; 5 unset), lines per trigger, and lines for particular maps. */
+export interface HeroChatter {
+  amount?: number;
+  lines?: Partial<Record<ChatterTrigger, string[]>>;
+  maps?: { map: string; line: string }[];
+}
+
 export interface HeroDef {
   id: string;
   name: string;
   /** In a safe zone: how much they like each rest activity, 1 (rarely) … 10 (goes for it most often); unset 5. */
   restPrefs?: Partial<Record<RestActivity, number>>;
+  /** Party chatter: what they say now and then out of battle (Database → Characters → Chatter; game/chatter.ts). */
+  chatter?: HeroChatter;
   /**
    * No Additions: Attack is a plain attack, never an Addition (archers, mages). Everyone else starts with Quick Strike
    * equipped and can equip any Addition they learn (Equipment page).

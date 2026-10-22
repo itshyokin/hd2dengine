@@ -147,6 +147,9 @@ import { PAUSE_ICONS, PAUSE_OPTIONS, SYSTEM_OPTIONS, pauseLabel, titleLabel } fr
 import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSettings, importSettings, loadProjectSettings } from './settings';
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
 import { toonWaterTime } from '../render/waterEdge';
+import type { EventBubble } from '../ui/BubbleLayer';
+import { type Talker, chatterSeconds, pickChatter } from './chatter';
+import type { ChatterTrigger } from '../world/types';
 import { isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
 import { type BodyPlace, type BodySettings, type BodyState, type WeatherState, WEATHER_STATE_INFO, bodySettings, hurts, slowOf, soothe, stepBody, weatherState } from './body';
 import { modelStyle } from '../render/characterModel';
@@ -906,6 +909,7 @@ export class Game {
     // Riding in: where the horse was (it waits outside an indoor map).
     const fromMap = this.mapName, fromPos = this.motion ? { x: this.motion.x, z: this.motion.z } : null;
     this.leaveMap();
+    this.chatFirst = !this.visited.has(name);
     this.mapName = name;
     this.cutThisVisit.clear();
     // An event's change of temperature lasts while the player stays on its map.
@@ -1813,6 +1817,7 @@ export class Game {
     this.updateBubbles();
     this.updateEnvironment(dt);
     if (!this.onTitle && !fighting) this.updateBody(dt);
+    if (!this.onTitle && !fighting) this.updateChatter(dt);
     if (!this.onTitle && !fighting) this.combat.updateBack();
     if (this.buildings.length) { const p = this.player.position; fadeBuildings(this.buildings, p.x, p.y, p.z, dt); }
 
@@ -4178,6 +4183,9 @@ export class Game {
       const x = sp?.x ?? e.x + e.w / 2, z = sp?.z ?? e.z + e.h / 2;
       spots.push({ key: e, bubble: b, x, y: sp?.y ?? this.map.surfaceY(x, z), z, height: sp?.height ?? 0.8 });
     }
+    // Party chatter: over the speaker's head, following them.
+    const say = this.chatSay, at = say && this.bodyParty().find((p) => p.id === say.id);
+    if (say && at && at.shown) spots.push({ key: this.chatKey, bubble: say.bubble, x: at.x, y: at.y, z: at.z, height: 1.1 });
     this.bubbles.update(spots, this.projector, this.elapsed);
   }
 
@@ -5795,10 +5803,9 @@ export class Game {
     const p = this.motion, [bx, bz] = DIR_VECTOR[this.player.dir];
     this.trail = [];
     for (let k = 12; k >= 0; k--) this.trail.push({ x: p.x - bx * k * 0.3, z: p.z - bz * k * 0.3 });
-    // Only the lineup's front follows the hero (the rest of the party isn't shown walking along).
-    // Whoever leads the lineup is drawn as the hero; the rest of the three walk behind (the hero you play too, when
-    // someone else leads: just walking along).
-    this.activeWhos().slice(1).forEach((w, i) => {
+    // Only the lineup's front follows the hero (the rest of the party isn't shown walking along), in the list's
+    // order (the same as the HUD panels and the pause menu); the hero you play walks in front wherever they're listed.
+    this.activeWhos().filter((w) => w > 0).forEach((w, i) => {
       let m: MemberData | undefined, def: HeroDef | undefined, look;
       if (w > 0) {
         m = this.party.members[w - 1];
@@ -5822,18 +5829,17 @@ export class Game {
 
   private leaderKey = '';
   /**
-   * The first of the lineup walks the map: a party member put first is drawn in place of the hero (with their own
-   * sprite), and the hero you play walks behind. Only the look changes; the controls and numbers stay the hero's.
+   * The hero you play (the first hero) always walks the map with their own sprite, wherever they are in the lineup
+   * (Update 104: no one else can be the walking sprite). Redrawn when their look changes (a form).
    */
   private refreshLeader(): void {
     if (!this.player) return;
-    const who = this.lineupWhos()[0] ?? 0, def = who ? this.members()[who - 1]?.def : undefined;
-    const key = def ? `member:${def.id}:${def.look ?? ''}` : `hero:${this.db.player}`;
+    const key = `hero:${this.db.player}`;
     if (key === this.leaderKey) return;
     const first = !this.leaderKey;
     this.leaderKey = key;
-    if (first && !def) return;
-    const look = def ? this.db.characters[def.look ?? ''] ?? this.db.characters[this.db.player] : this.db.characters[this.db.player];
+    if (first) return;
+    const look = this.db.characters[this.db.player];
     const old = this.player, s = new CharacterSprite(this.sprites, this.sprites.forCharacter(look), old.dir);
     s.mesh.position.copy(old.mesh.position);
     s.mesh.scale.copy(old.mesh.scale);
@@ -6694,8 +6700,10 @@ export class Game {
         byFire: safe || !!this.lights?.byFire(h.x, h.z), damp: !!this.mapData?.damp, sunny, outside,
       };
       if (!paused && h.hp > 0) stepBody(b, place, dt, cfg);
-      const st = weatherState(b, place, cfg);
+      const st = weatherState(b, place, cfg), was = this.weatherStates.get(h.id);
       this.weatherStates.set(h.id, st);
+      // Chatter when it changes (not when first worked out on a map).
+      if (st && was !== undefined && st !== was && !paused && h.hp > 0) this.chatter({ trigger: st }, { prefer: h.id });
       if (!paused && h.shown && h.hp > 0) this.bodyEffects(h, st, temp, dt);
       if (!hurts(st)) { this.bodyWarned.delete(h.id); continue; }
       if (!this.bodyWarned.has(h.id)) {
@@ -6709,6 +6717,85 @@ export class Game {
       }
     }
   }
+  /* ---------------------------------------------------------------- party chatter */
+
+  /** The line being said (one at a time), the one about to be, and the pause after one (seconds). */
+  private chatSay: { id: string; until: number; bubble: EventBubble } | null = null;
+  private chatPending: { wait: number; expire: number; what: { trigger?: ChatterTrigger; map?: string }; opts: { prefer?: string; boost?: number } } | null = null;
+  private chatQuiet = 8;
+  private readonly chatKey = {};
+  /** What the chatter last saw: the weather, the wind, the map. */
+  private chatWx: { map: string; kind: string; windy: boolean; t: number } | null = null;
+  /** Each hero's last time on each trigger (so a state flickering doesn't repeat the line). */
+  private readonly chatLast = new Map<string, number>();
+
+  /** Something happened that a hero might talk about: they will, now and then (after a moment, when it's calm). */
+  private chatter(what: { trigger?: ChatterTrigger; map?: string }, opts: { prefer?: string; boost?: number } = {}): void {
+    if (this.chatSay || this.chatPending || this.chatQuiet > 0 || this.onTitle) return;
+    const key = what.map ? `map:${what.map}` : `t:${what.trigger}`;
+    if (this.elapsed - (this.chatLast.get(key) ?? -1e9) < 90) return;
+    this.chatPending = { wait: 1 + Math.random() * 1.5, expire: 10, what, opts };
+  }
+
+  private chatTalkers(): Talker[] {
+    const lead = mainHero(this.db);
+    return this.bodyParty().map((p) => {
+      const def = p.id === lead.id ? lead : this.db.heroes?.find((d) => d.id === p.id);
+      return { id: p.id, name: p.name, chatter: def?.chatter, isPlayer: p.id === lead.id, canSpeak: p.shown && p.hp > 0 };
+    });
+  }
+
+  /** Each frame out of battle: notice the weather, wind and map changing; say the waiting line when it's calm. */
+  private updateChatter(dt: number): void {
+    const busy = this.interpreter.running || !!this.transfer || this.pauseShell.isOpen || !!this.sleeping || this.dying || this.battle.active || this.battlePending || !!this.stage;
+    if (this.chatSay) {
+      if (this.elapsed >= this.chatSay.until || busy) { this.chatSay = null; this.chatQuiet = 25 + Math.random() * 20; }
+      return;
+    }
+    if (!busy) this.chatQuiet -= dt;
+    // The weather and the wind changing, and coming onto a map (looked at twice a second).
+    if (!busy && this.mapData && this.motion && (!this.chatWx || this.elapsed - this.chatWx.t > 0.5)) {
+      const w = this.mapWeather(), outdoor = (this.time.environment ?? 'outdoor') === 'outdoor';
+      const kind = !outdoor ? 'none' : w.amount > 0.3 ? (w.kind === 'blizzard' ? 'snow' : w.kind) : 'none';
+      const windy = outdoor && (this.chatWx?.windy ? w.wind >= 0.35 : w.wind >= 0.55);
+      const was = this.chatWx;
+      this.chatWx = { map: this.mapName, kind, windy, t: this.elapsed };
+      if (!was || was.map !== this.mapName) {
+        // A new map: its own lines (likelier the first time here), or the first-visit lines.
+        const first = this.chatFirst;
+        this.chatFirst = false;
+        const talkers = this.chatTalkers();
+        if (talkers.some((t) => (t.chatter?.maps ?? []).some((r) => r.map === this.mapName && r.line.trim()))) this.chatter({ map: this.mapName }, { boost: first ? 2 : 0.4 });
+        else if (first && was) this.chatter({ trigger: 'newMap' });
+      } else {
+        const wet = (k: string) => k === 'rain' || k === 'snow' || k === 'storm';
+        if (kind !== was.kind && wet(kind)) this.chatter({ trigger: kind as ChatterTrigger });
+        else if (kind !== was.kind && wet(was.kind) && kind === 'none') this.chatter({ trigger: 'clear' });
+        else if (windy !== was.windy) this.chatter({ trigger: windy ? 'windUp' : 'windDown' });
+      }
+    }
+    const p = this.chatPending;
+    if (!p) return;
+    p.expire -= dt;
+    if (p.expire <= 0) { this.chatPending = null; return; }
+    if (busy) return;
+    p.wait -= dt;
+    if (p.wait > 0) return;
+    this.chatPending = null;
+    this.chatLast.set(p.what.map ? `map:${p.what.map}` : `t:${p.what.trigger}`, this.elapsed);
+    const got = pickChatter(this.chatTalkers(), p.what, p.opts);
+    if (got) this.sayChatter(got.id, got.name, got.line);
+  }
+
+  /** This is the hero's first time on the map they've just come onto. */
+  private chatFirst = false;
+
+  /** A hero says a line: a speech bubble over their head, and the line in the adventure log. */
+  private sayChatter(id: string, name: string, line: string): void {
+    this.chatSay = { id, until: this.elapsed + chatterSeconds(line), bubble: { text: line, chat: true, color: '#2b2118', bubble: '#fffaf0', size: 15, bold: false, still: true } };
+    this.log.add(`${name}: "${line}"`, 'chat');
+  }
+
   /** The safe zone the hero is resting in (its spots, keyed by its first spot), or null. */
   private restZone: string | null = null;
   /**
@@ -6724,6 +6811,7 @@ export class Game {
     this.restZone = key;
     const free = this.allies.filter((a) => !a.down && !a.passive);
     if (!key) { for (const a of this.allies) a.setRest(null); return; }
+    this.chatter({ trigger: 'rest' });
     // In party order (the list's order): ties go to whoever is higher.
     free.sort((a, b) => this.members().findIndex((x) => x.data === a.data) - this.members().findIndex((x) => x.data === b.data));
     const got = shareSpots(spots, free.map((a) => a.def.restPrefs ?? {}));
@@ -6836,7 +6924,7 @@ export class Game {
       this.fireCheck = 0;
       this.time.set(h, true);
       this.time.update(0);
-      if (k >= 1) { s.phase = 'down'; s.t = 0; if (s.rest) this.fullRest(); }
+      if (k >= 1) { s.phase = 'down'; s.t = 0; if (s.rest) this.fullRest(); this.chatter({ trigger: 'camp' }, { boost: 1.5 }); }
       return;
     }
     this.sleepLook = Math.max(0, 1 - s.t / DOWN);

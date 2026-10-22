@@ -1545,6 +1545,12 @@ body.pause-open .pc-box { gap: 8px; }
 .ev-bubble:not(.clear):not(.below)::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--bb-bg); }
 .ev-bubble.clear { background: none; box-shadow: none; padding: 0; }
 .ev-bubble span { font-family: var(--f-display); display: block; }
+/* Party chatter: a speech bubble that wraps, popping in. */
+.ev-bubble.chat { white-space: normal; width: max-content; max-width: 240px; line-height: 1.25; border: 2px solid #2b2118; animation: chat-pop 0.18s ease-out; }
+.ev-bubble.chat::after { bottom: -9px !important; margin-left: -8px !important; border-width: 9px 8px 0 !important; border-top-color: #2b2118 !important; }
+.ev-bubble.chat span { font-family: var(--f-body); font-weight: 600 !important; text-align: center; }
+@keyframes chat-pop { from { scale: 0.6; } to { scale: 1; } }
+.adv-log .log-chat, .log-list .log-chat { color: #f3e6c8; font-style: italic; }
 
 /* ---------------- World map: crosshair and tooltip ---------------- */
 .wm-cross { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; pointer-events: none;

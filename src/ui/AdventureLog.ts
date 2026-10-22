@@ -8,7 +8,7 @@ import { uiSound } from '../audio/sfx';
 import { esc } from './InventoryScreen';
 import { tabKeys, tabStrip, wireTabs, type TabGroup } from './tabs';
 
-export type LogKind = 'hit' | 'hurt' | 'defeat' | 'loot' | 'xp' | 'level' | 'quest' | 'info';
+export type LogKind = 'hit' | 'hurt' | 'defeat' | 'loot' | 'xp' | 'level' | 'quest' | 'info' | 'chat';
 /** What the on-screen feed shows (the history always keeps everything). */
 export type LogFeed = 'all' | 'noCombat' | 'off';
 const COMBAT: LogKind[] = ['hit', 'hurt'];

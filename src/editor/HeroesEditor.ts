@@ -1,4 +1,5 @@
 import { REST_ACTIVITIES } from '../world/safeZones';
+import { cleanChatter } from './ChatterEditor';
 import { DEFAULT_RANK, RANKS, RANK_COLORS, RANK_GAIN, type Rank } from '../game/statRanks';
 import { soundField } from './CommandEditor';
 /**
@@ -50,6 +51,8 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     if (x.noAdditions) c.noAdditions = true;
     if (x.noAdditions && x.plainAttack === 'ranged') c.plainAttack = 'ranged';
     if (x.battleOffset) c.battleOffset = x.battleOffset;
+    const chat = cleanChatter(x.chatter);
+    if (chat) c.chatter = chat;
     if (x.restPrefs && Object.values(x.restPrefs).some((v) => v !== undefined && v !== 5)) c.restPrefs = Object.fromEntries(Object.entries(x.restPrefs).filter(([, v]) => v !== undefined && v !== 5));
     if (i > 0 && x.gear && Object.values(x.gear).some(Boolean)) c.gear = Object.fromEntries(Object.entries(x.gear).filter(([, v]) => v));
     if (i === 0 && x.creation) {

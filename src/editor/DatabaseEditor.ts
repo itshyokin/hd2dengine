@@ -50,6 +50,7 @@ import { markerKinds, type MarkerKind } from '../world/landmarks';
 import type { AchievementDef } from '../game/achievements';
 import { expSection, trimExpTable } from './ExpEditor';
 import { type CharactersWork, charactersTab } from './CharactersEditor';
+import { chatterTab } from './ChatterEditor';
 import { cleanCredits, creditsTab } from './CreditsEditor';
 import { cleanQuests, questsTab } from './QuestsEditor';
 import { cleanHeroes, heroesTab, heroesWork } from './HeroesEditor';
@@ -142,6 +143,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const quests: QuestDef[] = JSON.parse(JSON.stringify(store.db.quests ?? []));
   const questState = { sel: 0 };
   const heroes = heroesWork(store.db.heroes, store.db.player), heroState = { sel: 0 };
+  let charView: 'looks' | 'chatter' = 'looks';
+  const chatState = { sel: 0 };
   const spells: SpellEntry[] = JSON.parse(JSON.stringify(spellList(store.db)));
   const additions: AdditionDef[] = JSON.parse(JSON.stringify(additionList(store.db)));
   const classes: ClassDef[] = JSON.parse(JSON.stringify(store.db.classes ?? []));
@@ -340,7 +343,14 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const renderTab = () => {
     if (tab === 'stats') { content.replaceChildren(statOrderSection()); return; }
     if (tab === 'heroes') { content.replaceChildren(...heroesTab(heroes, people, combat, heroState, render, work.items, { spells, additions, classes }, { pick: (x, done) => pickFace(store, x, done), url: (p) => { const b = store.files.get(p); return b ? URL.createObjectURL(b) : p; } })); return; }
-    if (tab === 'characters') { content.replaceChildren(...charactersTab(store, people, render)); return; }
+    if (tab === 'characters') {
+      // Looks (the sprites and models) or Chatter (what each hero says out of battle).
+      const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Characters view' },
+        ...(([['looks', 'Looks'], ['chatter', 'Chatter']] as const).map(([v, label]) => h('button', { type: 'button', 'aria-pressed': String(charView === v), onclick: () => { charView = v; render(); } }, label))));
+      const bar = h('div', { class: 'char-view-bar' }, seg);
+      content.replaceChildren(bar, ...(charView === 'chatter' ? chatterTab(heroes.heroes, store.maps, chatState, render) : charactersTab(store, people, render)));
+      return;
+    }
     if (tab === 'credits') { content.replaceChildren(...creditsTab(credits, people.chars, render, [...store.assets.props, ...store.assets.tiles].map((d) => d.credits ?? []))); return; }
     if (tab === 'quests') { content.replaceChildren(...questsTab(store, quests, { items: work.items, enemies }, questState, render)); return; }
     if (isCat(tab)) {

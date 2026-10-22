@@ -23,6 +23,8 @@ export interface EventBubble {
   outline?: string;
   /** A soft glow in the text colour. */
   glow?: boolean;
+  /** A speech bubble (party chatter): wraps long lines, with a tail. */
+  chat?: boolean;
   /** Bob gently up and down (default on). */
   still?: boolean;
 }
@@ -67,7 +69,7 @@ export class BubbleLayer {
 
   private make(b: EventBubble): HTMLElement {
     const el = document.createElement('div');
-    el.className = `ev-bubble${b.transparent ? ' clear' : ''}${b.at === 'below' ? ' below' : ''}`;
+    el.className = `ev-bubble${b.transparent ? ' clear' : ''}${b.at === 'below' ? ' below' : ''}${b.chat ? ' chat' : ''}`;
     const color = b.color ?? '#ffd23f', size = Math.max(8, Math.min(96, b.size ?? 22)), k = Math.max(0.4, Math.min(4, b.scale ?? 1));
     el.style.setProperty('--bb-bg', b.bubble ?? '#ffffff');
     el.style.setProperty('--bb-pad', `${Math.round(3 * k)}px ${Math.round(9 * k)}px`);
