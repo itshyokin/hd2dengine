@@ -104,6 +104,8 @@ export interface PropDef {
   modelRot?: number;
   /** Built-in props only: key of the art generated in code. */
   builtin?: string;
+  /** Only shown on these days of the year ("MM-DD", to "MM-DD" for a range; Update 108): Halloween pumpkins. */
+  dates?: { from: string; to?: string };
   /** A bridge or platform piece: walked on at a deck height over water, chasms or lower ground (world/decks.ts). */
   deck?: import('./decks').DeckDef;
   /** A customised built-in bridge or platform set not to be walked on (otherwise it keeps the built-in's deck). */
@@ -283,7 +285,9 @@ export type Condition =
    * any ailment ('ailment'), or a good state (rested, wellRested, 'good': either). hero: '' the hero you play, 'any'
    * anyone in the party, or a hero's id.
    */
-  | { heroHas: string; hero?: string; is?: boolean };
+  | { heroHas: string; hero?: string; is?: boolean }
+  /** The real date is this day of the year ("MM-DD"), or between it and `until` (both included; may wrap past December). */
+  | { date: string; until?: string };
 
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =

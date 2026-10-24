@@ -8,7 +8,7 @@ import { canvasFromBlob } from '../shared/images';
 import type { Ailment, PropDef, TileDef, TileBlend } from '../world/types';
 import { defaultBlend } from '../world/blend';
 import { toast } from './dom';
-import { setCustomPropImage, setCustomTileImage } from './editorArt';
+import { propImage, setCustomPropImage, setCustomTileImage } from './editorArt';
 import { BRICKS } from '../world/tiles';
 import type { EditorStore } from './store';
 
@@ -293,4 +293,20 @@ export function cliffChoices(store: EditorStore): [string, string][] {
 export function mapCliffName(store: EditorStore): string {
   const c = store.map.cliffTile;
   return c && c !== BRICKS && store.tiles.get(c) ? store.tiles.get(c)!.name : 'Stone bricks';
+}
+
+/** A copy of a prop (same picture files, its own id and settings), added to the list and picked (Update 108). */
+export async function duplicateProp(store: EditorStore, id: string): Promise<void> {
+  const d = store.catalog.get(id);
+  if (!d) return;
+  let n = 2, nid = `${id}_copy`;
+  while (store.catalog.get(nid)) nid = `${id}_copy${n++}`;
+  const copy: PropDef = { ...JSON.parse(JSON.stringify(d)), id: nid, name: `${d.name} (copy)` };
+  const pic = propImage(id);
+  if (pic) setCustomPropImage(nid, pic);
+  if (await saveProps(store, [copy])) {
+    store.propType = nid;
+    store.emit('ui');
+    toast(`“${copy.name}”: the same picture with its own settings (Edit… to give it dates, a new name…).`);
+  }
 }

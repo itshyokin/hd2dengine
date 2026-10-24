@@ -869,3 +869,8 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .chat-row.map { grid-template-columns: 180px 1fr auto; align-items: center; margin-bottom: 6px; }
 .chat-trigger { font-size: 12.5px; padding-top: 6px; color: var(--ink, inherit); }
 .chat-lines { width: 100%; resize: vertical; min-height: 34px; font: inherit; font-size: 12.5px; }
+
+/* Month and day pickers (Date condition, props' Dates) */
+.month-day { display: inline-flex; gap: 6px; align-items: center; }
+.month-day select { width: auto; }
+.month-day input { width: 64px; }

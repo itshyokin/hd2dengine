@@ -121,9 +121,11 @@ decide things; the tablet editor keeps working.
         position on `.pr-panel` / `.hud-top` (the pause panels' jump); active party = Single mode's "Heroes who fight"
         in Single mode; HUD party4 card; weather and bubbles follow the lean; sit = hurt frame 2, dummy = slash;
         hero-coloured spheres; style Brush / Fill and tinted cells.
-  - [ ] Update 108: dates. A Date condition (month / day, no year, and a date range: Oct 24–31) for event pages
+  - [x] Update 108: dates. A Date condition (month / day, no year, and a date range: Oct 24–31) for event pages
         and Conditional branch (a Halloween pumpkin). Props get a date window too (shown only on those days), and a
         "Duplicate prop" option so a Halloween-only copy can sit in towns while the original is used anywhere.
+        Done: world/dates.ts (`inDates`, MM-DD, wrapping ranges), Condition `{ date, until }`, PropDef `dates`
+        (filtered in Game `visitData`), editor/dateFields.ts, prop importer "Only on some days", Palette Duplicate.
   - [ ] Update 109: fishing and swimming. Fishing now and then hooks a water enemy (enemies get a Water habitat;
         a chance per catch) and starts a battle. Swimming is no longer automatic: it needs a key item (a key item
         flag "lets the party swim") and no longer costs stamina.

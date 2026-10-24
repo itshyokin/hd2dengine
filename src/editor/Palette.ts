@@ -16,6 +16,7 @@ import { BUILTIN_TILES } from '../world/tiles';
 import { LIGHT_PRESETS } from './lightPresets';
 import { openPropBatchEdit } from './PropBatchEdit';
 import { openPropImporter } from './PropImporter';
+import { duplicateProp } from './assets';
 import { openLpcLibrary } from './LpcLibrary';
 import type { BuildingTool, EditorStore, HeightTool, LightType, Mode, ObjectTool, TerrainTool } from './store';
 import type { WaterKind } from '../world/heights';
@@ -334,6 +335,7 @@ export class Palette {
           h('div', { class: 'prop-current-actions' },
             h('button', { type: 'button', class: 'btn small', onclick: () => edit(cur.id) }, builtin && !customised(cur.id) ? 'Customise…' : 'Edit…'),
             customised(cur.id) ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => reset(cur.id, cur.name) }, 'Reset to original') : null,
+            h('button', { type: 'button', class: 'btn small', title: 'A copy with the same picture, to give its own settings (a Halloween-only copy, say)', onclick: () => void duplicateProp(s, cur.id) }, 'Duplicate'),
             !builtin ? h('button', { type: 'button', class: 'btn small danger', onclick: () => remove(cur.id, cur.name) }, 'Delete') : null)));
       }
 

@@ -526,6 +526,11 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   moon**: its phase comes from the player's date, so a full moon in the game is a full moon outside. A full moon rises
   as the sun sets; a new moon travels with the sun.
 - **Clock card**: the moon's phase (a little picture and its name) under the date.
+- **Date condition** (event pages and Conditional branch, Update 108): *Date (real world)*: a day of the year (Oct 31)
+  or a range (Oct 24 – Oct 31; it can wrap past New Year), from the player's own date, any year.
+- **Props for some days** (Update 108): a prop's *Only on some days of the year* (Edit… in the prop list) shows the
+  placed ones only on those days. **Duplicate** (beside Edit…) makes a copy with the same picture and its own
+  settings: keep the original for all year and give the copy Halloween dates for the town square.
 - **Moon phase condition** (event pages and Conditional branch): *Moon phase (real world)*: new, waxing crescent,
   first quarter, waxing gibbous, full, waning gibbous, last quarter, waning crescent (any you tick). Full and new moons
   count for about two days. For werewolves, night markets…

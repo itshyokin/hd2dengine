@@ -149,6 +149,7 @@ import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, fo
 import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, pickChatter } from './chatter';
+import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
 import type { ChatterTrigger } from '../world/types';
@@ -913,6 +914,11 @@ export class Game {
 
   /** A map as it is on this visit: props cut down earlier stay gone (leaving their stump, if they have one). */
   private visitData(name: string, data: MapData): MapData {
+    // Props for some days only (a prop's Dates: Halloween pumpkins) stay away on the others.
+    const today = new Date();
+    if (data.props.some((p) => { const d = this.sprites.def(p.type)?.dates; return !!d && !inDates(today, d.from, d.to); })) {
+      data = { ...data, props: data.props.filter((p) => { const d = this.sprites.def(p.type)?.dates; return !d || inDates(today, d.from, d.to); }) };
+    }
     if (!data.props.some((p) => this.state.isCut(name, propKey(p)))) return data;
     const kept: PropData[] = [], stumps: PropData[] = [];
     for (const p of data.props) {

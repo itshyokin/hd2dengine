@@ -10,6 +10,8 @@ import { MOON_NAMES, MOON_PHASES, moonPhase } from '../world/moon';
 import { ABILITIES, WEATHER_KINDS, type WeatherKind, type Ailment, type Ability, type Command, type Database, type Condition, type Gauge, type QuestDef, type QuestOp, type QuestStatus } from '../world/types';
 import { AILMENTS, AILMENT_INFO } from '../game/status';
 import { checkbox, field, h, numberInput, openModal, select, textInput } from './dom';
+import { monthDayInput } from './dateFields';
+import { datesLabel } from '../world/dates';
 import { transferFields, transferSummary } from './TransferPicker';
 import { AMBIENCE_NAMES, MUSIC_NAMES, SFX_LABELS, SFX_NAMES } from '../audio/synth';
 import { loopChoices } from '../audio/sfx';
@@ -161,6 +163,7 @@ export function conditionText(c: Condition): string {
   if ('moon' in c) return `the moon is ${c.moon.length ? c.moon.map((m) => MOON_NAMES[m].toLowerCase()).join(' or ') : '(no phase picked)'} (real world)`;
   if ('temp' in c) return `it's ${c.op === '<=' ? 'at most' : 'at least'} ${c.temp}°F here`;
   if ('weather' in c) return `the weather is ${c.weather.length ? c.weather.map((k) => WEATHER_NAMES[k].toLowerCase()).join(' or ') : '(none picked)'}`;
+  if ('date' in c) return `it's ${datesLabel(c.date, c.until)} (real world)`;
   if ('heroHas' in c) return `${heroWhoName(c.hero)} ${c.is === false ? 'is not' : c.hero === 'any' ? 'is' : 'is'} ${(HERO_STATES.find(([k]) => k === c.heroHas)?.[1] ?? c.heroHas).toLowerCase()}`;
   if ('weekday' in c) return `it's ${c.weekday.length ? c.weekday.map((d) => WEEKDAYS[d]).join(' or ') : '(no day picked)'} (real world)`;
   return `variable ${c.var || '(unnamed)'} ${c.op} ${c.value}`;
@@ -847,12 +850,12 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'date' in cur ? 'date' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['date', 'Date (real world: a holiday, a week of it)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
       cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'self' ? { self: 'A', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
-        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
+        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'date' ? { date: '10-31' } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
       render();
@@ -903,6 +906,14 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
       parts.push(field('When the weather is', h('div', { style: 'display:flex;flex-wrap:wrap;gap:4px 12px' }, ...WEATHER_KINDS.map((k) => checkbox(WEATHER_NAMES[k], c.weather.includes(k), (on) => {
         c.weather = on ? WEATHER_KINDS.filter((x) => x === k || c.weather.includes(x)) : c.weather.filter((x) => x !== k); onchange(c);
       }))), 'The weather on the map the player is on (Clear: none).'));
+    } else if (cur && 'date' in cur) {
+      const c = cur;
+      const untilWrap = h('span', {}, monthDayInput(c.until ?? c.date, (v) => { c.until = v; onchange(c); }, 'Until'));
+      untilWrap.hidden = !c.until;
+      parts.push(field('On', monthDayInput(c.date, (v) => { c.date = v; onchange(c); }, 'Date')),
+        checkbox('A range of days (up to and including)', !!c.until, (on) => { if (on) c.until = c.date; else delete c.until; untilWrap.hidden = !on; onchange(c); }),
+        untilWrap,
+        h('p', { class: 'hint' }, 'The player’s own date, any year: a pumpkin on Halloween (Oct 31), decorations the week before (Oct 24 – Oct 31). A range can wrap past New Year (Dec 20 – Jan 5).'));
     } else if (cur && 'heroHas' in cur) {
       const c = cur;
       parts.push(h('div', { class: 'field-row' },

@@ -4,6 +4,7 @@
  * movement, optionally give it a light, and save. The saved image is exactly the framed area.
  */
 import { propSeason } from '../world/seasons';
+import { monthDayInput } from './dateFields';
 import { canvasFromBlob, canvasFromImage, loadImage } from '../shared/images';
 import { isBuiltinProp, propIdFromName } from '../world/props';
 import type { PropDef, PropLight } from '../world/types';
@@ -47,6 +48,8 @@ interface State {
   cuttable: boolean;
   /** Seasons: '' guessed from the name, or leaves / bare / off. */
   season: '' | 'leaves' | 'bare' | 'off';
+  /** Only on some days of the year ("MM-DD"; `to` for a range). */
+  dates: { from: string; to?: string } | null;
   mineable: boolean;
   hits: number;
   forge: boolean;
@@ -98,6 +101,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
     respawn: !!existing?.respawn,
     cuttable: !!existing?.cuttable,
     season: existing?.season ?? '',
+    dates: existing?.dates ? { ...existing.dates } : null,
     mineable: !!existing?.mineable,
     hits: existing?.hits ?? 3,
     forge: !!existing?.forge,
@@ -487,6 +491,17 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
       field('Seasons', select([['', `Guess from its name (now: ${{ leaves: 'keeps its leaves', bare: 'bare in winter', off: 'doesn’t change' }[propSeason({ name: st.name, id: existing?.id })]})`],
         ['leaves', 'Leaves change colour; keeps them in winter, with snow on (pines, flowers)'], ['bare', 'Leaves change colour; bare in winter (oaks, bushes)'], ['off', 'Doesn’t change with the seasons']],
         st.season, (v) => (st.season = v as State['season'])), 'Green parts follow the season outdoors: fresh in spring, green-gold in summer, orange and red in autumn.'),
+      (() => {
+        // Only on some days (Halloween pumpkins): the real date, any year.
+        const d = st.dates ?? { from: '10-31' };
+        const from = monthDayInput(d.from, (v) => { d.from = v; }, 'From'), to = monthDayInput(d.to ?? d.from, (v) => { d.to = v; }, 'To');
+        const rows = h('div', { class: 'field-row' }, h('label', {}, 'From ', from), h('label', {}, ' to ', to));
+        rows.hidden = !st.dates;
+        return h('div', {},
+          checkbox('Only on some days of the year (a holiday: placed ones show only then)', !!st.dates, (on) => { st.dates = on ? d : null; rows.hidden = !on; }),
+          rows,
+          h('p', { class: 'note' }, 'The player’s own date, any year: Oct 31 to Oct 31 for Halloween only, Oct 24 to Oct 31 for the week before. To use the same picture all year somewhere else too, Duplicate the prop and give only the copy dates.'));
+      })(),
       checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => { st.wall = v; renderTools(); }),
       checkbox('Stretches to the height of the wall it’s placed against (ladders, hanging vines)', st.stretch, (v) => (st.stretch = v)),
       checkbox('Always drawn in front of tiles (a ledge or cliff in front never hides it; turn off for tall platforms or bridges whose legs show through the ground)', st.front, (v) => (st.front = v)),
@@ -663,6 +678,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
         def.block = [];
       } else if (existing && isBuiltinProp(existing.id) && existing.deck) def.noDeck = true;
       if (st.season) def.season = st.season;
+      if (st.dates) def.dates = st.dates.to && st.dates.to !== st.dates.from ? { ...st.dates } : { from: st.dates.from };
       if (st.respawn) def.respawn = true;
       if (st.forge) def.forge = true;
       if (st.cuttable || st.mineable) {

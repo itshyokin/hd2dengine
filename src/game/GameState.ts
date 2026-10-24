@@ -1,4 +1,5 @@
 /** Switches and variables, the persistent memory events read and write (as in RPG Maker). */
+import { inDates } from '../world/dates';
 import { moonPhase } from '../world/moon';
 import type { ForgeEntry } from './forge';
 import { ABILITIES, type Ability, type Condition, type Dir, type WeatherKind } from '../world/types';
@@ -129,6 +130,7 @@ export class GameState {
     if ('moon' in c) return c.moon.includes(moonPhase());
     if ('temp' in c) { const t = this.env?.temp() ?? 70; return c.op === '<=' ? t <= c.temp : t >= c.temp; }
     if ('weather' in c) return c.weather.includes(this.env?.weather() ?? 'none');
+    if ('date' in c) return inDates(new Date(), c.date, c.until);
     if ('heroHas' in c) return (this.env?.heroHas?.(c.hero ?? '', c.heroHas) ?? false) === (c.is ?? true);
     const v = this.getVar(c.var);
     switch (c.op) {
