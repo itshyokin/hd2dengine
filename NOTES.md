@@ -169,8 +169,11 @@ decide things; the tablet editor keeps working.
         Done: syncPlayer lifts the rider up the leaning sprite (0.8 sideways, 0.72 down, 0.62 up) and nudges them
         0.6 toward the camera (away facing down, so the horse's head is in front); sfx hoof / horseSnort / horseNeigh
         (and lock sounds for 119); `.speed-lines` overlay; HorsesEditor flight section inside the form.
-  - [ ] Update 116: reflections for everyone: party members, NPCs and events, map enemies, props, the horse (and its
+  - [x] Update 116: reflections for everyone: party members, NPCs and events, map enemies, props, the horse (and its
         rider).
+        Done: Game `reflections` map (hero, horse, allies, event visuals that are meshes, map enemies via
+        Enemy.spriteMesh); WorldBuilder adds a mirrored InstancedMesh per prop type for props at the water's edge
+        (a cut-down prop's reflection stays until the map is reloaded).
   - [ ] Update 117: drying indicator on a hero's panel while a fire dries them; a default HUD / settings file
         (Database: save the current HUD layout and settings, export it, and new games start from it).
   - [ ] Update 118: key items with field uses (besides Water Walk): Dash, Swim, Climb, Cut, Fire Bow, Smash Stone,

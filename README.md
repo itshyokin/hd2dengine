@@ -710,8 +710,8 @@ them: Freezing before a fight, still Freezing after.
 
 - **Cliffs one step tall** get a shorter grassy overhang (it used to cover the whole face); taller cliffs keep it.
 - **Cliff and side walls** are shaded light at the top and darker at the foot.
-- **Water reflects the hero** when they stand at the edge with water in front of them (not while swimming or riding;
-  off in Potato quality).
+- **Water reflects** the hero, party members, the horse and its rider, event characters, map enemies and props
+  standing at the edge with water in front of them (not while swimming; off in Potato quality).
 - **Moving shadows** (Map Properties → Weather → *Moving shadows* and *Shadows of*): drifting clouds, a tree canopy's
   dappled shade (swaying a little in the wind: forests), or beams of light sliding across the ground.
 

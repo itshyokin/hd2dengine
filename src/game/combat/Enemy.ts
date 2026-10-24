@@ -85,6 +85,8 @@ export class Enemy {
   private repath = 0;
   private readonly home: { x: number; z: number };
   private readonly sprite: CharacterSprite;
+  /** Its sprite's mesh (for its reflection in water). */
+  get spriteMesh(): THREE.Mesh { return this.sprite.mesh; }
   /** A flat-image enemy's sprite (the same object as `sprite`), for its generic motion. */
   private readonly flat: FlatSprite | null = null;
   private readonly material: THREE.MeshStandardMaterial;

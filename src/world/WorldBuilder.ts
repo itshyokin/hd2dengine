@@ -3,7 +3,7 @@
  * imported tiles, animated water, and instanced prop sprites.
  */
 import { patchLip } from '../render/lipFade';
-import { patchGroundYield } from '../render/lean';
+import { patchGroundYield, patchLean } from '../render/lean';
 import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
@@ -726,6 +726,22 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
       if (placed.has(p)) slots.set(p, { mesh, index: i });
     });
     scene.add(mesh);
+    // Reflections (Update 116): props standing at the water's edge, mirrored in the water in front of them.
+    const mapTex = (a.material as THREE.MeshStandardMaterial).map;
+    if (!onWall && !pdef?.deck && mapTex) {
+      const wet = list.flatMap((p) => {
+        const at = propBase(map, p, pdef), w = map.waterAt(Math.floor(p.x), Math.floor(p.z + 0.75));
+        return w && at.y >= w.surface - 0.01 && !map.waterAt(Math.floor(p.x), Math.floor(p.z)) ? [{ p, y: 2 * w.surface - at.y - 0.02 }] : [];
+      });
+      if (wet.length) {
+        const rmat = patchLean(new THREE.MeshBasicMaterial({ map: mapTex, transparent: true, opacity: 0.34, alphaTest: 0.3, depthWrite: false, side: THREE.DoubleSide, color: 0xb8d4ff }));
+        const rmesh = new THREE.InstancedMesh(a.geometry, rmat, wet.length);
+        rmesh.frustumCulled = false;
+        rmesh.renderOrder = 1;
+        wet.forEach(({ p, y }, i) => { const sc = p.s ?? 1; m.makeScale(sc, -sc, -sc); m.setPosition(p.x, y, p.z + nudge(p)); rmesh.setMatrixAt(i, m); });
+        scene.add(rmesh);
+      }
+    }
   }
   return slots;
 }

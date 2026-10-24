@@ -1529,32 +1529,51 @@ export class Game {
   }
 
   /** White rings on the water around the hero (swimming, or wading on the move) and party members swimming. */
-  /** The hero's reflection in water just in front of them (Update 112): their sprite mirrored at the surface. */
-  private reflection: { mesh: THREE.Mesh; of: THREE.Mesh } | null = null;
+  /**
+   * Reflections in water just in front of someone (Updates 112, 116): the hero, the party, the horse (and its rider),
+   * event characters and map enemies, each mirrored at the surface. Props get theirs when the map is built.
+   */
+  private readonly reflections = new Map<object, { mesh: THREE.Mesh; of: THREE.Mesh; used: boolean }>();
   private updateReflection(): void {
-    const m = this.motion, p = this.player;
-    const hide = () => { if (this.reflection) this.reflection.mesh.visible = false; };
-    if (!m || this.onTitle || !p || this.settings.quality === 'potato') { hide(); return; }
-    // Water on the tile in front (toward the camera), lower than the hero's feet, while on dry ground.
-    const w = this.map.waterAt(Math.floor(m.x), Math.floor(m.z + 0.75));
-    if (!w || m.swimming || m.airborne || this.riding || !p.mesh.visible || p.position.y < w.surface - 0.01 || this.map.footWaterAt(Math.floor(m.x), Math.floor(m.z))?.kind === 'swim') { hide(); return; }
-    if (!this.reflection || this.reflection.of !== p.mesh) {
-      // Made again when the hero's sprite is (a new form); it shares the sprite's frames (its geometry's UVs).
-      if (this.reflection) { this.reflection.mesh.removeFromParent(); (this.reflection.mesh.material as THREE.Material).dispose(); }
-      const src = p.mesh.material as THREE.MeshStandardMaterial;
-      const mat = patchLean(new THREE.MeshBasicMaterial({ map: src.map, transparent: true, opacity: 0.38, alphaTest: 0.3, depthWrite: false, side: THREE.DoubleSide, color: 0xb8d4ff }));
-      const mesh = new THREE.Mesh(p.mesh.geometry, mat);
-      mesh.renderOrder = 1;
-      this.reflection = { mesh, of: p.mesh };
-      p.mesh.parent?.add(mesh);
+    for (const r of this.reflections.values()) r.used = false;
+    const m = this.motion;
+    if (m && !this.onTitle && !this.battle.active && this.settings.quality !== 'potato') {
+      const reflect = (key: object, src: THREE.Object3D | null | undefined, x: number, z: number, baseY: number) => {
+        const mesh = src as THREE.Mesh | null | undefined;
+        if (!mesh?.isMesh || !mesh.visible || !mesh.parent) return;
+        const map = (mesh.material as THREE.MeshStandardMaterial | undefined)?.map;
+        if (!map) return;
+        // Water on the tile in front (toward the camera), no higher than their feet, and not standing in deep water.
+        const w = this.map.waterAt(Math.floor(x), Math.floor(z + 0.75));
+        if (!w || baseY < w.surface - 0.01 || this.map.footWaterAt(Math.floor(x), Math.floor(z))?.kind === 'swim') return;
+        let r = this.reflections.get(key);
+        if (!r || r.of !== mesh) {
+          // Shares the sprite's geometry, so its frames (UVs) follow along.
+          if (r) { r.mesh.removeFromParent(); (r.mesh.material as THREE.Material).dispose(); }
+          const mat = patchLean(new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.38, alphaTest: 0.3, depthWrite: false, side: THREE.DoubleSide, color: 0xb8d4ff }));
+          r = { mesh: new THREE.Mesh(mesh.geometry, mat), of: mesh, used: false };
+          r.mesh.renderOrder = 1;
+          this.reflections.set(key, r);
+        }
+        if (r.mesh.parent !== mesh.parent) mesh.parent.add(r.mesh);
+        r.used = true;
+        r.mesh.visible = true;
+        r.mesh.position.set(mesh.position.x, 2 * w.surface - mesh.position.y - 0.02, mesh.position.z);
+        r.mesh.rotation.copy(mesh.rotation);
+        // Upside down, and (with the camera's lean) leaning toward the camera instead of away.
+        r.mesh.scale.set(mesh.scale.x, -mesh.scale.y, -mesh.scale.z);
+      };
+      if (!m.airborne && !m.swimming) reflect(this.player, this.player?.mesh, m.x, m.z, m.y);
+      if (this.horseSprite) { const hp = this.horseSprite.mesh.position; reflect(this.horseSprite, this.horseSprite.mesh, hp.x, hp.z, hp.y); }
+      for (const a of this.allies) reflect(a, a.sprite.mesh, a.x, a.z, a.y);
+      for (const e of this.events) { const v = e.visualObject; if (v && e.onMap) reflect(e, v, v.position.x, v.position.z, v.position.y); }
+      for (const en of this.combat.enemies) if (!en.dead) reflect(en, en.spriteMesh, en.x, en.z, en.y);
     }
-    const r = this.reflection.mesh;
-    if (r.parent !== p.mesh.parent) p.mesh.parent?.add(r);
-    r.visible = true;
-    r.position.set(p.mesh.position.x, 2 * w.surface - p.mesh.position.y - 0.02, p.mesh.position.z);
-    r.rotation.copy(p.mesh.rotation);
-    // Upside down, and (with the camera's lean) leaning toward the camera instead of away.
-    r.scale.set(p.mesh.scale.x, -p.mesh.scale.y, -p.mesh.scale.z);
+    for (const [k, r] of this.reflections) if (!r.used) {
+      r.mesh.visible = false;
+      // Gone for good (a new map, a defeated foe): let it go.
+      if (!r.of.parent) { r.mesh.removeFromParent(); (r.mesh.material as THREE.Material).dispose(); this.reflections.delete(k); }
+    }
   }
 
   private updateRipples(dt: number): void {
