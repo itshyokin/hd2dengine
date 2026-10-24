@@ -52,7 +52,7 @@ const DIR_ROW: Record<Dir, number> = { down: 0, left: 1, right: 2, up: 3 };
 const WALK_CYCLE = [0, 1, 2, 1];
 
 /** What the character's movement looks like this frame. */
-export interface Motion { moving: boolean; running?: boolean; airborne?: boolean; climbing?: boolean; combat?: boolean; swimming?: boolean; sitting?: boolean; injured?: boolean }
+export interface Motion { moving: boolean; running?: boolean; airborne?: boolean; climbing?: boolean; combat?: boolean; swimming?: boolean; sitting?: boolean; injured?: boolean; /** On a horse: the sheet's ride frames (Update 110). */ riding?: boolean }
 
 export class CharacterSprite {
   readonly mesh: THREE.Mesh;
@@ -125,7 +125,7 @@ export class CharacterSprite {
       this.setFrame(m.moving ? WALK_CYCLE[Math.floor(this.walkTime * 8) % 4] : 1);
       return;
     }
-    const want = m.climbing ? 'climb' : m.airborne && this.has('jump') ? 'jump' : m.moving ? (m.running && this.has('run') ? 'run' : 'walk') : m.combat && this.has('combat_idle') ? 'combat_idle' : this.has('idle') ? 'idle' : 'walk';
+    const want = m.riding && this.has('ride') ? 'ride' : m.climbing ? 'climb' : m.airborne && this.has('jump') ? 'jump' : m.moving ? (m.running && this.has('run') ? 'run' : 'walk') : m.combat && this.has('combat_idle') ? 'combat_idle' : this.has('idle') ? 'idle' : 'walk';
     if (want !== this.motion) { this.motion = want; this.motionTime = 0; }
     // Climbing only animates while moving; a still walk shows the standing frame.
     if (!(m.climbing && !m.moving)) this.motionTime += dt;

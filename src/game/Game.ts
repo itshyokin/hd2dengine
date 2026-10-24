@@ -2047,7 +2047,7 @@ export class Game {
     }
     // Animated sheets have their own run, jump, climb and combat-stance animations; walk-only sheets speed up instead.
     // Riding: the hero sits still while the horse walks.
-    if (rh) this.player.animate(dt, false);
+    if (rh) this.player.animate(dt, { moving: false, riding: true });
     else if (this.player.animated) this.player.animate(dt * (m.crawling ? 0.7 : 1), { moving: res.moving, running: m.running, airborne: m.airborne, climbing: m.climbing, combat: this.combat.locked, swimming: m.swimming });
     else this.player.animate(dt * (m.running ? 1.6 : m.crawling ? 0.7 : 1), res.moving && !m.airborne);
     this.syncPlayer(dt);
@@ -6125,6 +6125,7 @@ export class Game {
       get map() { return g.map; },
       trailPoint: (d) => this.trailPoint(d),
       get leader() { return g.player.position as unknown as { x: number; y: number; z: number }; },
+      get hidden() { return !!g.riding; },
       get calm() { return g.calmFor > 3; },
       get regenHp() { return !g.stats.cfg.noRegen.hp; },
       get regenMp() { return !g.stats.cfg.noRegen.mp; },

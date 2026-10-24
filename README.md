@@ -1036,7 +1036,9 @@ galloping speed, stamina, jump length and its colours (placeholder art for now).
 - **Riding**: walking is half the gallop; running gallops. The horse has its own **stamina**, shown in the stamina
   ring: galloping and jumping use it, walking and standing bring it back; run out and it can only walk until it has
   its breath back. **Jump** while moving is a long leap (the horse's jump length) over gaps, streams and fences. No
-  climbing, crawling or swimming: water too deep to wade stops the horse. It **waits outside** an indoor map (where
+  climbing, crawling or swimming: water too deep to wade stops the horse. While riding, the party is out of sight
+  and the hero sits in the saddle (LPC sheets: the combat stance, with the leg on the far side of the horse
+  hidden; a sheet with its own "ride" animation uses that). It **waits outside** an indoor map (where
   the hero went in). Battles don't show it, and the hero is still riding afterwards.
 - **Sending it home**: a key item marked **Saddle** (Database → Items → Field use; the project has one) comes with
   a rented horse; *Send your horse home* from the bag returns it to its stable, so another can be rented anywhere.

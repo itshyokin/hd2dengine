@@ -125,6 +125,8 @@ export interface AllyHost {
   /** A point on the hero's trail this far behind them (tiles). */
   trailPoint(dist: number): { x: number; z: number } | null;
   leader: { x: number; y: number; z: number };
+  /** The hero is riding (Update 110): followers are out of sight until they get off. */
+  hidden?: boolean;
   /** Has the party been out of a fight for a while? */
   calm: boolean;
   /** Health comes back on its own (Database → Player: off by default, so a hurt member stays hurt until healed or rested). */
@@ -229,8 +231,8 @@ export class Ally {
     // Knocked out: they stay down (no getting back up by themselves) and out of sight until something heals them
     // (an item, a revive, resting at an inn or a campfire); then they're back, following again.
     if (this.down && this.data.hp >= 1) this.data.down = false;
-    if (this.down) {
-      this.downFor += dt;
+    if (this.down || h.hidden) {
+      if (this.down) this.downFor += dt;
       this.sprite.mesh.visible = false;
       return;
     }

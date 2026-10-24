@@ -419,8 +419,38 @@ export class SpriteLibrary {
   }
   private readonly layouts = new Map<string, { src: CharacterAnimLayout; out: CharacterAnimLayout }>();
 
+  /**
+   * Riding (Update 110): LPC sheets get a "ride" animation made from their combat stance (sheet rows 18–21 counting
+   * from 1), with the leg on the far side of the horse erased (the owner's marked-up sheet, Oct 24): four rows added
+   * below the sheet. Sheets with their own "ride" keep it.
+   */
+  private withRide(key: string, canvas: HTMLCanvasElement, layout: CharacterAnimLayout): { canvas: HTMLCanvasElement; layout: CharacterAnimLayout } {
+    const src = layout.anims.combat_idle;
+    if (layout.anims.ride || !src || src.dirs !== 4) return { canvas, layout };
+    const hit = this.rideSheets.get(key);
+    if (hit && hit.src === canvas && hit.from === layout) return hit.out;
+    const f = layout.frame, rows = Math.ceil(canvas.height / f), k = f / 64;
+    const out = document.createElement('canvas');
+    out.width = canvas.width; out.height = (rows + 4) * f;
+    const g = out.getContext('2d')!;
+    g.drawImage(canvas, 0, 0);
+    // Erased per facing (in 64-pixel frame units): the far leg, hidden behind the horse.
+    const ERASE: Record<string, [number, number, number, number]> = { up: [13, 52, 35, 64], left: [13, 48, 33, 64], down: [11, 47, 36, 64], right: [34, 48, 58, 64] };
+    layout.dirs.forEach((dir, i) => {
+      const y = (rows + i) * f;
+      g.drawImage(canvas, 0, (src.row + i) * f, canvas.width, f, 0, y, canvas.width, f);
+      const e = ERASE[dir];
+      if (e) for (let c = 0; c < src.frames; c++) g.clearRect(c * f + e[0] * k, y + e[1] * k, (e[2] - e[0]) * k, (e[3] - e[1]) * k);
+    });
+    const res = { canvas: out, layout: { ...layout, anims: { ...layout.anims, ride: { ...src, row: rows } } } };
+    this.rideSheets.set(key, { src: canvas, from: layout, out: res });
+    return res;
+  }
+  private readonly rideSheets = new Map<string, { src: HTMLCanvasElement; from: CharacterAnimLayout; out: { canvas: HTMLCanvasElement; layout: CharacterAnimLayout } }>();
+
   animated(key: string, canvas: HTMLCanvasElement, layout: CharacterAnimLayout): SpriteAsset {
     layout = this.completeLayout(key, canvas, layout);
+    ({ canvas, layout } = this.withRide(key, canvas, layout));
     let base = this.animBases.get(key);
     if (!base) {
       const map = makeTexture(canvas, {});

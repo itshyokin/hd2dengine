@@ -129,8 +129,11 @@ decide things; the tablet editor keeps working.
   - [x] Update 109: fishing and swimming. Fishing now and then hooks a water enemy (enemies get a Water habitat;
         a chance per catch) and starts a battle. Swimming is no longer automatic: it needs a key item (a key item
         flag "lets the party swim") and no longer costs stamina.
-  - [ ] Update 110: riding. On a horse the party is hidden and the hero uses riding sprites (sheet rows 18–22),
+  - [x] Update 110: riding. On a horse the party is hidden and the hero uses riding sprites (sheet rows 18–22),
         with the far leg erased in the side views (it's behind the horse; owner's marked-up sheet, Oct 24).
+        Done: the rows are the combat stance (rows 18–21 counting from 1); SpriteLibrary `withRide` adds a "ride"
+        animation (4 rows appended to the sheet, erase boxes measured from the owner's screenshot); Motion `riding`;
+        AllyHost `hidden` while riding. Owner to check the erased areas in game.
   - [ ] Update 111: battle look. Bigger damage numbers. Health bars: solid colours, squared or rounded (an option).
         A Battle menu layout editor (like the pause menu's party layout). Battle idle: pick frames from a sheet row
         (like the prop creator: up to N frames of row Y) that loop as the hero's battle idle.
