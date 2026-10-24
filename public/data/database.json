@@ -9,7 +9,7 @@
   "startHour": 8,
   "stats": {
     "regen": {
-      "sp": 35
+      "sp": 100
     },
     "cost": {
       "run": 0,
@@ -4230,7 +4230,425 @@
       "material": "iron_ingot",
       "rarity": "uncommon",
       "armorWeight": "new",
-      "iconTint": "#e8483a"
+      "iconTint": "#e8483a",
+      "worn": {
+        "masc": "assets/worn/leather_armor_copy_masc.png",
+        "mascAnim": {
+          "frame": 64,
+          "dirs": [
+            "up",
+            "left",
+            "down",
+            "right"
+          ],
+          "anims": {
+            "walk": {
+              "row": 0,
+              "frames": 9,
+              "dirs": 4,
+              "cycle": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ms": 100
+            },
+            "idle": {
+              "row": 4,
+              "frames": 2,
+              "dirs": 4,
+              "cycle": [
+                0,
+                0,
+                1
+              ],
+              "ms": 380
+            },
+            "run": {
+              "row": 8,
+              "frames": 8,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+              ],
+              "ms": 80
+            },
+            "jump": {
+              "row": 12,
+              "frames": 5,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                1
+              ],
+              "ms": 120
+            },
+            "climb": {
+              "row": 16,
+              "frames": 6,
+              "dirs": 1,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 120
+            },
+            "combat_idle": {
+              "row": 17,
+              "frames": 2,
+              "dirs": 4,
+              "cycle": [
+                0,
+                0,
+                1
+              ],
+              "ms": 300
+            },
+            "slash": {
+              "row": 21,
+              "frames": 6,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 80
+            },
+            "backslash": {
+              "row": 25,
+              "frames": 13,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "ms": 70
+            },
+            "halfslash": {
+              "row": 29,
+              "frames": 6,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 80
+            },
+            "thrust": {
+              "row": 33,
+              "frames": 8,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+              ],
+              "ms": 80
+            },
+            "shoot": {
+              "row": 37,
+              "frames": 13,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "ms": 70
+            },
+            "spellcast": {
+              "row": 41,
+              "frames": 7,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "ms": 90
+            },
+            "hurt": {
+              "row": 45,
+              "frames": 6,
+              "dirs": 1,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 110
+            }
+          }
+        },
+        "femme": "assets/worn/leather_armor_copy_femme.png",
+        "femmeAnim": {
+          "frame": 64,
+          "dirs": [
+            "up",
+            "left",
+            "down",
+            "right"
+          ],
+          "anims": {
+            "walk": {
+              "row": 0,
+              "frames": 9,
+              "dirs": 4,
+              "cycle": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "ms": 100
+            },
+            "idle": {
+              "row": 4,
+              "frames": 2,
+              "dirs": 4,
+              "cycle": [
+                0,
+                0,
+                1
+              ],
+              "ms": 380
+            },
+            "run": {
+              "row": 8,
+              "frames": 8,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+              ],
+              "ms": 80
+            },
+            "jump": {
+              "row": 12,
+              "frames": 5,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                1
+              ],
+              "ms": 120
+            },
+            "climb": {
+              "row": 16,
+              "frames": 6,
+              "dirs": 1,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 120
+            },
+            "combat_idle": {
+              "row": 17,
+              "frames": 2,
+              "dirs": 4,
+              "cycle": [
+                0,
+                0,
+                1
+              ],
+              "ms": 300
+            },
+            "slash": {
+              "row": 21,
+              "frames": 6,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 80
+            },
+            "backslash": {
+              "row": 25,
+              "frames": 13,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "ms": 70
+            },
+            "halfslash": {
+              "row": 29,
+              "frames": 6,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 80
+            },
+            "thrust": {
+              "row": 33,
+              "frames": 8,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7
+              ],
+              "ms": 80
+            },
+            "shoot": {
+              "row": 37,
+              "frames": 13,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "ms": 70
+            },
+            "spellcast": {
+              "row": 41,
+              "frames": 7,
+              "dirs": 4,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "ms": 90
+            },
+            "hurt": {
+              "row": 45,
+              "frames": 6,
+              "dirs": 1,
+              "cycle": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "ms": 110
+            }
+          }
+        }
+      }
     },
     {
       "id": "sun_ring",
@@ -4254,6 +4672,15 @@
       "kind": "key",
       "icon": "builtin:boots",
       "tool": "waterWalk"
+    },
+    {
+      "id": "tide_ring_copy",
+      "name": "Swim Fin",
+      "description": "Swim and wade through water. Switch them on in the bag, or assign them to the B button.",
+      "kind": "key",
+      "icon": "builtin:fish_koi",
+      "tool": "waterWalk",
+      "iconTint": "#3a6ae0"
     },
     {
       "id": "moon_amulet",
@@ -6303,13 +6730,22 @@
         "name": "Earthborn",
         "x": 2,
         "y": 0,
-        "effects": [
-          {
-            "stat": "maxHp",
-            "value": 10
-          }
-        ],
-        "description": "Your heritage lets you use weapons/armor made from TitanTech."
+        "effects": [],
+        "description": "Your heritage lets you use weapons/armor made from TitanTech.",
+        "trains": [
+          "armor:new"
+        ]
+      },
+      {
+        "id": "skill_2",
+        "tree": "tree_2",
+        "name": "New skill",
+        "x": 2,
+        "y": 1,
+        "effects": [],
+        "parents": [
+          "skill_earthborn"
+        ]
       }
     ]
   },
@@ -6821,5 +7257,6 @@
       "title": "Misc. Sprites",
       "names": "Stephen Challener (Redshrike), hosted by OpenGameArt.org"
     }
-  ]
+  ],
+  "activeParty": 4
 }
