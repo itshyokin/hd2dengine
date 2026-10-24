@@ -15,6 +15,7 @@ export const SFX_NAMES = [
   'achievement', 'thunder',
   'hitFlesh', 'hitPlant', 'hitMetal', 'hitStone', 'hitWood', 'hitBone', 'hitLiquid', 'hitGel', 'hitCrystal', 'hitSpirit', 'hitCloth',
   'critBig', 'thump', 'rustle', 'lowHp',
+  'hoof', 'horseSnort', 'horseNeigh', 'lockClick', 'lockTurn', 'lockOpen', 'lockBreak',
 ] as const;
 export type SfxName = typeof SFX_NAMES[number];
 
@@ -27,6 +28,7 @@ export const SFX_LABELS: Record<SfxName, string> = {
   break: 'Something breaks', dice: 'Dice roll', weak: 'Super effective hit', stepGrass: 'Footstep: grass', stepDirt: 'Footstep: dirt', stepStone: 'Footstep: stone', stepWood: 'Footstep: wood', stepSand: 'Footstep: sand',
   stepSnow: 'Footstep: snow', stepWater: 'Footstep: water', stepMetal: 'Footstep: metal', stepCarpet: 'Footstep: carpet',
   textTick: 'Letter tick (message text)',
+  hoof: 'Horse: a hoof step', horseSnort: 'Horse: snort', horseNeigh: 'Horse: whinny', lockClick: 'Lock: the pick nears the spot', lockTurn: 'Lock: the cylinder strains', lockOpen: 'Lock: unlocked', lockBreak: 'Lock: the pick breaks',
   swim: 'Swimming stroke',
   fishCast: 'Fishing: cast', fishBite: 'Fishing: a bite', fishCatch: 'Fishing: caught one',
   thunder: 'Thunder', encounter: 'Battle: encounter sting', battleSwell: 'Battle: transition swell', shatter: 'Battle: shatter transition',
@@ -168,6 +170,15 @@ export function makeSfx(name: SfxName): Float32Array {
     case 'stepSnow': return lowpass(make(0.22, (t) => noise() * (R() < 0.35 ? 1 : 0.25) * env(t, 0.01, 0.07) * 0.75), 3200);
     case 'stepWater': return lowpass(make(0.28, (t) => noise() * env(t, 0.008, 0.09) * (0.65 + 0.35 * Math.sin(t * 140)) * 0.75), 1900);
     case 'stepMetal': return make(0.25, (t) => (tone(t, 820, 'tri') * 0.25 + Math.sin(2 * Math.PI * 1290 * t) * 0.18 + noise() * 0.25 * env(t, 0, 0.008)) * env(t, 0.001, 0.07));
+    // The horse (Update 115): a hollow clop, a breathy snort, a short whinny.
+    case 'hoof': return lowpass(make(0.16, (t) => (tone(t, sweep(t, 420, 180, 0.05), 'tri') * 0.55 * env(t, 0.001, 0.035) + noise() * 0.3 * env(t, 0.0008, 0.01))), 2400);
+    case 'horseSnort': return lowpass(highpass(make(0.5, (t) => noise() * env(t, 0.02, 0.2) * (0.6 + 0.4 * Math.sin(t * 90)) * 0.7), 300), 2200);
+    case 'horseNeigh': return make(0.9, (t) => (Math.sign(Math.sin(2 * Math.PI * (sweep(t, 700, 420, 0.8) + 40 * Math.sin(t * 60)) * t)) * 0.12 + Math.sin(2 * Math.PI * sweep(t, 1400, 840, 0.8) * t) * 0.08) * env(t, 0.03, 0.3));
+    // Lockpicking (Update 119): a tiny tick, a strained creak, the click of it giving, a snap.
+    case 'lockClick': return highpass(make(0.04, (t) => noise() * env(t, 0.0005, 0.006) * 0.5), 2500);
+    case 'lockTurn': return lowpass(make(0.25, (t) => (tone(t, 150 + 30 * Math.sin(t * 80), 'square') * 0.08 + noise() * 0.12) * env(t, 0.02, 0.08)), 1400);
+    case 'lockOpen': return make(0.35, (t) => (noise() * 0.5 * env(t, 0.0008, 0.01) + tone(t, sweep(t, 1400, 900, 0.05), 'tri') * 0.3 * env(t, 0.001, 0.05)) + (t > 0.12 ? noise() * 0.4 * env(t - 0.12, 0.0008, 0.012) : 0));
+    case 'lockBreak': return highpass(make(0.3, (t) => (noise() * env(t, 0.0005, 0.02) * 0.8 + Math.sin(2 * Math.PI * 2600 * t) * 0.2 * env(t, 0.001, 0.08))), 1200);
     case 'stepCarpet': return lowpass(make(0.14, (t) => (noise() * 0.5 + tone(t, 90) * 0.4) * env(t, 0.008, 0.035)), 700);
     // A crack and a crumble: wood and stone giving way.
     case 'break': return lowpass(make(0.7, (t) => (noise() * env(t, 0.002, 0.05) * 0.9 + noise() * (R() < 0.12 ? 1 : 0.15) * env(t, 0.04, 0.22) * 0.7 + tone(t, sweep(t, 120, 50, 0.3)) * 0.5 * env(t, 0.002, 0.12))), 2600);

@@ -2321,3 +2321,10 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .tut-entry h3 { margin: 0 0 4px; font-size: 15px; color: #ffd27a; }
 .tut-entry p { margin: 0; font-size: 13px; line-height: 1.45; color: #e6dcc6; }
 .tut-none { color: #8f95a8; }
+
+/* Galloping on a horse (Update 115): speed lines streaking in from the edges. */
+.speed-lines { position: fixed; inset: -10%; z-index: 2; pointer-events: none; opacity: 0; transition: opacity 0.3s ease;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0) 0deg 4deg, rgba(255,255,255,0.55) 4.4deg 4.8deg, rgba(255,255,255,0) 5.2deg 11deg);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 34%, #000 62%); mask-image: radial-gradient(circle at 50% 50%, transparent 0 34%, #000 62%); }
+.speed-lines.on { opacity: 0.55; animation: speed-flicker 0.18s steps(2) infinite; }
+@keyframes speed-flicker { 50% { transform: rotate(3deg); } }

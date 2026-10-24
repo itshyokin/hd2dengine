@@ -51,6 +51,8 @@ export function horsesTab(list: HorseDef[], state: { sel: number }, rerender: ()
         field('Mane and tail', h('input', { type: 'color', value: d.mane, 'aria-label': 'Mane colour', onchange: (e: Event) => { d.mane = (e.target as HTMLInputElement).value; rerender(); } }))),
       preview(d)),
     h('p', { class: 'note' }, 'Stables rent these (the Stable event command). One horse at a time: it stands beside the hero, the Talk button beside it gets on, B gets off, and it waits where it was left (on that map, saved). Riding: faster, its own stamina in the stamina ring, a long jump while moving; no climbing, crawling or swimming, and it waits outside indoor maps. A Saddle key item sends it home so another can be rented elsewhere.'),
+    // Griffin flights sit under the horse's form (as their own grid cell they fell into the list's column).
+    flightSection(travel),
   ], rerender, 'No horses: the built-in three are used.');
-  return [...out, flightSection(travel)];
+  return out;
 }
