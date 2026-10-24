@@ -11,6 +11,7 @@ import { editorCharModel, openCharacterModel } from './characterModelEditor';
 import { modelStyle, renderCharacterPicture } from '../render/characterModel';
 import { characterFrame, setCharacterSheet } from './editorArt';
 import { checkbox, field, h, select, toast } from './dom';
+import { openBattleIdle } from './BattleIdleEditor';
 import type { EditorStore } from './store';
 
 export interface CharactersWork { chars: Record<string, CharacterDef>; player: string; /** How 3D characters are drawn (unset: Legend of Dragoon). */ look?: ModelLook; /** Their outline (unset: with Legend of Dragoon only). */ outline?: boolean }
@@ -144,6 +145,7 @@ export function charactersTab(store: EditorStore, w: CharactersWork, rerender: (
             rerender();
           }) }, c.sheet ? 'Replace sheet…' : 'Use a sheet…'),
           h('button', { type: 'button', class: 'btn small', onclick: () => openCharacterModel(store, id, c, style, rerender) }, c.model ? '3D model…' : 'Use a 3D model…'),
+          c.anim ? h('button', { type: 'button', class: 'btn small', title: 'Frames of one row looped as they stand in battle', onclick: () => void openBattleIdle(store, c, rerender) }, c.battleIdle ? `Battle idle: row ${c.battleIdle.row + 1}…` : 'Battle idle…') : '',
           del)));
   };
 

@@ -134,9 +134,13 @@ decide things; the tablet editor keeps working.
         Done: the rows are the combat stance (rows 18–21 counting from 1); SpriteLibrary `withRide` adds a "ride"
         animation (4 rows appended to the sheet, erase boxes measured from the owner's screenshot); Motion `riding`;
         AllyHost `hidden` while riding. Owner to check the erased areas in game.
-  - [ ] Update 111: battle look. Bigger damage numbers. Health bars: solid colours, squared or rounded (an option).
+  - [x] Update 111: battle look. Bigger damage numbers. Health bars: solid colours, squared or rounded (an option).
         A Battle menu layout editor (like the pause menu's party layout). Battle idle: pick frames from a sheet row
         (like the prop creator: up to N frames of row Y) that loop as the hero's battle idle.
+        Done: bigger `.bpop`; Menus `barsSolid` / `barsSquare` (root classes); ui/battleLayout.ts + BattleScreen
+        `setBoxes` + editor/BattleLayoutEditor.ts (Pocket pieces placed by hand, % of the screen); CharacterDef
+        `battleIdle` (editor/BattleIdleEditor.ts on the Characters card; SpriteLibrary adds a `battle_idle` anim;
+        BattleStage animates with `battle: true`).
   - [ ] Update 112: terrain looks. Cliffs only 1 height tall get a smaller grassy overhang (2+ keep it). Cliff and
         side walls from heights get a light-top, dark-base gradient. Water reflects the hero. Moving shadow overlays
         besides clouds: tree canopy shadows, light beams…

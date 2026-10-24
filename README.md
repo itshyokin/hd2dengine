@@ -839,6 +839,17 @@ them: Freezing before a fight, still Freezing after.
   **Database → Map markers**: each kind's name, symbol (star, circle, diamond, square, triangle, !, ?, flag, skull,
   house, cross, heart) and colour, and new kinds.
 
+### Battle look (Update 111)
+
+- **Damage numbers** are bigger (critical hits and the big finishers bigger still).
+- **Bars**: Database → Title & menus: *Health and magic bars in solid colours* and *Square bars* (off: shaded and
+  rounded), everywhere bars are drawn.
+- **Battle layout** (Database → Title & menus → Battle layout, Pocket Handheld): the foes' blocks, the party's
+  blocks, the command box and the text box. Tick *Place by hand* for a piece and drag it (its corner sizes it), in
+  percent of the screen; unticked pieces keep the built-in place.
+- **Battle idle** (Database → Characters → a card's *Battle idle…*): pick a row of the sheet (counted from 1) and tick
+  up to 12 of its frames; they loop, at the speed you set, while that character stands in battle.
+
 ### Battles: whose turn it is
 
 - The ring under whoever's turn it is, and the glowing, gently pulsing outline on their card (and their row in the

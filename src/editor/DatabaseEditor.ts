@@ -22,6 +22,7 @@ import { PAUSE_OPTIONS, TITLE_OPTIONS } from '../game/menus';
 import { CLASSIC_OVERWORLD_CAMERA, DEFAULT_OVERWORLD_CAMERA } from '../game/cameraDefaults';
 import type { OverworldCamera } from '../world/types';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
+import { battleLayoutSection } from './BattleLayoutEditor';
 import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
 import type { EditorStore } from './store';
 import { ITEM_CATS, type ItemCat, cleanInventory, inventoryTab, itemCategory, itemsTab, type ItemsWork } from './ItemsEditor';
@@ -535,11 +536,14 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     return h('section', { class: 'db-section' }, h('h3', {}, 'Bars'),
       h('div', { class: 'field-row' }, one('hp', 'Health'), one('mp', 'Magic'), one('xp', 'EXP'), one('sp', 'Stamina wheel')),
       checkbox('The stamina wheel stays on screen when full (off: it fades away once stamina is full)', !!menus.staminaSteady, (v) => { if (v) menus.staminaSteady = true; else delete menus.staminaSteady; }),
+      checkbox('Health and magic bars in solid colours (off: shaded)', !!menus.barsSolid, (v) => { if (v) menus.barsSolid = true; else delete menus.barsSolid; }),
+      checkbox('Square bars (off: rounded ends)', !!menus.barsSquare, (v) => { if (v) menus.barsSquare = true; else delete menus.barsSquare; }),
       h('p', { class: 'note' }, 'The same colours everywhere: the HUD, the menus and battles. Health still turns yellow at half and red when low where its bar shows that.'));
   };
   const menusTab = () => [
     barColours(),
     partyLayoutSection(menus),
+    battleLayoutSection(menus),
     h('section', { class: 'db-section' },
       h('h3', {}, 'Window theme'),
       field('Menus, text boxes and the HUD', select(UI_THEMES.map((t) => [t.id, `${t.name}: ${t.note}`] as [string, string]), menus.uiTheme ?? 'ember', (v) => { if (v === 'ember') delete menus.uiTheme; else menus.uiTheme = v; }),

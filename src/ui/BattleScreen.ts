@@ -4,6 +4,7 @@
  * and touch: arrows / D-pad move, OK picks, Cancel goes back; fighters and menu entries can be tapped.
  * It only shows things and asks questions: the battle itself is run by TurnBattle.
  */
+import { type BattleLayout, type BattlePiece, pieceStyle } from './battleLayout';
 import { DEFAULT_STATUS_PILLS, type StatusPill } from '../game/battle/statusPills';
 import type { Input } from '../game/Input';
 import type { Element, FaceButton, ImpactFx } from '../world/types';
@@ -769,6 +770,21 @@ export class BattleScreen {
 
   get pocket(): boolean { return this.layout === 'pocket'; }
 
+  /** Database → Menus → Battle layout: the Pocket Handheld pieces placed by hand (unset ones keep their place). */
+  setBoxes(l: BattleLayout | undefined): void {
+    const set = (sel: string, k: BattlePiece, withH: boolean) => {
+      const el = this.root.querySelector<HTMLElement>(sel);
+      if (el) el.style.cssText = l?.[k] ? pieceStyle(l[k], withH) : '';
+    };
+    set('.pocket-foes', 'foes', false);
+    set('.pocket-heroes', 'heroes', false);
+    set('.battle-bottom', 'cmds', false);
+    set('.pocket-text', 'text', true);
+    // The command box's own height (its tiles fill it).
+    this.root.style.setProperty('--cmd-h-user', l?.cmds?.h !== undefined ? `${l.cmds.h}cqh` : '');
+    this.root.classList.toggle('boxed-cmds', l?.cmds?.h !== undefined);
+  }
+
   private pills: Record<string, StatusPill> = DEFAULT_STATUS_PILLS;
   private pillWords: 'short' | 'full' = 'short';
   /** Status pills (Pocket Handheld): each ailment's colours and text, and short tags or full words. */
@@ -924,7 +940,7 @@ export class BattleScreen {
     el.textContent = text;
     if (color) el.style.color = color;
     const n = f.el.querySelectorAll('.bpop').length;
-    el.style.setProperty('--lift', `${n * 18}px`);
+    el.style.setProperty('--lift', `${n * 28}px`);
     f.el.append(el);
     setTimeout(() => el.remove(), 1300);
   }

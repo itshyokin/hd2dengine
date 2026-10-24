@@ -5630,6 +5630,7 @@ export class Game {
     tagAOMeshes(stage.group);
     this.applyFov();
     this.battleScreen.setStage(stage);
+    this.battleScreen.setBoxes(this.combatCfg.turnBased.layout === 'pocket' ? this.db.menus?.battleLayout : undefined);
     this.battleScreen.onClosed = () => this.endStage();
     this.battleScreen.onCamera = (d) => this.cycleCamera(d);
     this.battleScreen.cameraHint(stage.cameraName, this.cameraKeys());
@@ -6354,6 +6355,8 @@ export class Game {
     const bars = this.db.menus?.bars ?? {}, root = document.documentElement.style;
     for (const k of ['hp', 'mp', 'xp', 'sp'] as const) { if (bars[k]) root.setProperty(`--c-${k}`, bars[k]!); else root.removeProperty(`--c-${k}`); }
     this.hud.staminaSteady = !!this.db.menus?.staminaSteady;
+    document.documentElement.classList.toggle('bars-solid', !!this.db.menus?.barsSolid);
+    document.documentElement.classList.toggle('bars-square', !!this.db.menus?.barsSquare);
     // Potato: everything costly is off, whatever the switches below say.
     const potato = st.quality === 'potato' && !this.stage;
     this.post.settings.bloom = st.bloom && !potato;

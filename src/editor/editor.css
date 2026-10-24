@@ -874,3 +874,13 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .month-day { display: inline-flex; gap: 6px; align-items: center; }
 .month-day select { width: auto; }
 .month-day input { width: 64px; }
+
+.bl-page { aspect-ratio: 16 / 9; }
+.bl-piece.auto { border-style: dashed; opacity: 0.7; cursor: pointer; }
+
+/* Battle idle frame picker */
+.bi-strip { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: #0e111c; border-radius: 8px; max-height: 260px; overflow: auto; }
+.bi-frame { width: 64px; height: 64px; image-rendering: pixelated; border: 2px solid transparent; border-radius: 6px; background: repeating-conic-gradient(#2a2e3e 0 25%, #20232f 0 50%) 0 0 / 12px 12px; cursor: pointer; }
+.bi-frame.on { border-color: var(--ember, #ffb04a); }
+.bi-prev-wrap { margin-top: 10px; display: flex; justify-content: center; }
+.bi-preview { width: 128px; height: 128px; image-rendering: pixelated; background: repeating-conic-gradient(#2a2e3e 0 25%, #20232f 0 50%) 0 0 / 16px 16px; border-radius: 8px; }

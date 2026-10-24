@@ -256,7 +256,11 @@ export class SpriteLibrary {
     const model = this.charModel(def);
     if (model && def?.model) return { ...this.forCharacter({ ...def, model: undefined }), rigged: { model, def: def.model, style: this.modelStyle } };
     const sheet = def?.sheet ? this.sheets.get(def.sheet) : undefined;
-    if (sheet && def?.anim) return this.animated(def.sheet!, sheet, def.anim);
+    if (sheet && def?.anim) {
+      // A battle idle picked from one row (Update 111): its own animation, looped in battle.
+      const bi = def.battleIdle;
+      return this.animated(def.sheet!, sheet, def.anim, bi?.frames.length ? { battle_idle: { row: bi.row, frames: Math.max(...bi.frames) + 1, dirs: 1, cycle: bi.frames, ms: bi.ms ?? 260 } } : undefined);
+    }
     if (sheet) return this.sheet(sheet);
     return this.character(def?.palette ?? DEFAULT_PALETTE);
   }
@@ -448,9 +452,10 @@ export class SpriteLibrary {
   }
   private readonly rideSheets = new Map<string, { src: HTMLCanvasElement; from: CharacterAnimLayout; out: { canvas: HTMLCanvasElement; layout: CharacterAnimLayout } }>();
 
-  animated(key: string, canvas: HTMLCanvasElement, layout: CharacterAnimLayout): SpriteAsset {
+  animated(key: string, canvas: HTMLCanvasElement, layout: CharacterAnimLayout, extra?: Record<string, import('../world/types').SheetAnim>): SpriteAsset {
     layout = this.completeLayout(key, canvas, layout);
     ({ canvas, layout } = this.withRide(key, canvas, layout));
+    if (extra) layout = { ...layout, anims: { ...layout.anims, ...extra } };
     let base = this.animBases.get(key);
     if (!base) {
       const map = makeTexture(canvas, {});

@@ -851,6 +851,8 @@ export interface CharacterDef {
   sheet?: string;
   /** The animations in an animated sheet (read from the PNG when it's imported). */
   anim?: CharacterAnimLayout;
+  /** Battle idle (Update 111): frames of one sheet row (0-based row, columns) looped while standing in battle. */
+  battleIdle?: { row: number; frames: number[]; ms?: number };
   /** Who made the sheet's parts (read from the PNG; shown on the Credits screen). */
   credits?: SpriteCredit[];
   /** A rigged 3D model drawn instead of the sheet (render/characterModel.ts); the sheet or palette stays as a fallback. */
@@ -1322,8 +1324,13 @@ export interface MenuConfig {
   bars?: { hp?: string; mp?: string; xp?: string; sp?: string };
   /** The stamina wheel stays on screen when full (default: it fades away once full). */
   staminaSteady?: boolean;
+  /** Health and magic bars (Update 111): solid colours instead of the shaded ones, and square ends instead of round. */
+  barsSolid?: boolean;
+  barsSquare?: boolean;
   /** The Party page's member panels: where they sit, how big, what they show (see ui/partyLayout.ts). */
   partyLayout?: import('../ui/partyLayout').PartyLayout;
+  /** The battle screen's pieces (Pocket Handheld; Update 111). */
+  battleLayout?: import('../ui/battleLayout').BattleLayout;
   /** Big text on the title screen (defaults to the game's title) and a line under it. */
   titleText?: string;
   subtitle?: string;

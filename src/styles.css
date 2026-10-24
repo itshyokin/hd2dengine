@@ -2289,3 +2289,19 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .good-pill { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3); }
 .good-bonus { color: #ffd36a; font-weight: 800; margin-left: 4px; }
 .good-bonus small { color: #c9a95a; font-weight: 600; margin-left: 3px; }
+
+/* Battle layout (Database → Menus → Battle layout): a command box of its own height. */
+.battle.layout-pocket.boxed-cmds > * { --cmd-h: var(--cmd-h-user); }
+
+/* Bigger damage numbers in battle (Update 111). */
+.bpop { font-size: 34px; text-shadow: 0 3px 0 #000, 0 0 3px #000, 0 0 10px rgba(0,0,0,0.85); }
+.bpop.crit { font-size: 44px; }
+.bpop.mp { font-size: 26px; }
+.bpop.info { font-size: 15px; }
+.bpop.big { font-size: 46px; }
+.bpop.critBig { font-size: 60px; }
+/* Bars (Database → Menus): solid colours, square ends. */
+:root.bars-solid { --g-hp: var(--c-hp); --g-mp: var(--c-mp); --g-xp: var(--c-xp); --g-sp: var(--c-sp); }
+:root.bars-solid .pp-bar.mid i { background: #e8c23a !important; } :root.bars-solid .pp-bar.low i { background: #e0524a !important; }
+:root.bars-square [class$="-bar"], :root.bars-square [class*="-bar "], :root.bars-square [class$="-bar"] > *, :root.bars-square [class*="-bar "] > *,
+:root.bars-square .hud-bar, :root.bars-square .hud-bar > *, :root.bars-square .bb, :root.bars-square .bb > * { border-radius: 0 !important; }

@@ -515,7 +515,7 @@ export class BattleStage implements StageHooks {
     const weak = f.weak && !f.posed && !f.steps.length && !f.down;
     const kneel = f.sprite instanceof CharacterSprite ? ['kneel', 'sit'].find((a) => f.sprite.has(a)) : undefined;
     // Standing: everyone in their plain idle (the same rows for every character sheet), not the combat stance.
-    f.sprite.animate(weak ? dt * 0.5 : dt, f.flat ? { moving } : { moving, running: moving, injured: weak });
+    f.sprite.animate(weak ? dt * 0.5 : dt, f.flat ? { moving } : { moving, running: moving, injured: weak, battle: true });
     if (weak && kneel && f.sprite instanceof CharacterSprite && !f.sprite.acting) f.sprite.hold(kneel, 0);
     if (f.fading) f.fade = Math.min(1, f.fade + dt * 1.4);
     const m = f.sprite.mesh;
