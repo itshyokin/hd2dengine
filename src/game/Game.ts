@@ -105,7 +105,7 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { EvolveScreen } from '../ui/EvolveScreen';
-import { patchLean, setLean } from '../render/lean';
+import { leanNow, patchLean, setLean } from '../render/lean';
 import { DEFAULT_OVERWORLD_CAMERA } from './cameraDefaults';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
@@ -671,6 +671,7 @@ export class Game {
     this.creation = new CreationScreen(this.ui, this.input);
     this.equipScreen = new EquipScreen(this.ui, this.input, this.equipHost());
     this.tutorialPop = new TutorialPopup(this.ui, this.input);
+    this.ui.appendChild(this.speedLines);
     this.restScreen = new RestScreen(this.ui, this.input, {
       party: () => this.bodyParty().map((p, who) => {
         const m = who ? this.members()[who - 1] : null, mx = m ? this.allyNumbers(m.data, m.def).max : null;
@@ -1484,6 +1485,8 @@ export class Game {
     if (t && Math.random() * 100 < (t.chance ?? 100)) this.ailmentCommand('give', t.ailment, t.seconds, true);
   }
 
+  private horseVoice = 6;
+  private readonly speedLines = (() => { const el = document.createElement('div'); el.className = 'speed-lines'; el.setAttribute('aria-hidden', 'true'); return el; })();
   private updateFootsteps(dt: number): void {
     const m = this.motion;
     if (!m || this.onTitle) return;
@@ -1498,6 +1501,18 @@ export class Game {
       if (!(dist > dt * 0.5) || dist > 1.5) { this.stepT = 0.3; return; }
       this.stepT += dt;
       if (this.stepT >= 0.72) { this.stepT -= 0.72; this.audio.play('swim', undefined, undefined, 0.6 * (0.85 + Math.random() * 0.3)); }
+      return;
+    }
+    // On a horse (Update 115): hoof steps (a quicker four-beat gallop), and a snort or a whinny now and then.
+    if (this.riding) {
+      this.horseVoice -= dt;
+      if (this.horseVoice <= 0) { this.horseVoice = 8 + Math.random() * 14; this.audio.play(Math.random() < 0.7 ? 'horseSnort' : 'horseNeigh', m.x, m.z, 0.7); }
+      if (!this.settings.footsteps || air || !(dist > dt * 0.5) || dist > 1.5) { this.stepT = 0.1; return; }
+      const every = m.running ? 0.11 : 0.26;
+      this.stepT += dt;
+      if (this.stepT < every) return;
+      this.stepT -= every;
+      this.audio.play('hoof', undefined, undefined, (m.running ? 0.9 : 0.7) * (0.85 + Math.random() * 0.3));
       return;
     }
     if (!this.settings.footsteps || air || m.swimming || m.climbing || m.dashing) { this.stepT = 0.2; return; }
@@ -1891,6 +1906,7 @@ export class Game {
     if (!this.onTitle && !fighting) this.updateBody(dt);
     if (!this.onTitle && !fighting) this.updateChatter(dt);
     if (!this.onTitle && !fighting) this.updateAilments();
+    if (!this.riding || fighting || this.onTitle || paused) this.speedLines.classList.remove('on');
     if (!this.onTitle && !fighting) this.combat.updateBack();
     if (this.buildings.length) { const p = this.player.position; fadeBuildings(this.buildings, p.x, p.y, p.z, dt); }
 
@@ -2042,6 +2058,8 @@ export class Game {
     this.stats.update(dt, { running: m.running && res.moving && !rh, climbing: m.climbing, swimming: m.swimming, jumped: !!res.jumped && !rh, mpDrain: this.rings.mpDrain * this.spellThrift });
     // Riding: the horse's own stamina (galloping and jumping use it; walking and standing bring it back).
     this.horseMoving = res.moving && !m.airborne;
+    // Galloping: speed lines streak in from the screen's edges (Update 115).
+    this.speedLines.classList.toggle('on', !!rh && m.running && res.moving && !this.horseTired);
     if (rh && this.state.horse) {
       const hs = this.state.horse;
       if (res.jumped) hs.sp -= JUMP_COST;
@@ -2249,8 +2267,8 @@ export class Game {
     if (!h.mounted) h.sp = Math.min(d.stamina, h.sp + REST_GAIN * dt);
     if (!s.mesh.visible) return;
     if (h.mounted) {
-      // Just behind the rider (so the rider draws in front).
-      s.position.set(m.x, m.y, m.z - 0.03);
+      // Under the rider (syncPlayer lifts the rider into the saddle and decides who draws in front).
+      s.position.set(m.x, m.y, m.z);
       s.faceVector(...DIR_VECTOR[this.player.dir]);
       s.animate(dt * (m.running ? 1.9 : 1.1), this.horseMoving);
       h.dir = this.player.dir;
@@ -6660,10 +6678,19 @@ export class Game {
   }
 
   /** Put the sprite where the motion says, squashed down while crawling. */
+  private readonly rideTmp = new THREE.Vector3();
   private syncPlayer(dt = 0): void {
     const m = this.motion, p = this.player.position;
-    // Riding: up in the saddle.
-    p.set(m.x, m.y + (this.state.horse?.mounted ? SEAT : 0), m.z);
+    p.set(m.x, m.y, m.z);
+    // Riding (Update 115): up in the saddle, up the leaning sprites (so it shows from a high camera too), and a nudge
+    // toward the camera so the rider draws over the horse, except facing down, where the horse's head is in front.
+    if (this.state.horse?.mounted) {
+      const lean = leanNow(), dir = this.player.dir, up = dir === 'left' || dir === 'right' ? 0.8 : dir === 'down' ? 0.72 : 0.62;
+      p.y += up * Math.cos(lean); p.z -= up * Math.sin(lean);
+      const toCam = this.rideTmp.copy(this.camera.position).sub(p).normalize().multiplyScalar(dir === "down" ? -0.6 : 0.6);
+      p.add(toCam);
+      void SEAT;
+    }
     this.crouch += ((m.crawling ? 1 : this.combat.sneaking ? 0.3 : 0) - this.crouch) * (dt ? 1 - Math.exp(-dt * 14) : 1);
     this.player.mesh.scale.set(1 + this.crouch * 0.12, 1 - this.crouch * 0.42, 1);
     this.touch?.update((a) => this.state.has(a));

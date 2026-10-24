@@ -14,7 +14,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 24 evening: starting Update 115)
+## Pick up here (state as of Oct 24 evening: Update 115 done, next 116)
 - **Next work:** Updates 115–120 (owner's playtest notes, NOTES.md); after them the older Future list (plan with the
   owner first). Owner to check in game: the riding erase boxes, reflections, rain with the camera lean, the 4-hero
   battle panels, worn looks with a real clothes-only export.
