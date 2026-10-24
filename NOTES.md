@@ -108,6 +108,33 @@ decide things; the tablet editor keeps working.
 - Dropped (Oct 22): the 3D roadmap items (Additions with 3D models, equipment on 3D characters, the 3D character
   builder). The game sticks with sprites. The 3D props and 3D characters already built (Updates 101–102) stay for
   now; the owner may have them removed later.
+- Owner's list (Oct 24), planned as Updates 107–114 (in this order):
+  - [ ] Update 107: fixes. Camping: each party member picks one spot and stays there the whole rest (no switching).
+        Pause menu party panels jump far apart vertically while in a rest zone. 4 active: all 3 followers walk
+        behind the hero, and the HUD shows a panel for the 3rd member. Rain / snow follow the camera tilt setting.
+        Chatter bubbles sit above the head at higher camera angles (not on the body). Sitting uses the sheet's
+        bottom row, column 3; the training dummy uses row 22. Party orbs on the hero's battle stat block are each
+        member's colour (Database → Heroes); enemies stay orange. Height styles (Blocky…): brighter symbols / tinted
+        squares, and Fill works with a style (fills that height as the selection).
+  - [ ] Update 108: dates. A Date condition (month / day, no year, and a date range: Oct 24–31) for event pages
+        and Conditional branch (a Halloween pumpkin). Props get a date window too (shown only on those days), and a
+        "Duplicate prop" option so a Halloween-only copy can sit in towns while the original is used anywhere.
+  - [ ] Update 109: fishing and swimming. Fishing now and then hooks a water enemy (enemies get a Water habitat;
+        a chance per catch) and starts a battle. Swimming is no longer automatic: it needs a key item (a key item
+        flag "lets the party swim") and no longer costs stamina.
+  - [ ] Update 110: riding. On a horse the party is hidden and the hero uses riding sprites (sheet rows 18–22),
+        with the far leg erased in the side views (it's behind the horse; owner's marked-up sheet, Oct 24).
+  - [ ] Update 111: battle look. Bigger damage numbers. Health bars: solid colours, squared or rounded (an option).
+        A Battle menu layout editor (like the pause menu's party layout). Battle idle: pick frames from a sheet row
+        (like the prop creator: up to N frames of row Y) that loop as the hero's battle idle.
+  - [ ] Update 112: terrain looks. Cliffs only 1 height tall get a smaller grassy overhang (2+ keep it). Cliff and
+        side walls from heights get a light-top, dark-base gradient. Water reflects the hero. Moving shadow overlays
+        besides clouds: tree canopy shadows, light beams…
+  - [ ] Update 113: tutorials and skill tree locks. Tutorial pop-ups (Settings: on / off) that are kept in the
+        Journal to read again. Skill tree nodes locked until a quest is done, a level is reached, a key item is
+        carried or a switch is on.
+  - [ ] Update 114: equipment changes the hero's look. Armor / clothes get a masc and femme body sprite (from the
+        Character Builder's clothes and accessories), with tint / recolour; wearing it redraws the hero.
 - [ ] Future (owner's notes, Oct 22; plan them before building):
   - NPC behaviour (brainstorm first): daily routines and routes, beds and homes, reacting to weather and events
     (heading indoors when it rains, shops closing in blizzards), schedules by hour.

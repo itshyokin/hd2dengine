@@ -14,10 +14,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Update 106, Oct 22)
-- **Next work:** Updates 103–106 (the elements, safe zones, chatter, ailments out of battle, resting and camping)
-  are done as of Oct 22. Next: the Future list in NOTES.md (NPC routines, map management, button prompts that follow
-  custom controls, alchemy / crafting, removing copyrighted names), each to be planned with the owner first.
+## Pick up here (state as of Oct 24: starting Update 107)
+- **Next work (Oct 24):** the owner's Oct 24 list, planned in NOTES.md as Updates 107–114 (107 fixes, 108 dates,
+  109 fishing / swimming, 110 riding sprites, 111 battle look, 112 terrain looks, 113 tutorials + skill tree locks,
+  114 equipment changes the look). Work them in order; tick each in NOTES and update this file per commit. After
+  them: the older Future list (NPC routines, map management, button prompts, crafting, copyrighted names).
 - Oct 22 late: Database → Player → Party size (`db.activeParty` 3 | 4; Game `activeMembers` getter replaces the
   ACTIVE_MEMBERS constant in activeWhos / lineup / PartyScreen `active`). Added quickly at the end of the weekly
   limit and only type-checked: test a 4-hero battle (BattleStage places extra fighters a step behind the markers;
