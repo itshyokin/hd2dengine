@@ -1,9 +1,9 @@
 {
   "title": "Titamas",
-  "startMap": "01_monolith",
+  "startMap": "Zone_MonolithWoods",
   "start": {
-    "x": 28.5,
-    "z": 27.5,
+    "x": 47.5,
+    "z": 14.5,
     "dir": "up"
   },
   "startHour": 8,
@@ -12,12 +12,14 @@
       "sp": 35
     },
     "cost": {
-      "run": 9,
-      "jump": 7
+      "run": 0,
+      "climb": 0,
+      "swim": 0,
+      "jump": 0
     },
-    "ledges": {
-      "mode": "collision"
-    }
+    "recoverPercent": 0,
+    "regenDelay": 0,
+    "drownDamage": 0
   },
   "player": "hero",
   "characters": {
@@ -4109,6 +4111,24 @@
       "material": "iron_ingot"
     },
     {
+      "id": "short_sword_copy",
+      "name": "Little Knife",
+      "description": "Quick and light. A light weapon: fast swings, short reach.",
+      "kind": "equipment",
+      "icon": "builtin:sword",
+      "price": 150,
+      "slot": "weapon",
+      "weapon": {
+        "class": "light",
+        "damage": 10
+      },
+      "sprite": "dagger",
+      "material": "ess_light_fragment",
+      "rarity": "rare",
+      "element": "light",
+      "iconTint": "#fef5cd"
+    },
+    {
       "id": "longsword",
       "name": "Longsword",
       "description": "A medium weapon: balanced speed, reach and damage.",
@@ -5090,7 +5110,7 @@
     }
   ],
   "weather": {
-    "kind": "sandstorm",
+    "kind": "leaves",
     "amount": 0.3
   },
   "heroes": [
@@ -5447,36 +5467,35 @@
     "partyLayout": {
       "panels": [
         {
-          "x": 7.9,
-          "y": 0,
-          "w": 37.2,
-          "h": 32.4,
+          "x": 15,
+          "y": 1,
+          "w": 25,
+          "h": 40,
           "size": "medium"
         },
         {
-          "x": 46.3,
-          "y": 5.5,
-          "w": 37.2,
-          "h": 28,
+          "x": 45,
+          "y": 1,
+          "w": 25,
+          "h": 30,
           "size": "medium"
         },
         {
-          "x": 46,
-          "y": 35.9,
-          "w": 37.2,
-          "h": 28,
+          "x": 45,
+          "y": 34,
+          "w": 25,
+          "h": 30,
           "size": "medium"
         },
         {
-          "x": 46.3,
-          "y": 66.9,
-          "w": 37.2,
-          "h": 28,
+          "x": 45,
+          "y": 67,
+          "w": 25,
+          "h": 30,
           "size": "medium"
         }
       ]
-    },
-    "staminaSteady": true
+    }
   },
   "troops": [
     {
@@ -6712,7 +6731,9 @@
     "turnBased": {
       "mode": "single",
       "statBlocks": true,
-      "layout": "pocket"
+      "layout": "pocket",
+      "singleParty": 4,
+      "additions": "choose"
     }
   },
   "abilities": {
@@ -6759,9 +6780,9 @@
     "agi"
   ],
   "overworldCamera": {
-    "pitch": 42.4,
-    "distance": 15.6,
-    "lean": 0
+    "pitch": 80,
+    "lean": 90,
+    "fov": 45
   },
   "armorTypes": [
     {
@@ -6793,6 +6814,12 @@
     {
       "id": "new",
       "name": "TitanTech"
+    }
+  ],
+  "credits": [
+    {
+      "title": "Misc. Sprites",
+      "names": "Stephen Challener (Redshrike), hosted by OpenGameArt.org"
     }
   ]
 }

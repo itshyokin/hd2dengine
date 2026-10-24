@@ -204,24 +204,6 @@
       "image": "assets/props/wall_torch.png"
     },
     {
-      "id": "flowers",
-      "name": "Flowers",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "."
-        ]
-      },
-      "shape": "crossX",
-      "block": [],
-      "filter": "point",
-      "sway": 1.2,
-      "image": "assets/props/flowers.png"
-    },
-    {
       "id": "sapling",
       "name": "Sapling (cuttable)",
       "w": 1,
@@ -325,66 +307,6 @@
       "filter": "point",
       "forge": true,
       "image": "assets/props/anvil.png"
-    },
-    {
-      "id": "crate",
-      "name": "Crate (breakable)",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "collide": "flat",
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "cuttable": true,
-      "stump": "logs",
-      "image": "assets/props/crate.png"
-    },
-    {
-      "id": "campfire",
-      "name": "Campfire",
-      "w": 2,
-      "h": 2,
-      "foot": {
-        "w": 2,
-        "d": 1,
-        "solid": [
-          "##"
-        ]
-      },
-      "collide": "flat",
-      "block": [
-        -0.5,
-        0.5
-      ],
-      "filter": "point",
-      "castShadow": false,
-      "respawn": true,
-      "flame": {
-        "x": 0,
-        "y": 0.5,
-        "w": 1,
-        "h": 1.5,
-        "embers": true
-      },
-      "light": {
-        "x": 0,
-        "y": 0.7,
-        "color": "#ff9a45",
-        "intensity": 3,
-        "radius": 9,
-        "schedule": "nightBoost",
-        "flicker": "fire",
-        "shadows": true
-      },
-      "image": "assets/props/campfire.png"
     },
     {
       "id": "lpcr_ladder_1",
@@ -556,25 +478,6 @@
       "image": "assets/props/snowy_pine.png"
     },
     {
-      "id": "log_seat",
-      "name": "Log seat",
-      "w": 2,
-      "h": 1,
-      "foot": {
-        "w": 2,
-        "d": 1,
-        "solid": [
-          "##"
-        ]
-      },
-      "block": [
-        -0.5,
-        0.5
-      ],
-      "filter": "point",
-      "image": "assets/props/log_seat.png"
-    },
-    {
       "id": "chest",
       "name": "Chest",
       "w": 1,
@@ -611,25 +514,6 @@
       ],
       "filter": "point",
       "image": "assets/props/sign.png"
-    },
-    {
-      "id": "oak",
-      "name": "Oak tree",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "sway": 1,
-      "image": "assets/props/oak.png"
     },
     {
       "id": "bush",
@@ -825,8 +709,8 @@
       "image": "assets/props/vines.png"
     },
     {
-      "id": "pine",
-      "name": "Pine tree",
+      "id": "oak",
+      "name": "Oak tree",
       "w": 3,
       "h": 3,
       "foot": {
@@ -836,18 +720,115 @@
           ".#."
         ]
       },
-      "shape": "crossX",
-      "collide": "flat",
       "block": [
         0
       ],
       "filter": "point",
-      "sway": 0.8,
-      "image": "assets/props/pine.png"
+      "sway": 1,
+      "image": "assets/props/oak.png"
     },
     {
-      "id": "tuft",
-      "name": "Grass tuft",
+      "id": "log_seat",
+      "name": "Log seat",
+      "w": 2,
+      "h": 1,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "image": "assets/props/log_seat.png"
+    },
+    {
+      "id": "tree1",
+      "name": "tree1",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "image": "assets/props/tree1.png"
+    },
+    {
+      "id": "tallgrass",
+      "name": "tallgrass",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "*"
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "sway": 0.5,
+      "rustle": true,
+      "walkSound": "audio/footsteps/0_step_grass3.ogg",
+      "image": "assets/props/tallgrass.png"
+    },
+    {
+      "id": "tent_blue",
+      "name": "Tent (blue)",
+      "w": 4,
+      "h": 3,
+      "foot": {
+        "w": 4,
+        "d": 1,
+        "solid": [
+          "####"
+        ]
+      },
+      "block": [
+        -1.5,
+        -0.5,
+        0.5,
+        1.5
+      ],
+      "filter": "point",
+      "image": "assets/props/tent_blue.png"
+    },
+    {
+      "id": "firewood",
+      "name": "Firewood stack",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "image": "assets/props/firewood.png"
+    },
+    {
+      "id": "flowers",
+      "name": "Flowers",
       "w": 1,
       "h": 1,
       "foot": {
@@ -857,12 +838,135 @@
           "."
         ]
       },
-      "shape": "thicket",
-      "collide": "flat",
       "block": [],
       "filter": "point",
-      "sway": 1.3,
-      "image": "assets/props/tuft.png"
+      "sway": 1.2,
+      "image": "assets/props/flowers.png"
+    },
+    {
+      "id": "lantern_post",
+      "name": "Lantern post",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "flame": {
+        "x": 0.2,
+        "y": 1.1,
+        "w": 0.2,
+        "h": 0.2,
+        "embers": true
+      },
+      "light": {
+        "x": 0.2,
+        "y": 1.2,
+        "color": "#ffcf7a",
+        "intensity": 1.8,
+        "radius": 6.5,
+        "schedule": "night",
+        "flicker": "candle"
+      },
+      "image": "assets/props/lantern_post.png"
+    },
+    {
+      "id": "campfire",
+      "name": "Campfire",
+      "w": 3,
+      "h": 2,
+      "foot": {
+        "w": 3,
+        "d": 1,
+        "solid": [
+          ".#."
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "castShadow": false,
+      "respawn": true,
+      "flame": {
+        "x": 0,
+        "y": 0.5,
+        "w": 1,
+        "h": 1.5,
+        "embers": true
+      },
+      "light": {
+        "x": 0,
+        "y": 0.7,
+        "color": "#ff9a45",
+        "intensity": 3,
+        "radius": 9,
+        "schedule": "nightBoost",
+        "flicker": "fire",
+        "shadows": true
+      },
+      "image": "assets/props/campfire.png"
+    },
+    {
+      "id": "crate",
+      "name": "Crate (breakable)",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "shape": "solid",
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "cuttable": true,
+      "stump": "logs",
+      "image": "assets/props/crate.png"
+    },
+    {
+      "id": "jack",
+      "name": "Jack",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 1,
+        "solid": [
+          "##"
+        ]
+      },
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "glowColor": "#ffca0a",
+      "light": {
+        "x": 0.1,
+        "y": 0.7,
+        "color": "#d4901c",
+        "intensity": 1,
+        "radius": 7,
+        "schedule": "night",
+        "flicker": "candle",
+        "shadows": true
+      },
+      "image": "assets/props/jack.png",
+      "glow": "assets/props/jack_glow.png"
     }
   ],
   "tiles": [
@@ -1087,10 +1191,48 @@
       "image": "assets/tiles/ground037.png"
     },
     {
+      "key": ".",
+      "id": "grass",
+      "name": "Grass",
+      "span": 1,
+      "filter": "point",
+      "skin": false,
+      "flat": true,
+      "image": "assets/tiles/grass.png"
+    },
+    {
+      "key": ":",
+      "id": "sand",
+      "name": "Sand",
+      "span": 1,
+      "filter": "point",
+      "skin": false,
+      "image": "assets/tiles/sand.png"
+    },
+    {
+      "key": "=",
+      "id": "path",
+      "name": "Path",
+      "span": 1,
+      "filter": "point",
+      "skin": false,
+      "flat": true,
+      "image": "assets/tiles/path.png"
+    },
+    {
+      "key": "▒",
+      "id": "dirt",
+      "name": "Dirt",
+      "span": 1,
+      "filter": "point",
+      "skin": false,
+      "image": "assets/tiles/dirt.png"
+    },
+    {
       "key": "k",
       "id": "lpcr_grass_summer",
       "name": "Grass (summer)",
-      "span": 2,
+      "span": 1,
       "filter": "point",
       "credits": [
         {
@@ -1109,50 +1251,17 @@
         }
       ],
       "image": "assets/tiles/lpcr_grass_summer.png"
-    },
-    {
-      "key": ".",
-      "id": "grass",
-      "name": "Grass",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "flat": true,
-      "image": "assets/tiles/grass.png"
-    },
-    {
-      "key": ":",
-      "id": "sand",
-      "name": "Sand",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "image": "assets/tiles/sand.png"
-    },
-    {
-      "key": "=",
-      "id": "path",
-      "name": "Path",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "flat": true,
-      "image": "assets/tiles/path.png"
-    },
-    {
-      "key": "▒",
-      "id": "dirt",
-      "name": "Dirt",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "image": "assets/tiles/dirt.png"
     }
   ],
+  "tileCliffs": {
+    "=": "▲",
+    ".": "▲"
+  },
   "tileBlend": {
     ".": {
       "width": 0.22,
-      "roughness": 0.85
+      "roughness": 0.95,
+      "edge": "dither"
     },
     ":": {
       "width": 0.35,
@@ -1172,9 +1281,5 @@
   "tileRoads": {
     "▦": true,
     "~": true
-  },
-  "tileCliffs": {
-    "=": "▲",
-    ".": "▲"
   }
 }
