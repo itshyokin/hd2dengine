@@ -19,12 +19,12 @@ export interface ClockInfo { time: string; hour: number; night: number; weather:
 export interface WeaponSlot { id: string; name: string; icon: string; available: boolean; /** Its rarity's colour. */ color?: string; /** Disabled by an event (indoors): greyed with a red ✕. */ blocked?: boolean }
 
 /** The HUD pieces a player can move and scale. */
-export type HudWidget = 'stats' | 'party' | 'party2' | 'party3' | 'stamina' | 'minimap' | 'gold' | 'clock' | 'weapons' | 'xp' | 'log' | 'quest' | 'quick';
-export const HUD_WIDGETS: [HudWidget, string][] = [['stats', 'Health, magic & EXP'], ['stamina', 'Stamina ring'], ['party', 'Party: first card'], ['party2', 'Party: second card'], ['party3', 'Party: third card'],
+export type HudWidget = 'stats' | 'party' | 'party2' | 'party3' | 'party4' | 'stamina' | 'minimap' | 'gold' | 'clock' | 'weapons' | 'xp' | 'log' | 'quest' | 'quick';
+export const HUD_WIDGETS: [HudWidget, string][] = [['stats', 'Health, magic & EXP'], ['stamina', 'Stamina ring'], ['party', 'Party: first card'], ['party2', 'Party: second card'], ['party3', 'Party: third card'], ['party4', 'Party: fourth card'],
   ['clock', 'Time & spell'], ['minimap', 'Mini-map'], ['gold', 'Gold'], ['weapons', 'Weapons'], ['xp', 'EXP bar'], ['log', 'Adventure log'], ['quest', 'Quest tracker'], ['quick', 'Quick items']];
 /** How many party cards the HUD has (one movable piece each). */
-export const PARTY_SLOTS = 3;
-const SLOT_WIDGETS: HudWidget[] = ['party', 'party2', 'party3'];
+export const PARTY_SLOTS = 4;
+const SLOT_WIDGETS: HudWidget[] = ['party', 'party2', 'party3', 'party4'];
 /** How a piece is laid out: its bars side by side or stacked, a face beside them, the log's background. */
 export interface HudPieceStyle {
   /** Bars side by side ('h') or stacked ('v'). The stats default to side by side, the party to stacked. */
@@ -369,7 +369,7 @@ export class StatusBars {
 
   /** The movable pieces. */
   get widgets(): Record<HudWidget, HTMLElement> {
-    return { stats: this.top, party: this.slots[0], party2: this.slots[1], party3: this.slots[2], stamina: this.stamina, minimap: this.minimap, gold: this.goldEl, clock: this.side, weapons: this.weapons, xp: this.xpBar, log: this.logEl, quest: this.questEl, quick: this.quick };
+    return { stats: this.top, party: this.slots[0], party2: this.slots[1], party3: this.slots[2], party4: this.slots[3], stamina: this.stamina, minimap: this.minimap, gold: this.goldEl, clock: this.side, weapons: this.weapons, xp: this.xpBar, log: this.logEl, quest: this.questEl, quick: this.quick };
   }
 
   /** The season picture behind the clock. */

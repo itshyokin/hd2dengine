@@ -393,7 +393,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       h('section', { class: 'db-section' },
         h('h3', {}, 'Party size'),
         field('Active characters', select([['3', '3 active (the hero + 2)'], ['4', '4 active (the hero + 3)']], String(activeParty), (v) => { activeParty = v === '4' ? 4 : 3; }),
-          'How many fight in battle and walk on the map at once; the rest wait on the bench.')),
+          'How many fight in battle and walk on the map at once; the rest wait on the bench. In Single battle mode, Database → Combat → Heroes who fight (Single) decides it instead (up to 4).')),
       h('section', { class: 'db-section' },
         h('h3', {}, 'Health, magic and stamina'),
         h('div', { class: 'db-table gauges', role: 'table' },

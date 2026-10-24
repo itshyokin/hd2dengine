@@ -6,6 +6,7 @@
  */
 
 import { parseRich, richHTML } from './richText';
+import { leanNow } from '../render/lean';
 
 export interface EventBubble {
   text: string;
@@ -47,6 +48,8 @@ export class BubbleLayer {
   /** Place this frame's bubbles (any not listed are removed). */
   update(list: BubbleSpot[], project: (x: number, y: number, z: number) => { x: number; y: number; on: boolean }, time: number): void {
     const seen = new Set<object>();
+    // Sprites lean back toward a high camera: their heads are up the leaned sprite, not straight up.
+    const lean = leanNow(), cy = Math.cos(lean), sz = Math.sin(lean);
     for (const s of list) {
       seen.add(s.key);
       const b = s.bubble, look = JSON.stringify(b);
@@ -58,7 +61,8 @@ export class BubbleLayer {
         this.root.appendChild(e.el);
       }
       const bob = b.still ? 0 : Math.sin(time * 3 + s.x) * 0.06;
-      const p = project(s.x, s.y + lift(b.at, s.height) + bob, s.z);
+      const up = lift(b.at, s.height) + bob;
+      const p = project(s.x, s.y + up * cy, s.z - up * sz);
       e.el.hidden = !p.on;
       if (p.on) e.el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, ${b.at === 'below' ? '0' : '-100%'})`;
     }

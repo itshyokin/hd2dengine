@@ -152,7 +152,7 @@ import { type Talker, chatterSeconds, pickChatter } from './chatter';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
 import type { ChatterTrigger } from '../world/types';
-import { isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
+import { type RestSpot, isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
 import { type BodyPlace, type BodySettings, type BodyState, type WeatherState, WEATHER_STATE_INFO, bodySettings, hurts, slowOf, soothe, stepBody, weatherState } from './body';
 import { modelStyle } from '../render/characterModel';
 import { alignFootProps, blockedTiles, footTiles, propCovers, stepOf } from '../world/props';
@@ -2441,7 +2441,7 @@ export class Game {
   /** A full rest: health, magic and stamina to full, ailments cured (Zombie needs its own cure). */
   private fullRest(quiet = false): void {
     this.stats.refill();
-    for (const a of this.fighters) { const n = this.allyNumbers(a.data, a.def); a.data.hp = n.max.hp; a.data.mp = n.max.mp; a.data.down = false; a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; }
+    for (const a of this.fighters) { const n = this.allyNumbers(a.data, a.def); a.data.hp = n.max.hp; a.data.mp = n.max.mp; if (a.down || !a.resting) { a.sprite.hold(null); a.sprite.mesh.rotation.z = 0; } a.data.down = false; }
     for (const m of this.party.members) if (!this.allies.some((a) => a.data === m)) { m.down = false; m.hp = this.stats.cfg.max.hp; m.mp = this.stats.cfg.max.mp; }
     this.combat.heroStatus.cure(['all']);
     this.clearLingering(['all']);
@@ -4755,7 +4755,12 @@ export class Game {
   /** Who fights (and walks along on the map). */
   private activeWhos(): number[] { return this.lineupWhos().slice(0, this.activeMembers + 1); }
   /** Party members fighting beside the hero (Database → Player → Party size: 3 or 4 active). */
-  private get activeMembers(): number { return this.db.activeParty === 4 ? ACTIVE_MEMBERS + 1 : ACTIVE_MEMBERS; }
+  private get activeMembers(): number {
+    // Single mode: Database → Combat → Heroes who fight (Single) is the lineup that's out; otherwise Party size.
+    const tb = this.combatCfg.turnBased;
+    if (tb.mode === 'single') return Math.max(0, tb.singleParty - 1);
+    return this.db.activeParty === 4 ? ACTIVE_MEMBERS + 1 : ACTIVE_MEMBERS;
+  }
 
   /** Reorder the party (a list of `who`s). */
   private setLineup(order: number[]): void {
@@ -5691,6 +5696,7 @@ export class Game {
         return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [], buffs: used ? d?.buffs : undefined };
       },
       voice: (src) => this.audio.play(src),
+      heroColor: (who) => this.heroColor(who),
       reserves: () => (this.combatCfg.turnBased.mode === 'single' ? this.singlePool() : this.lineupWhos()).flatMap((who) => {
         if (this.battleWhos.has(who)) return [];
         if (!who) {
@@ -7026,20 +7032,33 @@ export class Game {
    * Safe zones: while the hero you play stands in one, the party goes to its rest spots (each the spot they like
    * best, Database → Heroes → Rest preferences); stepping out calls everyone back behind them.
    */
+  /** Who rests at which spot in the zone the hero is in (kept while they stay: one spot each for the whole rest). */
+  private restPicks: { key: string; picks: Map<string, RestSpot | null> } | null = null;
   private updateRestZone(): void {
     const m = this.motion, d = this.mapData;
     const calm = !this.battle.active && !this.battlePending && !this.flight && !this.transfer && !!d?.safeGrid;
     const spots = calm ? zoneSpots(d!, m.x, m.z) : [];
     const key = spots.length ? `${this.mapName}:${spots[0].x},${spots[0].z}` : null;
-    if (key === this.restZone) return;
-    this.restZone = key;
     const free = this.allies.filter((a) => !a.down && !a.passive);
-    if (!key) { for (const a of this.allies) a.setRest(null); return; }
-    this.chatter({ trigger: 'rest' });
-    // In party order (the list's order): ties go to whoever is higher.
-    free.sort((a, b) => this.members().findIndex((x) => x.data === a.data) - this.members().findIndex((x) => x.data === b.data));
-    const got = shareSpots(spots, free.map((a) => a.def.restPrefs ?? {}));
-    free.forEach((a, i) => a.setRest(got[i]));
+    // Same zone and everyone where they should be: nothing to do (allies made again, after a rest or a form change,
+    // go back to the spot they had).
+    if (key === this.restZone && (!key || free.every((a) => a.resting || !this.restPicks?.picks.get(a.def.id)))) return;
+    const entering = key !== this.restZone;
+    this.restZone = key;
+    if (!key) {
+      for (const a of this.allies) a.setRest(null);
+      // Only walking out forgets the spots (a battle or a flight in the zone keeps them).
+      if (calm) this.restPicks = null;
+      return;
+    }
+    if (entering && this.restPicks?.key !== key) this.chatter({ trigger: 'rest' });
+    if (this.restPicks?.key !== key) {
+      // In party order (the list's order): ties go to whoever is higher.
+      free.sort((a, b) => this.members().findIndex((x) => x.data === a.data) - this.members().findIndex((x) => x.data === b.data));
+      const got = shareSpots(spots, free.map((a) => a.def.restPrefs ?? {}));
+      this.restPicks = { key, picks: new Map(free.map((a, i) => [a.def.id, got[i]])) };
+    }
+    for (const a of free) a.setRest(this.restPicks.picks.get(a.def.id) ?? null);
   }
 
   /** Breath, drips and steam on the map, per hero, every so often. */

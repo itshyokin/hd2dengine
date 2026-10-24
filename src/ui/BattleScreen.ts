@@ -630,8 +630,10 @@ export class BattleScreen {
   }
 
   /** Pocket Handheld: the four spheres on a side's first block (up to fight, knocked out with a red ✕, or empty). */
-  setSpheres(side: 'party' | 'enemy', list: Sphere[]): void {
+  private sphereColors: Record<'party' | 'enemy', (string | undefined)[]> = { party: [], enemy: [] };
+  setSpheres(side: 'party' | 'enemy', list: Sphere[], colors?: (string | undefined)[]): void {
     this.spheres[side] = Array.from({ length: 4 }, (_, i) => list[i] ?? 'empty');
+    this.sphereColors[side] = colors ?? [];
     this.drawSpheres(side);
   }
 
@@ -640,7 +642,7 @@ export class BattleScreen {
     const blocks = [...box.querySelectorAll<HTMLElement>('.pb')];
     blocks.forEach((b, i) => {
       const balls = b.querySelector('.pb-balls') as HTMLElement;
-      balls.replaceChildren(...(i === 0 ? this.spheres[side] : []).map((s) => { const x = document.createElement('i'); x.className = `pb-ball ${s}`; x.title = s === 'up' ? 'Ready' : s === 'ko' ? 'Knocked out' : 'No one'; return x; }));
+      balls.replaceChildren(...(i === 0 ? this.spheres[side] : []).map((s, k) => { const x = document.createElement('i'); x.className = `pb-ball ${s}`; const c = s === 'up' ? this.sphereColors[side][k] : undefined; if (c) x.style.setProperty('--ball', c); x.title = s === 'up' ? 'Ready' : s === 'ko' ? 'Knocked out' : 'No one'; return x; }));
     });
   }
 

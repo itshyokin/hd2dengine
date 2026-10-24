@@ -56,6 +56,8 @@ export interface BattleHost {
   attackVoice?(who: number): void;
   /** The party members not fighting now (up to eight in the party, three fight). */
   reserves?(): ReserveView[];
+  /** A party member's colour (Database → Heroes), for their sphere on the Pocket Handheld block. */
+  heroColor?(who: number): string;
   /** Swap party member `outWho` (fighter `outKey`) for `inWho`: their entry, ready to fight (null: can't). */
   swapIn?(outKey: string, outWho: number, inWho: number): BattleEntry | null;
   /** Health and magic of party member `who` as the game has them now (after an item, say). */
@@ -328,8 +330,11 @@ export class TurnBattle {
     if (!this.screen.pocket) return;
     const foes = [...this.gone.map((e) => e.battler), ...this.foes, ...this.waiting.map((e) => e.battler)];
     this.screen.setSpheres('enemy', foes.map((b) => (isUp(b) ? 'up' : 'ko')));
-    const party: Sphere[] = [...this.party.map((b): Sphere => (isUp(b) ? 'up' : 'ko')), ...(this.host.reserves?.() ?? []).map((r): Sphere => (r.down ? 'ko' : 'up'))];
-    this.screen.setSpheres('party', party);
+    const res = this.host.reserves?.() ?? [];
+    const party: Sphere[] = [...this.party.map((b): Sphere => (isUp(b) ? 'up' : 'ko')), ...res.map((r): Sphere => (r.down ? 'ko' : 'up'))];
+    // Each hero's sphere in their own colour (foes keep the orange).
+    const colors = this.host.heroColor ? [...this.party.map((b) => this.host.heroColor!(this.entry(b).who ?? 0)), ...res.map((r) => this.host.heroColor!(r.who))] : undefined;
+    this.screen.setSpheres('party', party, colors);
   }
 
   /** Single mode: the hero on the field chooses this round's action (it happens in its place in the round). */

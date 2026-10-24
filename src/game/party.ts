@@ -191,7 +191,8 @@ export class Ally {
       r.posed = true;
       // Facing the camera, except at a training dummy (it stands just north of the spot).
       this.sprite.faceVector(0, r.act === 'train' ? -1 : 1);
-      if (r.act === 'sit' && this.sprite.has('sit')) this.sprite.hold('sit', 0);
+      // Sitting: the sheet's own sit, else the hurt row's third frame (kneeling down: the LPC sheets' bottom row).
+      if (r.act === 'sit') { if (this.sprite.has('sit')) this.sprite.hold('sit', 0); else if (this.sprite.has('hurt')) this.sprite.hold('hurt', 2); }
       if (r.act === 'lie') { if (this.sprite.has('hurt')) this.sprite.hold('hurt', 5); else this.sprite.mesh.rotation.z = Math.PI / 2 * 0.9; }
     }
     if (r.act === 'magic' || r.act === 'train') {
@@ -199,7 +200,8 @@ export class Ally {
       if (r.t <= 0) {
         r.t = 2.4 + Math.random() * 2.4;
         if (r.act === 'magic') this.sprite.play('spellcast', 0.7);
-        else for (const a of ['slash', 'thrust', 'backslash']) if (this.sprite.play(a, 0.45)) break;
+        // At the dummy: the slash, facing it (the sheet's row 22, counting from 1: slash, facing up).
+        else if (!this.sprite.play('slash', 0.45)) this.sprite.play('thrust', 0.45);
       }
     }
     this.finish(dt, false, false);

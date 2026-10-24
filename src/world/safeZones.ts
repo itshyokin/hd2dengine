@@ -57,7 +57,8 @@ export function zoneSpots(m: Pick<MapData, 'safeGrid' | 'width' | 'height'>, x: 
     if (ACT_OF[c]) out.push({ x: cx, z: cz, act: ACT_OF[c] });
     stack.push([cx + 1, cz], [cx - 1, cz], [cx, cz + 1], [cx, cz - 1]);
   }
-  return out;
+  // The same order wherever in the zone the fill starts (so the zone's key, and who sits where, stay put).
+  return out.sort((a, b) => a.z - b.z || a.x - b.x);
 }
 
 /** The activities, with their names (Database → Heroes → Rest preferences). */

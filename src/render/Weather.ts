@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { wind } from './wind';
+import { leanNow } from './lean';
 import type { WeatherKind } from '../world/types';
 
 interface Style {
@@ -108,12 +109,16 @@ class Layer {
     const ws = wind.strength, wx = wind.dx * st.push * (0.3 + ws), wz = wind.dz * st.push * (0.3 + ws);
     const fall = st.fall * (st.streak ? 1 : 0.8 + 0.4 * ws);
     const hx = BOX.x / 2, hz = BOX.z / 2;
+    // With the camera tilted up (Database → Camera → Lean), things fall down the screen like the leaning sprites
+    // stand up it: along the leaned "down" (down and toward the camera), not straight down.
+    const lean = leanNow(), cy = Math.cos(lean), sz = Math.sin(lean);
     for (let i = 0; i < n; i++) {
       const o = i * perVert * 3, s = this.seed[i];
       let x = p[o], y = p[o + 1], z = p[o + 2];
       const wob = st.wander ? Math.sin(time * 1.3 + s) * st.wander : 0;
-      x += (wx + wob) * dt; z += (wz + Math.cos(time * 1.1 + s * 1.7) * st.wander * 0.5) * dt;
-      y -= fall * dt * (0.85 + (s % 1) * 0.3);
+      const drop = fall * dt * (0.85 + (s % 1) * 0.3);
+      x += (wx + wob) * dt; z += (wz + Math.cos(time * 1.1 + s * 1.7) * st.wander * 0.5) * dt + drop * sz;
+      y -= drop * cy;
       // Wrapped around the box (it follows the camera), and back to the top once it reaches the ground.
       if (x < center.x - hx) x += BOX.x; else if (x > center.x + hx) x -= BOX.x;
       if (z < center.z - hz) z += BOX.z; else if (z > center.z + hz) z -= BOX.z;
@@ -122,7 +127,7 @@ class Layer {
       p[o] = x; p[o + 1] = y; p[o + 2] = z;
       if (st.streak) {
         // The streak trails back along the way it's moving (up for rain, upwind for blowing sand).
-        const vx = wx + wob, vz = wz, vy = -fall, vl = Math.hypot(vx, vy, vz) || 1, len = st.streak / vl;
+        const vx = wx + wob, vz = wz + fall * sz, vy = -fall * cy, vl = Math.hypot(vx, vy, vz) || 1, len = st.streak / vl;
         p[o + 3] = x - vx * len; p[o + 4] = y - vy * len; p[o + 5] = z - vz * len;
       }
     }

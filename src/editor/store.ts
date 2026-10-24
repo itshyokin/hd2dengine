@@ -69,6 +69,8 @@ export class EditorStore {
   heightTool: HeightTool = 'raise';
   /** The Style brush's shape for raised and lowered ground. */
   heightStyleBrush: HeightStyle = 'h';
+  /** Style tool: paint with the brush, or fill every connected cell at the clicked cell's height. */
+  heightStyleFill = false;
   /** Value the Set tool paints. */
   heightValue = 2;
   /** Fill: set the whole connected area to Height, or raise / lower it all by Steps. */

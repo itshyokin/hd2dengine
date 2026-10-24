@@ -226,7 +226,9 @@ export class Palette {
           h: 'Heights blend into rolling slopes you can walk up and down.',
           c: 'Jagged rock faces instead of smooth walls.',
         };
-        body.push(h('div', { class: 'section-label' }, 'Paint the shape'),
+        body.push(h('div', { class: 'toolrow small' }, ...([[false, 'Brush'], [true, 'Fill']] as const).map(([f, label]) =>
+            h('button', { type: 'button', class: 'tool', 'aria-pressed': String(s.heightStyleFill === f), title: f ? 'Fill: every connected cell at the clicked height' : 'Paint with the brush', onclick: () => { s.heightStyleFill = f; s.emit('ui'); } }, label))),
+          h('div', { class: 'section-label' }, 'Paint the shape'),
           h('div', { class: 'swatches' }, ...HEIGHT_STYLES.map(([k, name, sym]) =>
             h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(s.heightStyleBrush === k), onclick: () => { s.heightStyleBrush = k; s.emit('ui'); } },
               h('span', { class: 'swatch-thumb height-style-sym' }, sym), h('span', { class: 'swatch-name' }, name), h('span', { class: 'swatch-note' }, NOTES[k])))),

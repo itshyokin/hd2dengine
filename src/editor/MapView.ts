@@ -267,6 +267,7 @@ export class MapView {
         }
         if (s.heightTool === 'water') { this.waterDown(t); break; }
         if (s.heightTool === 'fill') { this.fillHeight(t); break; }
+        if (s.heightTool === 'style' && s.heightStyleFill) { this.fillHeightStyle(t); break; }
         s.checkpoint();
         this.stroke = { kind: 'height', visited: new Set(), changed: false, last: t };
         this.applyHeight(t);
@@ -521,6 +522,30 @@ export class MapView {
       return any;
     });
     if (changed) { st.changed = true; s.changed(); }
+  }
+
+  /** Style fill: every cell connected to the clicked one at the same height takes the chosen style. */
+  private fillHeightStyle(t: Pt): void {
+    const s = this.store;
+    if (!s.inMap(t.x, t.z)) return;
+    s.checkpoint();
+    const w = s.map.width, hgt = s.map.height, area: number[] = [];
+    const from = s.heightAt(t.x, t.z), seen = new Uint8Array(w * hgt), stack = [t.z * w + t.x];
+    while (stack.length) {
+      const i = stack.pop()!, x = i % w, z = (i - x) / w;
+      if (seen[i] || s.heightAt(x, z) !== from) continue;
+      seen[i] = 1; area.push(i);
+      if (x > 0) stack.push(i - 1);
+      if (x < w - 1) stack.push(i + 1);
+      if (z > 0) stack.push(i - w);
+      if (z < hgt - 1) stack.push(i + w);
+    }
+    const done = s.editHeightStyles((grid) => {
+      let any = false;
+      for (const i of area) if (grid[i] !== s.heightStyleBrush) { grid[i] = s.heightStyleBrush; any = true; }
+      return any;
+    });
+    if (done) s.changed(); else s.dropCheckpoint();
   }
 
   /** Fill: every cell connected to the clicked one at the same height is set to the height, or raised or lowered. */
@@ -1525,19 +1550,23 @@ export class MapView {
     const s = this.store, ctx = this.ctx, m = s.map, cell = TS * this.zoom;
     if (!m.heightStyles) return;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.font = `700 ${Math.round(Math.max(8, Math.min(12, cell * 0.36)))}px system-ui, sans-serif`;
+    ctx.font = `800 ${Math.round(Math.max(9, Math.min(16, cell * 0.45)))}px system-ui, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     const r = this.canvas.getBoundingClientRect();
     const x0 = Math.max(0, Math.floor(-this.ox / cell)), x1 = Math.min(m.width, Math.ceil((r.width - this.ox) / cell));
     const z0 = Math.max(0, Math.floor(-this.oy / cell)), z1 = Math.min(m.height, Math.ceil((r.height - this.oy) / cell));
-    const col: Record<string, string> = { b: '#9fe0c0', h: '#b8e86a', c: '#e8b58a' };
+    const col: Record<string, string> = { b: '#5cffc0', h: '#d4ff4a', c: '#ffa860' };
+    const tint: Record<string, string> = { b: 'rgba(92,255,192,0.22)', h: 'rgba(212,255,74,0.2)', c: 'rgba(255,168,96,0.24)' };
     for (let z = z0; z < z1; z++) for (let x = x0; x < x1; x++) {
       const k = s.heightStyleAt(x, z);
       if (k === '.') continue;
       const sym = HEIGHT_STYLES.find(([c]) => c === k)![2];
-      const sx = this.ox + x * cell + 2, sy = this.oy + z * cell + 1;
-      ctx.fillStyle = 'rgba(8,10,18,0.75)'; ctx.fillText(sym, sx + 1, sy + 1);
+      const px = this.ox + x * cell, pz = this.oy + z * cell;
+      // A tinted square (easier to see what's painted), then a bright symbol with a dark outline.
+      ctx.fillStyle = tint[k]; ctx.fillRect(px, pz, cell, cell);
+      const sx = px + 2, sy = pz + 1;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(sym, sx, sy);
       ctx.fillStyle = col[k]; ctx.fillText(sym, sx, sy);
     }
   }

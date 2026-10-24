@@ -109,13 +109,18 @@ decide things; the tablet editor keeps working.
   builder). The game sticks with sprites. The 3D props and 3D characters already built (Updates 101–102) stay for
   now; the owner may have them removed later.
 - Owner's list (Oct 24), planned as Updates 107–114 (in this order):
-  - [ ] Update 107: fixes. Camping: each party member picks one spot and stays there the whole rest (no switching).
+  - [x] Update 107: fixes. Camping: each party member picks one spot and stays there the whole rest (no switching).
         Pause menu party panels jump far apart vertically while in a rest zone. 4 active: all 3 followers walk
         behind the hero, and the HUD shows a panel for the 3rd member. Rain / snow follow the camera tilt setting.
         Chatter bubbles sit above the head at higher camera angles (not on the body). Sitting uses the sheet's
         bottom row, column 3; the training dummy uses row 22. Party orbs on the hero's battle stat block are each
         member's colour (Database → Heroes); enemies stay orange. Height styles (Blocky…): brighter symbols / tinted
         squares, and Fill works with a style (fills that height as the selection).
+        Done: zone spots sorted (the key no longer changed as the hero walked, re-sharing spots) and kept per zone
+        (`restPicks`) through battles / respawned allies; fullRest leaves resting allies posed; `.wf` no longer sets
+        position on `.pr-panel` / `.hud-top` (the pause panels' jump); active party = Single mode's "Heroes who fight"
+        in Single mode; HUD party4 card; weather and bubbles follow the lean; sit = hurt frame 2, dummy = slash;
+        hero-coloured spheres; style Brush / Fill and tinted cells.
   - [ ] Update 108: dates. A Date condition (month / day, no year, and a date range: Oct 24–31) for event pages
         and Conditional branch (a Halloween pumpkin). Props get a date window too (shown only on those days), and a
         "Duplicate prop" option so a Halloween-only copy can sit in towns while the original is used anywhere.

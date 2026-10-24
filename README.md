@@ -566,6 +566,9 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   off, only the hero walks the map and the party appears in battles.
 - **The hero you play always walks in front** (Jordan, the first hero), wherever he is in the lineup; the party
   members fighting with him walk behind in the list's order, the same order as the HUD panels and the pause menu.
+- **Four in the party**: in Single battle mode the lineup that's out (and walks behind the hero, and gets HUD cards)
+  is Database → Combat → Heroes who fight (Single), up to 4; otherwise Database → Player → Party size (3 or 4). The
+  HUD has a fourth party card (Settings → HUD → arrange).
 - **Party chatter**: now and then a hero says a line in a speech bubble over their head that follows them (one at a
   time, and rarely). Write it in **Database → Characters → Chatter**, per hero: a *Chatter amount* (0 never … 10 all
   the time; the hero you play talks a third as often), *General* lines per trigger (getting Cold / Freezing / Hot /
