@@ -60,6 +60,12 @@ const faceNormal = (a: V3, b: V3, c: V3): V3 => cross(sub(b, a), sub(c, a));
 const UP: V3 = [0, 1, 0];
 /** Walls reach this far below the ground at their foot, hiding hairline gaps where they meet it. */
 const SINK = 0.04;
+/**
+ * How far the grass lip hangs down a wall (Update 112): walls only one step tall get a short one (it covered their
+ * whole face); taller walls keep the full lip.
+ */
+const lipLength = (lip: number, dropA: number, dropB: number): number => (Math.max(dropA, dropB) <= 0.5 * 1.05 ? lip * 0.4 : lip);
+
 /** How far the grass lip's top edge rises above the ground (past the imported tiles' lift). */
 const LIP_RISE = 0.012;
 /** The skirt around the map's outer edge reaches down to here (the land around the map sits at −0.02). */
@@ -475,7 +481,7 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
       const round = cornerRounding(map, x, z);
       // The top's ground folds a little way over the cliff, breaking up as it goes down (a dither), lit like the top.
       const lipFn: LipFn | undefined = LIP > 0 && !map.rampAt(x, z) ? (a, b, out, footA, footB) => {
-        const da = Math.min(LIP, a[1] - footA), db = Math.min(LIP, b[1] - footB);
+        const LL = lipLength(LIP, a[1] - footA, b[1] - footB), da = Math.min(LL, a[1] - footA), db = Math.min(LL, b[1] - footB);
         if (da < 0.02 && db < 0.02) return;
         const l = Math.hypot(out[0], out[2]) || 1, nx = out[0] / l, nz = out[2] / l;
         // Its top edge rises a hair above the ground, to the imported tiles' height, hiding the painted ground's edge
@@ -483,7 +489,7 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
         const at = (p: V3, dy: number, off: number): V3 => [p[0] + nx * off, p[1] - dy + (dy === 0 ? LIP_RISE : 0), p[2] + nz * off];
         // A point h down the lip shows the top h in from the edge (the ground folded over).
         const fold = (p: V3, h: number): [number, number] => [p[0] - nx * h, p[2] - nz * h];
-        const f = [fold(a, 0), fold(b, 0), fold(b, db), fold(a, da)], fade: [number, number, number, number] = [0, 0, db / LIP, da / LIP];
+        const f = [fold(a, 0), fold(b, 0), fold(b, db), fold(a, da)], fade: [number, number, number, number] = [0, 0, db / LL, da / LL];
         const face: V3 = [nx, 0, nz];
         lip.add([at(a, 0, 0.003), at(b, 0, 0.003), at(b, db, 0.003), at(a, da, 0.003)], f.map(([px, pz]) => [px / W, 1 - pz / H] as [number, number]), face, fade, UP);
         if (span !== undefined) listFor(lipOverlays, key).add([at(a, 0, 0.005), at(b, 0, 0.005), at(b, db, 0.005), at(a, da, 0.005)], f.map(([px, pz]) => [px / span, -pz / span] as [number, number]), face, fade, UP);
@@ -584,10 +590,10 @@ export function buildTerrainGeometry(map: TileMap, overlayKeys: Map<string, numb
           wq.add([A.o, B.o, [B.o[0], lo, B.o[2]], [A.o[0], lo, A.o[2]]], [[u, A.o[1]], [u + len, B.o[1]], [u + len, lo], [u, lo]], facing);
           u += len;
           if (LIP > 0) {
-            const da = Math.min(LIP, A.o[1] - low), db = Math.min(LIP, B.o[1] - low), l = Math.hypot(facing[0], facing[2]) || 1, nx = facing[0] / l, nz = facing[2] / l;
+            const LL = lipLength(LIP, A.o[1] - low, B.o[1] - low), da = Math.min(LL, A.o[1] - low), db = Math.min(LL, B.o[1] - low), l = Math.hypot(facing[0], facing[2]) || 1, nx = facing[0] / l, nz = facing[2] / l;
             const at = (p: V3, dy: number, off: number): V3 => [p[0] + nx * off, p[1] - dy + (dy === 0 ? LIP_RISE : 0), p[2] + nz * off];
             const fold = (p: V3, hh: number): V3 => [p[0] - nx * hh, 0, p[2] - nz * hh];
-            const f = [fold(A.o, 0), fold(B.o, 0), fold(B.o, db), fold(A.o, da)], fade: [number, number, number, number] = [0, 0, db / LIP, da / LIP];
+            const f = [fold(A.o, 0), fold(B.o, 0), fold(B.o, db), fold(A.o, da)], fade: [number, number, number, number] = [0, 0, db / LL, da / LL];
             lip.add([at(A.o, 0, 0.003), at(B.o, 0, 0.003), at(B.o, db, 0.003), at(A.o, da, 0.003)], f.map(guv), [nx, 0, nz], fade, UP);
             if (dspan !== undefined) listFor(lipOverlays, dk).add([at(A.o, 0, 0.005), at(B.o, 0, 0.005), at(B.o, db, 0.005), at(A.o, da, 0.005)], f.map((p) => [p[0] / dspan, -p[2] / dspan] as [number, number]), [nx, 0, nz], fade, UP);
           }

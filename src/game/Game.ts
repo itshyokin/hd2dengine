@@ -105,7 +105,7 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { EvolveScreen } from '../ui/EvolveScreen';
-import { setLean } from '../render/lean';
+import { patchLean, setLean } from '../render/lean';
 import { DEFAULT_OVERWORLD_CAMERA } from './cameraDefaults';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
@@ -1500,6 +1500,34 @@ export class Game {
   }
 
   /** White rings on the water around the hero (swimming, or wading on the move) and party members swimming. */
+  /** The hero's reflection in water just in front of them (Update 112): their sprite mirrored at the surface. */
+  private reflection: { mesh: THREE.Mesh; of: THREE.Mesh } | null = null;
+  private updateReflection(): void {
+    const m = this.motion, p = this.player;
+    const hide = () => { if (this.reflection) this.reflection.mesh.visible = false; };
+    if (!m || this.onTitle || !p || this.settings.quality === 'potato') { hide(); return; }
+    // Water on the tile in front (toward the camera), lower than the hero's feet, while on dry ground.
+    const w = this.map.waterAt(Math.floor(m.x), Math.floor(m.z + 0.75));
+    if (!w || m.swimming || m.airborne || this.riding || !p.mesh.visible || p.position.y < w.surface - 0.01 || this.map.footWaterAt(Math.floor(m.x), Math.floor(m.z))?.kind === 'swim') { hide(); return; }
+    if (!this.reflection || this.reflection.of !== p.mesh) {
+      // Made again when the hero's sprite is (a new form); it shares the sprite's frames (its geometry's UVs).
+      if (this.reflection) { this.reflection.mesh.removeFromParent(); (this.reflection.mesh.material as THREE.Material).dispose(); }
+      const src = p.mesh.material as THREE.MeshStandardMaterial;
+      const mat = patchLean(new THREE.MeshBasicMaterial({ map: src.map, transparent: true, opacity: 0.38, alphaTest: 0.3, depthWrite: false, side: THREE.DoubleSide, color: 0xb8d4ff }));
+      const mesh = new THREE.Mesh(p.mesh.geometry, mat);
+      mesh.renderOrder = 1;
+      this.reflection = { mesh, of: p.mesh };
+      p.mesh.parent?.add(mesh);
+    }
+    const r = this.reflection.mesh;
+    if (r.parent !== p.mesh.parent) p.mesh.parent?.add(r);
+    r.visible = true;
+    r.position.set(p.mesh.position.x, 2 * w.surface - p.mesh.position.y - 0.02, p.mesh.position.z);
+    r.rotation.copy(p.mesh.rotation);
+    // Upside down, and (with the camera's lean) leaning toward the camera instead of away.
+    r.scale.set(p.mesh.scale.x, -p.mesh.scale.y, -p.mesh.scale.z);
+  }
+
   private updateRipples(dt: number): void {
     const m = this.motion;
     if (!m || this.onTitle) return;
@@ -1812,6 +1840,7 @@ export class Game {
       }
       this.updateFootsteps(dt);
       this.updateRipples(dt);
+      this.updateReflection();
       this.updateTileAilment(dt);
       this.updateFires(dt);
     }
@@ -6735,7 +6764,10 @@ export class Game {
       const speed = 0.35 + wind.strength * 1.6;
       this.cloudOff.x -= wind.dx * speed * dt; this.cloudOff.z -= wind.dz * speed * dt;
     }
-    setClouds(this.cloudOff.x, this.cloudOff.z, Math.min(0.85, cl * 0.7) * (outdoor ? clamp(this.sun.intensity / 1.5, 0, 1) * (1 - night) * (1 - 0.7 * rain) : 0));
+    // A canopy sways in place instead of drifting by; beams slide slowly.
+    const kind = air?.shadowKind ?? 'clouds';
+    const sway = kind === 'canopy' ? { x: Math.sin(this.elapsed * 0.8) * 0.12 * (0.3 + wind.strength), z: Math.cos(this.elapsed * 0.6) * 0.08 * (0.3 + wind.strength) } : this.cloudOff;
+    setClouds(sway.x, sway.z, Math.min(0.85, cl * 0.7) * (outdoor ? clamp(this.sun.intensity / 1.5, 0, 1) * (1 - night) * (1 - 0.7 * rain) : 0), kind);
     this.atmosphere.update(dt, center, this.elapsed, (x, z) => ground.surfaceY(x, z), {
       mist: potato ? 0 : (air?.mist ?? 0) * mistTime, rays: potato ? 0 : air?.rays ?? 0, skyColor: this.fog.color, sunColor: this.sun.color, sun, sunDir: this.sunUp,
     }, this.camera);

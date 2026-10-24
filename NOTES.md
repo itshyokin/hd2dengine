@@ -141,9 +141,12 @@ decide things; the tablet editor keeps working.
         `setBoxes` + editor/BattleLayoutEditor.ts (Pocket pieces placed by hand, % of the screen); CharacterDef
         `battleIdle` (editor/BattleIdleEditor.ts on the Characters card; SpriteLibrary adds a `battle_idle` anim;
         BattleStage animates with `battle: true`).
-  - [ ] Update 112: terrain looks. Cliffs only 1 height tall get a smaller grassy overhang (2+ keep it). Cliff and
+  - [x] Update 112: terrain looks. Cliffs only 1 height tall get a smaller grassy overhang (2+ keep it). Cliff and
         side walls from heights get a light-top, dark-base gradient. Water reflects the hero. Moving shadow overlays
         besides clouds: tree canopy shadows, light beams…
+        Done: terrainGeometry `lipLength` (one-step walls 40%); WorldBuilder `shadeWall` vertex colours on wall meshes;
+        Game `updateReflection` (mirrored mesh sharing the hero's geometry, patchLean, scale y and z −1);
+        atmosphere `shadowKind` (areaTint `uHdCloudKind`: canopy, beams).
   - [ ] Update 113: tutorials and skill tree locks. Tutorial pop-ups (Settings: on / off) that are kept in the
         Journal to read again. Skill tree nodes locked until a quest is done, a level is reached, a key item is
         carried or a switch is on.

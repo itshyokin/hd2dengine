@@ -770,7 +770,7 @@ export interface MapData {
   /** Its own weather at the start, when unique (a "Change weather" command can change it for the rest of the game). */
   weather?: { kind: WeatherKind; amount?: number };
   /** Air: distance haze, low ground mist (all day, mornings or nights only) and shafts of sunlight; each 0 … 1. */
-  atmosphere?: { haze?: number; mist?: number; mistWhen?: MistWhen; rays?: number; clouds?: number };
+  atmosphere?: { haze?: number; mist?: number; mistWhen?: MistWhen; rays?: number; clouds?: number; /** What the moving shadows are (Update 112): drifting clouds (default), a tree canopy's dappled shade, or beams of light. */ shadowKind?: 'clouds' | 'canopy' | 'beams' };
 }
 
 export type MistWhen = 'always' | 'morning' | 'night';

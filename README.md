@@ -696,6 +696,15 @@ them: Freezing before a fight, still Freezing after.
   to 0 health cures it. Each one shows as an RPG Maker-style **balloon** off the hero's face (bubbles, a flame, a bolt,
   Zz…) on the HUD and the pause menu, with its pill beside the weather's.
 
+### Terrain touches (Update 112)
+
+- **Cliffs one step tall** get a shorter grassy overhang (it used to cover the whole face); taller cliffs keep it.
+- **Cliff and side walls** are shaded light at the top and darker at the foot.
+- **Water reflects the hero** when they stand at the edge with water in front of them (not while swimming or riding;
+  off in Potato quality).
+- **Moving shadows** (Map Properties → Weather → *Moving shadows* and *Shadows of*): drifting clouds, a tree canopy's
+  dappled shade (swaying a little in the wind: forests), or beams of light sliding across the ground.
+
 ### Time, night and map lighting
 
 - **Database → Time**: *Clock speed* from stopped to 60× (1× is real time; the default 20× makes a day last 72

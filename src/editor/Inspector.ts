@@ -384,7 +384,12 @@ export class Inspector {
           if (v === 'always') delete a.mistWhen;
           m.atmosphere = Object.keys(a).length ? a : undefined;
         })))),
-      h('div', { class: 'field-row' }, airSelect('Cloud shadows', 'clouds')),
+      h('div', { class: 'field-row' }, airSelect('Moving shadows', 'clouds'),
+        field('Shadows of', select([['clouds', 'Drifting clouds'], ['canopy', 'A tree canopy (dappled shade)'], ['beams', 'Beams of light']], m.atmosphere?.shadowKind ?? 'clouds', (v) => this.edit(() => {
+          const a: NonNullable<typeof m.atmosphere> = { ...m.atmosphere };
+          if (v === 'clouds') delete a.shadowKind; else a.shadowKind = v as 'canopy' | 'beams';
+          m.atmosphere = Object.keys(a).length ? a : undefined;
+        })))),
       ...this.waterFields(m),
       h('p', { class: 'hint' }, 'Cloud shadows drift across the ground with the wind while the sun is out (fainter in rain, gone at night). Haze fades distant things into the sky colour. Mist lies low over the ground and veils feet. Sun rays slant down along the sunlight (gold at dawn and dusk, gone at night and in rain); on indoor maps they fall as if through windows by day. All of this shows in playtests, not in the editor.'),
     ];

@@ -31,6 +31,8 @@ const uniforms = {
   uHdAreaColor: { value: Array.from({ length: MAX_AREAS }, () => new THREE.Color(1, 1, 1)) },
   /** Cloud shadows: drift offset (x, z), strength (0 = none), scale (1 / cloud size in tiles). */
   uHdCloud: { value: new THREE.Vector4(0, 0, 0, 1 / 9) },
+  /** What the moving shadows are: 0 clouds, 1 a tree canopy's dappled shade, 2 beams of light (brightening). */
+  uHdCloudKind: { value: 0 },
 };
 
 const VERT_HEAD = 'varying vec2 vHdWorld;\nuniform vec2 uHdOrigin;\n';
@@ -59,6 +61,7 @@ uniform vec4 uHdAreaParam[${MAX_AREAS}];
 uniform vec3 uHdAreaColor[${MAX_AREAS}];
 varying vec2 vHdWorld;
 uniform vec4 uHdCloud;
+uniform int uHdCloudKind;
 float hdHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float hdNoise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
@@ -67,6 +70,17 @@ float hdNoise(vec2 p) {
 }
 float hdCloud(vec2 p) {
   if (uHdCloud.z <= 0.0) return 1.0;
+  if (uHdCloudKind == 1) {
+    // A canopy overhead: dappled shade, small leafy patches with gaps of sun, swaying a little in the breeze.
+    vec2 q = p * 0.9 + uHdCloud.xy;
+    float n = hdNoise(q) * 0.55 + hdNoise(q * 2.3 + 5.1) * 0.3 + hdNoise(q * 5.1 + 1.7) * 0.15;
+    return 1.0 - uHdCloud.z * smoothstep(0.36, 0.5, n);
+  }
+  if (uHdCloudKind == 2) {
+    // Beams of light: soft diagonal bands of extra light, slowly sliding, broken up a little.
+    float b = sin((p.x * 0.55 + p.y * 0.35) + uHdCloud.x * 0.6 + hdNoise(p * 0.25) * 1.5);
+    return 1.0 + uHdCloud.z * 0.9 * smoothstep(0.55, 0.95, b);
+  }
   vec2 q = (p + uHdCloud.xy) * uHdCloud.w;
   float n = hdNoise(q) * 0.6 + hdNoise(q * 2.1 + 7.3) * 0.28 + hdNoise(q * 4.3 + 3.1) * 0.12;
   return 1.0 - uHdCloud.z * smoothstep(0.5, 0.62, n);
@@ -120,8 +134,9 @@ export function patchAreaTint<T extends THREE.Material>(mat: T, local = true): T
 }
 
 /** Cloud shadows: where the pattern has drifted to, and how dark (0: none). */
-export function setClouds(offX: number, offZ: number, strength: number): void {
+export function setClouds(offX: number, offZ: number, strength: number, kind: 'clouds' | 'canopy' | 'beams' = 'clouds'): void {
   uniforms.uHdCloud.value.set(offX, offZ, strength, 1 / 7);
+  uniforms.uHdCloudKind.value = kind === 'canopy' ? 1 : kind === 'beams' ? 2 : 0;
 }
 
 /** Upload the current areas. Extra areas beyond MAX_AREAS are ignored. */

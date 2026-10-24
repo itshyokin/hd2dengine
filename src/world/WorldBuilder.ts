@@ -183,6 +183,8 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
       registerNormalMap(wallMat, nm);
     }
     const walls = mesh(quads, wallMat);
+    shadeWall(walls.geometry as THREE.BufferGeometry);
+    wallMat.vertexColors = true;
     walls.castShadow = true;
     scene.add(walls);
   }
@@ -732,4 +734,29 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
 export function hideProp(slot: { mesh: THREE.InstancedMesh; index: number }): void {
   slot.mesh.setMatrixAt(slot.index, new THREE.Matrix4().makeScale(0, 0, 0));
   slot.mesh.instanceMatrix.needsUpdate = true;
+}
+
+/**
+ * Cliff and side walls (Update 112): lighter at the top, darker at the foot, like light falling on them from above.
+ * Each wall quad's corners get a brightness by how high up the wall they are.
+ */
+function shadeWall(g: THREE.BufferGeometry): void {
+  const pos = g.getAttribute('position') as THREE.BufferAttribute, n = pos.count, col = new Float32Array(n * 3);
+  // The wall's top and foot near each corner (corners within a little of it), so a jagged rock face made of many
+  // small pieces shades as one wall rather than in bands.
+  const C = 0.5, buckets = new Map<string, number[]>();
+  for (let i = 0; i < n; i++) { const k = `${Math.floor(pos.getX(i) / C)},${Math.floor(pos.getZ(i) / C)}`; let b = buckets.get(k); if (!b) buckets.set(k, (b = [])); b.push(i); }
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), bx = Math.floor(x / C), bz = Math.floor(z / C);
+    let lo = y, hi = y;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const j of buckets.get(`${bx + dx},${bz + dz}`) ?? []) {
+      if (Math.abs(pos.getX(j) - x) > 0.45 || Math.abs(pos.getZ(j) - z) > 0.45) continue;
+      const yj = pos.getY(j); if (yj < lo) lo = yj; if (yj > hi) hi = yj;
+    }
+    const span = hi - lo, t = span > 1e-4 ? (y - lo) / span : 1;
+    // The foot about a third darker (taller walls a little more), the top a touch brighter.
+    const dark = Math.min(0.5, 0.3 + span * 0.08), v = 1.06 - dark * (1 - t);
+    col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = v;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
 }
