@@ -1228,6 +1228,8 @@ export interface ItemDef {
   mines?: boolean;
   /** Key items: a Saddle (using it from the bag sends the rented horse home to its stable). */
   saddle?: boolean;
+  /** Key items: carrying it lets the party swim in deep water (Update 109: without one, deep water stops them). */
+  swim?: boolean;
   /** A fishing rod: with one in the bag, Talk / interact facing a fishing spot casts. `power` (0 … 100) brings bites sooner and rarer fish. */
   rod?: { power?: number };
   /** A fish: its usual length in cm (each catch is a little bigger or smaller; Records keep the biggest). */
@@ -1447,6 +1449,8 @@ export interface EnemyDef {
   shieldSprite?: string;
   /** Bosses: can't be killed outright by a sneak attack (for later perks). */
   boss?: boolean;
+  /** Lives in water (Update 109): can be hooked while fishing, starting a battle. */
+  water?: boolean;
   /** Sprite size (1 = normal). */
   scale?: number;
   /** Turn-based battles: how quickly its turns come round (like the heroes' Agility; default from its speed). */
@@ -1814,6 +1818,10 @@ export interface FishZone {
   /** Shown on the map editor's fishing overlay. */
   color?: string;
   fish: FishCatch[];
+  /** Water enemies (Update 109): the chance (%) a bite is a monster that starts a battle (unset: 10 when there are any). */
+  monsterChance?: number;
+  /** Which water enemies bite here (unset: every enemy marked Water). */
+  monsters?: string[];
 }
 /** One thing a spot can give: its weight against the others (a chance), and when it bites. */
 export interface FishCatch {

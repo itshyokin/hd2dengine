@@ -14,14 +14,15 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 24: Updates 107–108 done, next 109)
+## Pick up here (state as of Oct 24: Updates 107–109 done, next 110)
 - **Next work (Oct 24):** the owner's Oct 24 list, planned in NOTES.md as Updates 107–114 (107 fixes, 108 dates,
   109 fishing / swimming, 110 riding sprites, 111 battle look, 112 terrain looks, 113 tutorials + skill tree locks,
   114 equipment changes the look). Work them in order; tick each in NOTES and update this file per commit. After
   them: the older Future list (NPC routines, map management, button prompts, crafting, copyrighted names).
 - Oct 22 late: Database → Player → Party size (`db.activeParty` 3 | 4; Game `activeMembers` getter replaces the
   ACTIVE_MEMBERS constant in activeWhos / lineup / PartyScreen `active`). Added quickly at the end of the weekly
-  limit and only type-checked: test a 4-hero battle (BattleStage places extra fighters a step behind the markers;
+  limit and only type-checked (Oct 24: in Single mode the active count is Combat → Heroes who fight (Single)):
+  test a 4-hero battle (BattleStage places extra fighters a step behind the markers;
   the battle HUD / Pocket layout with 4 heroes is untested).
 - **Recent direction (owner's taste):** the game is moving to a Pokémon Gold/Silver/HGSS handheld feel: the
   **Pocket Handheld** battle layout with Single mode, a high (56°) map camera with sprites leaning back, soft-blocky

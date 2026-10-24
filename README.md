@@ -501,7 +501,9 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   pool** gives a whole pool (connected water of the style you click) the chosen style. See *Water styles*.
   Water that reaches the map edge carries on past it in the game, like roads (a stream running off into the woods).
   Types: **Auto** (shallow if one step deep or less, otherwise swimmable), **Shallow** (wade, a bit slower),
-  **Swimmable** (the player swims), **Deep** (can't be entered: oceans and map borders). Water only appears where
+  **Swimmable** (the player swims, if the party carries a key item marked **Lets the party swim**, Database →
+  Items: without one, swimmable water stops them like deep water; swimming costs no stamina; Update 109),
+  **Deep** (can't be entered: oceans and map borders). Water only appears where
   it's above the ground. In the game the shoreline is softened: bank corners that jut into water are cut round
   and the water's inner corners are filled round, with a natural wobble (the cliff wall curves with them), and water at a bank's level
   laps a little over it. This only applies where flat ground meets water; other cliffs keep square corners.
@@ -1695,6 +1697,9 @@ older single water look becomes its first style.
   press again quickly to land the catch; too soon or too late and it gets away. Walking off, jumping or getting hit
   reels in. Catches go in the bag (the adventure log says what and how big); Records count fish caught and the
   biggest.
+- **Water enemies** (Update 109): tick **Water enemy** on an enemy (Database → Enemies) and now and then a bite is one
+  of them instead: a splash, a "!", and a battle starts. Each fishing spot sets the **chance a bite is a monster**
+  (10% by default) and which water enemies live there (all of them unless you untick some).
 - **Built in** (added to a database once): the Fishing Rod, Minnow (+10 HP), Trout (+30 HP, by day), Night Eel
   (+20 MP, at night), Golden Koi (rare, sells well) and the Old Boot. Sounds: *Fishing: cast / a bite / caught one*
   in Database → Audio.

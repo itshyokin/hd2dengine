@@ -1013,7 +1013,8 @@ export class Game {
       // Riding: no climbing or crawling; galloping while the horse has stamina.
       has: (a) => (this.riding ? a === 'jump' || (a === 'run' && !this.horseTired) : this.state.has(a) && (a === 'crawl' || !this.stats.exhausted)),
       get speed() { const h = game.riding; return h ? { ...game.stats.cfg.speed, walk: h.speed * 0.5, run: h.speed, wade: h.speed * 0.35 } : game.stats.cfg.speed; },
-      noSwim: () => !!this.riding,
+      // A horse doesn't swim; on foot, swimming takes a key item marked Lets the party swim (Update 109).
+      noSwim: () => !!this.riding || !this.canSwim(),
       leap: () => this.riding?.jump ?? null,
       ledges: this.stats.cfg.ledges,
       waterWalk: () => this.rings.waterWalk,
@@ -3762,9 +3763,28 @@ export class Game {
     pos.needsUpdate = true;
   }
 
+  /** Carrying a key item that lets the party swim. */
+  private canSwim(): boolean {
+    return this.inventory.slots.some((st) => !!st && !!this.items.get(st.id)?.swim);
+  }
+
   /** A bite answered in time: roll what it was, and into the bag it goes. */
   private landCatch(): void {
     const f = this.fishing!, zone = this.mapData.fishZones?.[f.zone];
+    // Now and then it's a water enemy (Update 109): it comes out of the water and a battle starts.
+    const water = (this.db.enemies ?? []).filter((e) => e.water && (!zone?.monsters?.length || zone.monsters.includes(e.id)));
+    const chance = zone?.monsterChance ?? (water.length ? 10 : 0);
+    if (water.length && Math.random() * 100 < chance) {
+      const def = this.levelled(water[Math.floor(Math.random() * water.length)]);
+      this.audio.play('splash', f.x, f.z);
+      this.ripples.spawn(f.x, f.y, f.z, 1.6, 1.2);
+      const p = this.player.position;
+      this.overlay.float('!', p.x, p.y + 1.7, p.z, 'crit');
+      this.endFishing();
+      this.log.add(`Something big bit… a ${def.name}!`, 'info');
+      this.startBattle([{ def, hp: def.hp, enemy: null }], 'normal', { canRun: true, pick: this.pickFor() });
+      return;
+    }
     const got = pickCatch(zone, this.time.night > 0.5, f.power, Math.random());
     const d = got ? this.items.get(got.item) : undefined;
     this.audio.play('fishCatch');

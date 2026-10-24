@@ -309,6 +309,7 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
       }, { 'aria-label': 'Enemy id', title: 'Event pages refer to the enemy by this id' }))),
     // (Gathered into the Switches box at the top with the rest.)
     checkbox('Boss: no running away, and Assassinate can’t end it', !!d.boss, (v) => { d.boss = v || undefined; if (!v) delete d.overdrive; rerender(); }),
+    checkbox('Water enemy: can be hooked while fishing (a fishing spot’s Water enemies chance)', !!d.water, (v) => { if (v) d.water = true; else delete d.water; }),
     ...(d.boss ? [checkbox('Overdrive gauge (with stat blocks on): fills as it’s hurt; full, its next move hits half again as hard', !!d.overdrive, (v) => (d.overdrive = v || undefined))] : []),
     checkbox('Undead: always a zombie (healing hurts it; no ailments; can’t be killed outright)', !!d.undead, (v) => { d.undead = v || undefined; rerender(); }),
     checkbox('Leave it out of the Bestiary', !!d.noBestiary, (v) => (d.noBestiary = v || undefined)),

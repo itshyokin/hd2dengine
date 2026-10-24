@@ -580,6 +580,23 @@ export class Palette {
         h('div', { class: 'section-label' }, 'What bites (weight · chance · when)'),
         ...rows,
         h('button', { type: 'button', class: 'btn small', onclick: () => edit((l) => { l[s.fishZone].fish.push({ item: items.find((d) => d.fish)?.id ?? items[0]?.id ?? '', chance: 10 }); }) }, '+ Add a catch'),
+        ...(() => {
+          // Water enemies (Update 109): a share of bites are monsters that start a battle.
+          const water = (s.db.enemies ?? []).filter((e) => e.water);
+          if (!water.length) return [h('p', { class: 'note' }, 'Water enemies: none yet. Tick “Water enemy” on an enemy (Database → Enemies) and now and then a bite here is one of them, starting a battle.')];
+          const picked = (id: string) => !z.monsters?.length || z.monsters.includes(id);
+          return [h('div', { class: 'section-label' }, 'Water enemies'),
+            h('label', { class: 'field' }, h('span', {}, 'Chance a bite is a monster (%)'),
+              numberInput(z.monsterChance ?? 10, (v) => edit((l) => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n === 10) delete l[s.fishZone].monsterChance; else l[s.fishZone].monsterChance = n; }, false), { min: 0, max: 100, step: 1 })),
+            h('div', { class: 'fish-monsters' }, ...water.map((e) => checkbox(e.name, picked(e.id), (on) => edit((l) => {
+              const zz = l[s.fishZone], all = water.map((x) => x.id);
+              const cur = new Set(zz.monsters?.length ? zz.monsters : all);
+              if (on) cur.add(e.id); else cur.delete(e.id);
+              const list = all.filter((id) => cur.has(id));
+              // None ticked: no monsters here (chance 0).
+              if (!list.length) { delete zz.monsters; zz.monsterChance = 0; } else if (list.length === all.length) delete zz.monsters; else zz.monsters = list;
+            }))))];
+        })(),
         h('button', { type: 'button', class: 'btn small ghost', onclick: () => {
           if (!confirm(`Delete the fishing spot “${z.name}”? Water painted with it stops being a fishing spot.`)) return;
           const gone = s.fishZone;

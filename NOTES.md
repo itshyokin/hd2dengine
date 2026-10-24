@@ -126,7 +126,7 @@ decide things; the tablet editor keeps working.
         "Duplicate prop" option so a Halloween-only copy can sit in towns while the original is used anywhere.
         Done: world/dates.ts (`inDates`, MM-DD, wrapping ranges), Condition `{ date, until }`, PropDef `dates`
         (filtered in Game `visitData`), editor/dateFields.ts, prop importer "Only on some days", Palette Duplicate.
-  - [ ] Update 109: fishing and swimming. Fishing now and then hooks a water enemy (enemies get a Water habitat;
+  - [x] Update 109: fishing and swimming. Fishing now and then hooks a water enemy (enemies get a Water habitat;
         a chance per catch) and starts a battle. Swimming is no longer automatic: it needs a key item (a key item
         flag "lets the party swim") and no longer costs stamina.
   - [ ] Update 110: riding. On a horse the party is hidden and the hero uses riding sprites (sheet rows 18–22),

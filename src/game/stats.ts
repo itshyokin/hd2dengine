@@ -85,7 +85,7 @@ export class PlayerStats {
     let use = 0;
     if (a.running) use += c.cost.run * dt;
     if (a.climbing) use += c.cost.climb * dt;
-    if (a.swimming) use += c.cost.swim * dt;
+    // Swimming no longer costs stamina (Update 109: it takes a key item instead).
     if (a.jumped) use += c.cost.jump;
     if (use > 0) {
       this.sp = Math.max(0, this.sp - use);
@@ -97,7 +97,7 @@ export class PlayerStats {
     }
     if (this.exhausted && this.sp >= (c.max.sp * c.recoverPercent) / 100) this.exhausted = false;
     // Out of breath in deep water: drowning.
-    this.drowning = a.swimming && this.sp <= 0;
+    this.drowning = false;
     if (this.drowning) this.hp = Math.max(0, this.hp - c.drownDamage * dt);
     else this.regen('hp', dt);
     // Magic: an active ring power drains it; it refills only after a short rest from using it.
