@@ -164,6 +164,16 @@ feminine, teen, kid, muscular and pregnant bodies. Parts recolour with LPC's pal
 - **Weapons**: animated characters carry the LPC sprite of what's equipped, drawn frame for frame with their own
   swings (see *LPC weapons* below). Build characters without a weapon in the builder, so the equipped one shows.
 
+### Armor you can see (Update 114)
+
+- In the LPC Character Builder, dress a character (the body type to match) and press **Export clothes only**: a
+  sheet of just the clothes, armor, hats and back pieces, with its animation layout inside.
+- In **Database → Items** (armor, accessories, shields) → **Look when worn**, choose that PNG for the masculine body,
+  the feminine body, or both, and tick **Tint it** to recolour it (its shading is kept).
+- **Database → Characters**: each animated card has a **Body** (masculine / feminine; read from the builder when the
+  sheet is imported). Heroes wearing the item get its clothes drawn over their sheet, animation for animation, on the
+  map, following, riding and in battle. With only one version, everyone uses it.
+
 ### Enemy sprites
 
 Database → Enemies → **Sprite** has three kinds:

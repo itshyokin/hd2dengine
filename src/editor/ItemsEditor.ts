@@ -3,6 +3,7 @@
  * (name, icon, kind, price, what it restores or which slot it fills, a ring's power and magic cost),
  * and the bag size and what a new game starts with.
  */
+import { wornLookForm } from './WornLookEditor';
 import { upgradeRestore } from '../game/restore';
 import { ailmentChips, buffsField, inflictsField } from './statusFields';
 import type { Ailment } from '../world/types';
@@ -254,6 +255,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       rarityField(d, rerender),
       ...(d.slot === 'weapon' || d.slot === 'ranged' || (d.slot === 'magic' && !d.spell?.power) ? [field('Element', elementSelect(d.element, (e) => { if (e && e !== 'neutral') d.element = e; else delete d.element; rerender(); }), matchupText(d.element))] : []),
       d.slot === 'weapon' || d.slot === 'ranged' ? weaponForm(d, work, rerender) : d.slot === 'magic' ? spellForm(d, rerender) : defenseForm(d, work, rerender),
+      ...(d.slot === 'armor' || d.slot === 'accessory' || d.slot === 'shield' ? [wornLookForm(store, d, rerender)] : []),
       ...(() => { const f = itemSpriteField(store, d, rerender); return f ? [field('Sprite (animated characters)', f, 'What LPC characters hold. Characters without animations show the icon.')] : []; })(),
       ...(d.slot === 'weapon' || d.slot === 'ranged' ? [effectsForm(d)] : []),
       ...(d.slot === 'weapon' ? [checkbox('Breaks rock (a pickaxe, a hammer): mines boulders and ore veins', !!d.mines, (v) => { if (v) d.mines = true; else delete d.mines; })] : []),

@@ -497,6 +497,7 @@ export class Game {
     await this.sprites.preload(resolve);
     this.sprites.modelStyle = modelStyle(this.db);
     await this.sprites.preloadCharacters(this.db.characters, resolve);
+    await this.sprites.preloadWorn(this.db.items ?? [], resolve);
     await this.sprites.preloadFlats((this.db.enemies ?? []).map((e) => e.look.image).filter((p): p is string => !!p), resolve);
     // LPC weapon sprites used by items and enemies (people default to a sword or a bow).
     await this.sprites.preloadWeapons(usedWeaponSprites(this.db), resolve, this.db.weaponSprites ?? [],
@@ -5435,7 +5436,7 @@ export class Game {
       const useBow = !w && bow > melee;
       const a = this.progress.abilities;
       const spells = this.battleSpells(a, powerMultiplier(t.attrs.mag) * pct(sk, 'spellDamage'), this.spellThrift);
-      const look = this.db.characters[this.db.player], aff0 = this.heroAffinity(0);
+      const look = this.lookFor(0), aff0 = this.heroAffinity(0);
       this.portraitUrl ??= this.sprites.portrait('hero', look, 48).toDataURL();
       return {
         battler: {
@@ -5461,7 +5462,7 @@ export class Game {
     if ((style === 'healer' || m.def.ai === 'healer') && !spells.some((x) => x.kind === 'heal'))
       spells.unshift({ id: 'heal', name: 'Heal', kind: 'heal', element: 'neutral', color: '#9dffb0', targets: 'one', ranks: [{ rank: 1, name: 'Heal', power: n.heal, mp: HEAL_MP, charge: 0 }] });
     const useBow = !m.data.equip.weapon && n.bow > n.melee;
-    const look = this.db.characters[m.def.look ?? ''] ?? this.db.characters[this.db.player];
+    const look = this.lookFor(who);
     const key = `p${who}`, aff = this.heroAffinity(who);
     return {
       battler: {
@@ -6088,7 +6089,7 @@ export class Game {
       if (w > 0) {
         m = this.party.members[w - 1];
         def = m && this.db.heroes?.find((h) => h.id === m!.id);
-        look = this.db.characters[def?.look ?? ''] ?? this.db.characters[this.db.player];
+        look = this.lookFor(w);
       } else {
         def = mainHero(this.db);
         m = { id: def.id, stats: this.progress.stats, statPoints: 0, level: this.progress.level, xp: this.progress.xp, equip: this.inventory.equip, skills: {}, skillPoints: 0, hp: this.stats.hp, mp: this.stats.mp, sp: this.stats.sp, abilities: {} };
@@ -6105,6 +6106,30 @@ export class Game {
     });
   }
 
+  /** Which worn looks someone has on (armor, accessory, shield items with a Look when worn), for redrawing. */
+  private wornSig(who: number): string {
+    const equip = who ? this.members()[who - 1]?.data.equip : this.inventory?.equip;
+    return (['armor', 'accessory', 'shield'] as EquipSlot[]).map((k) => { const id = equip?.[k]; return id && this.items.get(id)?.worn ? id : ''; }).join(',').replace(/^,+$/, '');
+  }
+  /** Someone's look with what they wear drawn over it (Update 114): the masculine or feminine version for their body. */
+  private lookFor(who: number): CharacterDef | undefined {
+    const def = who ? this.members()[who - 1]?.def : mainHero(this.db);
+    const look = (who ? this.db.characters[def?.look ?? ''] : undefined) ?? this.db.characters[this.db.player];
+    const equip = who ? this.members()[who - 1]?.data.equip : this.inventory?.equip;
+    if (!look || !equip) return look;
+    const fem = look.body === 'femme';
+    const layers = (['armor', 'accessory', 'shield'] as EquipSlot[]).flatMap((k) => {
+      const w = equip[k] ? this.items.get(equip[k]!)?.worn : undefined;
+      if (!w) return [];
+      const useF = fem ? !!w.femme : !w.masc;
+      const sheet = useF ? w.femme : w.masc, anim = useF ? w.femmeAnim : w.mascAnim;
+      return sheet && anim ? [{ sheet, anim, tint: w.tint }] : [];
+    });
+    return layers.length ? { ...look, wornLayers: layers } : look;
+  }
+  /** The party's worn looks last drawn (a change redraws them). */
+  private wornDrawn = '';
+
   private leaderKey = '';
   /**
    * The hero you play (the first hero) always walks the map with their own sprite, wherever they are in the lineup
@@ -6112,12 +6137,12 @@ export class Game {
    */
   private refreshLeader(): void {
     if (!this.player) return;
-    const key = `hero:${this.db.player}`;
+    const key = `hero:${this.db.player}:${this.wornSig(0)}`;
     if (key === this.leaderKey) return;
     const first = !this.leaderKey;
     this.leaderKey = key;
-    if (first) return;
-    const look = this.db.characters[this.db.player];
+    if (first && !this.wornSig(0)) return;
+    const look = this.lookFor(0);
     const old = this.player, s = new CharacterSprite(this.sprites, this.sprites.forCharacter(look), old.dir);
     s.mesh.position.copy(old.mesh.position);
     s.mesh.scale.copy(old.mesh.scale);
@@ -6146,6 +6171,9 @@ export class Game {
     const m = this.motion, last = this.trail[this.trail.length - 1];
     if (!last || Math.hypot(m.x - last.x, m.z - last.z) > 0.2) { this.trail.push({ x: m.x, z: m.z }); if (this.trail.length > 120) this.trail.shift(); }
     const host = this.allyHost();
+    // Put on or took off something with a worn look: redraw the party.
+    const worn = [0, ...this.members().map((_, k) => k + 1)].map((w) => this.wornSig(w)).join('/');
+    if (worn !== this.wornDrawn) { const had = this.wornDrawn; this.wornDrawn = worn; if (had || worn.replace(/[/,]/g, '')) this.refreshLooks(); }
     this.updateRestZone();
     for (const a of this.allies) a.update(dt, host);
     if (this.calmFor > 2.5) for (const a of this.fighters) if (a.data.pendingXp) this.allyXp(a);

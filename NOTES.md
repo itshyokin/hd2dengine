@@ -154,8 +154,13 @@ decide things; the tablet editor keeps working.
         `tutorials`, Journal → Tutorials (records `tut:<id>` hold the order seen); SkillNode `needs {quest, item,
         switch}` checked through `Skills.locked` (set by Game). Also: the Database window's "nothing changed" check
         now counts Party size and tutorials.
-  - [ ] Update 114: equipment changes the hero's look. Armor / clothes get a masc and femme body sprite (from the
+  - [x] Update 114: equipment changes the hero's look. Armor / clothes get a masc and femme body sprite (from the
         Character Builder's clothes and accessories), with tint / recolour; wearing it redraws the hero.
+        Done: the LPC builder's "Export clothes only" (tools/lpc/builder: torso, legs, feet, arms, hats, back, no body);
+        ItemDef `worn {masc, femme, mascAnim, femmeAnim, tint}` (editor/WornLookEditor.ts); CharacterDef `body`
+        (from the builder's body; a select on the Characters card); SpriteLibrary `wornSheet` composites animation
+        for animation (tint = multiply), `preloadWorn`; Game `lookFor(who)` / `wornSig` (player, followers, battle
+        figures), redrawn when the outfit changes. Menu portraits still show the plain sheet.
 - [ ] Future (owner's notes, Oct 22; plan them before building):
   - NPC behaviour (brainstorm first): daily routines and routes, beds and homes, reacting to weather and events
     (heading indoors when it rains, shops closing in blizzards), schedules by hour.

@@ -887,3 +887,6 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 
 .tut-row { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
 .tut-row textarea { width: 100%; resize: vertical; font: inherit; }
+
+.worn-row { display: grid; grid-template-columns: 140px 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+.worn-row code { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

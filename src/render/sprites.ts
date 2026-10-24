@@ -255,14 +255,67 @@ export class SpriteLibrary {
   forCharacter(def: CharacterDef | undefined): SpriteAsset {
     const model = this.charModel(def);
     if (model && def?.model) return { ...this.forCharacter({ ...def, model: undefined }), rigged: { model, def: def.model, style: this.modelStyle } };
-    const sheet = def?.sheet ? this.sheets.get(def.sheet) : undefined;
+    let sheet = def?.sheet ? this.sheets.get(def.sheet) : undefined;
+    // Worn items' looks drawn over the sheet (Update 114): its own sheet key per outfit.
+    let sheetKey = def?.sheet ?? '';
+    if (sheet && def?.anim && def.wornLayers?.length) {
+      const layers = def.wornLayers.filter((l) => this.sheets.has(l.sheet));
+      if (layers.length) {
+        sheetKey = `${def.sheet}|${layers.map((l) => `${l.sheet}~${l.tint ?? ''}`).join('|')}`;
+        sheet = this.wornSheet(sheetKey, sheet, def.anim, layers);
+      }
+    }
     if (sheet && def?.anim) {
       // A battle idle picked from one row (Update 111): its own animation, looped in battle.
       const bi = def.battleIdle;
-      return this.animated(def.sheet!, sheet, def.anim, bi?.frames.length ? { battle_idle: { row: bi.row, frames: Math.max(...bi.frames) + 1, dirs: 1, cycle: bi.frames, ms: bi.ms ?? 260 } } : undefined);
+      return this.animated(sheetKey, sheet, def.anim, bi?.frames.length ? { battle_idle: { row: bi.row, frames: Math.max(...bi.frames) + 1, dirs: 1, cycle: bi.frames, ms: bi.ms ?? 260 } } : undefined);
     }
     if (sheet) return this.sheet(sheet);
     return this.character(def?.palette ?? DEFAULT_PALETTE);
+  }
+
+  /** A character's sheet with worn items' clothes-only sheets drawn over it, animation for animation (cached). */
+  private readonly wornSheets = new Map<string, HTMLCanvasElement>();
+  private wornSheet(key: string, base: HTMLCanvasElement, layout: CharacterAnimLayout, layers: { sheet: string; anim: CharacterAnimLayout; tint?: string }[]): HTMLCanvasElement {
+    const hit = this.wornSheets.get(key);
+    if (hit) return hit;
+    const out = document.createElement('canvas');
+    out.width = base.width; out.height = base.height;
+    const g = out.getContext('2d')!;
+    g.drawImage(base, 0, 0);
+    const f = layout.frame;
+    for (const l of layers) {
+      let src = this.sheets.get(l.sheet)!;
+      if (l.tint) {
+        // Tinted: the clothes multiplied by the colour (their shading kept), cut back to their own shape.
+        const t = document.createElement('canvas'); t.width = src.width; t.height = src.height;
+        const tg = t.getContext('2d')!;
+        tg.drawImage(src, 0, 0);
+        tg.globalCompositeOperation = 'multiply'; tg.fillStyle = l.tint; tg.fillRect(0, 0, t.width, t.height);
+        tg.globalCompositeOperation = 'destination-in'; tg.drawImage(src, 0, 0);
+        src = t;
+      }
+      const lf = l.anim.frame || f;
+      // Each of the hero's animations takes the same one from the clothes, row for row and frame for frame.
+      for (const [name, a] of Object.entries(layout.anims)) {
+        const b = l.anim.anims[name];
+        if (!b) continue;
+        const rows = Math.min(a.dirs, b.dirs), cols = Math.min(a.frames, b.frames);
+        for (let r = 0; r < rows; r++) g.drawImage(src, 0, (b.row + r) * lf, cols * lf, lf, 0, (a.row + r) * f, cols * f, f);
+      }
+    }
+    this.wornSheets.set(key, out);
+    return out;
+  }
+
+  /** Load the worn looks of items (Update 114): their clothes-only sheets. */
+  async preloadWorn(items: { worn?: { masc?: string; femme?: string } }[], resolve: (path: string) => string): Promise<void> {
+    const paths = new Set<string>();
+    for (const d of items) for (const p of [d.worn?.masc, d.worn?.femme]) if (p && !this.sheets.has(p)) paths.add(p);
+    await Promise.all([...paths].map(async (p) => {
+      try { this.sheets.set(p, await loadCanvas(resolve(p))); }
+      catch { this.problems.push(`A worn look “${p}” is missing`); }
+    }));
   }
 
   private readonly standing = new Map<string, HTMLCanvasElement>();

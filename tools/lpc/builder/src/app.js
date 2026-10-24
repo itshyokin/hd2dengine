@@ -431,6 +431,31 @@ async function sheetBlob(rec, name, id = rec === S ? S.id : null) {
   return { blob: await pngWithText(await toBlob(c), 'hd2d-character', JSON.stringify(meta)), credits };
 }
 
+/**
+ * Clothes only (an item's look when worn, Update 114): the character's torso, legs, feet, arms, hats and back pieces
+ * without the body, head, face or hair, in the same layout as a full sheet. The engine draws it over a hero's sheet
+ * while they wear the item (Database → Items → Look when worn).
+ */
+const WORN_TABS = new Set(['torso', 'legs', 'feet', 'arms', 'headwear', 'back']);
+async function exportWorn() {
+  $('loading').hidden = false;
+  try {
+    const sel = Object.fromEntries(Object.entries(S.sel).filter(([, s]) => WORN_TABS.has(Lib.byId.get(s.id)?.tab)));
+    if (!Object.keys(sel).length) { toast('Pick some clothes, armor or a hat first', true); return; }
+    const rec = { ...S, sel };
+    const anims = exportAnims().filter((a) => availableAnims(S).includes(a));
+    const { canvas: c, layout } = await buildSheet(rec, anims);
+    const credits = creditsFor(rec);
+    const name = `${S.name} (worn)`;
+    const meta = { format: 'lpc', version: 1, name, body: S.body, worn: true, frame: F, dirs: DIRS, anims: layout, steamSafe: selectedItems(rec).every((x) => itemSafe(x.it, S.body)),
+      credits: credits.map(({ item, authors, licenses, urls }) => ({ item, authors, licenses, urls })) };
+    const blob = await pngWithText(await toBlob(c), 'hd2d-character', JSON.stringify(meta));
+    const r = await saveFile(slug(S.name) + '_worn_' + (S.body === 'female' || S.body === 'teen' || S.body === 'pregnant' ? 'femme' : 'masc') + '.png', blob);
+    if (r === 'saved') toast('Exported the clothes only: use it as an item’s Look when worn (Database → Items)');
+  } catch (e) { toast(e.message, true); }
+  finally { $('loading').hidden = !loading; }
+}
+
 async function exportPng(rec = S, name = S.name, id = rec === S ? S.id : null) {
   $('loading').hidden = false;
   try {
@@ -522,6 +547,7 @@ function wire() {
   $('btnNew').onclick = newCharacter;
   $('btnSave').onclick = saveCharacter;
   $('btnExport').onclick = () => exportPng();
+  $('btnExportWorn').onclick = () => exportWorn();
   $('btnCredits').onclick = () => exportCredits();
   $('btnChars').onclick = () => openSheet('charsSheet');
   $('btnAbout').onclick = () => openSheet('aboutSheet');

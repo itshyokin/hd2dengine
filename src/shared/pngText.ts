@@ -39,6 +39,9 @@ export interface BuilderSheetMeta {
   anims: Record<string, { row: number; frames: number; dirs: 1 | 4; cycle: number[]; ms: number }>;
   credits?: { item: string; authors: string[]; licenses: string[]; urls: string[] }[];
   steamSafe?: boolean;
+  /** The builder's body (male, female, teen…), and whether it's a clothes-only sheet (an item's look when worn). */
+  body?: string;
+  worn?: boolean;
 }
 
 export async function readBuilderMeta(blob: Blob): Promise<BuilderSheetMeta | null> {

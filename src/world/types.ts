@@ -853,6 +853,10 @@ export interface CharacterDef {
   sheet?: string;
   /** The animations in an animated sheet (read from the PNG when it's imported). */
   anim?: CharacterAnimLayout;
+  /** Body type for worn looks (Update 114): which version of an item's Look when worn they use (unset: masc). */
+  body?: 'masc' | 'femme';
+  /** (In the game only: worn items' sheets drawn over this one, in order.) */
+  wornLayers?: { sheet: string; anim: CharacterAnimLayout; tint?: string }[];
   /** Battle idle (Update 111): frames of one sheet row (0-based row, columns) looped while standing in battle. */
   battleIdle?: { row: number; frames: number[]; ms?: number };
   /** Who made the sheet's parts (read from the PNG; shown on the Credits screen). */
@@ -1237,6 +1241,11 @@ export interface ItemDef {
   mines?: boolean;
   /** Key items: a Saddle (using it from the bag sends the rented horse home to its stable). */
   saddle?: boolean;
+  /**
+   * Armor, accessories and shields (Update 114): how the item looks when worn: a clothes-only sheet from the Character
+   * Builder (Export clothes only) for masculine and feminine bodies, drawn over the hero's sheet, optionally tinted.
+   */
+  worn?: { masc?: string; femme?: string; mascAnim?: CharacterAnimLayout; femmeAnim?: CharacterAnimLayout; tint?: string };
   /** Key items: carrying it lets the party swim in deep water (Update 109: without one, deep water stops them). */
   swim?: boolean;
   /** A fishing rod: with one in the bag, Talk / interact facing a fishing spot casts. `power` (0 … 100) brings bites sooner and rarer fish. */

@@ -35,6 +35,8 @@ export async function loadCharacterSheets(store: EditorStore): Promise<void> {
 function applyMeta(c: CharacterDef, meta: BuilderSheetMeta | null): void {
   if (meta) {
     c.anim = { frame: meta.frame, dirs: meta.dirs, anims: meta.anims };
+    // Body type for worn looks, from the builder's body (female, teen and pregnant: feminine).
+    if (meta.body && !c.body) c.body = meta.body === 'female' || meta.body === 'teen' || meta.body === 'pregnant' ? 'femme' : 'masc';
     if (meta.credits?.length) c.credits = meta.credits; else delete c.credits;
   } else { delete c.anim; delete c.credits; }
 }
@@ -145,6 +147,7 @@ export function charactersTab(store: EditorStore, w: CharactersWork, rerender: (
             rerender();
           }) }, c.sheet ? 'Replace sheet…' : 'Use a sheet…'),
           h('button', { type: 'button', class: 'btn small', onclick: () => openCharacterModel(store, id, c, style, rerender) }, c.model ? '3D model…' : 'Use a 3D model…'),
+          c.anim ? select([['masc', 'Body: masculine'], ['femme', 'Body: feminine']], c.body ?? 'masc', (v) => { if (v === 'femme') c.body = 'femme'; else delete c.body; }, { 'aria-label': 'Body type for worn looks', title: 'Which version of an item’s Look when worn they wear' }) : '',
           c.anim ? h('button', { type: 'button', class: 'btn small', title: 'Frames of one row looped as they stand in battle', onclick: () => void openBattleIdle(store, c, rerender) }, c.battleIdle ? `Battle idle: row ${c.battleIdle.row + 1}…` : 'Battle idle…') : '',
           del)));
   };
