@@ -152,6 +152,7 @@ import { type Talker, chatterSeconds, pickChatter } from './chatter';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
+import { TutorialPopup } from '../ui/TutorialPopup';
 import type { ChatterTrigger } from '../world/types';
 import { type RestSpot, isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
 import { type BodyPlace, type BodySettings, type BodyState, type WeatherState, WEATHER_STATE_INFO, bodySettings, hurts, slowOf, soothe, stepBody, weatherState } from './body';
@@ -174,7 +175,7 @@ const WINDOW_COLORS: [string, string][] = [['', 'The theme’s'], ['#f8f8f0', 'W
 const TEXT_COLORS: [string, string][] = [['', 'The theme’s'], ['#181818', 'Black'], ['#404048', 'Dark grey'], ['#1c2a58', 'Navy'], ['#4a2e18', 'Brown'], ['#f4f4f0', 'White'], ['#f3ead8', 'Cream'], ['#ffd27a', 'Gold']];
 const FRAME_COLORS: [string, string][] = [['', 'The theme’s'], ['#d83828', 'Red'], ['#e8862a', 'Orange'], ['#e0b040', 'Gold'], ['#3aa850', 'Green'], ['#2aa8a0', 'Teal'], ['#3a70e0', 'Blue'], ['#8a50d8', 'Purple'], ['#e050a0', 'Pink']];
 /** The Journal's tabs. */
-const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['records', 'Records']];
+const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['records', 'Records']];
 const INTERACT_RANGE = 1.3;
 
 type Start = { x: number; z: number; dir?: Dir };
@@ -348,6 +349,7 @@ export class Game {
   private creation!: CreationScreen;
   private equipScreen!: EquipScreen;
   private restScreen!: RestScreen;
+  private tutorialPop!: TutorialPopup;
   private partyScreen!: PartyScreen;
   private pauseShell!: PauseShell;
   /** Where the hero stands in the lineup: 0 first; past the first three, on the bench. */
@@ -583,6 +585,15 @@ export class Game {
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
     this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what) };
+    // Skill tree nodes locked until a quest is done, a key item is carried or a switch is on (Update 113).
+    Skills.locked = (n) => {
+      const nd = n.needs;
+      if (!nd) return null;
+      if (nd.quest && this.quests?.status(nd.quest) !== 'done') return `Needs the quest “${(this.db.quests ?? []).find((q) => q.id === nd.quest)?.name ?? nd.quest}” done`;
+      if (nd.item && !(this.inventory?.count(nd.item) > 0)) return `Needs ${this.items.get(nd.item)?.name ?? nd.item}`;
+      if (nd.switch && !this.state.getSwitch(nd.switch)) return 'Locked for now';
+      return null;
+    };
     this.message.tick = () => { if (this.settings.textTicks !== false) this.audio.play('textTick', undefined, undefined, 0.8); };
     this.touch = new TouchControls(this.ui, this.input);
     this.hud = new StatusBars(this.ui);
@@ -658,6 +669,7 @@ export class Game {
     });
     this.creation = new CreationScreen(this.ui, this.input);
     this.equipScreen = new EquipScreen(this.ui, this.input, this.equipHost());
+    this.tutorialPop = new TutorialPopup(this.ui, this.input);
     this.restScreen = new RestScreen(this.ui, this.input, {
       party: () => this.bodyParty().map((p, who) => {
         const m = who ? this.members()[who - 1] : null, mx = m ? this.allyNumbers(m.data, m.def).max : null;
@@ -881,11 +893,12 @@ export class Game {
         if (!list.length) return;
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined, pick });
       },
-      busy: () => this.battle.active || this.battlePending || !!this.sleeping || this.restScreen.isOpen || this.flightPick || !!this.flight,
+      busy: () => this.battle.active || this.battlePending || !!this.sleeping || this.restScreen.isOpen || this.tutorialPop.isOpen || this.flightPick || !!this.flight,
       sleep: (c) => this.startSleep(c),
       statRank: (c) => { const n = this.setStatRank(c.hero, c.stat, c.rank); return n.length ? `${n.join(', ')}: ${ATTR_INFO[c.stat].name} now grows at Rank ${c.rank}.` : null; },
       temperature: (op, value) => { this.tempHere = op === 'reset' ? null : { op, value: value ?? 0 }; },
       achievement: (id) => { this.unlockAchievement(id); },
+      tutorial: (id) => this.showTutorial(id),
       console: (line) => { const r = this.devConsole.exec(line, false); if (r && !/^Done/.test(r)) console.info(`[console] ${line}: ${r}`); },
       learn: (c) => this.eventLearn(c),
       heroClass: (c) => this.eventClass(c),
@@ -1780,7 +1793,7 @@ export class Game {
     this.updateFps(raw);
     const dt = Math.min(raw, 0.05);
     this.elapsed += dt;
-    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.restScreen.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
+    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.restScreen.isOpen || this.tutorialPop.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
@@ -1802,6 +1815,7 @@ export class Game {
       else if (this.worldMap.isOpen) this.worldMap.update(dt);
       else if (this.achScreen.isOpen) this.achScreen.update();
       else if (this.saveScreen.isOpen) this.saveScreen.update();
+      else if (this.tutorialPop.isOpen) this.tutorialPop.update();
       else if (this.restScreen.isOpen) this.restScreen.update();
       else if (this.equipScreen.isOpen) this.equipScreen.update();
       else if (this.partyScreen.isOpen) this.partyScreen.update();
@@ -4993,6 +5007,23 @@ export class Game {
   }
 
 
+  /** Show a tutorial the first time (unless pop-ups are off); either way it goes in the Journal (Update 113). */
+  private showTutorial(id: string): void {
+    const t = (this.db.tutorials ?? []).find((x) => x.id === id);
+    if (!t || this.state.record(`tut:${id}`) > 0) return;
+    this.state.tally('tutSeq');
+    this.state.tally(`tut:${id}`, this.state.record('tutSeq'));
+    this.log.add(`Tutorial: ${t.title} (Journal → Tutorials)`, 'info');
+    if (this.settings.tutorials !== false) this.tutorialPop.show(t.title, t.text);
+  }
+  /** Journal → Tutorials: the ones reached, newest first. */
+  private tutorialsHtml(): string {
+    const seen = (this.db.tutorials ?? []).filter((t) => this.state.record(`tut:${t.id}`) > 0).sort((a, b) => this.state.record(`tut:${b.id}`) - this.state.record(`tut:${a.id}`));
+    const e = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+    return seen.length ? `<div class="tut-list">${seen.map((t) => `<section class="tut-entry"><h3>${e(t.title)}</h3><p>${e(t.text).replace(/\n/g, '<br>')}</p></section>`).join('')}</div>`
+      : '<p class="tut-none">No tutorials yet. They appear here as you come across them.</p>';
+  }
+
   /** The Journal: quests, the adventure log and records, as tabs. */
   private openJournal(k: number, onClose: () => void = () => {}): void {
     this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide(); this.bestiaryScreen.hide();
@@ -5006,6 +5037,7 @@ export class Game {
     else if (id === 'log') this.logScreen.show(title, this.log.history, onClose, tabs);
     else if (id === 'bestiary') this.bestiaryScreen.show(title, this.bestiary(), onClose, tabs);
     else if (id === 'types') this.recordsScreen.show(title, { html: typeChartHtml(this.combatCfg.essence) }, onClose, tabs);
+    else if (id === 'tutorials') this.recordsScreen.show(title, { html: this.tutorialsHtml() }, onClose, tabs);
     else this.recordsScreen.show(title, this.records(), onClose, tabs);
   }
 
@@ -6263,6 +6295,7 @@ export class Game {
       { label: 'Text speed', choice: { value: st.textSpeed, options: [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']], set: (v) => set('textSpeed')(v as Settings['textSpeed']) } },
       { label: 'Adventure log', detail: 'On screen: everything, everything but hits, or nothing. The full log is always in the menu.', choice: { value: st.adventureLog, options: [['all', 'All'], ['noCombat', 'No hits'], ['off', 'Off']], set: (v) => set('adventureLog')(v as Settings['adventureLog']) } },
       { label: 'Always run', detail: 'Hold Run to walk instead.', toggle: { value: st.alwaysRun, set: set('alwaysRun') } },
+      { label: 'Tutorial pop-ups', detail: 'Tips the first time something new comes up. Off: they’re still kept in Journal → Tutorials.', toggle: { value: st.tutorials !== false, set: set('tutorials') } },
       { label: 'Sneak / crouch', detail: 'Hold: sneak while the button is held. Toggle: press once to start, again to stop.', choice: { value: st.crouch, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('crouch')(v as Settings['crouch']) } },
       { label: 'Sprint', detail: 'Hold: run while the run button is held (X on a controller, Shift on a keyboard). Toggle: press once to start running, again to stop (controller and touch button).', choice: { value: st.sprint, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('sprint')(v as Settings['sprint']) } },
       { label: 'Run with a full stick push', detail: 'Controller: push the stick all the way to run.', toggle: { value: st.stickRun, set: set('stickRun') } },

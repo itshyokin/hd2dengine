@@ -884,3 +884,6 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .bi-frame.on { border-color: var(--ember, #ffb04a); }
 .bi-prev-wrap { margin-top: 10px; display: flex; justify-content: center; }
 .bi-preview { width: 128px; height: 128px; image-rendering: pixelated; background: repeating-conic-gradient(#2a2e3e 0 25%, #20232f 0 50%) 0 0 / 16px 16px; border-radius: 8px; }
+
+.tut-row { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
+.tut-row textarea { width: 100%; resize: vertical; font: inherit; }

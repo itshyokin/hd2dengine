@@ -5,6 +5,8 @@
 import { DEFAULT_SKILLS, SKILL_STATS, addPartyTree, effectText, oldSkillNodes, updateOldSkills } from '../game/skills';
 import type { AdditionDef, ItemDef, SkillNode, SkillStat, SkillsData, SpellEntry } from '../world/types';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
+import { questList } from './CommandEditor';
+import { switchInput } from './switchPicker';
 
 const CELL = 70;
 
@@ -93,6 +95,11 @@ function nodeForm(data: SkillsData, n: SkillNode, siblings: SkillNode[], items: 
   const num = (v: number, set: (x: number) => void, min = 0, step = 1) => numberInput(v, (x) => { set(Math.max(min, x)); rerender(); }, { step, min });
   // "Spell: Fire" is from before spell shards: only offered where it's already used.
   const stats = Object.entries(SKILL_STATS).filter(([k, v]) => (k !== 'spellFire' && !v.old) || n.effects.some((e) => e.stat === k)).map(([k, v]) => [k, `${v.name}${v.flag ? ' (on/off)' : v.unit ? ` (${v.unit})` : ''}`] as [string, string]);
+  const setNeed = (k: 'quest' | 'item' | 'switch', v: string) => {
+    const nd = { ...n.needs };
+    if (v) nd[k] = v; else delete nd[k];
+    n.needs = Object.keys(nd).length ? nd : undefined;
+  };
   return [
     h('div', { class: 'field-row' },
       field('Name', textInput(n.name, (v) => { n.name = v.trim() || n.name; rerender(); })),
@@ -109,6 +116,10 @@ function nodeForm(data: SkillsData, n: SkillNode, siblings: SkillNode[], items: 
       field('Ranks', num(n.ranks ?? 1, (v) => (n.ranks = Math.max(1, Math.round(v)) === 1 ? undefined : Math.round(v)), 1)),
       field('Points per rank', num(n.cost ?? 1, (v) => (n.cost = Math.max(1, Math.round(v)) === 1 ? undefined : Math.round(v)), 1)),
       field('Level needed', num(n.level ?? 0, (v) => (n.level = Math.round(v) || undefined), 0))),
+    h('div', { class: 'field-row' },
+      field('Unlocked by a quest done', select([['', '(none)'], ...questList().map((q) => [q.id, q.name] as [string, string])], n.needs?.quest ?? '', (v) => setNeed('quest', v))),
+      field('…carrying a key item', select([['', '(none)'], ...items.filter((d) => d.kind === 'key').map((d) => [d.id, d.name] as [string, string])], n.needs?.item ?? '', (v) => setNeed('item', v))),
+      field('…a switch on', switchInput(n.needs?.switch ?? '', (v) => setNeed('switch', v.trim())))),
     h('div', { class: 'db-section' }, h('h3', {}, 'Needs'),
       ...(siblings.length > 1 ? siblings.filter((o) => o !== n).map((o) => checkbox(o.name, !!n.parents?.includes(o.id), (on) => {
         const set = new Set(n.parents ?? []);

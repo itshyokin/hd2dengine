@@ -908,6 +908,14 @@ them: Freezing before a fight, still Freezing after.
   (Condition → Quest not started), one with "?" when it's ready to hand in (Condition → Quest ready to hand in).
   Bubbles hide in menus, battles and on the title screen.
 
+### Tutorials (Update 113)
+
+- **Database → Story → Tutorials**: each has a title and a few lines. The event command **Show tutorial** pops one up
+  the first time it runs (each tutorial once per game). Players can turn **Tutorial pop-ups** off in Settings; every
+  tutorial they reach is kept in **Journal → Tutorials** (newest first) either way, and the adventure log notes it.
+- **Skill tree locks**: a skill can also need a quest done, a key item carried or a switch on (Database → Skill trees
+  → the skill: *Unlocked by…*); until then it says what it needs.
+
 ### Achievements
 
 - **Database → Achievements**: each has a **name**, a **description**, an **icon**, **points** and an **ID**

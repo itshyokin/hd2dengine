@@ -25,7 +25,7 @@ type Cmd = Command['cmd'];
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['roost', 'Griffin roost (fly)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -33,7 +33,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', roost: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -80,6 +80,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'fieldWeapons': return { cmd, on: false };
     case 'enemyLevels': return { cmd, mode: 'party', spread: 2 };
     case 'achievement': return { cmd, id: dbNow?.().achievements?.[0]?.id ?? '' };
+    case 'tutorial': return { cmd, id: dbNow?.().tutorials?.[0]?.id ?? '' };
     case 'console': return { cmd, line: 'heal' };
     case 'quest': return { cmd, quest: questDefs()[0]?.id ?? '', op: 'start' };
     case 'battle': return { cmd, enemies: dbNow ? (dbNow().enemies ?? []).slice(0, 1).map((e) => e.id) : [] };
@@ -128,6 +129,8 @@ const hourLabel = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${St
 /** Quests in the database (set by the editor that owns it). */
 let questDefs: () => QuestDef[] = () => [];
 export function setQuestLookup(fn: () => QuestDef[]): void { questDefs = fn; }
+/** The quests in the database being edited (for pickers elsewhere). */
+export const questList = (): QuestDef[] => questDefs();
 const questName = (id: string) => (id ? questDefs().find((q) => q.id === id)?.name ?? `${id} (missing)` : '(no quest)');
 const objectiveName = (quest: string, id: string | undefined) => {
   const o = questDefs().find((q) => q.id === quest)?.objectives.find((x) => x.id === id);
@@ -208,6 +211,7 @@ function summary(c: Command): string {
     case 'skillPoints': return `+${c.value} ${c.party ? 'party' : 'skill'} point${c.value === 1 ? '' : 's'}`;
     case 'fieldWeapons': return c.on ? 'Overworld weapons: enabled' : 'Overworld weapons: disabled';
     case 'enemyLevels': return c.mode === 'party' ? `Enemy levels: near the party’s (±${c.spread ?? 2})` : 'Enemy levels: as set on the map';
+    case 'tutorial': return dbNow?.().tutorials?.find((t) => t.id === c.id)?.title ?? (c.id || '(none chosen)');
     case 'achievement': return `Unlock: ${dbNow?.().achievements?.find((a) => a.id === c.id)?.name ?? (c.id || '(none chosen)')}`;
     case 'console': return `> ${c.line}`;
     case 'battle': {
@@ -684,6 +688,11 @@ export class CommandEditor {
           objWrap,
           checkbox('Quietly (no banner; it’s still written in the adventure log)', !!d.silent, (v) => (d.silent = v || undefined)),
           h('p', { class: 'hint' }, 'Defeat, collect and visit objectives count by themselves while the quest is in progress. A quest that doesn’t complete by itself waits, “ready to hand in”, until an event completes it: check for that with a conditional branch (Quest → Ready to hand in).')];
+      }
+      case 'tutorial': {
+        const list = (this.store.db.tutorials ?? []).map((t) => [t.id, t.title] as [string, string]);
+        return [field('Tutorial', select(list.length ? list : [['', '(add tutorials in Database → Tutorials)']], d.id, (v) => (d.id = v)),
+          'Pops up the first time this runs (each tutorial once per game), unless the player turned tutorials off in Settings; either way it goes in the Journal’s Tutorials tab.')];
       }
       case 'achievement': {
         const list = (this.store.db.achievements ?? []).map((a) => [a.id, `${a.name} (${a.points}G)`] as [string, string]);

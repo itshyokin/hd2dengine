@@ -26,6 +26,8 @@ export interface Settings {
   detailedLighting: boolean;
   /** Cloud shadows drifting over the ground. */
   cloudShadows: boolean;
+  /** Tutorial pop-ups (they're kept in the Journal either way). */
+  tutorials?: boolean;
   /** Window touches over the theme: see-through-ness (30 – 100), colour, main text colour, frame colour ('' : the theme's / the game's). */
   windowOpacity: number;
   windowColor: string;

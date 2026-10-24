@@ -78,6 +78,8 @@ export interface EventContext {
   busy?(): boolean;
   /** Unlock an achievement; run a console command. */
   achievement?(id: string): void;
+  /** Show a tutorial (the first time; the event waits while busy() says so). */
+  tutorial?(id: string): void;
   console?(line: string): void;
 }
 
@@ -182,6 +184,7 @@ export class Interpreter {
         state.enemyLevels = c.mode === 'party' ? { spread: Math.max(0, Math.round(c.spread ?? 2)) } : null;
         break;
       case 'achievement': this.ctx.achievement?.(c.id); break;
+      case 'tutorial': message.close(); this.ctx.tutorial?.(c.id); break;
       case 'console': this.ctx.console?.(c.line); break;
       case 'ability':
         state.setAbility(c.ability, c.on);

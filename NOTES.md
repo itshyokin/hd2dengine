@@ -147,9 +147,13 @@ decide things; the tablet editor keeps working.
         Done: terrainGeometry `lipLength` (one-step walls 40%); WorldBuilder `shadeWall` vertex colours on wall meshes;
         Game `updateReflection` (mirrored mesh sharing the hero's geometry, patchLean, scale y and z −1);
         atmosphere `shadowKind` (areaTint `uHdCloudKind`: canopy, beams).
-  - [ ] Update 113: tutorials and skill tree locks. Tutorial pop-ups (Settings: on / off) that are kept in the
+  - [x] Update 113: tutorials and skill tree locks. Tutorial pop-ups (Settings: on / off) that are kept in the
         Journal to read again. Skill tree nodes locked until a quest is done, a level is reached, a key item is
         carried or a switch is on.
+        Done: Database `tutorials` (Story → Tutorials tab), command `tutorial`, ui/TutorialPopup.ts, Settings
+        `tutorials`, Journal → Tutorials (records `tut:<id>` hold the order seen); SkillNode `needs {quest, item,
+        switch}` checked through `Skills.locked` (set by Game). Also: the Database window's "nothing changed" check
+        now counts Party size and tutorials.
   - [ ] Update 114: equipment changes the hero's look. Armor / clothes get a masc and femme body sprite (from the
         Character Builder's clothes and accessories), with tint / recolour; wearing it redraws the hero.
 - [ ] Future (owner's notes, Oct 22; plan them before building):

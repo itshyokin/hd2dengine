@@ -366,6 +366,8 @@ export type Command =
    * level, `spread` either side; bosses and event battles keep their own).
    */
   | { cmd: 'enemyLevels'; mode: 'fixed' | 'party'; spread?: number }
+  /** Show a tutorial pop-up (Database → Tutorials) the first time; kept in the Journal (Update 113). */
+  | { cmd: 'tutorial'; id: string }
   /** Unlock an achievement (Database → Achievements). */
   | { cmd: 'achievement'; id: string }
   /** Run a developer-console command (testing shortcuts: give items, teleport…). */
@@ -908,6 +910,9 @@ export interface HeroChatter {
   maps?: { map: string; line: string }[];
 }
 
+/** A tutorial pop-up: a title and a few lines. */
+export interface TutorialDef { id: string; title: string; text: string }
+
 export interface HeroDef {
   id: string;
   name: string;
@@ -1007,6 +1012,8 @@ export interface Database {
   messageStyles?: import('../ui/richText').MessageStyle[];
   /** Achievements (Database → Achievements). */
   achievements?: import('../game/achievements').AchievementDef[];
+  /** Tutorial pop-ups (Update 113), shown by the Show tutorial command and kept in the Journal. */
+  tutorials?: TutorialDef[];
   /** The developer console (the ` key): in playtests only (default), always, or never. */
   devConsole?: 'playtest' | 'always' | 'off';
   /** How many heroes fight and walk on the map at once, the hero you play included (3 unset, or 4). */
@@ -1684,6 +1691,8 @@ export interface SkillNode {
   cost?: number;
   /** Level needed (optional). */
   level?: number;
+  /** Locked until (Update 113): a quest is done, a key item is carried, a switch is on (each optional). */
+  needs?: { quest?: string; item?: string; switch?: string };
   /** What each rank adds. */
   effects: { stat: SkillStat; value: number }[];
   /** Older databases: a spell shard (item id) the skill gave. Shards are items now (moved to spell perks on load). */

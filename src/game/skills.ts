@@ -153,6 +153,9 @@ export class Skills {
   /** `party`: this holds the Party tree's ranks (and counts only its skills); otherwise only the other trees count. */
   constructor(public data: SkillsData, readonly ranks: Record<string, number>, readonly party = false) { this.recount(); }
 
+  /** Set by the game: why a node's Needs (a quest, a key item, a switch) still lock it, or null. */
+  static locked: ((node: SkillNode) => string | null) | null = null;
+
   node(id: string): SkillNode | undefined { return this.data.nodes.find((x) => x.id === id); }
   rank(id: string): number { return this.ranks[id] ?? 0; }
   maxRank(node: SkillNode): number { return Math.max(1, node.ranks ?? 1); }
@@ -163,6 +166,8 @@ export class Skills {
     const missing = (node.parents ?? []).filter((p) => this.rank(p) < 1).map((p) => this.node(p)?.name ?? p);
     if (missing.length) return { ok: false, why: `Needs ${missing.join(' and ')}` };
     if (node.level && level < node.level) return { ok: false, why: `Needs level ${node.level}` };
+    const lock = Skills.locked?.(node);
+    if (lock) return { ok: false, why: lock };
     if (points < (node.cost ?? 1)) return { ok: false, why: this.party ? 'Not enough party points' : 'Not enough skill points' };
     return { ok: true };
   }
