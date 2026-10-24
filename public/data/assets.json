@@ -1196,7 +1196,7 @@
       "name": "Grass",
       "span": 1,
       "filter": "point",
-      "skin": false,
+      "skin": true,
       "flat": true,
       "image": "assets/tiles/grass.png"
     },
@@ -1210,22 +1210,12 @@
       "image": "assets/tiles/sand.png"
     },
     {
-      "key": "=",
-      "id": "path",
-      "name": "Path",
-      "span": 1,
-      "filter": "point",
-      "skin": false,
-      "flat": true,
-      "image": "assets/tiles/path.png"
-    },
-    {
       "key": "▒",
       "id": "dirt",
       "name": "Dirt",
       "span": 1,
       "filter": "point",
-      "skin": false,
+      "skin": true,
       "image": "assets/tiles/dirt.png"
     },
     {
@@ -1251,6 +1241,34 @@
         }
       ],
       "image": "assets/tiles/lpcr_grass_summer.png"
+    },
+    {
+      "key": "=",
+      "id": "path",
+      "name": "Path",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "flat": true,
+      "image": "assets/tiles/path.png"
+    },
+    {
+      "key": "▲",
+      "id": "rock",
+      "name": "Rock (cliffs, mountains)",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "image": "assets/tiles/rock.png"
+    },
+    {
+      "key": "❄",
+      "id": "snow",
+      "name": "Snow",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "image": "assets/tiles/snow.png"
     }
   ],
   "tileCliffs": {
@@ -1281,5 +1299,8 @@
   "tileRoads": {
     "▦": true,
     "~": true
+  },
+  "tileSteps": {
+    "▲": "stone"
   }
 }
