@@ -161,6 +161,23 @@ decide things; the tablet editor keeps working.
         (from the builder's body; a select on the Characters card); SpriteLibrary `wornSheet` composites animation
         for animation (tint = multiply), `preloadWorn`; Game `lookFor(who)` / `wornSig` (player, followers, battle
         figures), redrawn when the outfit changes. Menu portraits still show the plain sheet.
+- Owner's playtest notes (Oct 24 evening), planned as Updates 115–120:
+  - [ ] Update 115: riding. The rider sits higher on the horse (left / right: on its back, not beside it; facing
+        down: behind the head, the horse drawn in front; facing up: raised too). Hoof steps and a gallop sound,
+        snorts and whinnies now and then while mounted, speed lines on screen while galloping. Database → Travel page
+        layout fixed (the horse list on the left, the form two panels wide; griffin flights below the form).
+  - [ ] Update 116: reflections for everyone: party members, NPCs and events, map enemies, props, the horse (and its
+        rider).
+  - [ ] Update 117: drying indicator on a hero's panel while a fire dries them; a default HUD / settings file
+        (Database: save the current HUD layout and settings, export it, and new games start from it).
+  - [ ] Update 118: key items with field uses (besides Water Walk): Dash, Swim, Climb, Cut, Fire Bow, Smash Stone,
+        Change weather, Change time, Change season, Start fishing, Ride horse (call it), Skeleton Key (opens any lock).
+  - [ ] Update 119: locks and lockpicking (Skyrim style): door transfers and chests get Lock settings (Easy green,
+        Medium yellow, Hard orange, Impossible red, or Cannot be picked); rotate the pick round a half circle to
+        find the sweet spot (smaller the harder), with rumble on controllers and a sound that grows near it.
+  - [ ] Update 120: worn looks rework: pick the Character Builder's own parts (torso, legs, feet, arms, hats, back)
+        for an item in the editor, per body type, with colours; the engine builds the sheets, no hand-made PNGs.
+        Drawn over the hero's own clothes.
 - [ ] Future (owner's notes, Oct 22; plan them before building):
   - NPC behaviour (brainstorm first): daily routines and routes, beds and homes, reacting to weather and events
     (heading indoors when it rains, shops closing in blizzards), schedules by hour.
