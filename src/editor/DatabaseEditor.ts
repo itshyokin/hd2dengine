@@ -76,14 +76,14 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera' | 'stats' | 'tutorials' | 'relations' | 'roleplay' | 'globals';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'materials' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera' | 'stats' | 'tutorials' | 'relations' | 'roleplay' | 'globals';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Party', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['classes', 'Classes', 'badge'], ['characters', 'Characters', 'sprite'], ['relations', 'Relationships', 'heart'], ['roleplay', 'Roleplay', 'scroll']]],
   ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group']]],
   ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
-  ['Items', [['items', 'Items', 'potion'], ['weapons', 'Weapons', 'sword'], ['gear', 'Gear: armor, shields, accessories', 'armor'], ['shards', 'Shards: spells and element stones', 'gem'], ['keyItems', 'Key items', 'key'], ['inventory', 'Starting inventory', 'bag']]],
+  ['Items', [['items', 'Items', 'potion'], ['materials', 'Materials', 'ore'], ['weapons', 'Weapons', 'sword'], ['gear', 'Gear: armor, shields, accessories', 'armor'], ['shards', 'Shards: spells and element stones', 'gem'], ['keyItems', 'Key items', 'key'], ['inventory', 'Starting inventory', 'bag']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy'], ['tutorials', 'Tutorials', 'bubble'], ['globals', 'Global events', 'globe']]],
   ['World', [['camera', 'Camera', 'eye'], ['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Travel: horses and griffins', 'horse']]],
   ['Game', [['stats', 'Stat order', 'bars'], ['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
@@ -119,6 +119,7 @@ const ICON_PATHS: Record<string, string> = {
   bubble: '<path d="M4 5h16v11H10l-4 4v-4H4z"/><path d="M8 9h8M8 12h5"/>',
   mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M7.5 10.5l1.5 1.5 1.5-1.5"/>',
   cloud: '<path d="M7 18a4 4 0 0 1-.5-8 5.5 5.5 0 0 1 10.6 1.4A3.4 3.4 0 0 1 17 18z"/><path d="M12 2v2M5 5l1.4 1.4M19 5l-1.4 1.4"/>',
+  ore: '<path d="M4 17l4-9 5 2 4-4 3 6-2 7H6z"/><path d="M8 8l2 6 3-4M17 6l-1 7"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
   heart: '<path d="M12 20s-8-4.7-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6.3-8 11-8 11z"/>',
 };
@@ -132,7 +133,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const statOrder: Attr[] = [...ATTRS];
   const itemState = { sel: 0 }, enemyState = { sel: 0 };
   // One selection per item tab (all five list the same items, by kind).
-  const catState: Record<ItemCat, { sel: number; cur?: ItemDef }> = { items: itemState, weapons: { sel: 0 }, gear: { sel: 0 }, shards: { sel: 0 }, keyItems: { sel: 0 } };
+  const catState: Record<ItemCat, { sel: number; cur?: ItemDef }> = { items: itemState, materials: { sel: 0 }, weapons: { sel: 0 }, gear: { sel: 0 }, shards: { sel: 0 }, keyItems: { sel: 0 } };
   const isCat = (t: DbTab): t is ItemCat => ITEM_CATS.some(([c]) => c === t);
   const combat: CombatData = JSON.parse(JSON.stringify(store.db.combat ?? {}));
   const enemies: EnemyDef[] = JSON.parse(JSON.stringify(store.db.enemies ?? []));

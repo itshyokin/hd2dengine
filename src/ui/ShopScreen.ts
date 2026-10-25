@@ -70,6 +70,8 @@ export class ShopScreen {
     for (const s of inv.slots) if (s) seen.set(s.id, (seen.get(s.id) ?? 0) + s.n);
     return [...seen].filter(([id]) => inv.def(id)?.kind !== 'key' && !inv.infinite(id)).map(([id, n]) => {
       const price = Math.floor((inv.def(id)?.price ?? 0) / 2);
+      // Cannot be sold (Update 133): listed, greyed out.
+      if (inv.def(id)?.noSell) return { item: id, price: 0, owned: n, max: 0, disabled: true, why: 'Can’t be sold' };
       // Worn things stay in the bag: only the copies nobody is using can be sold.
       const free = inv.free(id);
       return { item: id, price, owned: n, max: free, disabled: free < 1, why: free < 1 ? 'In use (take it off first)' : price === 0 ? 'Worth nothing' : undefined };

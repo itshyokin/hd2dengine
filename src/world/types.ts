@@ -975,6 +975,15 @@ export interface GroupChatter {
   switch?: string;
 }
 
+/** A pattern laid over an item's icon (Update 133). */
+export type IconPattern = 'stripes' | 'dots' | 'cracks' | 'swirls' | 'checker';
+/** Icon effects (Update 133): colours as "#rrggbb"; the pattern's opacity 5 … 100 (unset 70). */
+export interface IconFx {
+  glow?: string;
+  outline?: string;
+  pattern?: { kind: IconPattern; color: string; opacity?: number };
+}
+
 /** When a global event runs (Update 131). */
 export type GlobalTrigger = 'newGame' | 'load' | 'sleep' | 'restZone' | 'newDay';
 /** A global event (Update 131): a script that runs once each time one of its moments comes round. */
@@ -1412,6 +1421,10 @@ export interface ItemDef {
   camp?: number;
   /** Recolours the icon (built-in or imported): every colour takes this hue, keeping its shading. */
   iconTint?: string;
+  /** Icon effects (Update 133): a glow, an outline and a pattern over it, each in its own colour. */
+  iconFx?: IconFx;
+  /** Cannot be sold (Update 133): shops won't buy it. */
+  noSell?: boolean;
   /** Armor (the armor slot): its armor type's id (unset: guessed from the name, else the first type). */
   armorWeight?: ArmorWeight;
   /** The same against spells. */

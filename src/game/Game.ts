@@ -160,6 +160,7 @@ import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoin
 import { RestScreen } from '../ui/RestScreen';
 import { LockpickScreen } from '../ui/LockpickScreen';
 import { TimePicker } from '../ui/TimePicker';
+import { applyIconFx, hasIconFx } from '../world/iconFx';
 import { Footprints } from '../render/footprints';
 import { Puddles, type PuddleSpot } from '../render/puddles';
 import { TutorialPopup } from '../ui/TutorialPopup';
@@ -2804,6 +2805,8 @@ export class Game {
       if (d.icon === 'sprite') c = this.sprites.weaponIcon(itemWeaponSprite(d)) ?? builtinIcon(d.slot === 'ranged' ? 'bow' : d.slot === 'shield' ? 'shield' : 'sword');
       else if (name || !d.icon) c = builtinIcon(name ?? 'bag', d.iconTint);
       else { try { c = await loadCanvas(resolve(d.icon)); if (d.iconTint) c = tintIcon(c, d.iconTint); } catch { c = builtinIcon('?'); console.warn(`${d.name}: icon “${d.icon}” is missing`); } }
+      // Icon effects (Update 133): glow, outline, pattern.
+      if (hasIconFx(d.iconFx)) c = applyIconFx(c, d.iconFx);
       this.icons.set(d.id, c.toDataURL());
       this.iconCanvases.set(d.id, c);
     }));

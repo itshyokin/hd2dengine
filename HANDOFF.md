@@ -14,7 +14,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 25 evening: Updates 115–132 and 134 done; next 133 in NOTES)
+## Pick up here (state as of Oct 25 evening: Updates 115–134 done (Oct 25 list finished); next: the older Future list, planned with the owner)
+- **Update 133 done:** Database → Items → Materials tab; Cannot be sold on any item; icon effects (glow, outline,
+  pattern: stripes / dots / cracks / swirls / checker, each with a colour).
 - **Update 132 done:** four quick slots (D-pad ↓ = slot 4, Release target on the left stick) taking key items; no
   map sword / bow (Machete = Cut, Hunting Bow = Bow, built in and in the starting bag); lock-on only switches /
   targets; no ambushes; Change weather / season lists and the Change time pop-up with the bubble fast-forward.

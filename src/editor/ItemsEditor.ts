@@ -23,6 +23,8 @@ import { checkbox, field, h, numberInput, select, textInput, toast } from './dom
 import type { EditorStore } from './store';
 import { findWeapon, itemSpriteField, loadWeaponList, weaponIcon } from './weaponPicker';
 import { itemWeaponSprite } from '../game/combat/weaponSprites';
+import { ICON_PATTERNS, applyIconFx, hasIconFx } from '../world/iconFx';
+import type { IconPattern } from '../world/types';
 import type { WeaponGlow, WeaponTrail } from '../world/types';
 
 export const SLOT_NAMES: Record<EquipSlot, string> = { weapon: 'Melee weapon', shield: 'Shield', ranged: 'Bow', magic: 'Spell shard', armor: 'Armor', accessory: 'Accessory (rings, amulets…)' };
@@ -57,15 +59,17 @@ const spriteIconUrls = new Map<string, string>();
 export function itemIconImg(store: EditorStore, d: ItemDef, cls = 'item-icon'): HTMLImageElement {
   if (d.icon !== 'sprite') {
     const img = h('img', { src: iconUrl(store, d.icon, d.iconTint), alt: '', class: cls });
-    // An imported picture with a tint: recoloured once it has loaded.
-    if (d.iconTint && !builtinIconName(d.icon) && d.icon) {
-      const tint = d.iconTint;
+    // An imported picture with a tint (recoloured), or icon effects (Update 133): redrawn once it has loaded.
+    const tint = d.iconTint && !builtinIconName(d.icon) && d.icon ? d.iconTint : undefined, fx = hasIconFx(d.iconFx) ? d.iconFx : undefined;
+    if (tint || fx) {
       img.addEventListener('load', () => {
         if (img.dataset.tinted) return;
-        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        let c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
         c.getContext('2d')!.drawImage(img, 0, 0);
+        if (tint) c = tintCanvas(c, tint);
+        if (fx) c = applyIconFx(c, fx);
         img.dataset.tinted = '1';
-        img.src = tintCanvas(c, tint).toDataURL();
+        img.src = c.toDataURL();
       });
     }
     return img;
@@ -104,9 +108,10 @@ export interface ItemsWork { items: ItemDef[]; inventory: InventorySetup; /** Th
 const fresh = new WeakSet<ItemDef>();
 
 /** The item tabs: everything in one list in the game's data, shown in five Database tabs. */
-export type ItemCat = 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems';
+export type ItemCat = 'items' | 'materials' | 'weapons' | 'gear' | 'shards' | 'keyItems';
 export const ITEM_CATS: [ItemCat, string, string][] = [
-  ['items', 'Items', 'Potions, food, loot and materials'],
+  ['items', 'Items', 'Potions, food and other consumables'],
+  ['materials', 'Materials', 'Loot, ore, wood, ingots and other resources'],
   ['weapons', 'Weapons', 'Swords, bows and arrows'],
   ['gear', 'Gear', 'Armor, shields and accessories'],
   ['shards', 'Shards', 'Spell shards and element stones'],
@@ -118,6 +123,7 @@ export function itemCategory(d: ItemDef): ItemCat {
   if (d.kind === 'ammo') return 'weapons';
   if (d.kind === 'equipment') return d.slot === 'weapon' || d.slot === 'ranged' ? 'weapons' : d.slot === 'magic' ? 'shards' : 'gear';
   if (d.kind === 'material' && d.essence) return 'shards';
+  if (d.kind === 'material') return 'materials';
   return 'items';
 }
 /** A new entry for a tab. */
@@ -127,6 +133,7 @@ function newItem(cat: ItemCat, id: string): ItemDef {
     case 'gear': return { id, name: 'New armor', kind: 'equipment', slot: 'armor', icon: 'builtin:armor', price: 50, defense: 4 };
     case 'shards': return { id, name: 'New shard', kind: 'equipment', slot: 'magic', icon: 'builtin:shard_frost', price: 80, spell: defaultSpell() };
     case 'keyItems': return { id, name: 'New key item', kind: 'key', icon: 'builtin:key' };
+    case 'materials': return { id, name: 'New material', kind: 'material', icon: 'builtin:log', price: 5 };
     default: return { id, name: 'New item', kind: 'consumable', icon: 'builtin:potion', price: 10, restore: { hp: 20 } };
   }
 }
@@ -153,7 +160,7 @@ export function itemsTab(store: EditorStore, work: ItemsWork, state: { sel: numb
   const list = h('div', { class: 'item-list', role: 'listbox', 'aria-label': label },
     ...items.map((d, i) => h('button', { type: 'button', class: 'item-row', role: 'option', 'aria-selected': String(i === state.sel), onclick: () => { state.sel = i; rerender(); } },
       itemIconImg(store, d), h('span', itemColor(d) ? { style: `color:${itemColor(d)}` } : {}, d.name || '(no name)'))),
-    h('button', { type: 'button', class: 'btn item-add', onclick: add }, `+ New ${{ items: 'item', weapons: 'weapon', gear: 'gear', shards: 'shard', keyItems: 'key item' }[cat]}`));
+    h('button', { type: 'button', class: 'btn item-add', onclick: add }, `+ New ${{ items: 'item', materials: 'material', weapons: 'weapon', gear: 'gear', shards: 'shard', keyItems: 'key item' }[cat]}`));
   const d = items[state.sel];
   state.cur = d;
   const form = h('div', { class: 'item-form' });
@@ -177,6 +184,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       h('div', { class: 'item-id', title: 'Used by events and saves; it doesn’t change when you rename the item.' }, `id: ${d.id}`)),
     field('Description', textInput(d.description ?? '', (v) => (d.description = v.trim() || undefined), { placeholder: 'Shown in the bag and shops' })),
     field('Icon', iconPicker(store, d, refreshIcon, rerender)),
+    iconFxForm(d, refreshIcon, rerender),
     h('div', { class: 'field-row' },
       field('Kind', select(KIND_NAMES, d.kind, (v) => {
         d.kind = v as ItemKind;
@@ -190,6 +198,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
         rerender();
       })),
       field('Price', numberInput(d.price ?? 0, (v) => (d.price = Math.max(0, Math.round(v)) || undefined), { step: 1, min: 0 }), 'Shops sell for this and buy back for half. 0: not sold unless a shop sets a price.'),
+      d.kind === 'key' ? h('span') : checkbox('Cannot be sold (shops won’t buy it)', !!d.noSell, (v) => { if (v) d.noSell = true; else delete d.noSell; }),
       d.kind === 'consumable' || d.kind === 'material' ? field('Stack', numberInput(d.stack ?? 64, (v) => { const n = Math.max(1, Math.min(999, Math.round(v))); d.stack = n === 64 ? undefined : n; }, { step: 1, min: 1, max: 999 }), 'How many fit in one bag slot (64 by default); more take another slot.') : h('span')),
   ];
   if (d.kind === 'material' || d.kind === 'consumable') {
@@ -480,6 +489,29 @@ function lightForm(d: ItemDef, rerender: () => void): HTMLElement {
 }
 
 /** Built-in icon grid plus “Import image…”. */
+/** Icon effects (Update 133): glow, outline and a pattern, each ticked on with its own colour. */
+function iconFxForm(d: ItemDef, refresh: () => void, rerender: () => void): HTMLElement {
+  const fx = d.iconFx ?? {};
+  const save = () => { if (fx.glow || fx.outline || fx.pattern) d.iconFx = fx; else delete d.iconFx; refresh(); };
+  const color = (value: string, set: (v: string) => void, label: string) => {
+    const c = h('input', { type: 'color', value, 'aria-label': label }) as HTMLInputElement;
+    c.addEventListener('input', () => { set(c.value); save(); });
+    return c;
+  };
+  const p = fx.pattern;
+  return h('details', { class: 'icon-fx', ...(d.iconFx ? { open: true } : {}) }, h('summary', {}, 'Icon effects', d.iconFx ? h('span', { class: 'note' }, ' (on)') : ''),
+    h('div', { class: 'field-row icon-fx-row' },
+      checkbox('Glow', !!fx.glow, (v) => { if (v) fx.glow = '#7cff6a'; else delete fx.glow; save(); rerender(); }),
+      fx.glow ? color(fx.glow, (v) => (fx.glow = v), 'Glow colour') : h('span'),
+      checkbox('Outline', !!fx.outline, (v) => { if (v) fx.outline = '#1a0f24'; else delete fx.outline; save(); rerender(); }),
+      fx.outline ? color(fx.outline, (v) => (fx.outline = v), 'Outline colour') : h('span')),
+    h('div', { class: 'field-row icon-fx-row' },
+      field('Pattern', select([['', 'None'], ...ICON_PATTERNS], p?.kind ?? '', (v) => { if (v) fx.pattern = { kind: v as IconPattern, color: p?.color ?? '#a040ff', ...(p?.opacity ? { opacity: p.opacity } : {}) }; else delete fx.pattern; save(); rerender(); })),
+      p ? field('Colour', color(p.color, (v) => (p.color = v), 'Pattern colour')) : h('span'),
+      p ? field('Strength %', numberInput(p.opacity ?? 70, (v) => { const n = Math.max(5, Math.min(100, Math.round(v))); if (n === 70) delete p.opacity; else p.opacity = n; save(); }, { min: 5, max: 100, step: 5 })) : h('span')),
+    h('p', { class: 'note' }, 'Drawn on the icon everywhere it shows: a “corrupted” pumpkin with purple cracks and a green glow.'));
+}
+
 function iconPicker(store: EditorStore, d: ItemDef, refresh: () => void, rerender: () => void): HTMLElement {
   const grid = iconGrid(d.icon, d.iconTint, (icon) => { d.icon = icon; rerender(); });
   const file = h('input', { type: 'file', accept: 'image/png,image/webp,image/gif', hidden: true });

@@ -332,8 +332,11 @@ decide things; the tablet editor keeps working.
         toggleTool). Combat ignores melee / bow / attack / switch; lock-on uses `lockables()` (breakables only).
         ui/TimePicker.ts; Game startTimeWarp / updateTimeWarp (bubble, 3+ h/s); weather and season lists via
         menu.push. encounter() is always 'normal'. FieldUseKind 'bow', FieldUse.damage; built-in key_cut / key_bow.
-  - [ ] Update 133: items. Database → Materials tab. "Cannot be sold" on any item (shops won't buy it). Icon effects
+  - [x] Update 133: items. Database → Materials tab. "Cannot be sold" on any item (shops won't buy it). Icon effects
         with colours: glow, outline, pattern overlay (stripes, dots, cracks, swirls, checker): a "corrupted" pumpkin.
+        Done: ItemCat 'materials' (itemCategory: kind material without essence); ItemDef `noSell` (ShopScreen sell
+        rows greyed "Can’t be sold"); ItemDef `iconFx {glow, outline, pattern {kind, color, opacity}}` drawn by
+        world/iconFx.ts `applyIconFx` in Game.loadItemIcons and the editor's itemIconImg; ItemsEditor iconFxForm.
   - [x] Update 134: bedroll and custom worn sprites. Replace the bedroll: lying head-to-foot (pillow at the top), drawn
         in two layers (mat + pillow under the character, blanket over); resting heroes stand facing down on it (head on
         the pillow), not the knocked-out pose. Custom sprite (Look when worn) becomes a pop-up: up to three images
