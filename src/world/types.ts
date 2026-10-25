@@ -925,6 +925,20 @@ export interface HeroChatter {
   camp?: { line: string; if?: Condition }[];
 }
 
+/** What moves a relationship rating (Update 124; game/relations.ts). */
+export type RelationKind = 'cover' | 'coverSave' | 'benchHeal' | 'revive' | 'avenge' | 'camp';
+/** Relationships setup (Database → Relationships). */
+export interface RelationSettings {
+  /** Where each rating starts: start[rater][rated] (0 … 100; unset 50). */
+  start?: Record<string, Record<string, number>>;
+  /** Points for each thing that happens (unset: the defaults). */
+  gains?: Partial<Record<RelationKind, number>>;
+  /** Pairs ("a>b") whose top label reads Love instead of Best friends. */
+  love?: string[];
+  /** Turn relationships off (no Journal tab, no changes). */
+  off?: boolean;
+}
+
 /** Group chatter (Update 122): a short conversation played over the speakers' heads at the next camp. */
 export interface GroupChatter {
   id: string;
@@ -1041,6 +1055,8 @@ export interface Database {
   tutorials?: TutorialDef[];
   /** Group chatter (Update 122): conversations played at camp (Database → Characters → Chatter). */
   groupChatter?: GroupChatter[];
+  /** Relationships between party members (Update 124). */
+  relations?: RelationSettings;
   /** The developer console (the ` key): in playtests only (default), always, or never. */
   devConsole?: 'playtest' | 'always' | 'off';
   /** How many heroes fight and walk on the map at once, the hero you play included (3 unset, or 4). */
