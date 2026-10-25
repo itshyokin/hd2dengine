@@ -18,7 +18,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - **Oct 24 night list (125–128) done:** Skyrim lockpicks with a required Lockpick item and a pixel-art lock, prop
   reflections, bag Unequip, save portraits, Attack menu, compact swap list; meter / orb styles; gender, outfit
   gender, roleplay, gift reactions, Status page relationships + roleplay; built-in clothing (30 parts) with the
-  three-panel Look when worn editor and starter outfits. Owner to check all of these in game.
+  three-panel Look when worn editor and starter outfits. Owner to check all of these in game. (Browser-checked: Status
+  page, lockpick screen, meter styles, roleplay / relationships, the Look when worn editor and an outfit + cape on the
+  hero. Not screenshot-checked: the battle Swap list's new compact rows: headless battles stall in their intro.)
+  Note: Vite only serves files added to public/ after it started once it's restarted.
 - **Oct 24 late list (121–124) done:** fixes (breath, chatter height, snowy leaves, bag equip), camp (ghost walking,
   talk at camp, camp lines with conditions, group chatter), footprints and puddles, relationships (one-way ratings,
   battle sources, events / conditions / quest rewards, Journal tab, Database → Party → Relationships). Owner to check
