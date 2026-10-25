@@ -293,7 +293,9 @@ export type Condition =
   /** Relationships (Update 124): how `relation` (a hero id) rates `of` ('' the hero you play), at least / at most `value` (0 … 100). */
   | { relation: string; of: string; op: '>=' | '<='; value: number }
   /** Roleplay (Update 127): `hero`'s answer ('' the hero you play) for the title `rp` (an id) is `is` (case aside). */
-  | { rp: string; hero: string; is: string };
+  | { rp: string; hero: string; is: string }
+  /** Roleplay dates (Update 130): today (the real date) is `hero`'s `rpDate` title (a date), or it's within `within` days ahead. */
+  | { rpDate: string; hero: string; within?: number };
 
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
@@ -311,6 +313,8 @@ export type Command =
   | { cmd: 'setTime'; hour: number; instant?: boolean }
   /** Group chatter (Update 122): play this conversation at the next camp visit. */
   | { cmd: 'groupChatter'; id: string }
+  /** Show or hide a Journal tab (Update 130; kept with the save). */
+  | { cmd: 'journalTab'; tab: JournalTabId; show: boolean }
   /** Relationships (Update 124): `a`'s rating of `b` ('' the hero you play) up or down by `value`, or set to it; `both`: b's of a too. */
   | { cmd: 'relation'; a: string; b: string; op: 'add' | 'set'; value: number; both?: boolean }
   /**
@@ -939,10 +943,13 @@ export interface CustomWornBody { front?: CustomWornPic; back?: CustomWornPic; s
 /** One built-in clothing pick (Update 128): a part (world/wornParts.ts), its colour swatch or a tint. */
 export interface WornPick { part: string; swatch?: number; tint?: string }
 
+/** The Journal's tabs (Update 130). */
+export type JournalTabId = 'quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'records';
+
 /** A hero's gender (Update 127; game/roleplay.ts). */
 export type Gender = 'male' | 'female' | 'transman' | 'transwoman' | 'transgender' | 'nonbinary' | 'other';
 /** A roleplay title every hero shares (Update 127): its id stays put when it's renamed. */
-export interface RoleplayField { id: string; title: string }
+export interface RoleplayField { id: string; title: string; /** Update 130: a date answer ("MM-DD": a birthday) rather than text. */ type?: 'text' | 'date' }
 
 /** What moves a relationship rating (Update 124; game/relations.ts). */
 export type RelationKind = 'cover' | 'coverSave' | 'benchHeal' | 'revive' | 'avenge' | 'camp';
@@ -1441,6 +1448,8 @@ export interface MenuConfig {
   /** Health and magic bars (Update 111): solid colours instead of the shaded ones, and square ends instead of round. */
   barsSolid?: boolean;
   barsSquare?: boolean;
+  /** Update 130: the Journal's tabs: their order and which are hidden at the start (events can show / hide them). */
+  journal?: { order?: JournalTabId[]; hidden?: JournalTabId[] };
   /** Update 126: how meters are filled and shaped, and how the party's orbs look (unset: gradient, pill, sphere). */
   barFill?: 'gradient' | 'flat' | 'glossy' | 'striped' | 'segmented';
   barShape?: 'pill' | 'rect' | 'bevel' | 'thin' | 'blocks';

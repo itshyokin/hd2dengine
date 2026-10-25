@@ -305,10 +305,13 @@ decide things; the tablet editor keeps working.
         applyLook sets the ink !important. WorldBuilder reflections get patchAreaTint + patchSeason + patchSway.
         PropImporter depth follows the height until set by hand (`depthSet`). Chatter tail: ::before outline +
         ::after fill. relations.ts relColor (hsl 0 → 120). Journal 'bonds' tab and bondsHtml removed.
-  - [ ] Update 130: Journal and dates. Journal tabs get icons and a little more height. Database → Journal: reorder the
+  - [x] Update 130: Journal and dates. Journal tabs get icons and a little more height. Database → Journal: reorder the
         tabs, show / hide each; an event command shows / hides a tab (saved; e.g. unlock the Bestiary later). Roleplay
         titles get a type: Text or Date; Date answers (Birthday: Oct 31) get conditions "today is X's [title]" and
         "within N days of it", on the REAL date (the game's date is the real date; day / night doesn't change it).
+        Done: TabGroup `icons` (tabs.ts, `.tab-ico`); MenuConfig `journal {order, hidden}` + GameState `journalTabs`
+        (command `journalTab`); Game `journalList()`. RoleplayField `type: 'date'` (answers "MM-DD"), condition
+        `rpDate {hero, title, within}` via roleplay.ts `daysUntil`.
   - [ ] Update 131: global events. Database page of event scripts that run once at: a new game, loading a save,
         sleeping at a camp or inn, entering a rest zone, and the real date rolling over; then sleep until the next.
         Normal commands and conditions (full moon → Katrina leaves; otherwise she's back). Someone added back while

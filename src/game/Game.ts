@@ -61,7 +61,7 @@ import {
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
 import type { AbilityData, BattleWeather, Command, EventData } from '../world/types';
-import { WEATHER_KINDS, type FieldUseKind, type GroupChatter, type RelationKind } from '../world/types';
+import { WEATHER_KINDS, type FieldUseKind, type GroupChatter, type JournalTabId, type RelationKind } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
@@ -150,7 +150,8 @@ import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
-import { rpFields, rpMatch, rpValue } from './roleplay';
+import { daysUntil, rpFields, rpMatch, rpValue } from './roleplay';
+import { datesLabel } from '../world/dates';
 import { loadWornParts, recolorPairs, wornPart } from '../world/wornParts';
 import { customSrcs } from '../world/wornCustom';
 import { relColor, REL_BATTLE_CAP, relAmount, relClamp, relKey, relLabel, relLove, relStart } from './relations';
@@ -183,7 +184,16 @@ const WINDOW_COLORS: [string, string][] = [['', 'The theme’s'], ['#f8f8f0', 'W
 const TEXT_COLORS: [string, string][] = [['', 'The theme’s'], ['#181818', 'Black'], ['#404048', 'Dark grey'], ['#1c2a58', 'Navy'], ['#4a2e18', 'Brown'], ['#f4f4f0', 'White'], ['#f3ead8', 'Cream'], ['#ffd27a', 'Gold']];
 const FRAME_COLORS: [string, string][] = [['', 'The theme’s'], ['#d83828', 'Red'], ['#e8862a', 'Orange'], ['#e0b040', 'Gold'], ['#3aa850', 'Green'], ['#2aa8a0', 'Teal'], ['#3a70e0', 'Blue'], ['#8a50d8', 'Purple'], ['#e050a0', 'Pink']];
 /** The Journal's tabs. */
-const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['records', 'Records']];
+const JOURNAL_TABS: [JournalTabId, string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['records', 'Records']];
+/** The Journal tabs' little pictures (Update 130). */
+const JOURNAL_ICONS: Record<JournalTabId, string> = {
+  quests: '<svg viewBox="0 0 16 16"><path d="M4 2.5h7.5a1.5 1.5 0 0 1 1.5 1.5v9.5H5.5A1.5 1.5 0 0 1 4 12V2.5zM4 12a1.5 1.5 0 0 0-1.5 1.5"/><path d="M6.5 6h4M6.5 8.5h4"/></svg>',
+  log: '<svg viewBox="0 0 16 16"><path d="M2.5 3.5c2-1 4-1 5.5.5 1.5-1.5 3.5-1.5 5.5-.5v9c-2-1-4-1-5.5.5-1.5-1.5-3.5-1.5-5.5-.5z"/><path d="M8 4v9"/></svg>',
+  bestiary: '<svg viewBox="0 0 16 16"><circle cx="8" cy="10" r="3"/><circle cx="3.5" cy="6.5" r="1.4"/><circle cx="12.5" cy="6.5" r="1.4"/><circle cx="6" cy="3.5" r="1.3"/><circle cx="10" cy="3.5" r="1.3"/></svg>',
+  types: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M2.5 6.2h11M2.5 9.8h11M6.2 2.5v11M9.8 2.5v11"/></svg>',
+  tutorials: '<svg viewBox="0 0 16 16"><path d="M5.5 10.5a4 4 0 1 1 5 0V12h-5z"/><path d="M6 14h4"/></svg>',
+  records: '<svg viewBox="0 0 16 16"><path d="M4.5 2.5h7v3a3.5 3.5 0 0 1-7 0z"/><path d="M4.5 3.5H2.5a2 2 0 0 0 2 2.5M11.5 3.5h2a2 2 0 0 1-2 2.5M8 9v2.5M5.5 13.5h5"/></svg>',
+};
 const INTERACT_RANGE = 1.3;
 
 type Start = { x: number; z: number; dir?: Dir };
@@ -606,7 +616,7 @@ export class Game {
 
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
-    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what), relation: (a, b) => this.relGet(a, b), rp: (hero, field) => rpValue(this.db, this.heroByIdOrName(hero), field) };
+    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what), relation: (a, b) => this.relGet(a, b), rp: (hero, field) => rpValue(this.db, this.heroByIdOrName(hero), field), rpDays: (hero, field) => daysUntil(rpValue(this.db, this.heroByIdOrName(hero), field)) };
     // Skill tree nodes locked until a quest is done, a key item is carried or a switch is on (Update 113).
     Skills.locked = (n) => {
       const nd = n.needs;
@@ -715,7 +725,7 @@ export class Game {
       hero: (h) => {
         const host = this.equipHost(), x = host.heroes()[h], def = h ? this.members()[h - 1]?.def : mainHero(this.db);
         // Update 127: gender, roleplay answers, and how they see the rest of the party (the hero you play rates no one).
-        const roleplay = rpFields(this.db).map((f) => ({ title: f.title, value: def?.roleplay?.[f.id] ?? '' })).filter((r) => r.value);
+        const roleplay = rpFields(this.db).map((f) => { const v = def?.roleplay?.[f.id] ?? ''; return { title: f.title, value: v && f.type === 'date' ? datesLabel(v) : v }; }).filter((r) => r.value);
         const lead = mainHero(this.db), party = [lead, ...this.members().map((m) => m.def)];
         const bonds = !def || def === lead || this.db.relations?.off ? undefined : party.filter((o) => o.id !== def.id).map((o) => { const v = this.relGet(def.id, o.id), l = relLabel(v, relLove(this.db, def.id, o.id)); return { name: o.name, value: v, label: l.name, color: relColor(v) }; });
         return { name: x?.name ?? '', level: x?.level ?? 1, portrait: x?.portrait ?? '', color: this.heroColor(h), about: def?.about, art: this.heroArt(h), elements: this.heroAffinity(h).elements, ailment: this.ailmentPill(h), gender: def?.gender, roleplay, bonds };
@@ -5337,15 +5347,24 @@ export class Game {
       : '<p class="tut-none">No tutorials yet. They appear here as you come across them.</p>';
   }
 
+  /** The Journal's tabs as the player sees them: the Database's order, minus hidden ones (events may change that). */
+  private journalList(): [JournalTabId, string][] {
+    const cfg = this.db.menus?.journal, order = cfg?.order ?? [];
+    const sorted = [...JOURNAL_TABS].sort((a, b) => { const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+    const list = sorted.filter(([id]) => this.state.journalTabs.get(id) ?? !cfg?.hidden?.includes(id));
+    return list.length ? list : [JOURNAL_TABS[0]];
+  }
+
   /** The Journal: quests, the adventure log and records, as tabs. */
   private openJournal(k: number, onClose: () => void = () => {}): void {
     this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide(); this.bestiaryScreen.hide();
-    const m = this.db.menus, n = JOURNAL_TABS.length;
+    // The tabs in the Database's order, without the hidden ones (events can show or hide them: Update 130).
+    const list = this.journalList(), m = this.db.menus, n = list.length;
     k = ((k % n) + n) % n;
     this.journalTab = k;
-    const tabs = this.tabGroup(JOURNAL_TABS.map((t) => t[1]), k, (to) => this.openJournal(to, onClose));
+    const tabs = { ...this.tabGroup(list.map((t) => t[1]), k, (to) => this.openJournal(to, onClose)), icons: list.map((t) => JOURNAL_ICONS[t[0]]) };
     const title = pauseLabel(m, 'journal');
-    const id = JOURNAL_TABS[k][0];
+    const id = list[k][0];
     if (id === 'quests') this.questScreen.show(title, this.quests, { item: (i) => this.items.get(i)?.name ?? i }, onClose, tabs);
     else if (id === 'log') this.logScreen.show(title, this.log.history, onClose, tabs);
     else if (id === 'bestiary') this.bestiaryScreen.show(title, this.bestiary(), onClose, tabs);

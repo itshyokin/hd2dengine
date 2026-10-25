@@ -39,7 +39,7 @@ export function lockFields(store: EditorStore, d: { level: LockLevel; key?: stri
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'], ['lock', 'Lock (pick it, or a key)'], ['groupChatter', 'Group chatter at next camp'], ['relation', 'Change relationship'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'], ['lock', 'Lock (pick it, or a key)'], ['groupChatter', 'Group chatter at next camp'], ['relation', 'Change relationship'], ['journalTab', 'Show / hide a Journal tab'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['roost', 'Griffin roost (fly)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -47,7 +47,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen', lock: 'flow', groupChatter: 'msg', relation: 'state',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen', lock: 'flow', groupChatter: 'msg', relation: 'state', journalTab: 'screen',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', roost: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -73,6 +73,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'rest': return { cmd };
     case 'lock': return { cmd, level: 'easy' };
     case 'groupChatter': return { cmd, id: '' };
+    case 'journalTab': return { cmd, tab: 'bestiary', show: true };
     case 'relation': return { cmd, a: dbNow?.().heroes?.[1]?.id ?? '', b: '', op: 'add', value: 5 };
     case 'goodState': return { cmd, hero: 'all', kind: 'wellRested' };
     case 'heroWeather': return { cmd, hero: 'all', state: 'wet' };
@@ -186,12 +187,15 @@ export function conditionText(c: Condition): string {
   if ('date' in c) return `it's ${datesLabel(c.date, c.until)} (real world)`;
   if ('heroHas' in c) return `${heroWhoName(c.hero)} ${c.is === false ? 'is not' : c.hero === 'any' ? 'is' : 'is'} ${(HERO_STATES.find(([k]) => k === c.heroHas)?.[1] ?? c.heroHas).toLowerCase()}`;
   if ('weekday' in c) return `it's ${c.weekday.length ? c.weekday.map((d) => WEEKDAYS[d]).join(' or ') : '(no day picked)'} (real world)`;
+  if ('rpDate' in c) return `today is ${relHeroName(c.hero)}’s ${dbNow?.().roleplay?.find((f) => f.id === c.rpDate)?.title ?? c.rpDate}${c.within ? ` (or within ${c.within} day${c.within === 1 ? '' : 's'})` : ''}`;
   if ('rp' in c) return `${relHeroName(c.hero)}’s ${dbNow?.().roleplay?.find((f) => f.id === c.rp)?.title ?? c.rp} is “${c.is}”`;
   if ('relation' in c) return `${relHeroName(c.relation)} rates ${relHeroName(c.of)} ${c.op === '<=' ? 'at most' : 'at least'} ${c.value}`;
   return `variable ${c.var || '(unnamed)'} ${c.op} ${c.value}`;
 }
 
 /** Relationships (Update 124): hero names and choices. */
+/** The Journal's tabs by name (Update 130). */
+export const JOURNAL_TAB_NAMES: Record<string, string> = { quests: 'Quests', log: 'Adventure Log', bestiary: 'Bestiary', types: 'Type Chart', tutorials: 'Tutorials', records: 'Records' };
 const relHeroName = (id: string): string => (!id ? 'the hero you play' : dbNow?.().heroes?.find((x) => x.id === id)?.name ?? id);
 const relRaters = (): [string, string][] => (dbNow?.().heroes ?? []).slice(1).map((x) => [x.id, x.name] as [string, string]);
 const relTargets = (): [string, string][] => [['', 'The hero you play'], ...relRaters()];
@@ -215,6 +219,7 @@ function summary(c: Command): string {
     case 'ability': return `${ABILITY_NAMES[c.ability]}: ${c.on ? 'learn (on)' : 'lose (off)'}`;
     case 'transfer': return transferSummary(c);
     case 'save': return 'Let the player save (a save point)';
+    case 'journalTab': return `Journal: ${c.show ? 'show' : 'hide'} the ${JOURNAL_TAB_NAMES[c.tab] ?? c.tab} tab`;
     case 'relation': return `${relHeroName(c.a)}’s view of ${relHeroName(c.b)}: ${c.op === 'set' ? `set to ${c.value}` : `${c.value >= 0 ? '+' : ''}${c.value}`}${c.both ? ' (both ways)' : ''}`;
     case 'groupChatter': return `Group chatter at the next camp: ${c.id || '(none picked)'}`;
     case 'lock': return `Lock: ${LOCK_NAMES[c.level]}${c.key ? ` · key: ${c.key}` : ''}`;
@@ -603,6 +608,11 @@ export class CommandEditor {
         return [h('p', { class: 'hint' }, 'Opens the fuel menu of the fire nearest the hero (a fire prop with a burn time): how long it burns, and fuel from the bag to add. Use it as one of a campfire event’s choices. In text, \\fire shows how long the nearest fire burns, e.g. “The fire will burn for \\fire.”')];
       case 'lock':
         return lockFields(this.store, d);
+      case 'journalTab':
+        return [h('div', { class: 'field-row' },
+          field('Tab', select(Object.entries(JOURNAL_TAB_NAMES) as [string, string][], d.tab, (v) => (d.tab = v as typeof d.tab))),
+          field('Make it', select([['show', 'Shown'], ['hide', 'Hidden']], d.show ? 'show' : 'hide', (v) => (d.show = v === 'show')))),
+          h('p', { class: 'hint' }, 'Unlock a Journal page with the story (the Bestiary after meeting the hunter, say). Which tabs are hidden at the start, and their order, are in Database → Title & menus → Journal. Kept with the save.')];
       case 'relation':
         return [h('div', { class: 'field-row' },
           field('Who', select(relRaters(), d.a, (v) => (d.a = v)), 'Whose rating changes (the hero you play has none of their own).'),
@@ -902,12 +912,12 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'date' in cur ? 'date' : 'relation' in cur ? 'relation' : 'rp' in cur ? 'rp' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['date', 'Date (real world: a holiday, a week of it)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)'], ['relation', 'Relationship (how one hero rates another)'], ['rp', 'Roleplay (a hero’s Favourite food is…)']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'date' in cur ? 'date' : 'relation' in cur ? 'relation' : 'rpDate' in cur ? 'rpDate' : 'rp' in cur ? 'rp' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['date', 'Date (real world: a holiday, a week of it)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)'], ['relation', 'Relationship (how one hero rates another)'], ['rp', 'Roleplay (a hero’s Favourite food is…)'], ['rpDate', 'Roleplay date (today is a hero’s Birthday…)']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
       cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'self' ? { self: 'A', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
-        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'date' ? { date: '10-31' } : v === 'relation' ? { relation: relRaters()[0]?.[0] ?? '', of: '', op: '>=', value: 60 } : v === 'rp' ? { rp: dbNow?.().roleplay?.[0]?.id ?? '', hero: '', is: '' } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
+        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'date' ? { date: '10-31' } : v === 'relation' ? { relation: relRaters()[0]?.[0] ?? '', of: '', op: '>=', value: 60 } : v === 'rp' ? { rp: dbNow?.().roleplay?.[0]?.id ?? '', hero: '', is: '' } : v === 'rpDate' ? { rpDate: dbNow?.().roleplay?.find((f) => f.type === 'date')?.id ?? '', hero: '' } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
       render();
@@ -966,6 +976,13 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
         checkbox('A range of days (up to and including)', !!c.until, (on) => { if (on) c.until = c.date; else delete c.until; untilWrap.hidden = !on; onchange(c); }),
         untilWrap,
         h('p', { class: 'hint' }, 'The player’s own date, any year: a pumpkin on Halloween (Oct 31), decorations the week before (Oct 24 – Oct 31). A range can wrap past New Year (Dec 20 – Jan 5).'));
+    } else if (cur && 'rpDate' in cur) {
+      const c = cur, fields = (dbNow?.().roleplay ?? []).filter((f) => f.type === 'date');
+      parts.push(h('div', { class: 'field-row' },
+        field('Hero', select(relTargets(), c.hero, (v) => { c.hero = v; onchange(c); })),
+        field('Date', select(fields.length ? fields.map((f) => [f.id, f.title] as [string, string]) : [['', '(add a Date title in Party → Roleplay)']], c.rpDate, (v) => { c.rpDate = v; onchange(c); })),
+        field('Or within (days ahead)', numberInput(c.within ?? 0, (v) => { const n = Math.max(0, Math.round(v)); if (n) c.within = n; else delete c.within; onchange(c); }, { step: 1, min: 0, max: 60 }))),
+        h('p', { class: 'hint' }, 'The player’s real date (the game’s date is the real one). 0: only on the day; 3: the three days before it too.'));
     } else if (cur && 'rp' in cur) {
       const c = cur, fields = dbNow?.().roleplay ?? [];
       parts.push(h('div', { class: 'field-row' },

@@ -11,6 +11,7 @@ import type { Ailment } from '../world/types';
 import { defenceSection } from './elementFields';
 import { ATTRS, ATTR_BASE, ATTR_INFO, ATTR_MAX, ATTR_MIN, CREATION_METHODS, CREATION_NAMES, attrEffect, attrsFrom } from '../game/attributes';
 import { GENDERS, GENDER_INFO } from '../game/roleplay';
+import { monthDayInput } from './dateFields';
 import type { Gender, RoleplayField } from '../world/types';
 import type { AdditionDef, AllyStyle, ClassDef, CombatData, CreationSettings, HeroDef, HeroForm, ItemDef, SpellEntry } from '../world/types';
 import type { CharactersWork } from './CharactersEditor';
@@ -134,7 +135,7 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
           'Which version of worn armor and clothes they wear.')),
       field('About', (() => { const t = h('textarea', { rows: '3', placeholder: 'A few lines of story about them (shown on their Status page).' }); t.value = x.about ?? ''; t.addEventListener('change', () => { const v = t.value.trim(); if (v) x.about = v; else delete x.about; }); return t; })()),
       h('section', { class: 'db-section' }, h('h3', {}, 'Roleplay'),
-        ...((w.rp ?? []).length ? (w.rp ?? []).map((f) => field(f.title || f.id, textInput(x.roleplay?.[f.id] ?? '', (v) => { const t = v.trim(); if (t) (x.roleplay ??= {})[f.id] = t; else if (x.roleplay) { delete x.roleplay[f.id]; if (!Object.keys(x.roleplay).length) delete x.roleplay; } }, { placeholder: '(not set)' })))
+        ...((w.rp ?? []).length ? (w.rp ?? []).map((f) => f.type === 'date' ? rpDateField(x, f) : field(f.title || f.id, textInput(x.roleplay?.[f.id] ?? '', (v) => { const t = v.trim(); if (t) (x.roleplay ??= {})[f.id] = t; else if (x.roleplay) { delete x.roleplay[f.id]; if (!Object.keys(x.roleplay).length) delete x.roleplay; } }, { placeholder: '(not set)' })))
           : [h('p', { class: 'note' }, 'Add titles (Eye colour, Favourite food…) in Database → Party → Roleplay; every hero gets their own answer here.')])),
       h('section', { class: 'db-section' }, h('h3', {}, 'Progression curve'),
         h('div', { class: 'hero-stat ranked head' }, h('span'), h('span', { class: 'note' }, 'Level 1'), h('span', { class: 'note' }, 'Progression'), h('span'), h('span')),
@@ -227,4 +228,13 @@ function heroForms(x: HeroDef, looks: [string, string][], face: { pick: (x: Hero
   };
   return h('section', { class: 'db-section' }, h('h3', {}, 'Forms'), row(0), row(1),
     h('p', { class: 'note' }, 'As they grow, heroes can transform: at the mid form’s level, then the final form’s, they take on a new look and face (unset ones stay as before). It happens after the battle that took them to that level, with a transformation scene.'));
+}
+
+/** A roleplay date answer (Update 130): a month and day (a birthday), or none. */
+function rpDateField(x: HeroDef, f: RoleplayField): HTMLElement {
+  const v = x.roleplay?.[f.id];
+  const set = (val: string | undefined) => { if (val) (x.roleplay ??= {})[f.id] = val; else if (x.roleplay) { delete x.roleplay[f.id]; if (!Object.keys(x.roleplay).length) delete x.roleplay; } };
+  const wrap = h('span', {}, monthDayInput(v ?? '01-01', (val) => set(val), f.title));
+  wrap.hidden = !v;
+  return field(f.title || f.id, h('div', { class: 'field-row' }, checkbox('Set', !!v, (on) => { set(on ? '01-01' : undefined); wrap.hidden = !on; }), wrap));
 }

@@ -208,6 +208,7 @@ export class Interpreter {
         break;
       case 'rest': message.close(); this.ctx.rest?.(c); break;
       case 'relation': this.ctx.relation?.(c); break;
+      case 'journalTab': state.journalTabs.set(c.tab, c.show); break;
       case 'groupChatter': if (c.id && !state.groupQueue.includes(c.id)) state.groupQueue.push(c.id); break;
       case 'lock': {
         message.close();

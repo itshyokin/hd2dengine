@@ -39,5 +39,15 @@ export function rpValue(db: Database, hero: HeroDef | undefined, idOrTitle: stri
   const id = rpFieldId(db, idOrTitle);
   return id && hero ? hero.roleplay?.[id]?.trim() ?? '' : '';
 }
+/** Days from today (the real date) to the next time this "MM-DD" comes round (0: today), or null. */
+export function daysUntil(md: string, now = new Date()): number | null {
+  const m = /^(\d{1,2})-(\d{1,2})$/.exec(md.trim());
+  if (!m) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let next = new Date(now.getFullYear(), +m[1] - 1, +m[2]);
+  if (next < today) next = new Date(now.getFullYear() + 1, +m[1] - 1, +m[2]);
+  return Math.round((next.getTime() - today.getTime()) / 86400000);
+}
+
 /** Answers match: the same words, case and spacing aside. */
 export const rpMatch = (a: string, b: string): boolean => a.trim().toLowerCase().replace(/\s+/g, ' ') === b.trim().toLowerCase().replace(/\s+/g, ' ') && !!a.trim();

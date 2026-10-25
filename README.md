@@ -644,6 +644,9 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   Katrina), out of battle the hero you play.
 - **Status page**: the hero's relationships (how they see each party member) under their picture, and gender and
   roleplay answers in the Profile page under About.
+- **Date answers** (Update 130): a title's **Answer** can be *A date (birthday…)*; heroes then pick a month and day
+  (Birthday: Oct 31). The **Roleplay date** condition is true on that day, or within N days of it ("within 3 days of
+  Eleanor's Birthday"), on the REAL date (the device's calendar; the game's day / night doesn't change it).
 
 ### Relationships (Update 124)
 
@@ -857,6 +860,9 @@ them: Freezing before a fight, still Freezing after.
   whole area is outlined in its marker's colour, with the symbol in the middle.
   The World layout's **Places not visited yet** setting: *hidden*, *greyed out* or *fully visible*; and **Explore**:
   in maps visited, only the ground walked near shows (the rest stays under a dark fog) — mix them as you like.
+- **Journal tabs** (Update 130): each tab has an icon. **Database → Title & menus → Journal** sets their order (↑ ↓)
+  and which are shown at the start; the **Show / hide a Journal tab** event command changes that during play (saved),
+  e.g. unlock the Bestiary later.
 - **Journal**: Quests, Adventure Log, **Bestiary** and Records (LT / RT). The **Bestiary** lists every enemy (the
   Database's order, numbered), the ones not met yet as "???". Each shows its picture, its description (Database →
   Enemies → Bestiary), the maps it was met on and how many were defeated; its numbers (HP, attack, defences, EXP,

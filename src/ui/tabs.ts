@@ -8,6 +8,8 @@ import { esc } from './InventoryScreen';
 
 export interface TabGroup {
   labels: string[];
+  /** Update 130: a little picture before each label (SVG markup), when given. */
+  icons?: string[];
   index: number;
   /** The keys or buttons that move between tabs (shown at each end). */
   keys: [string, string];
@@ -22,8 +24,8 @@ export interface TabGroup {
 
 export function tabStrip(t: TabGroup | undefined): string {
   if (!t || t.labels.length < 2) return '';
-  return `<div class="tab-strip" role="tablist"><span class="tab-key" aria-hidden="true">${esc(t.keys[0])}</span>${
-    t.labels.map((l, k) => `<button type="button" class="tab-btn" role="tab" aria-selected="${k === t.index}" data-tabgo="${k}">${esc(l)}</button>`).join('')
+  return `<div class="tab-strip${t.icons ? ' with-icons' : ''}" role="tablist"><span class="tab-key" aria-hidden="true">${esc(t.keys[0])}</span>${
+    t.labels.map((l, k) => `<button type="button" class="tab-btn" role="tab" aria-selected="${k === t.index}" data-tabgo="${k}">${t.icons?.[k] ? `<span class="tab-ico" aria-hidden="true">${t.icons[k]}</span>` : ''}${esc(l)}</button>`).join('')
   }<span class="tab-key" aria-hidden="true">${esc(t.keys[1])}</span></div>`;
 }
 

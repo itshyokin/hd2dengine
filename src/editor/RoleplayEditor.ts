@@ -4,7 +4,7 @@
  * conditions and items that use it keep working.
  */
 import type { HeroDef, RoleplayField } from '../world/types';
-import { field, h, textInput } from './dom';
+import { field, h, select, textInput } from './dom';
 
 export function roleplayTab(fields: RoleplayField[], heroes: HeroDef[], rerender: () => void): HTMLElement[] {
   const add = () => {
@@ -15,6 +15,7 @@ export function roleplayTab(fields: RoleplayField[], heroes: HeroDef[], rerender
   };
   const rows = fields.map((f, i) => h('div', { class: 'field-row rp-row' },
     field(`Title ${i + 1}`, textInput(f.title, (v) => (f.title = v.trim()), { placeholder: 'Favourite food', 'aria-label': `Title ${i + 1}` })),
+    field('Answer', select([['text', 'Text'], ['date', 'A date (birthday…)']], f.type ?? 'text', (v) => { if (v === 'date') f.type = 'date'; else delete f.type; rerender(); })),
     h('code', { class: 'rp-id', title: 'The id conditions and items use (stays the same when you rename the title)' }, f.id),
     h('span', { class: 'note rp-answers' }, heroes.map((x) => x.roleplay?.[f.id] ? `${x.name}: ${x.roleplay[f.id]}` : '').filter(Boolean).join(' · ') || 'No answers yet'),
     h('button', { type: 'button', class: 'mini-btn', 'aria-label': 'Move up', disabled: i === 0, onclick: () => { fields.splice(i - 1, 0, fields.splice(i, 1)[0]); rerender(); } }, '↑'),

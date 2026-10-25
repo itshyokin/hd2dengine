@@ -24,7 +24,8 @@ import type { OverworldCamera } from '../world/types';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
 import { battleLayoutSection } from './BattleLayoutEditor';
 import { tutorialsTab } from './TutorialsEditor';
-import type { GroupChatter, RelationSettings, RoleplayField, TutorialDef } from '../world/types';
+import type { GroupChatter, JournalTabId, RelationSettings, RoleplayField, TutorialDef } from '../world/types';
+import { JOURNAL_TAB_NAMES } from './CommandEditor';
 import { roleplayTab } from './RoleplayEditor';
 import { relationsTab } from './RelationsEditor';
 import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
@@ -611,12 +612,35 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       h('h3', {}, 'Developer console'),
       field('The \u0060 key opens it', select([['playtest', 'In playtests only'], ['always', 'Always (the released game too)'], ['off', 'Never']], devConsole, (v) => { devConsole = v as typeof devConsole; })),
       h('p', { class: 'note' }, 'Type commands to test quickly: give items, teleport, god mode, ghost through walls… (help lists them). On a tablet: three fingers on the screen, or Console in the playtest panel. Using a cheat turns achievements off for that game.')),
+    journalSection(),
     defaultSettingsSection(),
   ];
   /**
    * New players' settings (Update 117): the HUD layout, controls, picture and sound a new player starts with. Set it
    * up in a playtest, Settings → Export settings, then choose that file here (it's kept as data/settings.json).
    */
+  /** The Journal's tabs (Update 130): their order and which are hidden at the start (events show / hide them later). */
+  function journalSection(): HTMLElement {
+    const box = h('div', { class: 'db-table journal-rows' });
+    const draw = () => {
+      const j = (menus.journal ??= {});
+      const all = Object.keys(JOURNAL_TAB_NAMES) as JournalTabId[];
+      const order = [...(j.order ?? []), ...all.filter((t) => !(j.order ?? []).includes(t))];
+      const save = (o: JournalTabId[]) => { j.order = o; if (JSON.stringify(o) === JSON.stringify(all)) delete j.order; if (!j.order && !j.hidden?.length) delete menus.journal; draw(); };
+      box.replaceChildren(h('span', { class: 'db-head' }, 'Tab'), h('span', { class: 'db-head' }, 'Shown at the start'), h('span', { class: 'db-head' }, 'Order'),
+        ...order.flatMap((t, i) => [
+          h('span', { class: 'db-name' }, JOURNAL_TAB_NAMES[t]),
+          checkboxOnly(!j.hidden?.includes(t), (v) => { const hd = new Set(j.hidden ?? []); if (v) hd.delete(t); else hd.add(t); j.hidden = [...hd]; if (!j.hidden.length) delete j.hidden; }, `Show ${JOURNAL_TAB_NAMES[t]}`),
+          h('span', { class: 'stack row' },
+            h('button', { type: 'button', class: 'mini-btn', disabled: i === 0, 'aria-label': 'Move up', onclick: () => { const o = [...order]; o.splice(i - 1, 0, o.splice(i, 1)[0]); save(o); } }, '↑'),
+            h('button', { type: 'button', class: 'mini-btn', disabled: i === order.length - 1, 'aria-label': 'Move down', onclick: () => { const o = [...order]; o.splice(i + 1, 0, o.splice(i, 1)[0]); save(o); } }, '↓')),
+        ]));
+    };
+    draw();
+    return h('section', { class: 'db-section' }, h('h3', {}, 'Journal'), box,
+      h('p', { class: 'note' }, 'The Journal’s tabs, left to right. A tab not shown at the start can be shown later with the event command “Show / hide a Journal tab” (unlock the Bestiary with the story).'));
+  }
+
   function defaultSettingsSection(): HTMLElement {
     const status = h('p', { class: 'note' }, 'Checking…');
     const p = store.project;
@@ -923,4 +947,4 @@ function cleanGroups(list: GroupChatter[]): GroupChatter[] {
 }
 
 /** Roleplay titles for saving (Update 127): blank titles dropped. */
-function cleanRoleplay(list: RoleplayField[]): RoleplayField[] { return list.filter((f) => f.title.trim()).map((f) => ({ id: f.id, title: f.title.trim() })); }
+function cleanRoleplay(list: RoleplayField[]): RoleplayField[] { return list.filter((f) => f.title.trim()).map((f) => ({ id: f.id, title: f.title.trim(), ...(f.type === 'date' ? { type: 'date' as const } : {}) })); }

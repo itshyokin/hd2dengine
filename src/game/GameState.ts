@@ -24,7 +24,7 @@ export class GameState {
   /** Quests (for quest conditions). */
   quests: QuestBook | null = null;
   /** The temperature (°F) and weather where the player is (for those conditions). */
-  env: { temp(): number; weather(): WeatherKind; heroHas?(hero: string, what: string): boolean; relation?(a: string, b: string): number; rp?(hero: string, field: string): string } | null = null;
+  env: { temp(): number; weather(): WeatherKind; heroHas?(hero: string, what: string): boolean; relation?(a: string, b: string): number; rp?(hero: string, field: string): string; rpDays?(hero: string, field: string): number | null } | null = null;
   /** Relationship ratings (Update 124), by "rater>rated" hero ids; missing: the Database's start. */
   readonly rel = new Map<string, number>();
   /** Movement abilities the player has right now. */
@@ -51,6 +51,8 @@ export class GameState {
   seasonPick: string | null = null;
   /** Group chatter queued for the next camp (Update 122). */
   groupQueue: string[] = [];
+  /** Journal tabs shown or hidden by events (Update 130). */
+  readonly journalTabs = new Map<string, boolean>();
   /** Props cut down with a cutting ring, per map (keys from propKey). */
   readonly cut = new Map<string, Set<string>>();
   /** Game hours passed since the game began (the clock running; fires burn by it). */
@@ -137,6 +139,7 @@ export class GameState {
     if ('temp' in c) { const t = this.env?.temp() ?? 70; return c.op === '<=' ? t <= c.temp : t >= c.temp; }
     if ('weather' in c) return c.weather.includes(this.env?.weather() ?? 'none');
     if ('date' in c) return inDates(new Date(), c.date, c.until);
+    if ('rpDate' in c) { const n = this.env?.rpDays?.(c.hero, c.rpDate); return n !== null && n !== undefined && n <= Math.max(0, c.within ?? 0); }
     if ('rp' in c) { const v = (this.env?.rp?.(c.hero, c.rp) ?? '').trim().toLowerCase().replace(/\s+/g, ' '); return !!v && v === c.is.trim().toLowerCase().replace(/\s+/g, ' '); }
     if ('relation' in c) { const v = this.env?.relation?.(c.relation, c.of) ?? 50; return c.op === '<=' ? v <= c.value : v >= c.value; }
     if ('heroHas' in c) return (this.env?.heroHas?.(c.hero ?? '', c.heroHas) ?? false) === (c.is ?? true);
@@ -164,7 +167,7 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number> }): void {
+  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number>; journalTabs?: Record<string, boolean> }): void {
     this.weaponsOff = !!d.weaponsOff;
     this.body.clear();
     this.good.clear();
@@ -183,6 +186,8 @@ export class GameState {
     this.allowAchievements = !!d.allowAchievements;
     this.seasonPick = d.seasonPick ?? null;
     this.groupQueue = [...(d.groupQueue ?? [])];
+    this.journalTabs.clear();
+    for (const [k, v] of Object.entries(d.journalTabs ?? {})) this.journalTabs.set(k, v);
     this.rel.clear();
     for (const [k, v] of Object.entries(d.rel ?? {})) this.rel.set(k, v);
     this.switches.clear();
@@ -206,7 +211,7 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number> } {
+  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number>; journalTabs?: Record<string, boolean> } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
     const body = [...this.body].filter(([, b]) => Math.abs(b.meter) > 0.5 || b.wet > 0.01);
@@ -223,6 +228,7 @@ export class GameState {
     if (this.seasonPick) out.seasonPick = this.seasonPick;
     if (this.groupQueue.length) out.groupQueue = [...this.groupQueue];
     if (this.rel.size) out.rel = Object.fromEntries(this.rel);
+    if (this.journalTabs.size) out.journalTabs = Object.fromEntries(this.journalTabs);
     if (this.cut.size) out.cut = Object.fromEntries([...this.cut].map(([m, s]) => [m, [...s]]));
     if (this.clock) out.clock = this.clock;
     if (this.fires.size) out.fires = Object.fromEntries([...this.fires].map(([m, f]) => [m, Object.fromEntries(f)]));

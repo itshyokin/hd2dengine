@@ -2429,3 +2429,8 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .ev-bubble.chat::before, .ev-bubble.chat::after { content: '' !important; position: absolute !important; left: 50% !important; width: 0 !important; height: 0 !important; border-style: solid !important; border-left-color: transparent !important; border-right-color: transparent !important; border-bottom: 0 !important; display: block !important; }
 .ev-bubble.chat::before { bottom: -12px !important; margin-left: -9px !important; border-width: 12px 9px 0 !important; border-top-color: #2b2118 !important; }
 .ev-bubble.chat::after { bottom: -8px !important; margin-left: -6px !important; border-width: 9px 6px 0 !important; border-top-color: var(--bb-bg) !important; }
+
+/* Journal tabs with icons, a little taller (Update 130). */
+.tab-strip.with-icons .tab-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; min-height: 34px; }
+.tab-strip.with-icons .tab-ico { display: inline-flex; width: 16px; height: 16px; }
+.tab-strip.with-icons .tab-ico svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
