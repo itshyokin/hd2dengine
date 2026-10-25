@@ -248,6 +248,39 @@ decide things; the tablet editor keeps working.
         the next foe blow, benchHeal / revive via items, avenge via downedBy) and `begun`; camp points in finishRest;
         editor: RelationsEditor (Party → Relationships), CommandEditor command + condition, QuestsEditor rewards.
         Gifts liked / disliked and dialogue choices use the command for now (no gift system yet).
+- Oct 24 night (owner's playtest + plan; horse, reflections of characters, locks, camp talk, 4-hero battle all OK):
+  - [ ] Update 125: fixes. Lockpicking Skyrim-style for real: a built-in Lockpick key item (stacks) is REQUIRED; holding
+        the turn off the sweet spot strains and snaps the pick (faster on Hard / Impossible), using one up; opening the
+        lock keeps it; out of picks ends the attempt. Lockpick screen redrawn as pixel art (small canvas scaled up
+        crisp, limited palette, brass lock face, stepped half-circle track, pixel snap). Prop reflections (widen the
+        "water in front" check; verify). Bag: Unequip for anything worn. Save screen: all 4 party portraits the same
+        size / brightness. Plain Attack hidden from the Attack menu when the hero has Additions; with none, Attack just
+        attacks (no submenu). Battle Swap-in list: compact rows (face, name, HP, MP and EXP bars with numbers) so the 3
+        benched heroes fill the panel top to bottom; narrower panel. Relationships + roleplay on the Status page
+        (see 127).
+  - [ ] Update 126: meter and orb styles (Database → Menus): fill gradient / flat / glossy / striped / segmented; shape
+        pill / rectangle / beveled / thin line / segmented blocks; orbs gradient sphere / flat circle / pixel square /
+        diamond. Replaces barsSolid / barsSquare.
+  - [ ] Update 127: gender, outfit gender, roleplay info, gifts.
+        Heroes: Gender (Male ♂ blue, Female ♀ pink, Transman ⚧ dark blue, Transwoman ⚧ dark pink, Transgender ⚧
+        blue→white→pink gradient, Nonbinary ⚲ purple, Other ✱ white); Outfit gender masc / femme (replaces the
+        Characters card Body; picks the worn-look sprite). Symbol on the HUD card, pause panel, Status page (Gender line).
+        Roleplay: Database → Party → Roleplay = shared titles (stable ids; Eye color, Favorite food, Favorite gift…);
+        each hero fills details (+/−). Condition "[hero]'s [title] is [value]" (case-insensitive); text code
+        \rp[hero, title]. Items: "Favorite of" / "Disliked by" rules (heroes whose [title] is [value]): used on them →
+        +/− N to their view of the USER: in battle the hero who used it (Katrina uses Ramen on benched Eleanor →
+        Eleanor +1 toward Katrina); out of battle the hero you play.
+        Status page: relationships list in the empty space under the portrait; roleplay details in the right panel
+        under About / Description.
+  - [ ] Update 128: built-in clothing. Using the builder's library (Steam-safe parts, credits), ship ~10 tops, ~10
+        bottoms and several accessories (necklaces, earrings, capes…) as ready-made masc + femme sheets. Look when worn:
+        three preview panels Top / Bottom / Accessory, ← → cycle (with None), live combined preview on a body; each has
+        colour swatches (the part's variants / palettes) plus "More colours / tint". A fourth panel far right: the
+        masc / femme custom imports + "Use custom clothes sprite" checkbox (ticked: replaces the three). An armor item =
+        an outfit set from the three picks. A few starter armor items in the Database using them.
+  - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
+        from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
+        Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.
   - [ ] Later: downtime mini-games (all must play well on a controller: cards, boards, timing, not drawing):
         blackjack with Lynn, swordplay timing with Katrina, magic element sequences with Crowley, CHESS with
         Eleanor (real chess with an AI; not a priority, keep on the list). Each gives relationship points.
