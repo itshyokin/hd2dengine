@@ -1273,7 +1273,9 @@ export interface ItemDef {
    * Armor, accessories and shields (Update 114): how the item looks when worn: a clothes-only sheet from the Character
    * Builder (Export clothes only) for masculine and feminine bodies, drawn over the hero's sheet, optionally tinted.
    */
-  worn?: { masc?: string; femme?: string; mascAnim?: CharacterAnimLayout; femmeAnim?: CharacterAnimLayout; tint?: string };
+  worn?: { masc?: string; femme?: string; mascAnim?: CharacterAnimLayout; femmeAnim?: CharacterAnimLayout; tint?: string;
+    /** Update 120: the Character Builder parts the sheets are built from (the editor rebuilds them when these change). */
+    parts?: { masc?: import('../editor/lpcParts').WornPart[]; femme?: import('../editor/lpcParts').WornPart[] } };
   /** Key items: carrying it lets the party swim in deep water (Update 109: without one, deep water stops them). */
   swim?: boolean;
   /** A fishing rod: with one in the bag, Talk / interact facing a fishing spot casts. `power` (0 … 100) brings bites sooner and rarer fish. */

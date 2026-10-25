@@ -193,8 +193,12 @@ decide things; the tablet editor keeps working.
         `lock:<map:event>`); ui/LockpickScreen.ts (LOCK_NAMES / LOCK_COLORS); Game `openLock` (key, Skeleton Key,
         lockpick items `lockpick`); Input `rumble` (Gamepad vibrationActuator); Inspector "Lock settings" section and
         CommandEditor `lockFields`; ItemsEditor Lockpick checkbox.
-  - [ ] Update 120: worn looks rework: pick the Character Builder's own parts (torso, legs, feet, arms, hats, back)
+  - [x] Update 120: worn looks rework: pick the Character Builder's own parts (torso, legs, feet, arms, hats, back)
         for an item in the editor, per body type, with colours; the engine builds the sheets, no hand-made PNGs.
+        Done: editor/lpcParts.ts (catalog from /builder/ or /tools/lpc/library/, palette recolour and layer order
+        ported from the builder's lpc.js, `buildWornSheet`, `previewParts`); ItemDef `worn.parts {masc, femme}`;
+        WornLookEditor picks parts (variant, colour channels, Steam-safe filter), rebuilds the sheet on each change and
+        saves it to assets/worn/<item>_<body>.png with its layout (runtime unchanged: sprites.ts `wornSheet`).
         Drawn over the hero's own clothes.
 - [ ] Future (owner's notes, Oct 22; plan them before building):
   - NPC behaviour (brainstorm first): daily routines and routes, beds and homes, reacting to weather and events

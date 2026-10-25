@@ -14,10 +14,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 24 evening: Updates 115–119 done, next 120)
-- **Next work:** Updates 115–120 (owner's playtest notes, NOTES.md); after them the older Future list (plan with the
-  owner first). Owner to check in game: the riding erase boxes, reflections, rain with the camera lean, the 4-hero
-  battle panels, worn looks with a real clothes-only export.
+## Pick up here (state as of Oct 24 evening: Updates 115–120 done; next: owner playtest, then the older Future list)
+- **Next work:** Updates 115–120 are done (owner's Oct 24 playtest notes, NOTES.md). Owner to check in game: rider
+  height on the horse, horse sounds / speed lines, reflections of everyone, the Drying bar, the default settings file,
+  key item field uses, locks (Inspector → Lock settings) and lockpicking, worn looks built from builder parts, and a
+  4-hero battle. (Update 120's in-browser check of a built sheet was still running at commit time; re-run it if unsure.) After that: the older Future list (plan with the owner first).
 - **Oct 24 list (done):** planned in NOTES.md as Updates 107–114 (107 fixes, 108 dates,
   109 fishing / swimming, 110 riding sprites, 111 battle look, 112 terrain looks, 113 tutorials + skill tree locks,
   114 equipment changes the look). Work them in order; tick each in NOTES and update this file per commit. After

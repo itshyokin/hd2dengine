@@ -890,3 +890,12 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 
 .worn-row { display: grid; grid-template-columns: 140px 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
 .worn-row code { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Worn looks from the Character Builder's parts (Update 120). */
+.worn-bodies { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0; }
+.worn-parts { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line, #2a2f3c); border-radius: 8px; }
+.worn-parts-head { display: flex; justify-content: space-between; align-items: center; }
+.worn-preview { width: 96px; height: 96px; image-rendering: pixelated; background: rgba(255,255,255,0.04); border-radius: 6px; }
+.worn-part { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.worn-part b { flex: 1 1 100%; font-weight: 600; }
+.worn-part select { max-width: 160px; }
