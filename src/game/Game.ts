@@ -151,6 +151,7 @@ import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
 import { rpFields, rpMatch, rpValue } from './roleplay';
+import { loadWornParts, recolorPairs, wornPart } from '../world/wornParts';
 import { REL_BATTLE_CAP, relAmount, relClamp, relKey, relLabel, relLove, relStart } from './relations';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
@@ -509,7 +510,10 @@ export class Game {
     await this.sprites.preload(resolve);
     this.sprites.modelStyle = modelStyle(this.db);
     await this.sprites.preloadCharacters(this.db.characters, resolve);
-    await this.sprites.preloadWorn(this.db.items ?? [], resolve);
+    // Built-in clothing (Update 128): the parts list, and the sheets items use.
+    await loadWornParts(async (p) => { const r = await fetch(resolve(p)); if (!r.ok) throw new Error(String(r.status)); return r.text(); });
+    const builtin = (this.db.items ?? []).flatMap((d) => (['top', 'bottom', 'accessory'] as const).flatMap((k) => { const p = wornPart(d.worn?.[k]?.part); return p ? [...Object.values(p.sheets), ...Object.values(p.under ?? {})] : []; })) as string[];
+    await this.sprites.preloadWorn(this.db.items ?? [], resolve, builtin);
     await this.sprites.preloadFlats((this.db.enemies ?? []).map((e) => e.look.image).filter((p): p is string => !!p), resolve);
     // LPC weapon sprites used by items and enemies (people default to a sword or a bow).
     await this.sprites.preloadWeapons(usedWeaponSprites(this.db), resolve, this.db.weaponSprites ?? [],
@@ -6434,6 +6438,11 @@ export class Game {
     const equip = who ? this.members()[who - 1]?.data.equip : this.inventory?.equip;
     return (['armor', 'accessory', 'shield'] as EquipSlot[]).map((k) => { const id = equip?.[k]; return id && this.items.get(id)?.worn ? id : ''; }).join(',').replace(/^,+$/, '');
   }
+  /** Credits for the built-in clothing items use (Update 128). */
+  private wornCredits(): import('../world/types').SpriteCredit[][] {
+    const used = new Set((this.db.items ?? []).flatMap((d) => (['top', 'bottom', 'accessory'] as const).map((k) => d.worn?.[k]?.part).filter((x): x is string => !!x)));
+    return [...used].map((id) => wornPart(id)?.credits ?? []);
+  }
   /** Someone's look with what they wear drawn over it (Update 114): the masculine or feminine version for their body. */
   private lookFor(who: number): CharacterDef | undefined {
     const def = who ? this.members()[who - 1]?.def : mainHero(this.db);
@@ -6442,9 +6451,18 @@ export class Game {
     if (!look || !equip) return look;
     // The hero's outfit gender (Update 127), else their look's body.
     const fem = (def?.outfit ?? look.body) === 'femme';
+    const body: 'masc' | 'femme' = fem ? 'femme' : 'masc';
     const layers = (['armor', 'accessory', 'shield'] as EquipSlot[]).flatMap((k) => {
       const w = equip[k] ? this.items.get(equip[k]!)?.worn : undefined;
       if (!w) return [];
+      // Update 128: the built-in outfit (bottom, top, accessory), unless the item uses its custom sheets.
+      const picks = w.custom ? [] : (['bottom', 'top', 'accessory'] as const).map((s) => w[s]).filter((p): p is NonNullable<typeof p> => !!p);
+      if (picks.length) return picks.flatMap((pk) => {
+        const p = wornPart(pk.part), anim = p?.layout[body] ?? p?.layout.masc, over = p?.sheets[body] ?? p?.sheets.masc, under = p?.under?.[body] ?? p?.under?.masc;
+        if (!p || !anim || !over) return [];
+        const recolor = recolorPairs(p, pk.swatch);
+        return [...(under ? [{ sheet: under, anim, tint: pk.tint, under: true, recolor }] : []), { sheet: over, anim, tint: pk.tint, recolor }];
+      });
       const useF = fem ? !!w.femme : !w.masc;
       const sheet = useF ? w.femme : w.masc, anim = useF ? w.femmeAnim : w.mascAnim;
       return sheet && anim ? [{ sheet, anim, tint: w.tint }] : [];
@@ -6816,7 +6834,7 @@ export class Game {
       ...opt('newGame', { pick: () => this.startNewGame() }),
       ...opt('load', { disabled: !hasSave, pick: () => this.openLoadScreen() }),
       ...opt('options', { pick: () => this.openSettings() }),
-      ...opt('credits', { pick: () => this.creditsScreen.show(m?.titleText?.trim() || this.db.title || 'Credits', creditSections(this.db, (id) => this.sprites.weaponDef(id), [...this.sprites.catalog.all(), ...this.tiles.all()].map((d) => d.credits ?? [])), () => {}) }),
+      ...opt('credits', { pick: () => this.creditsScreen.show(m?.titleText?.trim() || this.db.title || 'Credits', creditSections(this.db, (id) => this.sprites.weaponDef(id), [...[...this.sprites.catalog.all(), ...this.tiles.all()].map((d) => d.credits ?? []), ...this.wornCredits()]), () => {}) }),
       ...opt('exit', { pick: () => this.exitGame() }),
     ], { canBack: false, style: 'title', subtitle: m?.subtitle ?? '' });
     // Continue is the natural first choice when there's a save; otherwise New Game.

@@ -14,7 +14,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 25: Updates 115–124 done; next 125–128 planned in NOTES: fixes + Skyrim lockpicks, meter styles, gender / roleplay / gifts, built-in clothing)
+## Pick up here (state as of Oct 25 morning: Updates 115–128 done; next: owner playtest, then mini-games / gifting rooms / the older Future list)
+- **Oct 24 night list (125–128) done:** Skyrim lockpicks with a required Lockpick item and a pixel-art lock, prop
+  reflections, bag Unequip, save portraits, Attack menu, compact swap list; meter / orb styles; gender, outfit
+  gender, roleplay, gift reactions, Status page relationships + roleplay; built-in clothing (30 parts) with the
+  three-panel Look when worn editor and starter outfits. Owner to check all of these in game.
 - **Oct 24 late list (121–124) done:** fixes (breath, chatter height, snowy leaves, bag equip), camp (ghost walking,
   talk at camp, camp lines with conditions, group chatter), footprints and puddles, relationships (one-way ratings,
   battle sources, events / conditions / quest rewards, Journal tab, Database → Party → Relationships). Owner to check

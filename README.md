@@ -164,7 +164,21 @@ feminine, teen, kid, muscular and pregnant bodies. Parts recolour with LPC's pal
 - **Weapons**: animated characters carry the LPC sprite of what's equipped, drawn frame for frame with their own
   swings (see *LPC weapons* below). Build characters without a weapon in the builder, so the equipped one shows.
 
-### Armor you can see (Updates 114, 120)
+### Armor you can see (Updates 114, 120, 128)
+
+- **Built-in clothing** (Update 128): the engine comes with 10 tops (shirts, a cardigan, leather, chainmail, plate),
+  10 bottoms (pants, shorts, leggings, skirts, greaves) and 10 accessories (necklaces, earrings, capes, a hood, a
+  bandana, gloves, a cravat), made from the Character Builder's Steam-safe parts for masc and femme bodies
+  (`public/assets/worn/builtin`; rebuild them with `python tools/lpc/build_worn.py`). Their credits join the Credits
+  screen when an item uses them.
+- **Database → Items** (armor, accessories, shields) → **Look when worn**: three panels, **Top**, **Bottom** and
+  **Accessory**: ◀ ▶ cycles through them (and None); colour swatches recolour the part from its own palettes, and
+  **More colours / tint** tints it any colour. The preview shows the outfit on the player's look (Masc / Femme).
+  The fourth panel, **Custom sprite**: tick **Use custom clothes sprite** to use sheets of your own instead (a PNG
+  from the builder's Export clothes only, or one built from Character Builder parts, per body).
+- Starter outfits are added to the Database once: Traveler's Clothes, Leather Armor, Chainmail Shirt, Plate Armor,
+  Wanderer's Cape and a Beaded Necklace.
+- Capes have a back piece drawn behind the hero and a front drawn over them.
 
 - **Database → Items** (armor, accessories, shields) → **Look when worn**: for the masculine and the feminine body,
   **+ Add a part…** picks the Character Builder's own parts (Torso, Legs, Feet, Arms & hands, Hats & helmets, Back),

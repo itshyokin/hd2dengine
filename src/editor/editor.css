@@ -918,3 +918,21 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .rel-heart.on { opacity: 1; color: #ff6fa8; }
 .rel-tag { display: block; font-size: 11px; margin-top: 2px; }
 .rel-self { opacity: 0.4; }
+
+/* Update 128: built-in clothing pickers (Look when worn). */
+.worn-head { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.worn-preview.big { width: 128px; height: 128px; margin-left: 10px; }
+.worn-panels { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(260px, 1.4fr); gap: 10px; align-items: start; }
+.worn-panel { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--line, #2a2f3c); border-radius: 8px; }
+.worn-panel.off { opacity: 0.45; }
+.worn-panel.custom { align-items: stretch; }
+.worn-panel.custom.dim .worn-row { opacity: 0.55; }
+.worn-slot { align-self: flex-start; }
+.worn-cycle { display: flex; align-items: center; gap: 6px; width: 100%; justify-content: space-between; }
+.worn-name { flex: 1; text-align: center; font-weight: 600; }
+.worn-swatches { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.worn-chip { width: 18px; height: 18px; border-radius: 4px; border: 2px solid rgba(255,255,255,0.15); padding: 0; cursor: pointer; }
+.worn-chip.on { border-color: #ffd36a; box-shadow: 0 0 0 1px #000; }
+.worn-chip.none { background: repeating-linear-gradient(45deg, #444 0 3px, #666 3px 6px); color: #fff; font-size: 10px; line-height: 1; }
+.worn-tint { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.worn-builder summary { cursor: pointer; margin: 6px 0; }

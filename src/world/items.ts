@@ -52,6 +52,7 @@ export function migrateItems(db: Database): boolean {
       description: 'A thin steel pick for locks. It snaps if you force a lock in the wrong spot.' });
     changed = true;
   }
+  if (addOutfits(db)) changed = true;
   if (ringsToShards(db)) changed = true;
   if (shardsToTools(db)) changed = true;
   if (addForging(db)) changed = true;
@@ -120,6 +121,26 @@ function addForging(db: Database): boolean {
 }
 
 /** Fishing: a rod and a few fish to catch (added once, when no item is a rod yet). */
+/** Starter outfits from the built-in clothing (Update 128), added once: when no item wears it yet. */
+function addOutfits(db: Database): boolean {
+  const items = (db.items ??= []);
+  if (items.some((d) => d.worn?.top || d.worn?.bottom || d.worn?.accessory) || items.some((d) => d.id.startsWith('outfit_'))) return false;
+  const add = (d: ItemDef) => items.push(d);
+  add({ id: 'outfit_traveler', name: 'Traveler’s Clothes', kind: 'equipment', slot: 'armor', icon: 'builtin:tunic', price: 40, defense: 2, warmth: 3,
+    description: 'A sturdy shirt and pants for the road.', worn: { top: { part: 'torso_clothes_longsleeve', swatch: 4 }, bottom: { part: 'legs_pants', swatch: 0 } } });
+  add({ id: 'outfit_leather', name: 'Leather Armor', kind: 'equipment', slot: 'armor', icon: 'builtin:leather_armor', price: 120, defense: 5, warmth: 4,
+    description: 'Boiled leather over a padded shirt.', worn: { top: { part: 'torso_armour_leather' }, bottom: { part: 'legs_pants2', swatch: 4 } } });
+  add({ id: 'outfit_chainmail', name: 'Chainmail Shirt', kind: 'equipment', slot: 'armor', icon: 'builtin:chainmail', price: 260, defense: 8, warmth: 2,
+    description: 'Rings of steel over cuffed pants.', worn: { top: { part: 'torso_chainmail' }, bottom: { part: 'legs_cuffed', swatch: 7 } } });
+  add({ id: 'outfit_plate', name: 'Plate Armor', kind: 'equipment', slot: 'armor', icon: 'builtin:plate_armor', price: 600, defense: 12, warmth: 1, rarity: 'rare',
+    description: 'Full plate: chest and greaves.', worn: { top: { part: 'torso_armour_plate' }, bottom: { part: 'legs_armour' } } });
+  add({ id: 'outfit_cape', name: 'Wanderer’s Cape', kind: 'equipment', slot: 'accessory', icon: 'builtin:cloak', price: 60, defense: 1, warmth: 4,
+    description: 'A long cloth cape against the wind.', worn: { accessory: { part: 'cape_solid', swatch: 1 } } });
+  add({ id: 'outfit_necklace', name: 'Beaded Necklace', kind: 'equipment', slot: 'accessory', icon: 'builtin:amulet', price: 30,
+    description: 'Painted wooden beads on a cord.', worn: { accessory: { part: 'neck_necklace_beaded_small', swatch: 6 } } });
+  return true;
+}
+
 function addFishing(db: Database): boolean {
   const items = (db.items ??= []);
   if (items.some((d) => d.rod)) return false;

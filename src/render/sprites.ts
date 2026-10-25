@@ -6,6 +6,7 @@
  * the core HD-2D trick. A normal map (imported, or generated from the art) adds volume on top.
  * Shadows use the sprite's alpha, so trees cast tree-shaped shadows.
  */
+import { recolorCanvas } from '../world/wornParts';
 import { patchLean } from './lean';
 import * as THREE from 'three';
 import { shapeGeometry } from './propShapes';
@@ -261,7 +262,7 @@ export class SpriteLibrary {
     if (sheet && def?.anim && def.wornLayers?.length) {
       const layers = def.wornLayers.filter((l) => this.sheets.has(l.sheet));
       if (layers.length) {
-        sheetKey = `${def.sheet}|${layers.map((l) => `${l.sheet}~${l.tint ?? ''}`).join('|')}`;
+        sheetKey = `${def.sheet}|${layers.map((l) => `${l.sheet}~${l.tint ?? ''}~${l.under ? 'u' : ''}~${l.recolor?.map((p) => p[1]).join('') ?? ''}`).join('|')}`;
         sheet = this.wornSheet(sheetKey, sheet, def.anim, layers);
       }
     }
@@ -276,16 +277,20 @@ export class SpriteLibrary {
 
   /** A character's sheet with worn items' clothes-only sheets drawn over it, animation for animation (cached). */
   private readonly wornSheets = new Map<string, HTMLCanvasElement>();
-  private wornSheet(key: string, base: HTMLCanvasElement, layout: CharacterAnimLayout, layers: { sheet: string; anim: CharacterAnimLayout; tint?: string }[]): HTMLCanvasElement {
+  private wornSheet(key: string, base: HTMLCanvasElement, layout: CharacterAnimLayout, layers: { sheet: string; anim: CharacterAnimLayout; tint?: string; under?: boolean; recolor?: [string, string][] }[]): HTMLCanvasElement {
     const hit = this.wornSheets.get(key);
     if (hit) return hit;
     const out = document.createElement('canvas');
     out.width = base.width; out.height = base.height;
     const g = out.getContext('2d')!;
-    g.drawImage(base, 0, 0);
     const f = layout.frame;
-    for (const l of layers) {
+    // Pieces behind the body (a cape's back) first, then the hero's own sheet, then everything worn over it.
+    const ordered = [...layers.filter((l) => l.under), null, ...layers.filter((l) => !l.under)];
+    for (const l of ordered) {
+      if (!l) { g.drawImage(base, 0, 0); continue; }
       let src = this.sheets.get(l.sheet)!;
+      // Built-in clothing's colour swatch (Update 128): its colours swapped for the palette's.
+      if (l.recolor?.length) src = recolorCanvas(src, l.recolor);
       if (l.tint) {
         // Tinted: the clothes multiplied by the colour (their shading kept), cut back to their own shape.
         const t = document.createElement('canvas'); t.width = src.width; t.height = src.height;
@@ -309,8 +314,8 @@ export class SpriteLibrary {
   }
 
   /** Load the worn looks of items (Update 114): their clothes-only sheets. */
-  async preloadWorn(items: { worn?: { masc?: string; femme?: string } }[], resolve: (path: string) => string): Promise<void> {
-    const paths = new Set<string>();
+  async preloadWorn(items: { worn?: { masc?: string; femme?: string } }[], resolve: (path: string) => string, more: string[] = []): Promise<void> {
+    const paths = new Set<string>(more.filter((p) => !this.sheets.has(p)));
     for (const d of items) for (const p of [d.worn?.masc, d.worn?.femme]) if (p && !this.sheets.has(p)) paths.add(p);
     await Promise.all([...paths].map(async (p) => {
       try { this.sheets.set(p, await loadCanvas(resolve(p))); }

@@ -15,7 +15,7 @@ export const LOCK_COLORS: Record<LockLevel, string> = { easy: '#5ad06a', medium:
 /** Half the sweet spot's width in degrees, per difficulty. */
 const SWEET: Record<LockLevel, number> = { easy: 16, medium: 9, hard: 5, impossible: 2, never: 0 };
 /** The little canvas the lock is drawn on (scaled up crisp), and how long a snapped pick shows. */
-const W = 112, H = 64;
+const W = 112, H = 84;
 const SNAP_TIME = 0.6;
 
 export interface LockpickHost {
@@ -57,7 +57,7 @@ export class LockpickScreen {
     this.root.addEventListener('mousemove', (e) => {
       const dial = this.canvas;
       if (!dial || !this.open) return;
-      const r = dial.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + (r.height * 50) / H;
+      const r = dial.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + (r.height * 52) / H;
       const a = (Math.atan2(e.clientX - cx, cy - e.clientY) * 180) / Math.PI;
       if (this.turn < 0.02) this.angle = Math.max(-90, Math.min(90, a));
     });
@@ -184,7 +184,7 @@ export class LockpickScreen {
     const g = this.canvas.getContext('2d')!;
     g.imageSmoothingEnabled = false;
     const shake = this.strain > 0 ? Math.round((Math.random() - 0.5) * this.strain * 3) : 0;
-    const cx = W / 2 + shake, cy = 50;
+    const cx = W / 2 + shake, cy = 52;
     const px = (x: number, y: number, c: string) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), 1, 1); };
     const disc = (r: number, c: string) => { g.fillStyle = c; for (let y = -r; y <= r; y++) { const w = Math.round(Math.sqrt(r * r - y * y)); g.fillRect(cx - w, cy + y, w * 2 + 1, 1); } };
     const line = (x0: number, y0: number, x1: number, y1: number, c: string, t = 1) => {

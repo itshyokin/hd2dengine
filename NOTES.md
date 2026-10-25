@@ -283,12 +283,18 @@ decide things; the tablet editor keeps working.
         `rp`; GameState.format \rp[hero, title]; ItemDef reactions (ItemsEditor) via Game `itemReaction` (battle: the
         user, from TurnBattle useItem `by`; map: the hero you play); CharacterScreen gender badge, Roleplay section,
         Relationships under the picture; HUD cards / pause panels gender badge; lookFor uses hero outfit.
-  - [ ] Update 128: built-in clothing. Using the builder's library (Steam-safe parts, credits), ship ~10 tops, ~10
+  - [x] Update 128: built-in clothing. Using the builder's library (Steam-safe parts, credits), ship ~10 tops, ~10
         bottoms and several accessories (necklaces, earrings, capes…) as ready-made masc + femme sheets. Look when worn:
         three preview panels Top / Bottom / Accessory, ← → cycle (with None), live combined preview on a body; each has
         colour swatches (the part's variants / palettes) plus "More colours / tint". A fourth panel far right: the
         masc / femme custom imports + "Use custom clothes sprite" checkbox (ticked: replaces the three). An armor item =
         an outfit set from the three picks. A few starter armor items in the Database using them.
+        Done: tools/lpc/build_worn.py → public/assets/worn/builtin (30 parts, masc / femme sheets, _under sheets for
+        cape backs, parts.json with layouts, recolor source + 12 swatches, credits; 3.3 MB). world/wornParts.ts (load,
+        recolorPairs / recolorCanvas, tintSheet, standingCell). ItemDef worn.top / bottom / accessory (WornPick) +
+        worn.custom; Game lookFor builds layers (under + recolor), preloads builtin sheets, wornCredits; sprites.ts
+        wornSheet draws under layers before the base. WornLookEditor rewritten (three panels + custom panel with the
+        Update 120 builder parts inside a details box). items.ts addOutfits (6 starter items, once).
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.

@@ -871,7 +871,7 @@ export interface CharacterDef {
   /** Body type for worn looks (Update 114): which version of an item's Look when worn they use (unset: masc). */
   body?: 'masc' | 'femme';
   /** (In the game only: worn items' sheets drawn over this one, in order.) */
-  wornLayers?: { sheet: string; anim: CharacterAnimLayout; tint?: string }[];
+  wornLayers?: { sheet: string; anim: CharacterAnimLayout; tint?: string; /** Update 128: drawn under the hero (a cape's back). */ under?: boolean; /** Update 128: colours swapped (source → new). */ recolor?: [string, string][] }[];
   /** Battle idle (Update 111): frames of one sheet row (0-based row, columns) looped while standing in battle. */
   battleIdle?: { row: number; frames: number[]; ms?: number };
   /** Who made the sheet's parts (read from the PNG; shown on the Credits screen). */
@@ -930,6 +930,9 @@ export interface HeroChatter {
   /** Update 122: what they say when talked to at camp: a default (no condition) and lines for while a condition holds. */
   camp?: { line: string; if?: Condition }[];
 }
+
+/** One built-in clothing pick (Update 128): a part (world/wornParts.ts), its colour swatch or a tint. */
+export interface WornPick { part: string; swatch?: number; tint?: string }
 
 /** A hero's gender (Update 127; game/roleplay.ts). */
 export type Gender = 'male' | 'female' | 'transman' | 'transwoman' | 'transgender' | 'nonbinary' | 'other';
@@ -1329,7 +1332,11 @@ export interface ItemDef {
    */
   worn?: { masc?: string; femme?: string; mascAnim?: CharacterAnimLayout; femmeAnim?: CharacterAnimLayout; tint?: string;
     /** Update 120: the Character Builder parts the sheets are built from (the editor rebuilds them when these change). */
-    parts?: { masc?: import('../editor/lpcParts').WornPart[]; femme?: import('../editor/lpcParts').WornPart[] } };
+    parts?: { masc?: import('../editor/lpcParts').WornPart[]; femme?: import('../editor/lpcParts').WornPart[] };
+    /** Update 128: the outfit from the built-in clothing (public/assets/worn/builtin), one pick per slot. */
+    top?: WornPick; bottom?: WornPick; accessory?: WornPick;
+    /** Update 128: use the custom sheets (masc / femme) instead of the built-in picks. */
+    custom?: boolean };
   /** Key items: carrying it lets the party swim in deep water (Update 109: without one, deep water stops them). */
   swim?: boolean;
   /** A fishing rod: with one in the bag, Talk / interact facing a fishing spot casts. `power` (0 … 100) brings bites sooner and rarer fish. */
