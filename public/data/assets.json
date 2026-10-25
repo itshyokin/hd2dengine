@@ -709,25 +709,6 @@
       "image": "assets/props/vines.png"
     },
     {
-      "id": "oak",
-      "name": "Oak tree",
-      "w": 3,
-      "h": 3,
-      "foot": {
-        "w": 3,
-        "d": 1,
-        "solid": [
-          ".#."
-        ]
-      },
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "sway": 1,
-      "image": "assets/props/oak.png"
-    },
-    {
       "id": "log_seat",
       "name": "Log seat",
       "w": 2,
@@ -967,6 +948,49 @@
       },
       "image": "assets/props/jack.png",
       "glow": "assets/props/jack_glow.png"
+    },
+    {
+      "id": "pine",
+      "name": "Pine tree",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 1,
+      "rustle": false,
+      "frontOfTiles": false,
+      "season": "leaves",
+      "image": "assets/props/pine.png"
+    },
+    {
+      "id": "oak",
+      "name": "Oak tree",
+      "w": 5,
+      "h": 8,
+      "foot": {
+        "w": 5,
+        "d": 1,
+        "solid": [
+          ".#.##"
+        ]
+      },
+      "block": [
+        -1,
+        1,
+        2
+      ],
+      "filter": "point",
+      "sway": 1,
+      "image": "assets/props/oak.png"
     }
   ],
   "tiles": [
@@ -1302,5 +1326,9 @@
   },
   "tileSteps": {
     "▲": "stone"
+  },
+  "tilePrints": {
+    "▒": true,
+    ".": true
   }
 }

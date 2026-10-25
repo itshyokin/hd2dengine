@@ -4261,8 +4261,10 @@
       "description": "Swim and wade through water. Switch them on in the bag, or assign them to the B button.",
       "kind": "key",
       "icon": "builtin:fish_koi",
-      "tool": "waterWalk",
-      "iconTint": "#3a6ae0"
+      "iconTint": "#3a6ae0",
+      "field": {
+        "use": "swim"
+      }
     },
     {
       "id": "moon_amulet",
@@ -4395,7 +4397,10 @@
       "rod": {
         "power": 0
       },
-      "description": "A simple rod and line. Face a fishing spot by the water and press Talk (A / Enter) to cast; when the float bobs under, press it again."
+      "description": "A simple rod and line. Face a fishing spot by the water and press Talk (A / Enter) to cast; when the float bobs under, press it again.",
+      "field": {
+        "use": "fish"
+      }
     },
     {
       "id": "minnow",
@@ -4766,6 +4771,179 @@
         "tier": "heart"
       },
       "description": "The heart of dark power: strong hits without worse weaknesses. Wear it in an Element slot (Bag → Shards) to take on its element."
+    },
+    {
+      "id": "lockpick",
+      "name": "Lockpick",
+      "kind": "key",
+      "icon": "builtin:lockpick",
+      "price": 25,
+      "stack": 99,
+      "lockpick": true,
+      "description": "A thin steel pick for locks. It snaps if you force a lock in the wrong spot."
+    },
+    {
+      "id": "outfit_traveler",
+      "name": "Traveler’s Clothes",
+      "kind": "equipment",
+      "slot": "armor",
+      "icon": "builtin:tunic",
+      "price": 40,
+      "defense": 2,
+      "warmth": 3,
+      "description": "A sturdy shirt and pants for the road.",
+      "worn": {
+        "top": {
+          "part": "torso_clothes_longsleeve",
+          "swatch": 4
+        },
+        "bottom": {
+          "part": "legs_pants",
+          "swatch": 0
+        }
+      },
+      "material": "iron_ingot"
+    },
+    {
+      "id": "outfit_leather",
+      "name": "Leather Armor",
+      "kind": "equipment",
+      "slot": "armor",
+      "icon": "builtin:leather_armor",
+      "price": 120,
+      "defense": 5,
+      "warmth": 4,
+      "description": "Boiled leather over a padded shirt.",
+      "worn": {
+        "top": {
+          "part": "torso_armour_leather"
+        },
+        "bottom": {
+          "part": "legs_pants2",
+          "swatch": 4
+        }
+      },
+      "material": "iron_ingot"
+    },
+    {
+      "id": "outfit_chainmail",
+      "name": "Chainmail Shirt",
+      "kind": "equipment",
+      "slot": "armor",
+      "icon": "builtin:chainmail",
+      "price": 260,
+      "defense": 8,
+      "warmth": 2,
+      "description": "Rings of steel over cuffed pants.",
+      "worn": {
+        "top": {
+          "part": "torso_chainmail"
+        },
+        "bottom": {
+          "part": "legs_cuffed",
+          "swatch": 7
+        }
+      },
+      "material": "iron_ingot"
+    },
+    {
+      "id": "outfit_plate",
+      "name": "Plate Armor",
+      "kind": "equipment",
+      "slot": "armor",
+      "icon": "builtin:plate_armor",
+      "price": 600,
+      "defense": 12,
+      "warmth": 1,
+      "rarity": "rare",
+      "description": "Full plate: chest and greaves.",
+      "worn": {
+        "top": {
+          "part": "torso_armour_plate"
+        },
+        "bottom": {
+          "part": "legs_armour"
+        }
+      },
+      "material": "iron_ingot"
+    },
+    {
+      "id": "outfit_cape",
+      "name": "Wanderer’s Cape",
+      "kind": "equipment",
+      "slot": "accessory",
+      "icon": "builtin:cloak",
+      "price": 60,
+      "defense": 1,
+      "warmth": 4,
+      "description": "A long cloth cape against the wind.",
+      "worn": {
+        "accessory": {
+          "part": "cape_solid",
+          "swatch": 1
+        }
+      },
+      "material": "gold_ingot"
+    },
+    {
+      "id": "outfit_necklace",
+      "name": "Beaded Necklace",
+      "kind": "equipment",
+      "slot": "accessory",
+      "icon": "builtin:amulet",
+      "price": 30,
+      "description": "Painted wooden beads on a cord.",
+      "worn": {
+        "accessory": {
+          "part": "neck_necklace_beaded_small",
+          "swatch": 6
+        }
+      },
+      "material": "gold_ingot"
+    },
+    {
+      "id": "storm_ring",
+      "name": "Storm Ring",
+      "kind": "key",
+      "icon": "builtin:ring_ember",
+      "field": {
+        "use": "weather"
+      },
+      "description": "Use it outdoors to change the weather here.",
+      "iconTint": "#3ab8c8"
+    },
+    {
+      "id": "smash_hammer",
+      "name": "Smash Hammer",
+      "kind": "key",
+      "icon": "builtin:hammer",
+      "field": {
+        "use": "smash"
+      },
+      "description": "Use it facing a boulder or ore vein to break it in one blow, no pickaxe needed.",
+      "iconTint": "#ff9a2a"
+    },
+    {
+      "id": "dark_pumpkin_core",
+      "name": "Dark Pumpkin Core",
+      "kind": "material",
+      "icon": "builtin:pumpkin",
+      "price": 1,
+      "description": "Used to corrupt The Great Pumpkin's minions. With enough of them, the spell can be reversed.",
+      "iconTint": "#2a2a30"
+    },
+    {
+      "id": "pumpkin_head",
+      "name": "Pumpkin Head",
+      "kind": "equipment",
+      "slot": "accessory",
+      "icon": "builtin:pumpkin",
+      "price": 1,
+      "defense": 5,
+      "description": "A gift from The Great Pumpkin for completing his quest. (Halloween 2026 Event)",
+      "rarity": "rare",
+      "magicDefense": 5,
+      "warmth": 3
     }
   ],
   "enemies": [
@@ -5022,6 +5200,56 @@
         4
       ],
       "drops": []
+    },
+    {
+      "id": "enemy_3",
+      "name": "Haunted Pumpkin",
+      "look": {
+        "image": "assets/enemies/enemy_3_mvoe1jg4.png",
+        "flat": {
+          "move": "hop",
+          "faces": "left"
+        }
+      },
+      "hp": 20,
+      "damage": 6,
+      "speed": 1.6,
+      "behaviour": "melee",
+      "attackRange": 0.9,
+      "cooldown": 1.5,
+      "windup": 0.5,
+      "sight": 6,
+      "fov": 140,
+      "hearing": 5,
+      "xp": 10,
+      "gold": [
+        13,
+        13
+      ],
+      "drops": [
+        {
+          "item": "dark_pumpkin_core",
+          "chance": 0.25
+        }
+      ],
+      "undead": true,
+      "material": "plant",
+      "elements": [
+        "nature",
+        "dark"
+      ],
+      "actions": [
+        {
+          "name": "Harden",
+          "kind": "buff",
+          "buffs": [
+            {
+              "buff": "def"
+            }
+          ]
+        }
+      ],
+      "description": "A corrupted minion of The Great Pumpkin. These cute holiday creatures now swirl with dark and spooky energy!"
     }
   ],
   "quests": [
@@ -5116,6 +5344,28 @@
       },
       "inOrder": true,
       "autoComplete": true
+    },
+    {
+      "id": "rotten_to_the_core",
+      "name": "Rotten to the Core",
+      "kind": "side",
+      "objectives": [
+        {
+          "id": "collect_10_dark_pumpkin_cores",
+          "text": "Collect 10 Dark Pumpkin Cores.",
+          "kind": "collect",
+          "item": "dark_pumpkin_core",
+          "count": 10
+        }
+      ],
+      "giver": "The Great Pumpkin",
+      "location": "Monolith Woods",
+      "description": "The Great Pumpkin's minions have been corrupted by mysterious dark magic. If we can defeat enough of them and collect their Dark Pumpkin Cores, the Great Pumpkin can reverse the spell and save the others.",
+      "rewards": {
+        "xp": 150,
+        "gold": 200
+      },
+      "autoComplete": true
     }
   ],
   "weather": {
@@ -5127,6 +5377,19 @@
       "id": "hero",
       "name": "Jordan",
       "color": "#e74b4b",
+      "gender": "male",
+      "outfit": "masc",
+      "roleplay": {
+        "rp1": "Pizza",
+        "rp2": "Heterosexual",
+        "rp3": "June 1",
+        "rp4": "Old Earth",
+        "rp5": "College Student"
+      },
+      "cls": "class_titan",
+      "additions": [
+        "quick_strike"
+      ],
       "chatter": {
         "lines": {
           "cold": [
@@ -5177,6 +5440,8 @@
       "name": "Katrina",
       "look": "katrina",
       "color": "#6271f9",
+      "gender": "female",
+      "outfit": "femme",
       "stats": {
         "str": 16,
         "dex": 12,
@@ -5237,6 +5502,7 @@
       "name": "Crowley",
       "look": "crowley",
       "color": "#7067da",
+      "gender": "transman",
       "stats": {
         "str": 8,
         "dex": 8,
@@ -5303,6 +5569,8 @@
       "name": "Eleanor",
       "look": "eleanor",
       "color": "#62dbd8",
+      "gender": "female",
+      "outfit": "femme",
       "stats": {
         "str": 14,
         "dex": 18,
@@ -5371,6 +5639,8 @@
       "name": "Theresa",
       "look": "hero",
       "color": "#e0c978",
+      "gender": "female",
+      "outfit": "femme",
       "stats": {
         "str": 13,
         "dex": 16,
@@ -5384,6 +5654,7 @@
       "name": "Lynn",
       "look": "hero",
       "color": "#51e166",
+      "gender": "transwoman",
       "stats": {
         "str": 16,
         "dex": 16,
@@ -6840,5 +7111,27 @@
       "names": "Stephen Challener (Redshrike), hosted by OpenGameArt.org"
     }
   ],
-  "activeParty": 4
+  "activeParty": 4,
+  "roleplay": [
+    {
+      "id": "rp1",
+      "title": "Favorite Food:"
+    },
+    {
+      "id": "rp2",
+      "title": "Sexuality:"
+    },
+    {
+      "id": "rp3",
+      "title": "Birthday:"
+    },
+    {
+      "id": "rp4",
+      "title": "Home Region:"
+    },
+    {
+      "id": "rp5",
+      "title": "Career:"
+    }
+  ]
 }
