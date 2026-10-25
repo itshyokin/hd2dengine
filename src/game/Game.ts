@@ -3199,7 +3199,7 @@ export class Game {
         try { img = this.sprites.standingFrame(`save:${id}`, look, 'down', 2).toDataURL(); } catch { img = ''; }
         this.standing.set(id, img);
       }
-      return { img, name: def?.name ?? id, active: k < 3 };
+      return { img, name: def?.name ?? id, active: k < this.activeMembers + 1 };
     }).filter((x) => x.img);
   }
 

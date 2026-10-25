@@ -353,8 +353,11 @@ export class InventoryScreen {
   private equipWho(): void {
     const i = this.sel, who = this.actions.equipTargets?.(i) ?? [];
     const after = (msg: string | null) => { this.message = msg ?? ''; this.mode = { kind: 'grid' }; this.actions.changed(); this.render(); };
-    if (who.length < 2) { after(this.actions.equipOn!(i, 0)); return; }
-    const options: { label: string; run: () => void; disabled?: boolean }[] = who.map((w, k) => ({ label: `Equip on ${w.label}`, disabled: w.disabled, run: () => after(this.actions.equipOn!(i, k)) }));
+    if (who.length < 2 && !this.actions.usedBy?.(i)) { after(this.actions.equipOn!(i, 0)); return; }
+    const options: { label: string; run: () => void; disabled?: boolean }[] = who.length ? who.map((w, k) => ({ label: `Equip on ${w.label}`, disabled: w.disabled, run: () => after(this.actions.equipOn!(i, k)) })) : [{ label: 'Equip', run: () => after(this.actions.equipOn!(i, 0)) }];
+    // Worn by someone: take it off them (Update 125), so it can be worn by no one.
+    const user = this.actions.usedBy?.(i);
+    if (user && this.actions.takeOff) options.push({ label: `Unequip (take it off ${user})`, run: () => after(this.actions.takeOff!(i)) });
     options.push({ label: 'Cancel', run: () => this.cancel() });
     this.mode = { kind: 'actions', index: Math.max(0, options.findIndex((o) => !o.disabled)), options };
     this.render();

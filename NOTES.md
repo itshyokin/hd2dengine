@@ -249,7 +249,7 @@ decide things; the tablet editor keeps working.
         editor: RelationsEditor (Party → Relationships), CommandEditor command + condition, QuestsEditor rewards.
         Gifts liked / disliked and dialogue choices use the command for now (no gift system yet).
 - Oct 24 night (owner's playtest + plan; horse, reflections of characters, locks, camp talk, 4-hero battle all OK):
-  - [ ] Update 125: fixes. Lockpicking Skyrim-style for real: a built-in Lockpick key item (stacks) is REQUIRED; holding
+  - [x] Update 125: fixes. Lockpicking Skyrim-style for real: a built-in Lockpick key item (stacks) is REQUIRED; holding
         the turn off the sweet spot strains and snaps the pick (faster on Hard / Impossible), using one up; opening the
         lock keeps it; out of picks ends the attempt. Lockpick screen redrawn as pixel art (small canvas scaled up
         crisp, limited palette, brass lock face, stepped half-circle track, pixel snap). Prop reflections (widen the
@@ -258,6 +258,10 @@ decide things; the tablet editor keeps working.
         attacks (no submenu). Battle Swap-in list: compact rows (face, name, HP, MP and EXP bars with numbers) so the 3
         benched heroes fill the panel top to bottom; narrower panel. Relationships + roleplay on the Status page
         (see 127).
+        Done: items.ts LOCKPICK (migrateItems adds it; icon builtin:lockpick); LockpickScreen drawn on a 112×64 canvas
+        (snap animation `snapT`, `out` ends after the snap); WorldBuilder prop reflections look up to 3 tiles ahead
+        and start at the water's near edge; InventoryScreen equipWho "Unequip"; saveParty active = activeMembers + 1;
+        TurnBattle attackMenu lists Additions only; BattleScreen `.battle-cmd.swap` rows (HP / MP / EXP side by side).
   - [ ] Update 126: meter and orb styles (Database → Menus): fill gradient / flat / glossy / striped / segmented; shape
         pill / rectangle / beveled / thin line / segmented blocks; orbs gradient sphere / flat circle / pixel square /
         diamond. Replaces barsSolid / barsSquare.

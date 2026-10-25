@@ -2362,3 +2362,53 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .rel-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
 .rel-bar i { display: block; height: 100%; border-radius: 4px; }
 .rel-label { font-size: 12px; text-align: right; }
+/* Update 125: the lock in pixel art (a small canvas scaled up crisp). */
+.lp-box { image-rendering: pixelated; border-radius: 4px; border-width: 3px; box-shadow: 0 0 0 3px #0a0c12, 0 10px 40px rgba(0,0,0,0.5); }
+.lp-level { border-radius: 2px; font-family: var(--f-pixel, var(--f-body)); }
+.lp-stage { display: flex; justify-content: center; padding: 6px 0; }
+.lp-canvas { width: 336px; height: 192px; image-rendering: pixelated; image-rendering: crisp-edges; background: #14100c; border: 3px solid #3a2e1e; border-radius: 2px; }
+
+/* Update 125: the Swap list in compact rows (HP, MP and EXP side by side), filling the panel top to bottom. */
+.bcmd-bars { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 10px; }
+.bcmd-bars .bbw { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bcmd-bars .bbw em { font-style: normal; font-size: 0.72em; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.battle.layout-pocket.list-mode .battle-cmd.swap { width: min(100%, 560px); margin-left: auto; }
+.battle.layout-pocket.list-mode .battle-cmd.swap .battle-cmd-list { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+.battle.layout-pocket.list-mode .battle-cmd.swap .bcmd.with-bars { flex: 1 1 0; min-height: 0; }
+
+/* Update 126: meter and orb styles (Database → Menus → Bars): root classes bar-fill-*, bar-shape-*, orb-*. */
+:root.bar-fill-flat { --g-hp: var(--c-hp); --g-mp: var(--c-mp); --g-xp: var(--c-xp); --g-sp: var(--c-sp); }
+:root.bar-fill-glossy {
+  --g-hp: linear-gradient(rgba(255,255,255,0.42) 0 42%, rgba(255,255,255,0) 42%), var(--c-hp);
+  --g-mp: linear-gradient(rgba(255,255,255,0.42) 0 42%, rgba(255,255,255,0) 42%), var(--c-mp);
+  --g-xp: linear-gradient(rgba(255,255,255,0.42) 0 42%, rgba(255,255,255,0) 42%), var(--c-xp);
+  --g-sp: linear-gradient(rgba(255,255,255,0.42) 0 42%, rgba(255,255,255,0) 42%), var(--c-sp); }
+:root.bar-fill-striped {
+  --g-hp: repeating-linear-gradient(-45deg, rgba(255,255,255,0.2) 0 4px, rgba(255,255,255,0) 4px 8px), var(--c-hp);
+  --g-mp: repeating-linear-gradient(-45deg, rgba(255,255,255,0.2) 0 4px, rgba(255,255,255,0) 4px 8px), var(--c-mp);
+  --g-xp: repeating-linear-gradient(-45deg, rgba(255,255,255,0.2) 0 4px, rgba(255,255,255,0) 4px 8px), var(--c-xp);
+  --g-sp: repeating-linear-gradient(-45deg, rgba(255,255,255,0.2) 0 4px, rgba(255,255,255,0) 4px 8px), var(--c-sp); }
+:root.bar-fill-segmented {
+  --g-hp: repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 7px, rgba(0,0,0,0.5) 7px 9px), linear-gradient(color-mix(in srgb, var(--c-hp) 60%, #fff), var(--c-hp));
+  --g-mp: repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 7px, rgba(0,0,0,0.5) 7px 9px), linear-gradient(color-mix(in srgb, var(--c-mp) 60%, #fff), var(--c-mp));
+  --g-xp: repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 7px, rgba(0,0,0,0.5) 7px 9px), linear-gradient(color-mix(in srgb, var(--c-xp) 60%, #fff), var(--c-xp));
+  --g-sp: repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 7px, rgba(0,0,0,0.5) 7px 9px), linear-gradient(color-mix(in srgb, var(--c-sp) 60%, #fff), var(--c-sp)); }
+:root.bar-fill-flat .pp-bar.mid i, :root.bar-fill-flat .pb.mid .pb-bar span { background: #e8c23a !important; }
+:root.bar-fill-flat .pp-bar.low i, :root.bar-fill-flat .pb.low .pb-bar span { background: #e0524a !important; }
+/* Shapes. */
+:root.bar-shape-rect [class$="-bar"], :root.bar-shape-rect [class*="-bar "], :root.bar-shape-rect [class$="-bar"] > *, :root.bar-shape-rect [class*="-bar "] > *,
+:root.bar-shape-rect .hud-bar, :root.bar-shape-rect .hud-bar > *, :root.bar-shape-rect .bb, :root.bar-shape-rect .bb > *,
+:root.bar-shape-blocks [class$="-bar"], :root.bar-shape-blocks [class*="-bar "], :root.bar-shape-blocks [class$="-bar"] > *, :root.bar-shape-blocks [class*="-bar "] > *,
+:root.bar-shape-blocks .hud-bar, :root.bar-shape-blocks .hud-bar > *, :root.bar-shape-blocks .bb, :root.bar-shape-blocks .bb > *,
+:root.bar-shape-bevel [class$="-bar"], :root.bar-shape-bevel [class*="-bar "], :root.bar-shape-bevel .hud-bar, :root.bar-shape-bevel .bb { border-radius: 0 !important; }
+:root.bar-shape-bevel [class$="-bar"], :root.bar-shape-bevel [class*="-bar "], :root.bar-shape-bevel .hud-bar, :root.bar-shape-bevel .bb {
+  clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%); }
+:root.bar-shape-thin [class$="-bar"], :root.bar-shape-thin [class*="-bar "], :root.bar-shape-thin .hud-bar, :root.bar-shape-thin .bb { clip-path: inset(32% 0 round 3px); }
+:root.bar-shape-blocks [class$="-bar"], :root.bar-shape-blocks [class*="-bar "], :root.bar-shape-blocks .hud-bar, :root.bar-shape-blocks .bb {
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 10px); mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 10px); }
+/* Orbs (the party's spheres in battle). */
+:root.orb-flat .pb-ball[style*="--ball"] { background: var(--ball); }
+:root.orb-flat .pb-ball:not([style*="--ball"]):not(.empty):not(.ko) { background: #e07a1a; }
+:root.orb-square .pb-ball { border-radius: 3px; }
+:root.orb-square .pb-ball[style*="--ball"] { background: var(--ball); box-shadow: inset -3px -3px 0 rgba(0,0,0,0.3), inset 3px 3px 0 rgba(255,255,255,0.35); }
+:root.orb-diamond .pb-ball { border-radius: 2px; transform: rotate(45deg) scale(0.85); }

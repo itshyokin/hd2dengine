@@ -493,11 +493,12 @@ export class TurnBattle {
       this.pickTarget(foes, (t) => (a ? this.doAddition(b, a, t) : this.doAttack(b, t)), () => this.commandMenu(b));
       return;
     }
-    // Chosen each time: a plain attack or any Addition they know.
-    const list: ChoiceItem[] = [{ label: 'Attack', icon: 'attack', detail: 'A plain attack', rank: RANK.attack },
+    // Chosen each time: any Addition they know (Update 125: no plain attack in the list; a hero with no Additions
+    // just attacks, above).
+    const list: ChoiceItem[] = [
       ...adds.map((a) => ({ label: a.name, icon: 'attack', iconColor: '#ffc46e', right: `${a.strikes.length} hit${a.strikes.length === 1 ? '' : 's'} · Rank ${a.rank}`, detail: a.toNext === null ? 'Mastered' : `${a.toNext} more to rank ${a.rank + 1}`, rank: RANK.attack }))];
     this.screen.choose('Attack', list, (i) => {
-      const a = i ? adds[i - 1] : undefined;
+      const a = adds[i];
       this.pickTarget(foes, (t) => (a ? this.doAddition(b, a, t) : this.doAttack(b, t)), () => this.attackMenu(b));
     }, () => this.commandMenu(b), () => this.showOrder(RANK.attack));
   }

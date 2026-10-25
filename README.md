@@ -1113,8 +1113,13 @@ them: Freezing before a fight, still Freezing after.
   (or click) to turn. On the sweet spot the lock turns all the way and opens; near it, it turns part way; off it, it
   jams and the pick strains until it snaps. Easier locks have a wider sweet spot; Impossible is a sliver. A soft click
   ticks faster near the spot, and controllers rumble more the closer the pick gets. A **Skeleton Key** (Field use)
-  or the lock's own key opens it straight away. Items ticked **Lockpick** are used up when picks snap; with no
-  lockpick items in the game, picking is free. An opened lock stays open (saved).
+  or the lock's own key opens it straight away. An opened lock stays open (saved).
+  Update 125: picking needs a **Lockpick** (a built-in key item, added to every game; shops can sell it). Holding the
+  turn on the wrong spot strains the pick until it snaps (faster on Hard and Impossible), using one up; opening the
+  lock keeps it. Out of picks, the attempt ends. The lock is drawn in pixel art: a brass lock face, a stepped track
+  for the pick, and a pick that reddens as it strains and flies apart when it snaps.
+- **Taking gear off from the bag** (Update 125): Space on worn armor or a weapon lists who to put it on and
+  **Unequip (take it off …)**, so it can be worn by no one.
 - **Shops**: the **Open shop** command lists what's for sale (prices come from the item unless you set one) and
   whether the player can sell (for half the price). In the sample map, talk to Mira twice and ask to trade.
 - Built-in sprites for events: **Chest**, **Chest (open)** and **Item sparkle** (which glows in the dark).

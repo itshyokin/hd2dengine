@@ -46,6 +46,12 @@ export function migrateItems(db: Database): boolean {
   }
   // Rings used to carry field powers. Light and Water walking are spell shards now ("Light", "Water Walk"); the
   // cutting ring is gone (swords cut vines), along with anything that started the hero with it.
+  // Lockpicks (Update 125), added once when the game has none.
+  if (!items.some((d) => d.lockpick)) {
+    items.push({ id: LOCKPICK, name: 'Lockpick', kind: 'key', icon: 'builtin:lockpick', price: 25, stack: 99, lockpick: true,
+      description: 'A thin steel pick for locks. It snaps if you force a lock in the wrong spot.' });
+    changed = true;
+  }
   if (ringsToShards(db)) changed = true;
   if (shardsToTools(db)) changed = true;
   if (addForging(db)) changed = true;
@@ -134,6 +140,8 @@ function addFishing(db: Database): boolean {
 
 /** The fuel the built-in sapling gives when cut. */
 export const FIREWOOD = 'firewood';
+/** The built-in Lockpick (Update 125): picking a lock needs one; a snapped pick uses one up. */
+export const LOCKPICK = 'lockpick';
 
 /** The spell shard older Fire skills give. */
 export const FIRE_SHARD = 'fire_shard';

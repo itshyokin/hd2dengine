@@ -729,16 +729,25 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     // Reflections (Update 116): props standing at the water's edge, mirrored in the water in front of them.
     const mapTex = (a.material as THREE.MeshStandardMaterial).map;
     if (!onWall && !pdef?.deck && mapTex) {
+      // Update 125: water up to three tiles in front counts (trees set back from the shore); the reflection starts
+      // at the water's near edge, so it's never drawn over the grass between.
       const wet = list.flatMap((p) => {
-        const at = propBase(map, p, pdef), w = map.waterAt(Math.floor(p.x), Math.floor(p.z + 0.75));
-        return w && at.y >= w.surface - 0.01 && !map.waterAt(Math.floor(p.x), Math.floor(p.z)) ? [{ p, y: 2 * w.surface - at.y - 0.02 }] : [];
+        const at = propBase(map, p, pdef), cx = Math.floor(p.x), cz = Math.floor(p.z);
+        if (map.waterAt(cx, cz)) return [];
+        for (let k = 1; k <= 3; k++) {
+          const w = map.waterAt(cx, cz + k);
+          if (!w) { if (map.isBlocked(cx, cz + k) && k > 1) break; continue; }
+          if (at.y < w.surface - 0.01 || at.y > w.surface + 2.5) break;
+          return [{ p, y: 2 * w.surface - at.y - 0.02, z: k === 1 ? p.z + nudge(p) : cz + k + 0.02 }];
+        }
+        return [];
       });
       if (wet.length) {
         const rmat = patchLean(new THREE.MeshBasicMaterial({ map: mapTex, transparent: true, opacity: 0.34, alphaTest: 0.3, depthWrite: false, side: THREE.DoubleSide, color: 0xb8d4ff }));
         const rmesh = new THREE.InstancedMesh(a.geometry, rmat, wet.length);
         rmesh.frustumCulled = false;
         rmesh.renderOrder = 1;
-        wet.forEach(({ p, y }, i) => { const sc = p.s ?? 1; m.makeScale(sc, -sc, -sc); m.setPosition(p.x, y, p.z + nudge(p)); rmesh.setMatrixAt(i, m); });
+        wet.forEach(({ p, y, z }, i) => { const sc = p.s ?? 1; m.makeScale(sc, -sc, -sc); m.setPosition(p.x, y, z); rmesh.setMatrixAt(i, m); });
         scene.add(rmesh);
       }
     }

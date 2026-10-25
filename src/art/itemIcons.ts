@@ -252,6 +252,13 @@ export const ITEM_ICONS: Record<string, { name: string; draw: Draw }> = {
     line(p, 7, 8, 13, 14, 0.9, ['#e0b43a', '#a87a1e']);
     line(p, 11, 12, 13, 10, 0.7, ['#c8962a']);
   } },
+  lockpick: { name: 'Lockpick', draw: (p) => {
+    // A slim steel pick with a hooked tip and a wrapped grip.
+    line(p, 3, 13, 11, 5, 0.7, ['#e8ecf4', '#9aa2b4']);
+    line(p, 11, 5, 13, 4, 0.6, ['#c8ccd8']);
+    line(p, 13, 4, 13, 2, 0.6, ['#c8ccd8']);
+    line(p, 2, 14, 5, 11, 1.4, ['#c08a4a', '#7a4a1e']);
+  } },
   gem: { name: 'Gem', draw: (p) => {
     fill(p, (x, y) => y >= 4 && y <= 7 ? Math.abs(x - 8) <= 4 + (y - 4) * 0.7 : y > 7 && Math.abs(x - 8) <= (14 - y) * 1.1, ['#e0fbff', '#5ad8f0', '#2a90b8', '#1a5a80']);
     line(p, 5, 7, 11, 7, 0.4, ['#bff2ff']);
@@ -590,7 +597,7 @@ const ICON_GROUP_LIST: [string, string[]][] = [
   ['Ores and minerals', ['stone', 'coal', 'ore_copper', 'ore_iron', 'ore_silver', 'ore_gold', 'ore_mythril', 'ingot_copper', 'ingot_iron', 'ingot_steel', 'ingot_silver', 'ingot_gold', 'ingot_mythril', 'crystal', 'salt', 'sulfur', 'clay', 'sand']],
   ['Herbs and plants', ['herb', 'flower', 'rose', 'leaf', 'clover', 'mint', 'nightshade', 'root', 'seeds', 'sapling', 'cactus']],
   ['Fishing', ['fishing_rod', 'fish_minnow', 'fish_trout', 'fish_eel', 'fish_koi', 'boot']],
-  ['Containers and things', ['bag', 'sack', 'coin_bag', 'coin', 'basket', 'crate', 'chest', 'clay_pot', 'key', 'scroll', 'book', 'map', 'letter', 'ticket', 'candle', 'lantern', 'torch', 'flashlight', 'bell', 'hourglass', 'compass', 'quill', 'saddle', 'trophy']],
+  ['Containers and things', ['bag', 'sack', 'coin_bag', 'coin', 'basket', 'crate', 'chest', 'clay_pot', 'key', 'lockpick', 'scroll', 'book', 'map', 'letter', 'ticket', 'candle', 'lantern', 'torch', 'flashlight', 'bell', 'hourglass', 'compass', 'quill', 'saddle', 'trophy']],
   ['Magic', ['spell_fire', 'spell_ice', 'spell_bolt', 'spell_water', 'spell_wind', 'spell_quake', 'spell_poison', 'spell_light', 'spell_dark', 'spell_star', 'spell_heal', 'spell_shield', 'spell_haste', 'shard_fire', 'shard_frost', 'shard_spark', 'shard_venom', 'shard_arcane', 'shard_light', 'shard_shadow', 'shard_earth', 'shard_tide']],
 ];
 Object.assign(ITEM_ICONS, MORE_ICONS);

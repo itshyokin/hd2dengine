@@ -1076,6 +1076,8 @@ export class BattleScreen {
     this.cmdEl.classList.toggle('bar', !!m.bar);
     this.root.classList.toggle('bar-mode', !!m.bar);
     this.root.classList.toggle('list-mode', !m.bar);
+    // The Swap list (Update 125): compact rows that share the panel's height.
+    this.cmdEl.classList.toggle('swap', !m.bar && m.items.some((x) => !!x.bars));
     if (m.bar) {
       this.descEl.hidden = true;
       // Legend of Dragoon: a row of pictures, the chosen one raised, named underneath.
@@ -1133,9 +1135,9 @@ export class BattleScreen {
         const share = v.hp / Math.max(1, v.maxHp);
         const bars = document.createElement('span');
         bars.className = `bcmd-bars${share <= 0.2 ? ' low' : share <= 0.5 ? ' mid' : ''}`;
-        bars.innerHTML = `<span class="bb hp" title="HP ${Math.ceil(v.hp)} / ${v.maxHp}"><i style="width:${w(v.hp, v.maxHp)}"></i></span><em>${Math.ceil(v.hp)} / ${v.maxHp}</em>`
-          + (v.maxMp ? `<span class="bb mp" title="MP ${Math.floor(v.mp)} / ${v.maxMp}"><i style="width:${w(v.mp, v.maxMp)}"></i></span><em>${Math.floor(v.mp)} / ${v.maxMp}</em>` : '')
-          + (v.xp !== undefined ? `<span class="bb xp" title="EXP"><i style="width:${Math.round(v.xp * 100)}%"></i></span><em>EXP</em>` : '');
+        bars.innerHTML = `<span class="bbw"><em>HP ${Math.ceil(v.hp)} / ${v.maxHp}</em><span class="bb hp"><i style="width:${w(v.hp, v.maxHp)}"></i></span></span>`
+          + (v.maxMp ? `<span class="bbw"><em>MP ${Math.floor(v.mp)} / ${v.maxMp}</em><span class="bb mp"><i style="width:${w(v.mp, v.maxMp)}"></i></span></span>` : '')
+          + (v.xp !== undefined ? `<span class="bbw"><em>EXP ${Math.round(v.xp * 100)}%</em><span class="bb xp"><i style="width:${Math.round(v.xp * 100)}%"></i></span></span>` : '');
         b.append(bars);
         b.classList.add('with-bars');
       }
