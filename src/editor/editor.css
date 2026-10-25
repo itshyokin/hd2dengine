@@ -936,3 +936,8 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .worn-chip.none { background: repeating-linear-gradient(45deg, #444 0 3px, #666 3px 6px); color: #fff; font-size: 10px; line-height: 1; }
 .worn-tint { font-size: 12px; display: flex; align-items: center; gap: 6px; }
 .worn-builder summary { cursor: pointer; margin: 6px 0; }
+
+/* Database → Party → Roleplay rows (Update 127). */
+.field-row.rp-row { display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(160px, 1.4fr) auto auto; align-items: end; gap: 10px; }
+.rp-row .rp-id { align-self: center; opacity: 0.7; }
+.rp-row .rp-answers { align-self: center; }
