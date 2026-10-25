@@ -205,10 +205,15 @@ decide things; the tablet editor keeps working.
         Snow on trees drawn solid white (not see-through). Bag → equip armor someone already wears (Titantech on
         Katrina): always show the "who wears it" list (wearer marked), never fall back to the main hero
         (equipTargets uses gear() without in-use copies → [] → equipItem on Jordan); a Take off option.
+        Chatter bubbles sit at mid-body, not over the head (Game chatter spot uses a fixed height 1.1 from the
+        body's y; check y is the feet and use the sprite's real height).
   - [ ] Update 122: camp. Party members walking to camp spots pass through props and each other until seated
         (then solid; after a few seconds stuck, they appear in their spot). Talk to a resting party member: a camp
         chatter line. Chatter gets a Camp trigger: a default line plus conditional lines ("if switch X is on",
         "if quest Y is active", etc.) so they comment on what's going on.
+        Group chatter: a list of up to ~10 lines (speaker dropdown + text) that plays top to bottom at the next camp
+        visit, each line over its speaker's head, like a live conversation. Queued by an event command ("Group chatter
+        at next camp") or set to play when a switch is on; plays once.
   - [ ] Update 123: footprints and puddles. Terrain materials get "Leaves footprints" (default on for snow, sand,
         mud): prints fade over ~20–30 s, hoof prints when riding, fresh snow fills them faster. After rain, small
         reflective puddles on soft flat ground (dirt, grass, paths; not sand) shrink away over ~2 game hours.
