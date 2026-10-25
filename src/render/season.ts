@@ -55,13 +55,11 @@ vec3 hdSeasonColor(vec3 c, vec2 world, vec2 origin, float ground, float bare, ou
   vec3 turned = ground > 0.5 ? vec3(1.0, 0.8, 0.34) * min(lum * 1.95, 1.1) : fall * min(0.18 + lum * 2.1, 1.25);
   vec3 autumn = mix(c, turned, fallMask);
   vec3 snow = vec3(0.84, 0.89, 0.98) * (0.6 + lum * 0.5);
-  // Leaves (bushes, evergreens, grass tufts) turn icy blue rather than white, so they stand out against the snow;
-  // their light and shade kept from the green they were.
-  // (Linear colour: about rgb(108, 168, 228) on screen for a mid green.)
-  vec3 ice = vec3(0.16, 0.42, 0.85) * (0.35 + lum * 1.1);
-  vec3 winter = ground > 0.5 ? mix(c, snow, leaf) : mix(c, ice, leaf * 0.9);
+  // Update 121: tree and bush leaves are snow-laden in winter: solid white with their shading kept (a little blue in
+  // the shade so they still stand out against snowy ground). Nothing is cut away, so nothing shows through the canopy.
+  vec3 laden = mix(vec3(0.42, 0.5, 0.68), vec3(0.97, 0.98, 1.0), clamp(0.15 + lum * 2.2, 0.0, 1.0));
+  vec3 winter = ground > 0.5 ? mix(c, snow, leaf) : mix(c, laden, leaf);
   if (ground > 0.5) winter = mix(winter, vec3(0.8, 0.85, 0.95), 0.12);
-  if (bare > 0.5 && leaf > 0.35) gone = uHdSeason.w;
   return spring * uHdSeason.x + summer * uHdSeason.y + autumn * uHdSeason.z + winter * uHdSeason.w + c * (1.0 - dot(uHdSeason, vec4(1.0)));
 }
 `;
@@ -80,7 +78,7 @@ export function patchSeason<T extends THREE.Material>(mat: T, mode: SeasonMode):
   { float hdGone; diffuseColor.rgb = hdSeasonColor(diffuseColor.rgb, vHdWorld, vHdOrigin, ${mode === 'ground' ? '1.0' : '0.0'}, ${mode === 'bare' ? '1.0' : '0.0'}, hdGone); if (hdGone > 0.5) discard; diffuseColor.rgb = hdWeatherLook(diffuseColor.rgb, ${mode === 'ground' ? '1.0' : '0.0'}); }`);
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season4:${mode}`;
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|season5:${mode}`;
   return mat;
 }
 

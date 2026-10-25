@@ -814,9 +814,14 @@ export class Game {
       equipTargets: (i) => {
         const id = this.inventory.slots[i]?.id, host = this.equipHost();
         if (!id) return [];
-        const g = host.gear().find((x) => x.id === id), heroes = host.heroes();
+        // Every copy counts, worn or not (Update 121: armor Katrina wears used to find nothing here and go to the hero).
+        const g = host.gear(true).find((x) => x.id === id), heroes = host.heroes();
         if (!g || heroes.length < 2) return [];
-        return heroes.map((x, k) => ({ label: `${x.name}${g.users[k] ? '' : ' (can’t use it)'}`, disabled: !g.users[k] }));
+        const had = this.slotWearers().get(i)?.who;
+        return heroes.map((x, k) => {
+          const wearing = had === `hero:${k}`;
+          return { label: `${x.name}${wearing ? ' (wearing it)' : g.users[k] ? '' : ' (can’t use it)'}`, disabled: !g.users[k] || wearing };
+        });
       },
       equipOn: (i, who) => {
         const id = this.inventory.slots[i]?.id, host = this.equipHost();
@@ -4565,7 +4570,8 @@ export class Game {
     }
     // Party chatter: over the speaker's head, following them.
     const say = this.chatSay, at = say && this.bodyParty().find((p) => p.id === say.id);
-    if (say && at && at.shown) spots.push({ key: this.chatKey, bubble: say.bubble, x: at.x, y: at.y, z: at.z, height: 1.1 });
+    // Over the head (Update 121: characters stand about 1.5 tall, like events' speakers).
+    if (say && at && at.shown) spots.push({ key: this.chatKey, bubble: say.bubble, x: at.x, y: at.y, z: at.z, height: 1.5 });
     this.bubbles.update(spots, this.projector, this.elapsed);
   }
 
@@ -7361,15 +7367,18 @@ export class Game {
     let t = (this.bodyFxT.get(h.id) ?? Math.random()) - dt;
     if (t > 0) { this.bodyFxT.set(h.id, t); return; }
     const [dx, dz] = DIR_VECTOR[h.dir];
+    // Sprites lean back toward a high camera (Update 121): a point `u` up the body is up the leaned sprite.
+    const lean = leanNow(), cy = Math.cos(lean), sz = Math.sin(lean);
+    const at = (u: number, ox = 0, oz = 0): [number, number, number] => [h.x + ox, h.y + u * cy, h.z + oz - u * sz + 0.02];
     if (temp < 45) {
       // Breath in the cold: a puff from the mouth every couple of seconds, thicker and longer the colder it is.
       const cold = Math.min(1, (45 - temp) / 40);
-      this.bursts.spawn(h.x + dx * 0.18, h.y + 1.05, h.z + dz * 0.18 + 0.02, { color: '#eef4ff', n: 3 + Math.round(cold * 4), speed: 0.18 + cold * 0.12, up: 0.22, life: 0.9 + cold * 0.8, size: 0.1 + cold * 0.06, gravity: -0.12 });
+      this.bursts.spawn(...at(1.22, dx * 0.18, dz * 0.18), { color: '#eef4ff', n: 3 + Math.round(cold * 4), speed: 0.18 + cold * 0.12, up: 0.22, life: 0.9 + cold * 0.8, size: 0.1 + cold * 0.06, gravity: -0.12 });
       t = 1.5 + Math.random() * 1.2 - cold * 0.4;
     }
-    if (st === 'wet') { this.bursts.spawn(h.x + (Math.random() - 0.5) * 0.3, h.y + 0.6 + Math.random() * 0.5, h.z + 0.05, { color: '#8cc8ff', n: 1, speed: 0.05, up: 0, life: 0.5, size: 0.05, gravity: 7 }); t = Math.min(t > 0 ? t : 9, 0.35 + Math.random() * 0.3); }
+    if (st === 'wet') { this.bursts.spawn(...at(0.6 + Math.random() * 0.5, (Math.random() - 0.5) * 0.3, 0.03), { color: '#8cc8ff', n: 1, speed: 0.05, up: 0, life: 0.5, size: 0.05, gravity: 7 }); t = Math.min(t > 0 ? t : 9, 0.35 + Math.random() * 0.3); }
     if (st === 'hot' || st === 'overheating') {
-      this.bursts.spawn(h.x + (Math.random() - 0.5) * 0.25, h.y + 1.25, h.z + 0.04, { color: '#e8e2da', n: st === 'overheating' ? 4 : 2, speed: 0.08, up: 0.35, life: 1.1, size: 0.11, gravity: -0.25 });
+      this.bursts.spawn(...at(1.4, (Math.random() - 0.5) * 0.25, 0.02), { color: '#e8e2da', n: st === 'overheating' ? 4 : 2, speed: 0.08, up: 0.35, life: 1.1, size: 0.11, gravity: -0.25 });
       t = Math.min(t > 0 ? t : 9, st === 'overheating' ? 0.5 : 1.2);
     }
     this.bodyFxT.set(h.id, t > 0 ? t : 1.5);
