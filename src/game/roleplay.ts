@@ -1,0 +1,43 @@
+/**
+ * Gender and roleplay info (Update 127). No three.js.
+ *  - Gender: a hero's gender, shown as a coloured symbol on their stat blocks and a line on the Status page; their
+ *    outfit gender (masc / femme) picks which version of worn armor they wear.
+ *  - Roleplay info: titles shared by every hero (Database → Party → Roleplay: Eye colour, Favourite food…), each
+ *    hero with their own answer. Conditions check an answer ("Eleanor's Favourite food is Ramen"), \rp[hero, title]
+ *    shows one in text, and items can be a favourite of (or disliked by) heroes with a given answer.
+ */
+import type { Database, Gender, HeroDef, RoleplayField } from '../world/types';
+
+export const GENDERS: Gender[] = ['male', 'female', 'transman', 'transwoman', 'transgender', 'nonbinary', 'other'];
+export const GENDER_INFO: Record<Gender, { name: string; symbol: string; color: string; css: string }> = {
+  male: { name: 'Male', symbol: '♂', color: '#4a9aff', css: '#4a9aff' },
+  female: { name: 'Female', symbol: '♀', color: '#ff7ab8', css: '#ff7ab8' },
+  transman: { name: 'Transman', symbol: '⚧', color: '#2a5ac8', css: '#2a5ac8' },
+  transwoman: { name: 'Transwoman', symbol: '⚧', color: '#c8407e', css: '#c8407e' },
+  transgender: { name: 'Transgender', symbol: '⚧', color: '#f5a9b8', css: 'linear-gradient(180deg, #5bcefa 0%, #5bcefa 30%, #ffffff 42%, #ffffff 58%, #f5a9b8 70%, #f5a9b8 100%)' },
+  nonbinary: { name: 'Nonbinary', symbol: '⚲', color: '#a868e8', css: '#a868e8' },
+  other: { name: 'Other', symbol: '✱', color: '#ffffff', css: '#ffffff' },
+};
+
+/** The gender symbol as HTML (the trans flag's gradient through the glyph), or '' with none set. */
+export function genderBadge(g: Gender | undefined, cls = 'g-badge'): string {
+  if (!g) return '';
+  const i = GENDER_INFO[g];
+  const style = i.css.startsWith('linear') ? `background:${i.css};-webkit-background-clip:text;background-clip:text;color:transparent` : `color:${i.css}`;
+  return `<span class="${cls}" title="${i.name}" style="${style}">${i.symbol}</span>`;
+}
+
+/** The roleplay titles (Database → Party → Roleplay). */
+export const rpFields = (db: Database): RoleplayField[] => db.roleplay ?? [];
+/** A title's id by its id or its title (case doesn't matter), or undefined. */
+export function rpFieldId(db: Database, idOrTitle: string): string | undefined {
+  const k = idOrTitle.trim().toLowerCase();
+  return rpFields(db).find((f) => f.id.toLowerCase() === k || f.title.trim().toLowerCase() === k)?.id;
+}
+/** A hero's answer for a title ('' when none). */
+export function rpValue(db: Database, hero: HeroDef | undefined, idOrTitle: string): string {
+  const id = rpFieldId(db, idOrTitle);
+  return id && hero ? hero.roleplay?.[id]?.trim() ?? '' : '';
+}
+/** Answers match: the same words, case and spacing aside. */
+export const rpMatch = (a: string, b: string): boolean => a.trim().toLowerCase().replace(/\s+/g, ' ') === b.trim().toLowerCase().replace(/\s+/g, ' ') && !!a.trim();

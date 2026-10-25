@@ -299,6 +299,23 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       d.tool || d.field ? h('span') : field('EXP All: % for everyone sitting a battle out', numberInput(d.exp?.all ? d.exp.share : 0, (v) => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n) d.exp = { share: n, all: true }; else delete d.exp; }, { step: 5, min: 0, max: 100 }),
         'While held and switched on (the player switches it on and off in the bag’s Key items), everyone on the bench gets this percent of the foes’ EXP. Fighters always get the most. 0: not an EXP All.')));
   }
+  // Favourite of / disliked by (Update 127): used on a hero whose roleplay answer matches, it moves their view of
+  // whoever used it (in battle the hero acting, out of battle the hero you play).
+  if (d.kind === 'consumable') {
+    const fields = store.db.roleplay ?? [];
+    const rows = (d.reactions ?? []).map((r, k) => h('div', { class: 'field-row' },
+      h('span', { class: 'note' }, 'Heroes whose'),
+      select(fields.length ? fields.map((f) => [f.id, f.title] as [string, string]) : [['', '(add titles in Party → Roleplay)']], r.field, (v) => (r.field = v), { 'aria-label': 'Roleplay title' }),
+      h('span', { class: 'note' }, 'is'),
+      textInput(r.value, (v) => (r.value = v.trim()), { placeholder: 'Ramen', 'aria-label': 'Answer' }),
+      select([['1', 'love it (+)'], ['-1', 'dislike it (−)']], r.points < 0 ? '-1' : '1', (v) => (r.points = Math.abs(r.points || 1) * Number(v)), { 'aria-label': 'Like or dislike' }),
+      numberInput(Math.abs(r.points), (v) => (r.points = Math.sign(r.points || 1) * Math.max(0, Math.round(v))), { step: 1, min: 0, max: 50, 'aria-label': 'Points', class: 'db-num' }),
+      h('button', { type: 'button', class: 'mini-btn', 'aria-label': 'Remove', onclick: () => { d.reactions!.splice(k, 1); if (!d.reactions!.length) delete d.reactions; rerender(); } }, '✕')));
+    out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Favourite of / disliked by'),
+      h('p', { class: 'note' }, 'Used on a hero whose roleplay answer matches (Favourite food is Ramen, say), their view of whoever used it goes up (or down) by the points: in battle the hero who used it, out of battle the hero you play.'),
+      ...rows,
+      h('button', { type: 'button', class: 'btn small', disabled: !fields.length, onclick: () => { (d.reactions ??= []).push({ field: fields[0]?.id ?? '', value: '', points: 1 }); rerender(); } }, '+ Add a reaction')));
+  }
   // Lockpicks (Update 119): one is used up when a pick snaps.
   if (d.kind !== 'equipment') out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Lockpicking'),
     checkbox('Lockpick: picking a lock needs one in the bag, and a snapped pick uses one up (with no lockpick items in the game, picking is free)', !!d.lockpick, (v) => { if (v) d.lockpick = true; else delete d.lockpick; })));

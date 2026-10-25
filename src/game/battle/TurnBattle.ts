@@ -47,7 +47,7 @@ export interface BattleHost {
    * Use the item in bag slot `slot` on party member `who` (0 the hero), who has these battle ailments: what
    * happened, whether it was used up, and what it cures.
    */
-  useItem(slot: number, who: number, ailments: BattleAilment[]): { text: string; used: boolean; cures: (Ailment | 'all')[]; buffs?: BuffGrant[] } | null;
+  useItem(slot: number, who: number, ailments: BattleAilment[], by?: number): { text: string; used: boolean; cures: (Ailment | 'all')[]; buffs?: BuffGrant[] } | null;
   /** Use up one of the item in this bag slot (used on an enemy). */
   spendItem(slot: number): void;
   /** Play a voice clip or other sound file (call-outs, chants). */
@@ -573,7 +573,7 @@ export class TurnBattle {
     const res = this.host.reserves?.().find((r) => r.who === who), name = res?.name ?? 'them';
     this.screen.animate(b.key, 'toss');
     this.later(0.45, () => {
-      const r = this.host.useItem(it.slot, who, []);
+      const r = this.host.useItem(it.slot, who, [], this.entry(b).who ?? 0);
       // Healing someone hurt on the bench, or bringing them back (Update 124): they warm to whoever did it.
       if (r?.used && res && who !== (this.entry(b).who ?? 0)) {
         if (res.down) this.host.bond?.('revive', who, this.entry(b).who ?? 0);
@@ -842,7 +842,7 @@ export class TurnBattle {
   private applyItem(b: Battler, it: BattleItem, t: Battler): void {
     if (t.side === 'enemy') { this.itemOnFoe(b, it, t); return; }
     const who = this.entry(t).who ?? 0;
-    const r = this.host.useItem(it.slot, who, t.status.list);
+    const r = this.host.useItem(it.slot, who, t.status.list, this.entry(b).who ?? 0);
     // It did nothing (full health, say): say so and choose again; the turn isn't lost.
     if (!r?.used) { this.screen.message(r?.text || 'It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
     // The item worked on the game's numbers: read them back.

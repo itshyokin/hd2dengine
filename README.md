@@ -608,6 +608,22 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
 - On the way to their camp spots, party members walk through props and each other (no getting stuck walking on the
   spot); once seated they're solid again.
 
+### Gender and roleplay (Update 127)
+
+- **Database → Heroes**: **Gender** (Male ♂ blue, Female ♀ pink, Transman ⚧ dark blue, Transwoman ⚧ dark pink,
+  Transgender ⚧ in the trans flag's blue, white and pink, Nonbinary ⚲ purple, Other ✱ white) shows as a symbol beside
+  their name on the HUD cards, the pause menu's party panels and their Status page. **Outfit gender** (masc / femme)
+  picks which version of worn armor and clothes they wear (unset: their look's Body from Characters).
+- **Database → Party → Roleplay**: titles every hero shares (Eye colour, Favourite food, Favourite gift…); each hero
+  writes their own answers on the Heroes tab (**Roleplay**). They show on the Status page under About.
+- **Using them**: the **Roleplay** condition ("Eleanor's Favourite food is Ramen", upper and lower case aside), the
+  text code `\rp[Eleanor, Favourite food]`, and items: Database → Items (consumables) → **Favourite of / disliked by**
+  (heroes whose title is an answer love it (+) or dislike it (−) by some points). Used on them, their view of whoever
+  used it changes: in battle the hero who used it (Katrina uses Ramen on Eleanor on the bench: Eleanor warms to
+  Katrina), out of battle the hero you play.
+- **Status page**: the hero's relationships (how they see each party member) under their picture, and gender and
+  roleplay answers in the Profile page under About.
+
 ### Relationships (Update 124)
 
 - Each party member rates each other one from **0 (Hate) to 100 (Best friends / Love)**, one way: Katrina's view of
@@ -909,8 +925,10 @@ them: Freezing before a fight, still Freezing after.
 ### Battle look (Update 111)
 
 - **Damage numbers** are bigger (critical hits and the big finishers bigger still).
-- **Bars**: Database → Title & menus: *Health and magic bars in solid colours* and *Square bars* (off: shaded and
-  rounded), everywhere bars are drawn.
+- **Meter and orb styles** (Update 126): Database → Title & menus → Bars: **Meter fill** (gradient, flat colour,
+  glossy with a shine along the top, striped, or segmented blocks of colour), **Meter shape** (pill, rectangle,
+  bevelled corners, thin line, or blocks with gaps) and **Party orbs** in battle (shaded sphere, flat circle, pixel
+  square, diamond), everywhere meters are drawn. (The older solid / square switches become Flat / Rectangle.)
 - **Battle layout** (Database → Title & menus → Battle layout, Pocket Handheld): the foes' blocks, the party's
   blocks, the command box and the text box. Tick *Place by hand* for a piece and drag it (its corner sizes it), in
   percent of the screen; unticked pieces keep the built-in place.

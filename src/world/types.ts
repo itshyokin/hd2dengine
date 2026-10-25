@@ -291,7 +291,9 @@ export type Condition =
   /** The real date is this day of the year ("MM-DD"), or between it and `until` (both included; may wrap past December). */
   | { date: string; until?: string }
   /** Relationships (Update 124): how `relation` (a hero id) rates `of` ('' the hero you play), at least / at most `value` (0 … 100). */
-  | { relation: string; of: string; op: '>=' | '<='; value: number };
+  | { relation: string; of: string; op: '>=' | '<='; value: number }
+  /** Roleplay (Update 127): `hero`'s answer ('' the hero you play) for the title `rp` (an id) is `is` (case aside). */
+  | { rp: string; hero: string; is: string };
 
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
@@ -929,6 +931,11 @@ export interface HeroChatter {
   camp?: { line: string; if?: Condition }[];
 }
 
+/** A hero's gender (Update 127; game/roleplay.ts). */
+export type Gender = 'male' | 'female' | 'transman' | 'transwoman' | 'transgender' | 'nonbinary' | 'other';
+/** A roleplay title every hero shares (Update 127): its id stays put when it's renamed. */
+export interface RoleplayField { id: string; title: string }
+
 /** What moves a relationship rating (Update 124; game/relations.ts). */
 export type RelationKind = 'cover' | 'coverSave' | 'benchHeal' | 'revive' | 'avenge' | 'camp';
 /** Relationships setup (Database → Relationships). */
@@ -959,6 +966,11 @@ export interface TutorialDef { id: string; title: string; text: string }
 export interface HeroDef {
   id: string;
   name: string;
+  /** Update 127: their gender (a coloured symbol on stat blocks), and which version of worn clothes they wear. */
+  gender?: Gender;
+  outfit?: 'masc' | 'femme';
+  /** Update 127: their answers to the roleplay titles (Database → Party → Roleplay), by title id. */
+  roleplay?: Record<string, string>;
   /** In a safe zone: how much they like each rest activity, 1 (rarely) … 10 (goes for it most often); unset 5. */
   restPrefs?: Partial<Record<RestActivity, number>>;
   /** Party chatter: what they say now and then out of battle (Database → Characters → Chatter; game/chatter.ts). */
@@ -1061,6 +1073,8 @@ export interface Database {
   groupChatter?: GroupChatter[];
   /** Relationships between party members (Update 124). */
   relations?: RelationSettings;
+  /** Roleplay titles (Update 127). */
+  roleplay?: RoleplayField[];
   /** The developer console (the ` key): in playtests only (default), always, or never. */
   devConsole?: 'playtest' | 'always' | 'off';
   /** How many heroes fight and walk on the map at once, the hero you play included (3 unset, or 4). */
@@ -1303,6 +1317,8 @@ export interface ItemDef {
   mines?: boolean;
   /** Key items: one of the other field uses (Update 118): Dash, Climb, Cut, Fire Bow, Smash Stone, the weather, time or season, fishing, calling the horse, a Skeleton Key. */
   field?: FieldUse;
+  /** Consumables (Update 127): heroes whose roleplay answer for `field` is `value` change their view of whoever used it by `points`. */
+  reactions?: { field: string; value: string; points: number }[];
   /** A lockpick (Update 119): one is used up each time a pick snaps. With none in the database, picking is free. */
   lockpick?: boolean;
   /** Key items: a Saddle (using it from the bag sends the rented horse home to its stable). */
@@ -1411,6 +1427,10 @@ export interface MenuConfig {
   /** Health and magic bars (Update 111): solid colours instead of the shaded ones, and square ends instead of round. */
   barsSolid?: boolean;
   barsSquare?: boolean;
+  /** Update 126: how meters are filled and shaped, and how the party's orbs look (unset: gradient, pill, sphere). */
+  barFill?: 'gradient' | 'flat' | 'glossy' | 'striped' | 'segmented';
+  barShape?: 'pill' | 'rect' | 'bevel' | 'thin' | 'blocks';
+  orbStyle?: 'sphere' | 'flat' | 'square' | 'diamond';
   /** The Party page's member panels: where they sit, how big, what they show (see ui/partyLayout.ts). */
   partyLayout?: import('../ui/partyLayout').PartyLayout;
   /** The battle screen's pieces (Pocket Handheld; Update 111). */

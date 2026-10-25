@@ -186,6 +186,7 @@ export function conditionText(c: Condition): string {
   if ('date' in c) return `it's ${datesLabel(c.date, c.until)} (real world)`;
   if ('heroHas' in c) return `${heroWhoName(c.hero)} ${c.is === false ? 'is not' : c.hero === 'any' ? 'is' : 'is'} ${(HERO_STATES.find(([k]) => k === c.heroHas)?.[1] ?? c.heroHas).toLowerCase()}`;
   if ('weekday' in c) return `it's ${c.weekday.length ? c.weekday.map((d) => WEEKDAYS[d]).join(' or ') : '(no day picked)'} (real world)`;
+  if ('rp' in c) return `${relHeroName(c.hero)}’s ${dbNow?.().roleplay?.find((f) => f.id === c.rp)?.title ?? c.rp} is “${c.is}”`;
   if ('relation' in c) return `${relHeroName(c.relation)} rates ${relHeroName(c.of)} ${c.op === '<=' ? 'at most' : 'at least'} ${c.value}`;
   return `variable ${c.var || '(unnamed)'} ${c.op} ${c.value}`;
 }
@@ -901,12 +902,12 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'date' in cur ? 'date' : 'relation' in cur ? 'relation' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['date', 'Date (real world: a holiday, a week of it)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)'], ['relation', 'Relationship (how one hero rates another)']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'date' in cur ? 'date' : 'relation' in cur ? 'relation' : 'rp' in cur ? 'rp' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['date', 'Date (real world: a holiday, a week of it)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)'], ['relation', 'Relationship (how one hero rates another)'], ['rp', 'Roleplay (a hero’s Favourite food is…)']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
       cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'self' ? { self: 'A', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
-        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'date' ? { date: '10-31' } : v === 'relation' ? { relation: relRaters()[0]?.[0] ?? '', of: '', op: '>=', value: 60 } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
+        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'date' ? { date: '10-31' } : v === 'relation' ? { relation: relRaters()[0]?.[0] ?? '', of: '', op: '>=', value: 60 } : v === 'rp' ? { rp: dbNow?.().roleplay?.[0]?.id ?? '', hero: '', is: '' } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
       render();
@@ -965,6 +966,13 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
         checkbox('A range of days (up to and including)', !!c.until, (on) => { if (on) c.until = c.date; else delete c.until; untilWrap.hidden = !on; onchange(c); }),
         untilWrap,
         h('p', { class: 'hint' }, 'The player’s own date, any year: a pumpkin on Halloween (Oct 31), decorations the week before (Oct 24 – Oct 31). A range can wrap past New Year (Dec 20 – Jan 5).'));
+    } else if (cur && 'rp' in cur) {
+      const c = cur, fields = dbNow?.().roleplay ?? [];
+      parts.push(h('div', { class: 'field-row' },
+        field('Hero', select(relTargets(), c.hero, (v) => { c.hero = v; onchange(c); })),
+        field('Title', select(fields.length ? fields.map((f) => [f.id, f.title] as [string, string]) : [['', '(add titles in Party → Roleplay)']], c.rp, (v) => { c.rp = v; onchange(c); })),
+        field('Is', textInput(c.is, (v) => { c.is = v.trim(); onchange(c); }, { placeholder: 'Ramen' }))),
+        h('p', { class: 'hint' }, 'Their answer on the Heroes tab (Roleplay), upper and lower case aside.'));
     } else if (cur && 'relation' in cur) {
       const c = cur;
       parts.push(h('div', { class: 'field-row' },

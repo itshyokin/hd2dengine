@@ -24,7 +24,7 @@ export class GameState {
   /** Quests (for quest conditions). */
   quests: QuestBook | null = null;
   /** The temperature (°F) and weather where the player is (for those conditions). */
-  env: { temp(): number; weather(): WeatherKind; heroHas?(hero: string, what: string): boolean; relation?(a: string, b: string): number } | null = null;
+  env: { temp(): number; weather(): WeatherKind; heroHas?(hero: string, what: string): boolean; relation?(a: string, b: string): number; rp?(hero: string, field: string): string } | null = null;
   /** Relationship ratings (Update 124), by "rater>rated" hero ids; missing: the Database's start. */
   readonly rel = new Map<string, number>();
   /** Movement abilities the player has right now. */
@@ -137,6 +137,7 @@ export class GameState {
     if ('temp' in c) { const t = this.env?.temp() ?? 70; return c.op === '<=' ? t <= c.temp : t >= c.temp; }
     if ('weather' in c) return c.weather.includes(this.env?.weather() ?? 'none');
     if ('date' in c) return inDates(new Date(), c.date, c.until);
+    if ('rp' in c) { const v = (this.env?.rp?.(c.hero, c.rp) ?? '').trim().toLowerCase().replace(/\s+/g, ' '); return !!v && v === c.is.trim().toLowerCase().replace(/\s+/g, ' '); }
     if ('relation' in c) { const v = this.env?.relation?.(c.relation, c.of) ?? 50; return c.op === '<=' ? v <= c.value : v >= c.value; }
     if ('heroHas' in c) return (this.env?.heroHas?.(c.hero ?? '', c.heroHas) ?? false) === (c.is ?? true);
     const v = this.getVar(c.var);
@@ -156,6 +157,8 @@ export class GameState {
   format(text: string): string {
     return text
       .replace(/\\fire/g, () => this.fireText())
+      // Roleplay (Update 127): \rp[Eleanor, Favourite food] → her answer.
+      .replace(/\\rp\[([^\],]+),\s*([^\]]+)\]/g, (_, who: string, title: string) => this.env?.rp?.(who.trim(), title.trim()) ?? '')
       .replace(/\\v\[([^\]]+)\]/g, (_, id: string) => String(this.getVar(id)))
       .replace(/\\s\[([^\]]+)\]/g, (_, id: string) => (this.getSwitch(id) ? 'ON' : 'OFF'));
   }

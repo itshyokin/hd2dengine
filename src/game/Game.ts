@@ -150,6 +150,7 @@ import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
+import { rpFields, rpMatch, rpValue } from './roleplay';
 import { REL_BATTLE_CAP, relAmount, relClamp, relKey, relLabel, relLove, relStart } from './relations';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
@@ -598,7 +599,7 @@ export class Game {
 
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
-    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what), relation: (a, b) => this.relGet(a, b) };
+    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what), relation: (a, b) => this.relGet(a, b), rp: (hero, field) => rpValue(this.db, this.heroByIdOrName(hero), field) };
     // Skill tree nodes locked until a quest is done, a key item is carried or a switch is on (Update 113).
     Skills.locked = (n) => {
       const nd = n.needs;
@@ -706,7 +707,11 @@ export class Game {
     this.charScreen = new CharacterScreen(this.ui, this.input, {
       hero: (h) => {
         const host = this.equipHost(), x = host.heroes()[h], def = h ? this.members()[h - 1]?.def : mainHero(this.db);
-        return { name: x?.name ?? '', level: x?.level ?? 1, portrait: x?.portrait ?? '', color: this.heroColor(h), about: def?.about, art: this.heroArt(h), elements: this.heroAffinity(h).elements, ailment: this.ailmentPill(h) };
+        // Update 127: gender, roleplay answers, and how they see the rest of the party (the hero you play rates no one).
+        const roleplay = rpFields(this.db).map((f) => ({ title: f.title, value: def?.roleplay?.[f.id] ?? '' })).filter((r) => r.value);
+        const lead = mainHero(this.db), party = [lead, ...this.members().map((m) => m.def)];
+        const bonds = !def || def === lead || this.db.relations?.off ? undefined : party.filter((o) => o.id !== def.id).map((o) => { const v = this.relGet(def.id, o.id), l = relLabel(v, relLove(this.db, def.id, o.id)); return { name: o.name, value: v, label: l.name, color: l.color }; });
+        return { name: x?.name ?? '', level: x?.level ?? 1, portrait: x?.portrait ?? '', color: this.heroColor(h), about: def?.about, art: this.heroArt(h), elements: this.heroAffinity(h).elements, ailment: this.ailmentPill(h), gender: def?.gender, roleplay, bonds };
       },
       gauges: (h) => {
         const m = h ? this.members()[h - 1] : null;
@@ -2825,6 +2830,8 @@ export class Game {
       if (!got.length) return `${d.name} wouldn’t do anything for ${m.def.name} right now.`;
       this.inventory.removeAt(i, 1);
       this.state.tally('itemsUsed');
+      // Out of battle, a favourite (or a disliked) item is from the hero you play (Update 127).
+      if (!battle) this.itemReaction(d, m.def.id, mainHero(this.db).id);
       const a = this.allies.find((x) => x.data === m.data);
       if (a) this.bursts.spawn(a.x, a.y + 0.6, a.z, { color: '#9dffb0', n: 14, speed: 1, up: 2, life: 0.6, size: 0.08, additive: true });
       return `${m.def.name} used ${d.name}: ${got.join(', ')}.`;
@@ -5119,14 +5126,14 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null, tint: this.hpTint(0), good: this.goodPill(0), drying: this.drying.get(mainHero(this.db).id) ?? null,
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null, tint: this.hpTint(0), good: this.goodPill(0), drying: this.drying.get(mainHero(this.db).id) ?? null, gender: mainHero(this.db).gender,
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null, tint: m.data.down ? null : this.hpTint(who), good: this.goodPill(who), drying: this.drying.get(m.def.id) ?? null,
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null, tint: m.data.down ? null : this.hpTint(who), good: this.goodPill(who), drying: this.drying.get(m.def.id) ?? null, gender: m.def.gender,
     };
   }
 
@@ -5264,6 +5271,19 @@ export class Game {
   }
   /** Journal → Tutorials: the ones reached, newest first. */
   /* ---------------------------------------------------------------- relationships (Update 124) */
+
+  /** A hero by id or name ('' or 'hero': the hero you play). */
+  private heroByIdOrName(s: string): HeroDef | undefined {
+    const k = s.trim().toLowerCase();
+    if (!k) return mainHero(this.db);
+    return (this.db.heroes ?? []).find((x) => x.id.toLowerCase() === k || x.name.trim().toLowerCase() === k);
+  }
+  /** Item reactions (Update 127): `target` (a hero id) was given `item` by `giver` (a hero id): matching roleplay answers move their view. */
+  itemReaction(item: ItemDef | undefined, target: string, giver: string): void {
+    if (!item?.reactions?.length || target === giver) return;
+    const hero = this.heroByIdOrName(target);
+    for (const r of item.reactions) if (rpMatch(rpValue(this.db, hero, r.field), r.value)) this.relChange(target, giver, r.points);
+  }
 
   /** A hero id ('' the hero you play) as an id. */
   private relId(id: string): string { return id || mainHero(this.db).id; }
@@ -6067,7 +6087,7 @@ export class Game {
         const bits = restoreBits(d), part = (g: 'hp' | 'mp') => restoreParts(d, g);
         return [{ slot: i, name: d.name, icon: this.itemIcon(d.id), count: s.n, detail: [bits.join(' · '), d.description].filter(Boolean).join(' — '), restore: { hp: part('hp').flat, mp: part('mp').flat }, pct: { hp: part('hp').pct, mp: part('mp').pct }, cures: d.cures as string[] | undefined, buffs: d.buffs }];
       }),
-      useItem: (slot, who, ailments) => {
+      useItem: (slot, who, ailments, by) => {
         const s0 = this.inventory.slots[slot], id = s0?.id, d = id ? this.items.get(id) : undefined, before = id ? this.inventory.count(id) : 0;
         // What it cures of the battle's ailments on the one it's used on.
         const cures = d?.cures ?? [], all = cures.includes('all');
@@ -6081,6 +6101,8 @@ export class Game {
           used = true;
           text = `${who ? this.members()[who - 1]?.def.name ?? '' : mainHero(this.db).name} used ${d.name}.`;
         }
+        // In battle, a favourite (or a disliked) item is from the hero who used it (Update 127).
+        if (used && by !== undefined) { const idOf = (w: number) => (w === 0 ? mainHero(this.db).id : this.members()[w - 1]?.def.id ?? ''); this.itemReaction(d, idOf(who), idOf(by)); }
         return text === null && !used ? null : { text: text ?? '', used, cures: used ? cures : [], buffs: used ? d?.buffs : undefined };
       },
       voice: (src) => this.audio.play(src),
@@ -6418,7 +6440,8 @@ export class Game {
     const look = (who ? this.db.characters[def?.look ?? ''] : undefined) ?? this.db.characters[this.db.player];
     const equip = who ? this.members()[who - 1]?.data.equip : this.inventory?.equip;
     if (!look || !equip) return look;
-    const fem = look.body === 'femme';
+    // The hero's outfit gender (Update 127), else their look's body.
+    const fem = (def?.outfit ?? look.body) === 'femme';
     const layers = (['armor', 'accessory', 'shield'] as EquipSlot[]).flatMap((k) => {
       const w = equip[k] ? this.items.get(equip[k]!)?.worn : undefined;
       if (!w) return [];
@@ -6489,10 +6512,10 @@ export class Game {
     this.hud.setHeroTint(this.hpTint(0));
     this.hud.setHeroDrying(this.settings.hud?.stats?.compact ? null : this.drying.get(leadId) ?? null);
     this.hud.setHeroAilment(this.settings.hud?.stats?.compact || this.stats.hp <= 0 ? null : this.ailmentPill(0) ?? null, this.settings.hud?.stats?.compact ? null : this.goodPill(0));
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0), ailment: this.ailmentPill(0), good: this.goodPill(0), drying: this.drying.get(leadId) ?? null }] : [];
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0), ailment: this.ailmentPill(0), good: this.goodPill(0), drying: this.drying.get(leadId) ?? null, gender: mainHero(this.db).gender }] : [];
     // The party's cards: the others of the three fighting (whoever leads the map).
     const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
-    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1), ailment: this.ailmentPill(this.members().findIndex((x) => x.data === d) + 1), good: this.goodPill(this.members().findIndex((x) => x.data === d) + 1), drying: this.drying.get(def.id) ?? null }; })]);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1), ailment: this.ailmentPill(this.members().findIndex((x) => x.data === d) + 1), good: this.goodPill(this.members().findIndex((x) => x.data === d) + 1), drying: this.drying.get(def.id) ?? null, gender: def.gender }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -6747,8 +6770,12 @@ export class Game {
     const bars = this.db.menus?.bars ?? {}, root = document.documentElement.style;
     for (const k of ['hp', 'mp', 'xp', 'sp'] as const) { if (bars[k]) root.setProperty(`--c-${k}`, bars[k]!); else root.removeProperty(`--c-${k}`); }
     this.hud.staminaSteady = !!this.db.menus?.staminaSteady;
-    document.documentElement.classList.toggle('bars-solid', !!this.db.menus?.barsSolid);
-    document.documentElement.classList.toggle('bars-square', !!this.db.menus?.barsSquare);
+    // Meter and orb styles (Update 126; the older solid / square switches still count).
+    const mn = this.db.menus, cl = document.documentElement.classList;
+    const fill = mn?.barFill ?? (mn?.barsSolid ? 'flat' : 'gradient'), shape = mn?.barShape ?? (mn?.barsSquare ? 'rect' : 'pill'), orb = mn?.orbStyle ?? 'sphere';
+    for (const c of [...cl]) if (/^(bar-fill|bar-shape|orb)-/.test(c)) cl.remove(c);
+    cl.add(`bar-fill-${fill}`, `bar-shape-${shape}`, `orb-${orb}`);
+    cl.remove('bars-solid', 'bars-square');
     // Potato: everything costly is off, whatever the switches below say.
     const potato = st.quality === 'potato' && !this.stage;
     this.post.settings.bloom = st.bloom && !potato;

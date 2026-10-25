@@ -262,10 +262,12 @@ decide things; the tablet editor keeps working.
         (snap animation `snapT`, `out` ends after the snap); WorldBuilder prop reflections look up to 3 tiles ahead
         and start at the water's near edge; InventoryScreen equipWho "Unequip"; saveParty active = activeMembers + 1;
         TurnBattle attackMenu lists Additions only; BattleScreen `.battle-cmd.swap` rows (HP / MP / EXP side by side).
-  - [ ] Update 126: meter and orb styles (Database → Menus): fill gradient / flat / glossy / striped / segmented; shape
+  - [x] Update 126: meter and orb styles (Database → Menus): fill gradient / flat / glossy / striped / segmented; shape
         pill / rectangle / beveled / thin line / segmented blocks; orbs gradient sphere / flat circle / pixel square /
         diamond. Replaces barsSolid / barsSquare.
-  - [ ] Update 127: gender, outfit gender, roleplay info, gifts.
+        Done: MenuConfig barFill / barShape / orbStyle → root classes bar-fill-* / bar-shape-* / orb-* (Game applySettings;
+        CSS overrides --g-* and bar containers / .pb-ball); DatabaseEditor Bars section selects.
+  - [x] Update 127: gender, outfit gender, roleplay info, gifts.
         Heroes: Gender (Male ♂ blue, Female ♀ pink, Transman ⚧ dark blue, Transwoman ⚧ dark pink, Transgender ⚧
         blue→white→pink gradient, Nonbinary ⚲ purple, Other ✱ white); Outfit gender masc / femme (replaces the
         Characters card Body; picks the worn-look sprite). Symbol on the HUD card, pause panel, Status page (Gender line).
@@ -276,6 +278,11 @@ decide things; the tablet editor keeps working.
         Eleanor +1 toward Katrina); out of battle the hero you play.
         Status page: relationships list in the empty space under the portrait; roleplay details in the right panel
         under About / Description.
+        Done: game/roleplay.ts (GENDERS, GENDER_INFO, genderBadge, rpValue / rpMatch); HeroDef gender / outfit / roleplay;
+        Database roleplay (RoleplayEditor tab, HeroesEditor fields; HeroesWork.rp shares the working list); Condition
+        `rp`; GameState.format \rp[hero, title]; ItemDef reactions (ItemsEditor) via Game `itemReaction` (battle: the
+        user, from TurnBattle useItem `by`; map: the hero you play); CharacterScreen gender badge, Roleplay section,
+        Relationships under the picture; HUD cards / pause panels gender badge; lookFor uses hero outfit.
   - [ ] Update 128: built-in clothing. Using the builder's library (Steam-safe parts, credits), ship ~10 tops, ~10
         bottoms and several accessories (necklaces, earrings, capes…) as ready-made masc + femme sheets. Look when worn:
         three preview panels Top / Bottom / Accessory, ← → cycle (with None), live combined preview on a body; each has

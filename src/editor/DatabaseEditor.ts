@@ -24,7 +24,8 @@ import type { OverworldCamera } from '../world/types';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
 import { battleLayoutSection } from './BattleLayoutEditor';
 import { tutorialsTab } from './TutorialsEditor';
-import type { GroupChatter, RelationSettings, TutorialDef } from '../world/types';
+import type { GroupChatter, RelationSettings, RoleplayField, TutorialDef } from '../world/types';
+import { roleplayTab } from './RoleplayEditor';
 import { relationsTab } from './RelationsEditor';
 import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
 import type { EditorStore } from './store';
@@ -73,11 +74,11 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera' | 'stats' | 'tutorials' | 'relations';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera' | 'stats' | 'tutorials' | 'relations' | 'roleplay';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
-  ['Party', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['classes', 'Classes', 'badge'], ['characters', 'Characters', 'sprite'], ['relations', 'Relationships', 'heart']]],
+  ['Party', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['classes', 'Classes', 'badge'], ['characters', 'Characters', 'sprite'], ['relations', 'Relationships', 'heart'], ['roleplay', 'Roleplay', 'scroll']]],
   ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group']]],
   ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Items', [['items', 'Items', 'potion'], ['weapons', 'Weapons', 'sword'], ['gear', 'Gear: armor, shields, accessories', 'armor'], ['shards', 'Shards: spells and element stones', 'gem'], ['keyItems', 'Key items', 'key'], ['inventory', 'Starting inventory', 'bag']]],
@@ -151,6 +152,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const tutorials: TutorialDef[] = JSON.parse(JSON.stringify(store.db.tutorials ?? []));
   const groupChatter: GroupChatter[] = JSON.parse(JSON.stringify(store.db.groupChatter ?? []));
   const relations: RelationSettings = JSON.parse(JSON.stringify(store.db.relations ?? {}));
+  const roleplay: RoleplayField[] = JSON.parse(JSON.stringify(store.db.roleplay ?? []));
+  heroes.rp = roleplay;
   let activeParty: 3 | 4 = store.db.activeParty === 4 ? 4 : 3;
   const chatState = { sel: 0 };
   const spells: SpellEntry[] = JSON.parse(JSON.stringify(spellList(store.db)));
@@ -380,6 +383,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'climate') { content.replaceChildren(...climateTab(climate, render), bodySection(bodyWork, render)); return; }
     if (tab === 'messageStyles') { content.replaceChildren(...messageStylesTab(msgStyles, textCols, msgState, render)); return; }
     if (tab === 'tutorials') { content.replaceChildren(...tutorialsTab(tutorials, render)); return; }
+    if (tab === 'roleplay') { content.replaceChildren(...roleplayTab(roleplay, heroes.heroes, render)); return; }
     if (tab === 'relations') { content.replaceChildren(...relationsTab(relations, heroes.heroes, render)); return; }
     if (tab === 'achievements') { content.replaceChildren(...achievementsTab(store, store.db, achievements, achState, render)); return; }
     if (tab === 'spells') { content.replaceChildren(...spellsTab(spells, spellState, render)); return; }
@@ -544,8 +548,10 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     return h('section', { class: 'db-section' }, h('h3', {}, 'Bars'),
       h('div', { class: 'field-row' }, one('hp', 'Health'), one('mp', 'Magic'), one('xp', 'EXP'), one('sp', 'Stamina wheel')),
       checkbox('The stamina wheel stays on screen when full (off: it fades away once stamina is full)', !!menus.staminaSteady, (v) => { if (v) menus.staminaSteady = true; else delete menus.staminaSteady; }),
-      checkbox('Health and magic bars in solid colours (off: shaded)', !!menus.barsSolid, (v) => { if (v) menus.barsSolid = true; else delete menus.barsSolid; }),
-      checkbox('Square bars (off: rounded ends)', !!menus.barsSquare, (v) => { if (v) menus.barsSquare = true; else delete menus.barsSquare; }),
+      h('div', { class: 'field-row' },
+        field('Meter fill', select([['gradient', 'Gradient (shaded)'], ['flat', 'Flat colour'], ['glossy', 'Glossy (a shine along the top)'], ['striped', 'Striped'], ['segmented', 'Segmented (blocks of colour)']], menus.barFill ?? (menus.barsSolid ? 'flat' : 'gradient'), (v) => { delete menus.barsSolid; if (v === 'gradient') delete menus.barFill; else menus.barFill = v as NonNullable<typeof menus.barFill>; })),
+        field('Meter shape', select([['pill', 'Pill (round ends)'], ['rect', 'Rectangle'], ['bevel', 'Bevelled (cut corners)'], ['thin', 'Thin line'], ['blocks', 'Blocks (gaps between)']], menus.barShape ?? (menus.barsSquare ? 'rect' : 'pill'), (v) => { delete menus.barsSquare; if (v === 'pill') delete menus.barShape; else menus.barShape = v as NonNullable<typeof menus.barShape>; })),
+        field('Party orbs (battle)', select([['sphere', 'Shaded sphere'], ['flat', 'Flat circle'], ['square', 'Pixel square'], ['diamond', 'Diamond']], menus.orbStyle ?? 'sphere', (v) => { if (v === 'sphere') delete menus.orbStyle; else menus.orbStyle = v as NonNullable<typeof menus.orbStyle>; }))),
       h('p', { class: 'note' }, 'The same colours everywhere: the HUD, the menus and battles. Health still turns yellow at half and red when low where its bar shows that.'));
   };
   const menusTab = () => [
@@ -709,7 +715,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
         JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) &&
-        (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {})) return 'same';
+        (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? [])) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -744,6 +750,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const gOut = cleanGroups(groupChatter);
       if (gOut.length) db.groupChatter = C(gOut); else delete db.groupChatter;
       if (Object.keys(relations).length) db.relations = C(relations); else delete db.relations;
+      const rpOut = cleanRoleplay(roleplay);
+      if (rpOut.length) db.roleplay = C(rpOut); else delete db.roleplay;
       if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
       if (markersOut) db.markers = C(markersOut); else delete db.markers;
       if (themesOut) db.mapThemes = C(themesOut); else delete db.mapThemes;
@@ -913,3 +921,6 @@ function pickTitleFile(store: EditorStore, accept: string, done: (path: string) 
 function cleanGroups(list: GroupChatter[]): GroupChatter[] {
   return list.map((g) => ({ ...g, name: g.name.trim() || g.id, lines: g.lines.map((l) => ({ hero: l.hero, text: l.text.trim() })).filter((l) => l.hero && l.text) })).filter((g) => g.lines.length);
 }
+
+/** Roleplay titles for saving (Update 127): blank titles dropped. */
+function cleanRoleplay(list: RoleplayField[]): RoleplayField[] { return list.filter((f) => f.title.trim()).map((f) => ({ id: f.id, title: f.title.trim() })); }

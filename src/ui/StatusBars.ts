@@ -4,6 +4,7 @@
  * and a round mini-map under them. Top left: the selected weapon. Each party member's card is its own piece.
  * Low health pulses red around the screen edges, and a hit flashes it, so a draining bar is hard to miss.
  */
+import { genderBadge } from '../game/roleplay';
 import { weatherDecor, weatherFrameClass, weatherPill } from './weatherFrame';
 import { type WeatherState, hpTintStyle } from '../game/body';
 import { ailmentBalloon, ailmentPill, goodPill } from './ailmentBalloon';
@@ -73,7 +74,9 @@ export interface PartyCard { name: string; level?: number; face?: string; hp: nu
   /** Their good state (Rested / Well Rested), the third pill. */
   good?: { name: string; color: string; ink: string; left?: string };
   /** Drying off by a fire: how wet they still are (0 … 1), shown as a small bar. */
-  drying?: number | null }
+  drying?: number | null;
+  /** Update 127: their gender's symbol beside the name. */
+  gender?: import('../world/types').Gender }
 
 /** "Drying" with a bar of the water left (drying off by a fire, Update 117). */
 const dryingBar = (wet: number): string => `<span class="hud-dry" title="Drying off by the fire"><span class="hud-dry-label">Drying</span><span class="hud-dry-bar"><i style="width:${Math.round(Math.max(0, Math.min(1, wet)) * 100)}%"></i></span></span>`;
@@ -123,7 +126,7 @@ export class StatusBars {
   private partyKey = '';
   private partyCount = 0;
   setParty(list: PartyCard[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint, m.ailment?.id, m.ailment?.tag, m.good?.name, m.drying ? Math.round(m.drying * 20) : 0]));
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint, m.ailment?.id, m.ailment?.tag, m.good?.name, m.drying ? Math.round(m.drying * 20) : 0, m.gender]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -134,7 +137,7 @@ export class StatusBars {
       el.hidden = !m;
       el.dataset.empty = m ? '' : '1';
       el.innerHTML = m ? `<div class="hud-ally${m.down ? ' down' : ''}${weatherFrameClass(m.weather)}${m.rumble ? ' wf-rumble' : ''}" style="${hpTintStyle(m.tint)}">${weatherDecor(m.weather)}${m.down ? '' : ailmentBalloon(m.ailment?.id, m.ailment?.name)}${m.face ? `<img class="hud-ally-face" src="${m.face}" alt="">` : '<span class="hud-ally-face"></span>'}
-      <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
+      <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${genderBadge(m.gender)}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
       <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.drying ? dryingBar(m.drying) : ''}${m.weather || (!m.down && (m.ailment || m.good)) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment) + goodPill(m.good, true)}</span>` : ''}</div>` : '';

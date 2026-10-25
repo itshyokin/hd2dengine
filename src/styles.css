@@ -2412,3 +2412,15 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 :root.orb-square .pb-ball { border-radius: 3px; }
 :root.orb-square .pb-ball[style*="--ball"] { background: var(--ball); box-shadow: inset -3px -3px 0 rgba(0,0,0,0.3), inset 3px 3px 0 rgba(255,255,255,0.35); }
 :root.orb-diamond .pb-ball { border-radius: 2px; transform: rotate(45deg) scale(0.85); }
+
+/* Update 127: gender symbols, roleplay and relationships on the Status page. */
+.g-badge { display: inline-block; margin-left: 6px; font-weight: 900; font-size: 1.05em; line-height: 1; text-shadow: 0 1px 0 rgba(0,0,0,0.55); vertical-align: middle; }
+.cs-rp { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; margin-bottom: 8px; }
+.cs-rp-t { opacity: 0.7; }
+.cs-rp-v { font-weight: 700; }
+.cs-bonds { margin-top: 10px; width: 100%; }
+.cs-bond { display: grid; grid-template-columns: minmax(60px, 1fr) 70px auto; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.85em; }
+.cs-bond-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-bond-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.cs-bond-bar i { display: block; height: 100%; }
+.cs-bond b { font-size: 0.85em; }

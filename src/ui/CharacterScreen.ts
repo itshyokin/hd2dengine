@@ -12,9 +12,12 @@ import { rankPill, type Rank } from '../game/statRanks';
 import { esc } from './InventoryScreen';
 import { elementPill } from './elementPill';
 import type { EquipChoice, EquipView } from './EquipScreen';
+import { GENDER_INFO, genderBadge } from '../game/roleplay';
 
 export interface CharacterHost {
-  hero(h: number): { name: string; level: number; portrait: string; color: string; about?: string; art?: string; elements?: import('../world/types').Element[]; ailment?: { tag: string; color: string; ink: string; name: string } };
+  hero(h: number): { name: string; level: number; portrait: string; color: string; about?: string; art?: string; elements?: import('../world/types').Element[]; ailment?: { tag: string; color: string; ink: string; name: string };
+    /** Update 127: gender, roleplay answers, and how they see each other party member. */
+    gender?: import('../world/types').Gender; roleplay?: { title: string; value: string }[]; bonds?: { name: string; value: number; label: string; color: string }[] };
   gauges(h: number): { hp: [number, number]; mp: [number, number]; sp: [number, number]; xp: { have: number; next: number | null } };
   slots(h: number): { label: string; item: EquipChoice | null }[];
   view(h: number): EquipView;
@@ -98,6 +101,7 @@ export class CharacterScreen {
       const ail = h.ailments(k);
       body = `<div class="cs-sec">About</div>
         <p class="cs-about">${who.about ? esc(who.about).replace(/\n/g, '<br>') : '<span class="cs-none">Nothing written about them yet.</span>'}</p>
+        ${who.gender || who.roleplay?.length ? `<div class="cs-sec">Roleplay</div><div class="cs-rp">${who.gender ? `<span class="cs-rp-t">Gender</span><span class="cs-rp-v">${genderBadge(who.gender)} ${esc(GENDER_INFO[who.gender].name)}</span>` : ''}${(who.roleplay ?? []).map((r) => `<span class="cs-rp-t">${esc(r.title)}</span><span class="cs-rp-v">${esc(r.value)}</span>`).join('')}</div>` : ''}
         <div class="cs-sec">Ailments</div>
         ${ail.length || who.ailment ? `<div class="cs-ail">${who.ailment && !ail.length ? `<span><span class="st-pill" style="background:${who.ailment.color};color:${who.ailment.ink}">${esc(who.ailment.tag)}</span> ${esc(who.ailment.name)} <small>until cured or rested</small></span>` : ''}${ail.map((a) => `<span><img src="${a.icon}" alt=""> ${esc(a.name)}${a.left ? ` <small>${esc(a.left)}</small>` : ''}</span>`).join('')}</div>` : '<p class="cs-none">None.</p>'}
 `;
@@ -124,8 +128,9 @@ export class CharacterScreen {
       <div class="cs-body">
         <div class="cs-left">
           <div class="cs-art"><img src="${who.art ?? who.portrait}" alt=""></div>
-          <div class="cs-id"><b>${esc(who.name)}</b><span class="lv-pill" style="color:#3a2200">Lv ${who.level}</span>${who.ailment ? `<span class="st-pill" style="background:${who.ailment.color};color:${who.ailment.ink}" title="${esc(who.ailment.name)}">${esc(who.ailment.tag)}</span>` : ''}</div>
+          <div class="cs-id"><b>${esc(who.name)}</b>${genderBadge(who.gender)}<span class="lv-pill" style="color:#3a2200">Lv ${who.level}</span>${who.ailment ? `<span class="st-pill" style="background:${who.ailment.color};color:${who.ailment.ink}" title="${esc(who.ailment.name)}">${esc(who.ailment.tag)}</span>` : ''}</div>
           ${who.elements?.length ? `<div class="cs-els">${who.elements.map((e) => elementPill(e)).join('')}</div>` : ''}
+          ${who.bonds?.length ? `<div class="cs-bonds"><div class="cs-sec">Relationships</div>${who.bonds.map((b) => `<div class="cs-bond"><span class="cs-bond-n">${esc(b.name)}</span><span class="cs-bond-bar"><i style="width:${b.value}%;background:${b.color}"></i></span><b style="color:${b.color}">${esc(b.label)}</b></div>`).join('')}</div>` : ''}
         </div>
         <div class="cs-right">
           <div class="cs-pagebar"><span class="menu-title">${pages[this.page]}</span><span class="cs-dots">${pages.map((p, j) => `<button type="button" class="cs-pdot${j === this.page ? ' on' : ''}" data-page="${j}" title="${p}" aria-label="${p}"></button>`).join('')}</span></div>

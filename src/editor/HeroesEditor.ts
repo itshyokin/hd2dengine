@@ -10,11 +10,13 @@ import { ailmentChips } from './statusFields';
 import type { Ailment } from '../world/types';
 import { defenceSection } from './elementFields';
 import { ATTRS, ATTR_BASE, ATTR_INFO, ATTR_MAX, ATTR_MIN, CREATION_METHODS, CREATION_NAMES, attrEffect, attrsFrom } from '../game/attributes';
+import { GENDERS, GENDER_INFO } from '../game/roleplay';
+import type { Gender, RoleplayField } from '../world/types';
 import type { AdditionDef, AllyStyle, ClassDef, CombatData, CreationSettings, HeroDef, HeroForm, ItemDef, SpellEntry } from '../world/types';
 import type { CharactersWork } from './CharactersEditor';
 import { checkbox, field, h, numberInput, select, textInput } from './dom';
 
-export interface HeroesWork { heroes: HeroDef[] }
+export interface HeroesWork { heroes: HeroDef[]; /** Roleplay titles (Update 127), shared with the Roleplay tab. */ rp?: RoleplayField[] }
 
 /** The work copy: the database's heroes, or one made from the player's look. */
 export function heroesWork(heroes: HeroDef[] | undefined, player: string): HeroesWork {
@@ -32,6 +34,10 @@ export function cleanHeroes(w: HeroesWork): HeroDef[] | undefined {
     if (x.attackSounds?.length) c.attackSounds = x.attackSounds.filter(Boolean);
     if (x.color) c.color = x.color;
     if (x.about) c.about = x.about;
+    if (x.gender) c.gender = x.gender;
+    if (x.outfit) c.outfit = x.outfit;
+    const rp = Object.fromEntries(Object.entries(x.roleplay ?? {}).map(([k, v]) => [k, v.trim()]).filter(([k, v]) => v && (w.rp ?? []).some((f) => f.id === k)));
+    if (Object.keys(rp).length) c.roleplay = rp;
     const st = Object.fromEntries(ATTRS.filter((k) => (x.stats?.[k] ?? ATTR_BASE) !== ATTR_BASE).map((k) => [k, x.stats![k]]));
     if (Object.keys(st).length) c.stats = st;
     const rk = Object.fromEntries(ATTRS.filter((k) => x.ranks?.[k] && x.ranks[k] !== DEFAULT_RANK).map((k) => [k, x.ranks![k]]));
@@ -121,7 +127,15 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
         h('div', { class: 'hint' }, 'Turn-based: one of these, at random, when they land a weapon or bow attack (voice clips like “Hah!”).')),
       field('Colour', (() => { const c = h('input', { type: 'color', value: x.color ?? ['#e8b04a', '#5aa8ff', '#7cd66a', '#e87ad0', '#ff8a5a'][Math.max(0, state.sel) % 5] }); c.addEventListener('change', () => { x.color = c.value; }); return c; })(),
         'Shown behind "equipped" on what they wear, and on their card in the menus.'),
+      h('div', { class: 'field-row' },
+        field('Gender', select([['', '(not set)'], ...GENDERS.map((g) => [g, `${GENDER_INFO[g].symbol} ${GENDER_INFO[g].name}`] as [string, string])], x.gender ?? '', (v) => { if (v) x.gender = v as Gender; else delete x.gender; }),
+          'Shown as a coloured symbol on their stat blocks and on their Status page.'),
+        field('Outfit gender', select([['', 'From their look (Characters → Body)'], ['masc', 'Masc'], ['femme', 'Femme']], x.outfit ?? '', (v) => { if (v) x.outfit = v as 'masc' | 'femme'; else delete x.outfit; }),
+          'Which version of worn armor and clothes they wear.')),
       field('About', (() => { const t = h('textarea', { rows: '3', placeholder: 'A few lines of story about them (shown on their Status page).' }); t.value = x.about ?? ''; t.addEventListener('change', () => { const v = t.value.trim(); if (v) x.about = v; else delete x.about; }); return t; })()),
+      h('section', { class: 'db-section' }, h('h3', {}, 'Roleplay'),
+        ...((w.rp ?? []).length ? (w.rp ?? []).map((f) => field(f.title || f.id, textInput(x.roleplay?.[f.id] ?? '', (v) => { const t = v.trim(); if (t) (x.roleplay ??= {})[f.id] = t; else if (x.roleplay) { delete x.roleplay[f.id]; if (!Object.keys(x.roleplay).length) delete x.roleplay; } }, { placeholder: '(not set)' })))
+          : [h('p', { class: 'note' }, 'Add titles (Eye colour, Favourite food…) in Database → Party → Roleplay; every hero gets their own answer here.')])),
       h('section', { class: 'db-section' }, h('h3', {}, 'Progression curve'),
         h('div', { class: 'hero-stat ranked head' }, h('span'), h('span', { class: 'note' }, 'Level 1'), h('span', { class: 'note' }, 'Progression'), h('span'), h('span')),
         ...statRows,
