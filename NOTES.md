@@ -30,7 +30,7 @@ decide things; the tablet editor keeps working.
       with an outline shell, pictures), CharacterDef `model`, Database `modelLook`; CharacterSprite drives the rig
       behind the same calls as sheets; Database → Characters → 3D model window with a live preview. Enemies use
       a 3D character through their Person look. Weapons on models: dropped (sprites only).
-- [ ] Updates 103–106: the elements (planned Oct 22). Out of battle only: weather states never change a battle, but
+- [x] Updates 103–106: the elements (planned Oct 22). Out of battle only: weather states never change a battle, but
       last through one (Freezing before a fight, still Freezing after). Each hero: 1 ailment + 1 weather state +
       1 good state. Every character in the party is affected (the first is the leader); KO'd heroes (0 HP) take no
       chip damage, and falling to 0 HP cures their ailment. Everything is saved.
