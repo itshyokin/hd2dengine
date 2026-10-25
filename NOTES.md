@@ -312,10 +312,14 @@ decide things; the tablet editor keeps working.
         Done: TabGroup `icons` (tabs.ts, `.tab-ico`); MenuConfig `journal {order, hidden}` + GameState `journalTabs`
         (command `journalTab`); Game `journalList()`. RoleplayField `type: 'date'` (answers "MM-DD"), condition
         `rpDate {hero, title, within}` via roleplay.ts `daysUntil`.
-  - [ ] Update 131: global events. Database page of event scripts that run once at: a new game, loading a save,
+  - [x] Update 131: global events. Database page of event scripts that run once at: a new game, loading a save,
         sleeping at a camp or inn, entering a rest zone, and the real date rolling over; then sleep until the next.
         Normal commands and conditions (full moon → Katrina leaves; otherwise she's back). Someone added back while
         the party is in a rest zone walks in from off-screen to a rest spot.
+        Done: Database `globalEvents` (GlobalEvent {id, name, when: GlobalTrigger[], commands}); GlobalEventsEditor
+        uses CommandEditor's new standalone mode. Game `fireGlobal` queues, `nextGlobal` runs one when idle and checks
+        `state.realDay` (saved) every 5 s. changeParty in a rest zone: others placed at their spots, `walkIn` puts the
+        newcomer 12 tiles to the side (Ally `walkLimit` 14 s); updateRestZone gives late joiners a free spot.
   - [ ] Update 132: key items and the overworld. Key items go on the d-pad quick slots like consumables (4 slots, one
         per direction); no B-button key items. Field-use pop-ups: Change weather (a list), Change season (four),
         Change time (4 digits moved up / down + AM/PM, controller friendly): a bubble appears round the hero and the

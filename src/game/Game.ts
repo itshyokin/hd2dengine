@@ -61,7 +61,7 @@ import {
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
 import type { AbilityData, BattleWeather, Command, EventData } from '../world/types';
-import { WEATHER_KINDS, type FieldUseKind, type GroupChatter, type JournalTabId, type RelationKind } from '../world/types';
+import { WEATHER_KINDS, type FieldUseKind, type GlobalTrigger, type GroupChatter, type JournalTabId, type RelationKind } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
@@ -150,7 +150,7 @@ import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
-import { daysUntil, rpFields, rpMatch, rpValue } from './roleplay';
+import { daysUntil, realDayKey, rpFields, rpMatch, rpValue } from './roleplay';
 import { datesLabel } from '../world/dates';
 import { loadWornParts, recolorPairs, wornPart } from '../world/wornParts';
 import { customSrcs } from '../world/wornCustom';
@@ -1995,6 +1995,7 @@ export class Game {
     } else {
       const auto = this.events.find((e) => e.trigger === 'auto' && !e.autoDone);
       if (auto) { auto.autoDone = true; this.runEvent(auto); }
+      else if (this.nextGlobal()) this.player.animate(dt, false);
       else {
         for (let k = 0; k < QUICK_SLOTS; k++) if (this.input.consume(`quick${k + 1}` as Action)) this.useQuick(k);
         this.updatePlayer(dt);
@@ -2740,7 +2741,14 @@ export class Game {
     this.interpreter.stop();
     this.requestTransfer(d.map, { x: d.x, z: d.z, dir: d.dir }, 'black', {
       slow: fromTitle,
-      after: () => this.uiIn(),
+      after: () => {
+        this.uiIn();
+        this.fireGlobal('load');
+        // Saved on an earlier day (or before Update 131): the New day events too.
+        const today = realDayKey();
+        if (this.state.realDay && this.state.realDay !== today) this.fireGlobal('newDay');
+        this.state.realDay = today;
+      },
       before: () => {
         this.bankPickups('discard');
         this.log.clearFeed();
@@ -6403,7 +6411,27 @@ export class Game {
       this.party.members = this.party.members.filter((x) => x !== m);
       if (!quiet) this.log.add(`${def.name} leaves the party`, 'info');
     }
+    const resting = this.restZone && this.restPicks ? this.restPicks : null;
     this.spawnAllies();
+    // In a rest zone (Update 131): everyone else stays at their spot; someone joining walks in from off-screen.
+    if (resting) {
+      for (const a of this.allies) {
+        const spot = resting.picks.get(a.def.id);
+        if (spot) a.place(spot.x + 0.5, spot.z + 0.5, this.map);
+        else if (op === 'add' && a.def.id === id) this.walkIn(a);
+      }
+    }
+  }
+  /** Put an ally just off-screen to one side of the hero, walking in (to their rest spot). */
+  private walkIn(a: Ally): void {
+    const p = this.motion;
+    for (const [dx, dz] of [[-12, 0], [12, 0], [0, 10], [-9, 6], [9, 6]]) {
+      const x = Math.floor(p.x) + dx, z = Math.floor(p.z) + dz;
+      if (!this.map.inMap(x, z) || this.map.isBlocked(x, z)) continue;
+      a.place(x + 0.5, z + 0.5, this.map);
+      a.walkLimit = 14;
+      return;
+    }
   }
 
   /** Put the party members on this map, lined up behind the hero. */
@@ -6944,7 +6972,7 @@ export class Game {
     this.interpreter.stop();
     this.requestTransfer(this.db.startMap, { x: st.x, z: st.z, dir: st.dir }, 'black', {
       slow: true,
-      after: () => { this.uiIn(); this.nextSetup(); },
+      after: () => { this.uiIn(); this.nextSetup(); this.state.realDay = realDayKey(); this.fireGlobal('newGame'); },
       before: () => {
         this.bankPickups('discard');
         this.log.clearFeed();
@@ -7582,6 +7610,33 @@ export class Game {
   /** Heroes drying off by a fire, and how wet they still are (0 … 1). */
   private readonly drying = new Map<string, number>();
 
+  /* ----------------------------------------------------------- global events */
+
+  /** Global event scripts waiting to run (Update 131), oldest first. */
+  private globalQueue: { id: string; commands: Command[] }[] = [];
+  /** Queue the global events for a moment (each once, in the Database's order). */
+  private fireGlobal(t: GlobalTrigger): void {
+    for (const e of this.db.globalEvents ?? []) {
+      if (!e.when.includes(t) || !e.commands.length || this.globalQueue.some((q) => q.id === e.id)) continue;
+      this.globalQueue.push({ id: e.id, commands: e.commands });
+    }
+  }
+  private dayCheckAt = 0;
+  /** On the map with nothing else going on: the real date rolling over, then the next waiting global event. */
+  private nextGlobal(): boolean {
+    if (this.onTitle || this.sleeping || this.menu.isOpen || this.pauseShell.isOpen || this.message.isOpen || this.dying) return false;
+    if (this.elapsed >= this.dayCheckAt) {
+      this.dayCheckAt = this.elapsed + 5;
+      const today = realDayKey();
+      if (!this.state.realDay) this.state.realDay = today;
+      else if (this.state.realDay !== today) { this.state.realDay = today; this.fireGlobal('newDay'); }
+    }
+    const next = this.globalQueue.shift();
+    if (!next) return false;
+    this.interpreter.start(next.commands);
+    return true;
+  }
+
   /** The safe zone the hero is resting in (its spots, keyed by its first spot), or null. */
   private restZone: string | null = null;
   /**
@@ -7598,7 +7653,7 @@ export class Game {
     const free = this.allies.filter((a) => !a.down && !a.passive);
     // Same zone and everyone where they should be: nothing to do (allies made again, after a rest or a form change,
     // go back to the spot they had).
-    if (key === this.restZone && (!key || free.every((a) => a.resting || !this.restPicks?.picks.get(a.def.id)))) return;
+    if (key === this.restZone && (!key || free.every((a) => this.restPicks?.picks.has(a.def.id) && (a.resting || !this.restPicks.picks.get(a.def.id))))) return;
     const entering = key !== this.restZone;
     this.restZone = key;
     if (!key) {
@@ -7607,6 +7662,7 @@ export class Game {
       if (calm) this.restPicks = null;
       return;
     }
+    if (entering) this.fireGlobal('restZone');
     if (entering && this.restPicks?.key !== key) {
       // Group chatter waiting for a camp plays a moment after everyone sits down; otherwise the usual rest line.
       if (this.pickGroup()) this.groupDue = this.elapsed + 3.5; else this.chatter({ trigger: 'rest' });
@@ -7617,7 +7673,15 @@ export class Game {
       const got = shareSpots(spots, free.map((a) => a.def.restPrefs ?? {}));
       this.restPicks = { key, picks: new Map(free.map((a, i) => [a.def.id, got[i]])) };
     }
-    for (const a of free) a.setRest(this.restPicks.picks.get(a.def.id) ?? null);
+    // Someone who joined while resting (Update 131): one of the spots nobody has.
+    const picks = this.restPicks.picks, late = free.filter((a) => !picks.has(a.def.id));
+    if (late.length) {
+      const taken = new Set([...picks.values()].filter(Boolean).map((s) => `${s!.x},${s!.z}`));
+      const left = spots.filter((s) => !taken.has(`${s.x},${s.z}`));
+      const got = shareSpots(left, late.map((a) => a.def.restPrefs ?? {}));
+      late.forEach((a, i) => picks.set(a.def.id, got[i] ?? null));
+    }
+    for (const a of free) a.setRest(picks.get(a.def.id) ?? null);
   }
 
   /** Breath, drips and steam on the map, per hero, every so often. */
@@ -7736,6 +7800,7 @@ export class Game {
         if (s.inn) this.giveGood('all', 'wellRested');
         s.done?.();
         this.chatter({ trigger: 'camp' }, { boost: 1.5 });
+        this.fireGlobal('sleep');
       }
       return;
     }

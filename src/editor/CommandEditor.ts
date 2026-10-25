@@ -277,7 +277,11 @@ const label = (cmd: Cmd) => COMMAND_TYPES.find(([c]) => c === cmd)![1];
 let clipboard: Command[] = [];
 
 export class CommandEditor {
-  constructor(private readonly store: EditorStore) {
+  /**
+   * `standalone` (Update 131): a list outside the map (Database → Global events) edited in a working copy: no undo
+   * through the store; changes redraw the list and call `onChange`.
+   */
+  constructor(private readonly store: EditorStore, private readonly standalone?: { onChange?: () => void }) {
     setItemNameLookup((id) => store.db.items?.find((d) => d.id === id)?.name ?? `${id} (missing)`);
     setConditionItems(() => (store.db.items ?? []).map((d) => [d.id, d.name] as [string, string]));
     initSwitches(store);
@@ -328,10 +332,18 @@ export class CommandEditor {
     return false;
   }
 
+  private cp(): void { if (!this.standalone) this.store.checkpoint(); }
+  private dropCp(): void { if (!this.standalone) this.store.dropCheckpoint(); }
+  private done(): void {
+    if (!this.standalone) { this.store.changed('structure'); return; }
+    this.draw();
+    this.standalone.onChange?.();
+  }
+
   private change(fn: () => void): void {
-    this.store.checkpoint();
+    this.cp();
     fn();
-    this.store.changed('structure');
+    this.done();
   }
 
   private toolbar(): HTMLElement {
@@ -392,6 +404,7 @@ export class CommandEditor {
     if (t.tagName === 'SELECT' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return;
     const mod = e.ctrlKey || e.metaKey, s = this.sel;
     let done = true;
+    if (this.standalone && mod && 'zy'.includes(e.key.toLowerCase())) return;
     if (mod && e.key.toLowerCase() === 'z') { if (e.shiftKey) this.store.redo(); else this.store.undo(); }
     else if (mod && e.key.toLowerCase() === 'y') this.store.redo();
     else if (mod && e.key.toLowerCase() === 'c') this.copy();
@@ -416,12 +429,12 @@ export class CommandEditor {
     const add = select([['', '+ Add command…'], ...COMMAND_TYPES], '', (v) => {
       if (!v) return;
       const cmd = defaultCommand(v as Cmd);
-      this.store.checkpoint();
+      this.cp();
       // Added under the highlighted command when it's in this list, otherwise at the end.
       const at = this.sel?.list === list ? this.sel.i + 1 : list.length;
       list.splice(at, 0, cmd);
       this.sel = { list, i: at };
-      this.store.changed('structure');
+      this.done();
       this.edit(cmd, list, true);
     }, { class: 'add-cmd', 'aria-label': 'Add command' });
     const end = h('li', { class: 'cmd-add' }, add);
@@ -508,12 +521,12 @@ export class CommandEditor {
     const removeIfNew = () => {
       if (!isNew) return;
       const i = list.indexOf(c);
-      if (i >= 0) { list.splice(i, 1); this.store.dropCheckpoint(); this.store.changed('structure'); }
+      if (i >= 0) { list.splice(i, 1); this.dropCp(); this.done(); }
     };
     openModal(isNew ? `Add: ${label(c.cmd)}` : label(c.cmd), form, [
       { label: 'Cancel', onClick: removeIfNew },
       { label: isNew ? 'Add' : 'Save', primary: true, onClick: () => {
-        if (!isNew) this.store.checkpoint();
+        if (!isNew) this.cp();
         if (draft.cmd === 'choice') {
           draft.options = draft.options.map((o) => o.trim()).filter(Boolean);
           if (!draft.options.length) draft.options = ['OK'];
@@ -522,7 +535,7 @@ export class CommandEditor {
         }
         for (const k of Object.keys(c)) delete (c as unknown as Record<string, unknown>)[k];
         Object.assign(c, draft);
-        this.store.changed('structure');
+        this.done();
       } },
     ], removeIfNew);
   }

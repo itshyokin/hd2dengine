@@ -14,7 +14,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 25 evening: Updates 115–130 and 134 done; next 131–133 in NOTES)
+## Pick up here (state as of Oct 25 evening: Updates 115–131 and 134 done; next 132–133 in NOTES)
+- **Update 131 done:** Database → Story → Global events (scripts run at a new game, a load, a sleep, entering a rest
+  zone, a new real day); someone joining in a rest zone walks in from off-screen. Browser-checked (editor tab, the
+  queue and the day rollover); the walk-in is not screenshot-checked.
 - **Update 130 done:** Journal tab icons, order / shown in Database → Title & menus → Journal, the Show / hide a
   Journal tab command; roleplay Date answers and the Roleplay date condition (real date). Browser-checked.
 - **Oct 24 night list (125–128) done:** Skyrim lockpicks with a required Lockpick item and a pixel-art lock, prop

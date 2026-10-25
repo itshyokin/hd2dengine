@@ -975,6 +975,16 @@ export interface GroupChatter {
   switch?: string;
 }
 
+/** When a global event runs (Update 131). */
+export type GlobalTrigger = 'newGame' | 'load' | 'sleep' | 'restZone' | 'newDay';
+/** A global event (Update 131): a script that runs once each time one of its moments comes round. */
+export interface GlobalEvent {
+  id: string;
+  name: string;
+  when: GlobalTrigger[];
+  commands: Command[];
+}
+
 /** A tutorial pop-up: a title and a few lines. */
 export interface TutorialDef { id: string; title: string; text: string }
 
@@ -1086,6 +1096,8 @@ export interface Database {
   tutorials?: TutorialDef[];
   /** Group chatter (Update 122): conversations played at camp (Database → Characters → Chatter). */
   groupChatter?: GroupChatter[];
+  /** Global events (Update 131): scripts run at a new game, a load, a sleep, a rest zone or a new real day. */
+  globalEvents?: GlobalEvent[];
   /** Relationships between party members (Update 124). */
   relations?: RelationSettings;
   /** Roleplay titles (Update 127). */

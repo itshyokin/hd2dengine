@@ -1020,6 +1020,17 @@ them: Freezing before a fight, still Freezing after.
 - **Skill tree locks**: a skill can also need a quest done, a key item carried or a switch on (Database → Skill trees
   → the skill: *Unlocked by…*); until then it says what it needs.
 
+### Global events (Update 131)
+
+- **Database → Story → Global events**: event scripts that belong to no map. Each has a name, the moments it runs at
+  (tick any): **New game**, **Loading a save**, **Sleeping** (waking from a camp, an inn or a Sleep command), **Entering
+  a rest zone** and **A new real day** (the device's date rolling over while playing, or loading a save made on an
+  earlier day). At each, it runs once (when nothing else is going on: no menu, message or other event), then waits for
+  the next. The commands are the usual ones, conditions too: *If the moon is full: Katrina leaves the party; else she
+  joins.*
+- Someone who **joins while the party rests in a zone** walks in from off-screen to a free rest spot; everyone else
+  stays where they are.
+
 ### Achievements
 
 - **Database → Achievements**: each has a **name**, a **description**, an **icon**, **points** and an **ID**

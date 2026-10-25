@@ -49,5 +49,10 @@ export function daysUntil(md: string, now = new Date()): number | null {
   return Math.round((next.getTime() - today.getTime()) / 86400000);
 }
 
+/** Today's real date as "YYYY-MM-DD" (the device's calendar), for the New day global events (Update 131). */
+export function realDayKey(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 /** Answers match: the same words, case and spacing aside. */
 export const rpMatch = (a: string, b: string): boolean => a.trim().toLowerCase().replace(/\s+/g, ' ') === b.trim().toLowerCase().replace(/\s+/g, ' ') && !!a.trim();

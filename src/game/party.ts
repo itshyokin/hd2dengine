@@ -172,6 +172,8 @@ export class Ally {
   /** Resting at a spot in a safe zone while the player is in it (null: following). */
   private rest: { x: number; z: number; act: RestSpot['act']; t: number; posed: boolean; walk: number } | null = null;
   get resting(): boolean { return !!this.rest; }
+  /** Seconds walking to a rest spot before they're simply there (longer for someone walking in from off-screen). */
+  walkLimit = 6;
   /** Go and rest at a spot (sit, lie down, practise magic, train), or stop and fall in behind again (null). */
   setRest(spot: RestSpot | null): void {
     if (!spot) { if (this.rest) { this.rest = null; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; this.coverUp(false); } return; }
@@ -191,7 +193,7 @@ export class Ally {
       // a tent and walking on the spot); taking too long, they're simply there.
       r.walk += dt;
       const moving = this.moveToward(r.x, r.z, WALK, dt, 0.05, true);
-      if (!moving || r.walk > 6) { this.stuck += dt; if (this.stuck > 0.5 || r.walk > 6) this.place(r.x, r.z, h.map); }
+      if (!moving || r.walk > this.walkLimit) { this.stuck += dt; if (this.stuck > 0.5 || r.walk > this.walkLimit) this.place(r.x, r.z, h.map); }
       this.finish(dt, moving, false);
       return true;
     }
