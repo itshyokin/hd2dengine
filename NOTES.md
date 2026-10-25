@@ -201,12 +201,15 @@ decide things; the tablet editor keeps working.
         saves it to assets/worn/<item>_<body>.png with its layout (runtime unchanged: sprites.ts `wornSheet`).
         Drawn over the hero's own clothes.
 - Oct 24 late (owner's notes, planned with the owner):
-  - [ ] Update 121: fixes. Cold breath from the mouth (head height, along the camera lean; hero and followers).
+  - [x] Update 121: fixes. Cold breath from the mouth (head height, along the camera lean; hero and followers).
         Snow on trees drawn solid white (not see-through). Bag → equip armor someone already wears (Titantech on
         Katrina): always show the "who wears it" list (wearer marked), never fall back to the main hero
         (equipTargets uses gear() without in-use copies → [] → equipItem on Jordan); a Take off option.
         Chatter bubbles sit at mid-body, not over the head (Game chatter spot uses a fixed height 1.1 from the
         body's y; check y is the feet and use the sprite's real height).
+        Done: Game `bodyEffects` places breath / drips / steam up the leaned sprite (leanNow); chatter spot height 1.5;
+        season.ts winter leaves → snow-white `laden` (no more ice blue, no discard on bare trees); equipTargets uses
+        gear(true) and marks the wearer "(wearing it)".
   - [ ] Update 122: camp. Party members walking to camp spots pass through props and each other until seated
         (then solid; after a few seconds stuck, they appear in their spot). Talk to a resting party member: a camp
         chatter line. Chatter gets a Camp trigger: a default line plus conditional lines ("if switch X is on",

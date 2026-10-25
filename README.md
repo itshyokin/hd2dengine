@@ -672,6 +672,8 @@ them: Freezing before a fight, still Freezing after.
   the hero you play sets the walking pace (the worst state counts; riding, the horse is never slowed). Freezing and
   Overheating also lose health as they walk (3% every 12 steps by default), never below 1, and never on someone
   knocked out; the adventure log says so the first time.
+- **Cold breath** puffs from each hero's mouth (and followers'), and steam rises off their heads in the heat, placed up
+  the sprite as it leans toward a high camera (Update 121).
 - **Warming up and drying off**: lit fires (campfires, torches, braziers: anything with a flame) warm and dry everyone
   within about two and a half tiles; indoors keeps the rain off; the sun dries you on a warm, clear day. Items with
   **Warms / cools** (Database → Items: + a Hot Cocoa, − a Chilled Tea; 100 takes them all the way back) work from the
@@ -1738,10 +1740,11 @@ older single water look becomes its first style.
   underground maps don't change. The playtest panel has season buttons for testing.
 - Outdoors everything green follows the season: fresh green in spring, green-gold in summer, autumn's even straw-gold
   grass with each tree and bush turning wholly red, orange or gold (one colour per plant, no patches), and snow in winter
-  (grass under it; leaves that stay turn icy blue, frost too, so plants stand out against the snow).
-- Props have a **Seasons** setting (prop importer): *keeps its leaves* (pines, bushes, grass, flowers: icy blue in
-  winter), *bare in winter* (oaks and other broadleaf trees: only branches) or *doesn't change*. Unset, it's guessed
-  from the name.
+  (grass under it; tree and bush leaves are snow-laden: solid white with their shading, a little blue in the shade so
+  they stand out against snowy ground; Update 121: nothing is cut away, so nothing shows through a canopy).
+- Props have a **Seasons** setting (prop importer): *keeps its leaves* (pines, bushes, grass, flowers), *bare in
+  winter* (oaks and other broadleaf trees) or *doesn't change*. Since Update 121 both of the first two are snow-covered
+  in winter. Unset, it's guessed from the name.
 - **Bridges and platforms** stand 2 px (1/16 tile) above the banks they join, so they never flicker against the ground,
   water or winter ice under them.
 - **Ice**: in winter, still water (no current, not lava or goo) freezes over. The hero walks onto it and slides,
