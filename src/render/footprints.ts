@@ -26,7 +26,7 @@ export class Footprints {
     geo.rotateX(-Math.PI / 2);
     this.fade = new THREE.InstancedBufferAttribute(new Float32Array(MAX), 1);
     geo.setAttribute('aFade', this.fade);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x1c2230, transparent: true, opacity: 0.32, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const mat = new THREE.MeshBasicMaterial({ color: 0x141822, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     mat.onBeforeCompile = (sh) => {
       sh.vertexShader = 'attribute float aFade;\nvarying float vFade;\nvarying vec2 vPos;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvFade = aFade;\nvPos = position.xz * 2.0;');
       sh.fragmentShader = 'varying float vFade;\nvarying vec2 vPos;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= vFade * smoothstep(1.0, 0.45, length(vPos));');
@@ -46,7 +46,7 @@ export class Footprints {
     this.mesh.count = this.live;
     this.e.set(0, angle, 0);
     this.q.setFromEuler(this.e);
-    this.s.set(hoof ? 0.17 : 0.11, 1, hoof ? 0.17 : 0.2);
+    this.s.set(hoof ? 0.24 : 0.15, 1, hoof ? 0.24 : 0.27);
     this.m.compose(this.v.set(x, y + 0.012, z), this.q, this.s);
     this.mesh.setMatrixAt(i, this.m);
     this.mesh.instanceMatrix.needsUpdate = true;

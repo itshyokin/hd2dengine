@@ -15,7 +15,7 @@ export class Puddles {
   private readonly q = new THREE.Quaternion();
   private readonly v = new THREE.Vector3();
   private readonly s = new THREE.Vector3();
-  private readonly mat = new THREE.MeshStandardMaterial({ color: 0x5a6f8c, roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  private readonly mat = new THREE.MeshStandardMaterial({ color: 0x7d98bd, roughness: 0.12, metalness: 0, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
 
   constructor(private readonly parent: THREE.Object3D) {
     // Soft rim: alpha falls off toward the edge.
@@ -61,6 +61,6 @@ export class Puddles {
       mesh.setMatrixAt(i, this.m);
     });
     mesh.instanceMatrix.needsUpdate = true;
-    this.mat.opacity = 0.35 + 0.25 * k;
+    this.mat.opacity = 0.45 + 0.3 * k;
   }
 }
