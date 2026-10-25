@@ -156,7 +156,10 @@ export class Ally {
   /** The hero you play, following whoever leads the lineup. */
   passive = false;
 
-  constructor(readonly data: MemberData, readonly def: HeroDef, sprites: SpriteLibrary, look: Parameters<SpriteLibrary['forCharacter']>[0], parent: THREE.Object3D, x: number, z: number, map: TileMap) {
+  /** The bedroll's blanket over them while they lie down (Update 134). */
+  private blanket: THREE.Mesh | null = null;
+
+  constructor(readonly data: MemberData, readonly def: HeroDef, private readonly sprites: SpriteLibrary, look: Parameters<SpriteLibrary['forCharacter']>[0], private readonly parent: THREE.Object3D, x: number, z: number, map: TileMap) {
     this.sprite = new CharacterSprite(sprites, sprites.forCharacter(look), 'down');
     this.map = map;
     this.x = x; this.z = z; this.y = map.standY(x, z);
@@ -171,7 +174,7 @@ export class Ally {
   get resting(): boolean { return !!this.rest; }
   /** Go and rest at a spot (sit, lie down, practise magic, train), or stop and fall in behind again (null). */
   setRest(spot: RestSpot | null): void {
-    if (!spot) { if (this.rest) { this.rest = null; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; } return; }
+    if (!spot) { if (this.rest) { this.rest = null; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; this.coverUp(false); } return; }
     const x = spot.x + 0.5, z = spot.z + 0.5;
     if (this.rest && this.rest.x === x && this.rest.z === z) return;
     this.rest = { x, z, act: spot.act, t: 1 + Math.random() * 2, posed: false, walk: 0 };
@@ -183,7 +186,7 @@ export class Ally {
     if (!r) return false;
     const far = Math.hypot(r.x - this.x, r.z - this.z);
     if (far > 0.12) {
-      if (r.posed) { r.posed = false; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; }
+      if (r.posed) { r.posed = false; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; this.coverUp(false); }
       // On the way to their spot they pass through props and each other (Update 122: no getting caught on a log or
       // a tent and walking on the spot); taking too long, they're simply there.
       r.walk += dt;
@@ -198,7 +201,8 @@ export class Ally {
       this.sprite.faceVector(0, r.act === 'train' ? -1 : 1);
       // Sitting: the sheet's own sit, else the hurt row's third frame (kneeling down: the LPC sheets' bottom row).
       if (r.act === 'sit') { if (this.sprite.has('sit')) this.sprite.hold('sit', 0); else if (this.sprite.has('hurt')) this.sprite.hold('hurt', 2); }
-      if (r.act === 'lie') { if (this.sprite.has('hurt')) this.sprite.hold('hurt', 5); else this.sprite.mesh.rotation.z = Math.PI / 2 * 0.9; }
+      // Lying down (Update 134): standing still facing you on the bedroll, its blanket drawn over them (head on the pillow).
+      if (r.act === 'lie') this.coverUp(true);
     }
     if (r.act === 'magic' || r.act === 'train') {
       r.t -= dt;
@@ -213,9 +217,21 @@ export class Ally {
     return true;
   }
 
+  /** Put the bedroll's blanket over them (or take it away). */
+  private coverUp(on: boolean): void {
+    if (!on) { this.blanket?.removeFromParent(); this.blanket = null; return; }
+    if (!this.blanket) {
+      const a = this.sprites.get('bedroll_blanket');
+      this.blanket = new THREE.Mesh(a.geometry, a.material);
+      this.blanket.renderOrder = 2;
+      this.parent.add(this.blanket);
+    }
+    this.blanket.position.set(this.x, this.y, this.z + 0.08);
+  }
+
   get name(): string { return this.def.name; }
   get down(): boolean { return !!this.data.down; }
-  dispose(): void { this.sprite.mesh.removeFromParent(); }
+  dispose(): void { this.sprite.mesh.removeFromParent(); this.coverUp(false); }
 
   /** Put them somewhere (a new map, or catching up with the hero). */
   place(x: number, z: number, map: TileMap): void {
@@ -237,6 +253,7 @@ export class Ally {
     if (this.down || h.hidden) {
       if (this.down) this.downFor += dt;
       this.sprite.mesh.visible = false;
+      if (this.blanket) { this.coverUp(false); if (this.rest) this.rest.posed = false; }
       return;
     }
     if (!this.sprite.mesh.visible) {

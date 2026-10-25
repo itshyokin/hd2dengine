@@ -322,12 +322,18 @@ decide things; the tablet editor keeps working.
         removed: touching a map enemy (either way) starts a normal battle.
   - [ ] Update 133: items. Database → Materials tab. "Cannot be sold" on any item (shops won't buy it). Icon effects
         with colours: glow, outline, pattern overlay (stripes, dots, cracks, swirls, checker): a "corrupted" pumpkin.
-  - [ ] Update 134: bedroll and custom worn sprites. Replace the bedroll: lying head-to-foot (pillow at the top), drawn
+  - [x] Update 134: bedroll and custom worn sprites. Replace the bedroll: lying head-to-foot (pillow at the top), drawn
         in two layers (mat + pillow under the character, blanket over); resting heroes stand facing down on it (head on
         the pillow), not the knocked-out pose. Custom sprite (Look when worn) becomes a pop-up: up to three images
         (Front, Back, Side mirrored) from PNGs or built-in icons; tabs Front / Back / Side over the player sprite to
         drag and scale each (like the Prop editor), per body (masc / femme), "Duplicate from masc / femme"; in game
         drawn on every frame of that direction, bobbing with the sprite (worked out from the sheet).
+        Done: placeholderArt bedroll (16×28, pillow top) + hidden bedroll_blanket; party.ts Ally.coverUp (blanket mesh at
+        z+0.08 over the standing ally on 'lie'). ItemDef worn.customPics {masc, femme: {front, back, side: {src, x, y,
+        scale, rot}}} (src a path or icon:<name>); world/wornCustom.ts buildCustomWorn (per-frame bob from each frame's
+        top edge vs the standing frame); sprites.ts customWorn(key…) caches it as a sheet; Game lookFor layers it and
+        preloads PNGs; editor/CustomWornEditor.ts pop-up (drag, wheel / slider scale, turn, duplicate); WornLookEditor
+        custom panel now opens it (the Update 120 builder-parts UI is gone from items; lpcParts.ts stays for reuse).
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.

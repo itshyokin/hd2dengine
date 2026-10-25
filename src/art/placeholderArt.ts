@@ -316,12 +316,24 @@ export const PLACEHOLDER_SPRITES: Record<string, () => HTMLCanvasElement> = {
     p.outline(OUTLINE);
     return p.canvas();
   },
-  /** A bedroll laid out on the ground, a pillow at one end. */
+  /**
+   * A bedroll laid head-to-foot (Update 134): the pillow at the top and the open roll below. Someone lying on it is
+   * drawn over this, and the blanket (bedroll_blanket) over them, so their head rests on the pillow.
+   */
   bedroll() {
-    const p = new Pix(22, 9);
-    blob(p, (x, y) => x >= 2 && x < 20 && y >= 2 && y < 8, ['#3d4a6b', '#4f6088', '#6478a4', '#8094bf'], { maxD: 2, k: 2, seed: 6 });
-    blob(p, (x, y) => ell(x, y, 5, 4.5, 3, 2.2), ['#b8ac94', '#d4c9b0', '#efe6d0'], { maxD: 2, k: 2, seed: 1 });
-    for (let y = 2; y < 8; y++) p.set(14, y, '#2f3a56');
+    const p = new Pix(16, 28);
+    blob(p, (x, y) => x >= 1 && x < 15 && y >= 1 && y < 27, ['#2c3550', '#3d4a6b', '#4f6088', '#6478a4'], { maxD: 2, k: 2, seed: 6 });
+    blob(p, (x, y) => ell(x, y, 8, 5.5, 5.5, 3.3), ['#a89c84', '#c8bca2', '#e4dac2', '#f4ecd8'], { maxD: 2, k: 2, seed: 1 });
+    p.outline(OUTLINE);
+    return p.canvas();
+  },
+  /** The bedroll's blanket, drawn over whoever lies on it (Update 134). */
+  bedroll_blanket() {
+    const p = new Pix(16, 28);
+    blob(p, (x, y) => x >= 1 && x < 15 && y >= 11 && y < 27, ['#3d4a6b', '#4f6088', '#6478a4', '#8094bf'], { maxD: 2, k: 2, seed: 9 });
+    // The folded-back top edge.
+    blob(p, (x, y) => x >= 1 && x < 15 && y >= 11 && y < 14, ['#9aa8cc', '#b4c0dc', '#ccd6ec'], { maxD: 1, k: 2, seed: 3 });
+    for (let y = 14; y < 27; y += 4) for (let x = 2; x < 14; x += 3) p.set(x, y, '#5a6c96');
     p.outline(OUTLINE);
     return p.canvas();
   },

@@ -152,6 +152,7 @@ import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
 import { rpFields, rpMatch, rpValue } from './roleplay';
 import { loadWornParts, recolorPairs, wornPart } from '../world/wornParts';
+import { customSrcs } from '../world/wornCustom';
 import { relColor, REL_BATTLE_CAP, relAmount, relClamp, relKey, relLabel, relLove, relStart } from './relations';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
@@ -513,6 +514,8 @@ export class Game {
     // Built-in clothing (Update 128): the parts list, and the sheets items use.
     await loadWornParts(async (p) => { const r = await fetch(resolve(p)); if (!r.ok) throw new Error(String(r.status)); return r.text(); });
     const builtin = (this.db.items ?? []).flatMap((d) => (['top', 'bottom', 'accessory'] as const).flatMap((k) => { const p = wornPart(d.worn?.[k]?.part); return p ? [...Object.values(p.sheets), ...Object.values(p.under ?? {})] : []; })) as string[];
+    // Custom worn pictures (Update 134): the PNGs (icons are drawn by the engine).
+    for (const d of this.db.items ?? []) builtin.push(...customSrcs(d.worn?.customPics).filter((p) => !p.startsWith('icon:')));
     await this.sprites.preloadWorn(this.db.items ?? [], resolve, builtin);
     await this.sprites.preloadFlats((this.db.enemies ?? []).map((e) => e.look.image).filter((p): p is string => !!p), resolve);
     // LPC weapon sprites used by items and enemies (people default to a sword or a bow).
@@ -6441,6 +6444,12 @@ export class Game {
     const layers = (['armor', 'accessory', 'shield'] as EquipSlot[]).flatMap((k) => {
       const w = equip[k] ? this.items.get(equip[k]!)?.worn : undefined;
       if (!w) return [];
+      // Update 134: custom pictures placed over the hero (the other body's when this one has none).
+      const pics = w.custom ? w.customPics?.[body] ?? w.customPics?.[body === 'femme' ? 'masc' : 'femme'] : undefined;
+      if (pics && look.sheet && look.anim) {
+        const key = this.sprites.customWorn(`custom:${equip[k]}:${look.sheet}:${JSON.stringify(pics)}`, look.sheet, look.anim, pics);
+        return key ? [{ sheet: key, anim: look.anim, tint: w.tint }] : [];
+      }
       // Update 128: the built-in outfit (bottom, top, accessory), unless the item uses its custom sheets.
       const picks = w.custom ? [] : (['bottom', 'top', 'accessory'] as const).map((s) => w[s]).filter((p): p is NonNullable<typeof p> => !!p);
       if (picks.length) return picks.flatMap((pk) => {

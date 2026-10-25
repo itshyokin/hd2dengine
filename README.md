@@ -174,11 +174,18 @@ feminine, teen, kid, muscular and pregnant bodies. Parts recolour with LPC's pal
 - **Database → Items** (armor, accessories, shields) → **Look when worn**: three panels, **Top**, **Bottom** and
   **Accessory**: ◀ ▶ cycles through them (and None); colour swatches recolour the part from its own palettes, and
   **More colours / tint** tints it any colour. The preview shows the outfit on the player's look (Masc / Femme).
-  The fourth panel, **Custom sprite**: tick **Use custom clothes sprite** to use sheets of your own instead (a PNG
-  from the builder's Export clothes only, or one built from Character Builder parts, per body).
+  The fourth panel, **Custom sprite** (Update 134): tick **Use custom clothes sprite** and press **Edit custom
+  sprite…**. In the pop-up, pick up to three pictures, **Front**, **Back** and **Side** (the side one is mirrored for
+  the other side), each a PNG of your own or one of the built-in item icons. Each tab shows the player's sprite facing
+  that way: drag the picture into place, scroll or use the slider to scale it (and Turn to rotate it), for **Masc**
+  and **Femme**. **Duplicate from masc / femme** copies the other body's setup to start from. In the game each picture
+  is drawn in every frame of its direction and bobs with the walk. (Items with an older full clothes sheet keep it.)
 - Starter outfits are added to the Database once: Traveler's Clothes, Leather Armor, Chainmail Shirt, Plate Armor,
   Wanderer's Cape and a Beaded Necklace.
 - Capes have a back piece drawn behind the hero and a front drawn over them.
+- **Bedroll** (Update 134): lies head-to-foot with the pillow at the top. Put one on a rest zone's **L** (Lie down)
+  spot: the party member resting there stands on it facing you and its blanket is drawn over them, head on the pillow
+  (no more knocked-out pose).
 
 - **Database → Items** (armor, accessories, shields) → **Look when worn**: for the masculine and the feminine body,
   **+ Add a part…** picks the Character Builder's own parts (Torso, Legs, Feet, Arms & hands, Hats & helmets, Back),

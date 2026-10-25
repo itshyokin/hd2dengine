@@ -7,6 +7,8 @@
  * Shadows use the sprite's alpha, so trees cast tree-shaped shadows.
  */
 import { recolorCanvas } from '../world/wornParts';
+import { buildCustomWorn } from '../world/wornCustom';
+import { builtinIcon } from '../art/itemIcons';
 import { patchLean } from './lean';
 import * as THREE from 'three';
 import { shapeGeometry } from './propShapes';
@@ -15,7 +17,7 @@ import { DEFAULT_PALETTE, PLACEHOLDER_SPRITES, characterSheet } from '../art/pla
 import { normalMapFrom } from '../core/pixel';
 import { loadCanvas, maskToGlow, missingImage } from '../shared/images';
 import type { PropCatalog } from '../world/props';
-import type { CharacterAnimLayout, CharacterDef, CharacterModel, CharacterPalette, PropDef, WeaponSpriteDef, WeaponSpriteManifest } from '../world/types';
+import type { CharacterAnimLayout, CharacterDef, CharacterModel, CharacterPalette, CustomWornBody, PropDef, WeaponSpriteDef, WeaponSpriteManifest } from '../world/types';
 
 import { WEAPON_MANIFEST_PATH as WEAPON_MANIFEST } from '../game/combat/weaponSprites';
 import { cutIcon, weaponIconRect } from '../art/weaponIcon';
@@ -311,6 +313,19 @@ export class SpriteLibrary {
     }
     this.wornSheets.set(key, out);
     return out;
+  }
+
+  /**
+   * A custom worn sprite (Update 134) built for a hero's sheet: the pictures placed in every frame of their direction,
+   * bobbing with the hero. Kept as a sheet under `key` (returned), or null when the hero's sheet isn't loaded.
+   */
+  customWorn(key: string, sheetPath: string, layout: CharacterAnimLayout, cfg: CustomWornBody): string | null {
+    if (this.sheets.has(key)) return key;
+    const base = this.sheets.get(sheetPath);
+    if (!base) return null;
+    const pic = (src: string) => (src.startsWith('icon:') ? builtinIcon(src.slice(5)) : this.sheets.get(src));
+    this.sheets.set(key, buildCustomWorn(base, layout, cfg, pic));
+    return key;
   }
 
   /** Load the worn looks of items (Update 114): their clothes-only sheets. */
