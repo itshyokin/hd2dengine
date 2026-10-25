@@ -200,6 +200,34 @@ decide things; the tablet editor keeps working.
         WornLookEditor picks parts (variant, colour channels, Steam-safe filter), rebuilds the sheet on each change and
         saves it to assets/worn/<item>_<body>.png with its layout (runtime unchanged: sprites.ts `wornSheet`).
         Drawn over the hero's own clothes.
+- Oct 24 late (owner's notes, planned with the owner):
+  - [ ] Update 121: fixes. Cold breath from the mouth (head height, along the camera lean; hero and followers).
+        Snow on trees drawn solid white (not see-through). Bag → equip armor someone already wears (Titantech on
+        Katrina): always show the "who wears it" list (wearer marked), never fall back to the main hero
+        (equipTargets uses gear() without in-use copies → [] → equipItem on Jordan); a Take off option.
+  - [ ] Update 122: camp. Party members walking to camp spots pass through props and each other until seated
+        (then solid; after a few seconds stuck, they appear in their spot). Talk to a resting party member: a camp
+        chatter line. Chatter gets a Camp trigger: a default line plus conditional lines ("if switch X is on",
+        "if quest Y is active", etc.) so they comment on what's going on.
+  - [ ] Update 123: footprints and puddles. Terrain materials get "Leaves footprints" (default on for snow, sand,
+        mud): prints fade over ~20–30 s, hoof prints when riding, fresh snow fills them faster. After rain, small
+        reflective puddles on soft flat ground (dirt, grass, paths; not sand) shrink away over ~2 game hours.
+  - [ ] Update 124: relationships. Each character rates each other party member 0 (hate) … 100 (best friends /
+        love), ONE-WAY (Katrina→Eleanor ≠ Eleanor→Katrina). The player's hero (Jordan) is rated by the others but
+        has no ratings of his own. Labels: 0–14 Hate, 15–29 Dislike, 30–44 Distrust, 45–59 Neutral, 60–74 Like,
+        75–89 Close, 90–100 Best friends / Love (per pair). Starting values per pair in the Database.
+        Battle sources (Pokémon-style, one fighter at a time; amounts editable, capped per battle):
+        stepping in (switching in right after an ally took a big hit / is low, then taking the next blow: the
+        rescued one's rating of the rescuer rises, more if it would have KO'd them); healing a benched, hurt ally;
+        reviving; avenging (KO the foe that downed an ally); gentle "left out" losses (optional).
+        Other sources: downtime games, gifts liked / disliked, camping together, dialogue choices, quest rewards.
+        Events: "Change relationship" command (A's rating of B ±, optional both ways); condition "A rates B ≥ X" /
+        "A's view of B is Like or better"; quest reward. Pause menu Relationships page shows ONLY the current party
+        (each one's ratings of the others, Jordan included as a target); benched-out members keep their numbers.
+        A notice when a label changes ("Eleanor now Likes Crowley").
+  - [ ] Later: downtime mini-games (all must play well on a controller: cards, boards, timing, not drawing):
+        blackjack with Lynn, swordplay timing with Katrina, magic element sequences with Crowley, CHESS with
+        Eleanor (real chess with an AI; not a priority, keep on the list). Each gives relationship points.
 - [ ] Future (owner's notes, Oct 22; plan them before building):
   - NPC behaviour (brainstorm first): daily routines and routes, beds and homes, reacting to weather and events
     (heading indoors when it rains, shops closing in blizzards), schedules by hour.

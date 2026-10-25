@@ -14,7 +14,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 24 evening: Updates 115–120 done; next: owner playtest, then the older Future list)
+## Pick up here (state as of Oct 24 evening: Updates 115–120 done; next 121–124 planned in NOTES: fixes, camp, footprints/puddles, relationships)
 - **Next work:** Updates 115–120 are done (owner's Oct 24 playtest notes, NOTES.md). Owner to check in game: rider
   height on the horse, horse sounds / speed lines, reflections of everyone, the Drying bar, the default settings file,
   key item field uses, locks (Inspector → Lock settings) and lockpicking, worn looks built from builder parts, and a
