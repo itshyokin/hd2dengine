@@ -61,7 +61,7 @@ import {
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
 import type { AbilityData, BattleWeather, Command, EventData } from '../world/types';
-import { WEATHER_KINDS } from '../world/types';
+import { WEATHER_KINDS, type FieldUseKind } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
@@ -88,7 +88,7 @@ import { forgeRules, forgedDef, upgradable, upgradeCost } from './forge';
 import { typeChartHtml } from '../ui/typeChart';
 import { affinity, affinityText, essenceItem, fuseCount, nextTier, type Affinity } from './essence';
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
-import { POWER_NAMES, itemColor, migrateItems, rarityOf } from '../world/items';
+import { POWER_NAMES, carriedUse, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, setAttrOrder, speedMultiplier } from './attributes';
 import { classStatGear, gearKindName, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
@@ -152,6 +152,7 @@ import { type Talker, chatterSeconds, pickChatter } from './chatter';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
+import { LockpickScreen } from '../ui/LockpickScreen';
 import { TutorialPopup } from '../ui/TutorialPopup';
 import type { ChatterTrigger } from '../world/types';
 import { type RestSpot, isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
@@ -349,6 +350,7 @@ export class Game {
   private creation!: CreationScreen;
   private equipScreen!: EquipScreen;
   private restScreen!: RestScreen;
+  private lockpick!: LockpickScreen;
   private tutorialPop!: TutorialPopup;
   private partyScreen!: PartyScreen;
   private pauseShell!: PauseShell;
@@ -672,6 +674,12 @@ export class Game {
     this.equipScreen = new EquipScreen(this.ui, this.input, this.equipHost());
     this.tutorialPop = new TutorialPopup(this.ui, this.input);
     this.ui.appendChild(this.speedLines);
+    this.lockpick = new LockpickScreen(this.ui, this.input, {
+      picks: () => { const ids = [...this.items.values()].filter((d) => d.lockpick).map((d) => d.id); return ids.length ? ids.reduce((n, id) => n + this.inventory.count(id), 0) : null; },
+      breakPick: () => { const i = this.inventory.slots.findIndex((s) => !!s && !!this.items.get(s.id)?.lockpick); if (i >= 0) this.inventory.removeAt(i, 1); },
+      sound: (n) => this.audio.play(n),
+      rumble: (s, ms) => this.input.rumble(s, ms),
+    });
     this.restScreen = new RestScreen(this.ui, this.input, {
       party: () => this.bodyParty().map((p, who) => {
         const m = who ? this.members()[who - 1] : null, mx = m ? this.allyNumbers(m.data, m.def).max : null;
@@ -796,7 +804,7 @@ export class Game {
       toggleTool: (i) => { const id = this.inventory.slots[i]?.id; return id ? this.toggleTool(id) : null; },
       assignB: (i) => {
         const id = this.inventory.slots[i]?.id, d = id ? this.items.get(id) : undefined;
-        if (!id || !d?.tool) return null;
+        if (!id || !(d?.tool || (d?.field && !carriedUse(d.field.use)))) return null;
         this.inventory.bTool = this.inventory.bTool === id ? null : id;
         this.refreshRing();
         return this.inventory.bTool ? `${d.name} is on the ${this.input.label('ring')} button.` : `${d.name} taken off the ${this.input.label('ring')} button.`;
@@ -853,6 +861,7 @@ export class Game {
       changeGauge: (g, op, v) => this.stats.change(g, op, v),
       ailment: (op, a, secs, hero) => this.ailmentCommand(op, a, secs, false, hero),
       rest: (c) => this.startRest(c),
+      lock: (c, key, done) => this.openLock(c, key, done),
       goodState: (c) => this.goodStateCommand(c),
       heroWeather: (c) => this.heroWeatherCommand(c),
       transfer: (t) => this.requestTransfer(t.map, { x: t.x + 0.5, z: t.z + 0.5, dir: t.dir }, t.fade ?? 'black', { autosave: true }),
@@ -895,7 +904,7 @@ export class Game {
         if (!list.length) return;
         this.startBattle(list, 'normal', { canRun: !!c.canRun, lose: c.lose ?? 'respawn', resultVar: c.resultVar, music: c.music, scripted: true, stage: c.map || undefined, pick });
       },
-      busy: () => this.battle.active || this.battlePending || !!this.sleeping || this.restScreen.isOpen || this.tutorialPop.isOpen || this.flightPick || !!this.flight,
+      busy: () => this.battle.active || this.battlePending || !!this.sleeping || this.restScreen.isOpen || this.lockpick.isOpen || this.tutorialPop.isOpen || this.flightPick || !!this.flight,
       sleep: (c) => this.startSleep(c),
       statRank: (c) => { const n = this.setStatRank(c.hero, c.stat, c.rank); return n.length ? `${n.join(', ')}: ${ATTR_INFO[c.stat].name} now grows at Rank ${c.rank}.` : null; },
       temperature: (op, value) => { this.tempHere = op === 'reset' ? null : { op, value: value ?? 0 }; },
@@ -1026,7 +1035,7 @@ export class Game {
       solidEvent: (x, z) => this.events.some((e) => e.solid && e.covers(x, z)),
       // Out of stamina: only walking (and crawling, so nobody gets stuck in a tunnel) until it refills.
       // Riding: no climbing or crawling; galloping while the horse has stamina.
-      has: (a) => (this.riding ? a === 'jump' || (a === 'run' && !this.horseTired) : this.state.has(a) && (a === 'crawl' || !this.stats.exhausted)),
+      has: (a) => (this.riding ? a === 'jump' || (a === 'run' && !this.horseTired) : (this.state.has(a) || (a === 'run' && this.carries('dash')) || (a === 'climb' && this.carries('climb'))) && (a === 'crawl' || !this.stats.exhausted)),
       get speed() { const h = game.riding; return h ? { ...game.stats.cfg.speed, walk: h.speed * 0.5, run: h.speed, wade: h.speed * 0.35 } : game.stats.cfg.speed; },
       // A horse doesn't swim; on foot, swimming takes a key item marked Lets the party swim (Update 109).
       noSwim: () => !!this.riding || !this.canSwim(),
@@ -1828,7 +1837,7 @@ export class Game {
     this.updateFps(raw);
     const dt = Math.min(raw, 0.05);
     this.elapsed += dt;
-    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.restScreen.isOpen || this.tutorialPop.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
+    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.restScreen.isOpen || this.lockpick.isOpen || this.tutorialPop.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
@@ -1852,6 +1861,7 @@ export class Game {
       else if (this.saveScreen.isOpen) this.saveScreen.update();
       else if (this.tutorialPop.isOpen) this.tutorialPop.update();
       else if (this.restScreen.isOpen) this.restScreen.update();
+      else if (this.lockpick.isOpen) this.lockpick.update(dt);
       else if (this.equipScreen.isOpen) this.equipScreen.update();
       else if (this.partyScreen.isOpen) this.partyScreen.update();
       else if (this.charScreen.isOpen) this.charScreen.update();
@@ -2026,7 +2036,7 @@ export class Game {
     if (this.state.horse?.mounted && !this.motion.airborne && i.consume('ring')) this.dismount();
     if (i.consume('ring') && !this.motion.climbing) {
       const tool = this.inventory.bTool;
-      if (tool && this.inventory.count(tool) > 0) this.toggleTool(tool);
+      if (tool && this.inventory.count(tool) > 0) { const msg = this.toggleTool(tool); if (msg && this.items.get(tool)?.field) this.menu.notice(msg); }
       // A learned spell readied in Menu → Abilities comes first; otherwise the shard in the magic slot.
       else if (this.readiedSpell()) this.combat.castShard();
       else if (this.rings.power) this.useRing();
@@ -2815,6 +2825,7 @@ export class Game {
     if (!d || (d.environment ?? 'outdoor') !== 'outdoor') return null;
     if (d.season) return d.season;
     if (this.seasonTest) return this.seasonTest;
+    if (this.state.seasonPick) return this.state.seasonPick as Season;
     const cfg = this.db.time?.seasons;
     if (cfg?.off) return null;
     // By default the seasons are the real world's (from the player's date); or they follow the in-game days.
@@ -3168,7 +3179,7 @@ export class Game {
     // A key item in use (a lantern switched on from the bag or with B) stays in hand while it's in the bag.
     const worn = this.rings.ring, keep = worn?.tool && this.inventory.count(worn.id) > 0 ? this.items.get(worn.id) ?? null : null;
     const bt = this.inventory.bTool && this.inventory.count(this.inventory.bTool) > 0 ? this.items.get(this.inventory.bTool) : undefined;
-    this.rings.wear(keep ?? bt ?? (d?.spell?.power ? d : null), this.settings.lightShadows);
+    this.rings.wear(keep ?? (bt?.tool ? bt : null) ?? (d?.spell?.power ? d : null), this.settings.lightShadows);
     // The HUD shows what the spell button does: the key item on it, or the readied spell (a learned spell, or the
     // shard's bolt or field spell).
     const learned = this.readiedSpell();
@@ -3187,10 +3198,114 @@ export class Game {
       if (on) this.state.expAllOff.delete(id); else this.state.expAllOff.add(id);
       return `${d.name}: ${on ? 'on' : 'off'}`;
     }
+    // The other field uses (Update 118): Cut, Fire Bow, Smash Stone, the weather, time, season, fishing, the horse.
+    if (d?.field && this.inventory.count(id) > 0) return this.fieldUse(d);
     if (!d?.tool || this.inventory.count(id) < 1) return null;
     if (this.rings.ring?.id !== id) this.rings.wear(d, this.settings.lightShadows);
     this.useRing();
     return `${d.name}: ${this.rings.active ? 'on' : 'off'}`;
+  }
+
+  /** A lock (Update 119): open already, a key or Skeleton Key, or the lockpicking screen. */
+  private openLock(c: Extract<Command, { cmd: 'lock' }>, key: string, done: (ok: boolean) => void): void {
+    const opened = () => { if (key) this.state.setSwitch(key, true); this.refreshEvents(); done(true); };
+    if (key && this.state.getSwitch(key)) { done(true); return; }
+    const keyItem = c.key && this.inventory.count(c.key) > 0 ? this.items.get(c.key) : this.carried('skeletonKey');
+    if (keyItem) { this.audio.play('lockOpen'); this.menu.notice(`Unlocked with the ${keyItem.name}.`); opened(); return; }
+    if (c.level === 'never') { this.audio.play('lockTurn'); this.menu.notice(c.key ? `It's locked. It needs the ${this.items.get(c.key)?.name ?? 'right key'}.` : 'It’s locked.'); done(false); return; }
+    const picks = [...this.items.values()].some((d) => d.lockpick);
+    if (picks && ![...this.items.values()].some((d) => d.lockpick && this.inventory.count(d.id) > 0)) { this.audio.play('lockTurn'); this.menu.notice('It’s locked. You have no lockpicks.'); done(false); return; }
+    this.lockpick.show(c.level, (ok) => { if (ok) { this.state.tally('locksPicked'); opened(); } else done(false); });
+  }
+
+  /** A key item with this field use in the bag (Update 118), if any. */
+  private carried(use: FieldUseKind): ItemDef | undefined {
+    for (const s of this.inventory.slots) { const d = s ? this.items.get(s.id) : undefined; if (d?.field?.use === use) return d; }
+    return undefined;
+  }
+  carries(use: FieldUseKind): boolean { return !!this.carried(use); }
+
+  /** Use a key item's field use (Update 118); returns what to tell the player. */
+  private fieldUse(d: ItemDef): string | null {
+    const f = d.field!, outdoor = this.time.environment === 'outdoor';
+    switch (f.use) {
+      case 'dash': case 'swim': case 'climb': case 'skeletonKey':
+        return `${d.name} works just by being carried.`;
+      case 'cut':
+        if (!this.propAhead((x) => !!x.cuttable)) return 'Nothing to cut here.';
+        this.cutAhead(0, true);
+        return null;
+      case 'smash':
+        if (!this.propAhead((x) => !!x.mineable)) return 'No rock to smash here.';
+        this.mineAhead(true);
+        return null;
+      case 'fireBow': {
+        const [fx, fz] = DIR_VECTOR[this.player.dir], p = this.player.position;
+        const tx = Math.floor(p.x + fx * 0.75), tz = Math.floor(p.z + fz * 0.75);
+        const fire = this.fireAt(tx, tz) ?? this.fireAt(Math.floor(p.x), Math.floor(p.z));
+        if (fire) {
+          if (!this.fireOut(fire)) return 'It’s already burning.';
+          const fd = this.sprites.def(fire.type)!;
+          this.state.setFire(this.mapName, propKey(fire), this.state.clock + Math.min(fd.burns ?? Infinity, 1));
+          this.kindled.delete(propKey(fire));
+          this.setFireOut(fire, false);
+          this.audio.play('ringOn', fire.x, fire.z);
+          this.bursts.spawn(fire.x, this.map.surfaceY(fire.x, fire.z) + 0.3, fire.z, { color: '#ffb347', n: 18, speed: 1.4, up: 2.2, life: 0.7, size: 0.09, additive: true });
+          return `${fd.name} is lit: it burns for an hour.`;
+        }
+        if (this.burnAt(tx + 0.5, tz + 0.5, 0.6)) { this.audio.play('fire', tx + 0.5, tz + 0.5); return null; }
+        return 'Nothing to light here.';
+      }
+      case 'weather': {
+        if (!outdoor) return 'The weather can only be changed outdoors.';
+        const cycle: WeatherKind[] = ['none', 'rain', 'snow', 'haze'];
+        const kind = f.weather ?? cycle[(cycle.indexOf(this.weather.kind) + 1) % cycle.length];
+        this.interpreter.start([{ cmd: 'weather', kind, amount: 1 }]);
+        this.audio.play('ringOn');
+        return `${d.name}: ${WEATHER_LABEL[kind] ?? kind}.`;
+      }
+      case 'time': {
+        const now = this.time.target, marks = [0, 6, 12, 18];
+        const to = f.hour ?? marks.find((m) => m > now + 0.01) ?? 0;
+        this.state.clock += wrapHour(to - this.time.target);
+        this.fireCheck = 0;
+        this.time.set(to, false);
+        this.audio.play('ringOn');
+        const names: Record<number, string> = { 0: 'midnight', 6: 'dawn', 12: 'noon', 18: 'dusk' };
+        return `${d.name}: ${names[to] ?? (this.settings.clock12 ? `${to % 12 || 12} ${to < 12 ? 'AM' : 'PM'}` : `${String(to).padStart(2, '0')}:00`)}.`;
+      }
+      case 'season': {
+        if (!outdoor) return 'The season can only be changed outdoors.';
+        const order: Season[] = ['spring', 'summer', 'autumn', 'winter'];
+        const now = this.seasonNow() ?? 'spring';
+        const to = f.season ?? order[(order.indexOf(now) + 1) % 4];
+        this.state.seasonPick = to === 'auto' ? null : to;
+        this.audio.play('ringOn');
+        return `${d.name}: ${to === 'auto' ? 'the seasons follow the calendar again' : SEASON_NAMES[to]}.`;
+      }
+      case 'fish': {
+        const spot = this.fishSpotAhead();
+        if (!spot) return 'No fishing spot here: face the water at a fishing spot.';
+        this.startFishing(spot, this.bestRod()!);
+        return null;
+      }
+      case 'horse': {
+        const h = this.state.horse;
+        if (h?.mounted) { this.dismount(); return null; }
+        if (this.time.environment !== 'outdoor') return 'Your horse can’t come here.';
+        if (!h) {
+          if (!f.horse) return 'You don’t have a horse.';
+          const msg = this.horseCommand({ cmd: 'horse', op: 'rent', id: f.horse, free: true });
+          if (!this.state.horse) return msg;
+        }
+        const spot = this.horseSpot(), hs = this.state.horse!;
+        hs.map = this.mapName; hs.x = spot.x; hs.z = spot.z;
+        this.audio.play('horseNeigh', spot.x, spot.z);
+        this.mount();
+        return null;
+      }
+    }
+    return null;
   }
 
   /** Mana Thrift (Magic tree): spells cost this much of their magic. */
@@ -3262,18 +3377,19 @@ export class Game {
    * A swing at the rock in front of the hero: with a mining weapon (a pickaxe, a hammer) each blow chips it, and the
    * last breaks it open (stone, ore). Other weapons just bounce off. Returns true when there was rock to hit.
    */
-  private mineAhead(): boolean {
+  private mineAhead(smash = false): boolean {
     const target = this.propAhead((d) => !!d.mineable);
     if (!target) return false;
     const { prop, tiles } = target, d = this.sprites.def(prop.type)!, key = propKey(prop);
     const y = this.map.surfaceY(prop.x, prop.z);
     const id = this.inventory.equip.weapon, w = id ? this.items.get(id) : undefined;
-    if (!w?.mines) {
+    if (!w?.mines && !smash) {
       this.audio.play('block', prop.x, prop.z);
       if (this.elapsed > this.mineWarnT) { this.mineWarnT = this.elapsed + 4; this.menu.notice('Too hard: break rock with a pickaxe or hammer'); }
       return true;
     }
-    const n = (this.mineHits.get(key) ?? 0) + 1, need = Math.max(1, d.hits ?? 3);
+    // Smash Stone (Update 118) breaks it in one blow.
+    const n = smash ? Infinity : (this.mineHits.get(key) ?? 0) + 1, need = Math.max(1, d.hits ?? 3);
     this.bursts.spawn(prop.x, y + 0.5, prop.z + 0.1, { color: '#9a9ca6', n: 10, speed: 1.6, up: 2.2, life: 0.5, size: 0.07, gravity: 6 });
     if (n < need) {
       this.mineHits.set(key, n);
@@ -3759,6 +3875,8 @@ export class Game {
   private bestRod(): ItemDef | undefined {
     let best: ItemDef | undefined;
     for (const d of this.items.values()) if (d.rod && this.inventory.count(d.id) > 0 && (!best || (d.rod.power ?? 0) > (best.rod!.power ?? 0))) best = d;
+    // A key item that starts fishing (Update 118) works as a basic rod.
+    if (!best) { const k = this.carried('fish'); if (k) best = { ...k, rod: { power: 0 } }; }
     return best;
   }
 
@@ -3846,7 +3964,7 @@ export class Game {
 
   /** Carrying a key item that lets the party swim. */
   private canSwim(): boolean {
-    return this.inventory.slots.some((st) => !!st && !!this.items.get(st.id)?.swim);
+    return this.inventory.slots.some((st) => !!st && (!!this.items.get(st.id)?.swim || this.items.get(st.id)?.field?.use === 'swim'));
   }
 
   /** A bite answered in time: roll what it was, and into the bag it goes. */
@@ -4911,14 +5029,14 @@ export class Game {
         who, name: hero.name, level: this.progress.level, portrait: hero.face ? this.resolveFile(hero.face) : this.portraitUrl, art: this.heroArt(0), color: this.heroColor(0),
         hp: [this.stats.hp, this.stats.cfg.max.hp], mp: [this.stats.mp, this.stats.cfg.max.mp],
         xp: { have: this.progress.xp, next: this.progress.maxed ? null : this.progress.toNext },
-        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null, tint: this.hpTint(0), good: this.goodPill(0),
+        skillPoints: this.progress.points, down: this.stats.hp <= 0, locked, elements: this.heroAffinity(0).elements, ailment: this.ailmentPill(0), weather: this.weatherStates.get(mainHero(this.db).id) ?? null, tint: this.hpTint(0), good: this.goodPill(0), drying: this.drying.get(mainHero(this.db).id) ?? null,
       };
     }
     const m = this.members()[who - 1], mx = this.allyNumbers(m.data, m.def).max, next = xpToNext(this.combatCfg, m.data.level);
     return {
       who, name: m.def.name, level: m.data.level, portrait: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), art: this.heroArt(who), color: this.heroColor(who),
       hp: [m.data.down ? 0 : m.data.hp, mx.hp], mp: [m.data.mp, mx.mp],
-      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null, tint: m.data.down ? null : this.hpTint(who), good: this.goodPill(who),
+      xp: { have: m.data.xp, next: next || null }, skillPoints: m.data.skillPoints ?? 0, down: !!m.data.down, elements: this.heroAffinity(who).elements, ailment: this.ailmentPill(who), weather: this.weatherStates.get(m.def.id) ?? null, tint: m.data.down ? null : this.hpTint(who), good: this.goodPill(who), drying: this.drying.get(m.def.id) ?? null,
     };
   }
 
@@ -6223,11 +6341,12 @@ export class Game {
     const leadId = mainHero(this.db).id, leadWeather = this.weatherStates.get(leadId) ?? null, leadRumble = this.rumbling(leadId);
     this.hud.setHeroWeather(this.settings.hud?.stats?.compact ? null : leadWeather, !this.settings.hud?.stats?.compact && leadRumble);
     this.hud.setHeroTint(this.hpTint(0));
+    this.hud.setHeroDrying(this.settings.hud?.stats?.compact ? null : this.drying.get(leadId) ?? null);
     this.hud.setHeroAilment(this.settings.hud?.stats?.compact || this.stats.hp <= 0 ? null : this.ailmentPill(0) ?? null, this.settings.hud?.stats?.compact ? null : this.goodPill(0));
-    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0), ailment: this.ailmentPill(0), good: this.goodPill(0) }] : [];
+    const heroCard = this.settings.hud?.stats?.compact ? [{ name: mainHero(this.db).name, level: pr.level, face: this.portraitUrl ?? '', hp: this.stats.hp, maxHp: this.stats.cfg.max.hp, mp: this.stats.mp, maxMp: this.stats.cfg.max.mp, xp: pr.xp, toNext: pr.maxed ? 0 : pr.toNext, down: false, elements: heroEls, weather: leadWeather, rumble: leadRumble, tint: this.hpTint(0), ailment: this.ailmentPill(0), good: this.goodPill(0), drying: this.drying.get(leadId) ?? null }] : [];
     // The party's cards: the others of the three fighting (whoever leads the map).
     const cards = this.activeWhos().filter((w) => w > 0).map((w) => this.members()[w - 1]).filter((x) => !!x);
-    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1), ailment: this.ailmentPill(this.members().findIndex((x) => x.data === d) + 1), good: this.goodPill(this.members().findIndex((x) => x.data === d) + 1) }; })]);
+    this.hud.setParty([...heroCard, ...cards.map(({ data: d, def }) => { const n = this.allyNumbers(d, def); return { name: def.name, level: d.level, face: def.face ? this.resolveFile(def.face) : this.memberPortrait(def), hp: d.hp, maxHp: n.max.hp, mp: d.mp, maxMp: n.max.mp, xp: d.xp, toNext: xpToNext(this.combatCfg, d.level), down: !!d.down, elements: this.heroAffinity(this.members().findIndex((x) => x.data === d) + 1).elements, weather: d.down ? null : this.weatherStates.get(def.id) ?? null, rumble: this.rumbling(def.id), tint: d.down ? null : this.hpTint(this.members().findIndex((x) => x.data === d) + 1), ailment: this.ailmentPill(this.members().findIndex((x) => x.data === d) + 1), good: this.goodPill(this.members().findIndex((x) => x.data === d) + 1), drying: this.drying.get(def.id) ?? null }; })]);
   }
 
   /** The fight is over: a party member's EXP from it (and a level-up, if it came). */
@@ -6945,6 +7064,7 @@ export class Game {
   private climateSeason(day: number, onMap = true): Season {
     if (onMap && this.mapData?.season) return this.mapData.season;
     if (this.seasonTest) return this.seasonTest;
+    if (this.state.seasonPick) return this.state.seasonPick as Season;
     const cfg = this.db.time?.seasons;
     if (cfg?.off || (cfg?.mode ?? 'real') !== 'days') return realSeason(new Date(), cfg?.mode === 'realSouth');
     return seasonOn(day, cfg);
@@ -7061,6 +7181,8 @@ export class Game {
         byFire: safe || !!this.lights?.byFire(h.x, h.z), damp: !!this.mapData?.damp, sunny, outside,
       };
       if (!paused && h.hp > 0) stepBody(b, place, dt, cfg);
+      // Drying off by a fire (Update 117): a drying bar on their panel while it goes.
+      if (place.byFire && !place.swimming && b.wet > 0.02 && !(place.raining && !place.sheltered)) this.drying.set(h.id, b.wet); else this.drying.delete(h.id);
       const st = weatherState(b, place, cfg), was = this.weatherStates.get(h.id);
       this.weatherStates.set(h.id, st);
       // Chatter when it changes (not when first worked out on a map).
@@ -7194,6 +7316,9 @@ export class Game {
       }
     });
   }
+
+  /** Heroes drying off by a fire, and how wet they still are (0 … 1). */
+  private readonly drying = new Map<string, number>();
 
   /** The safe zone the hero is resting in (its spots, keyed by its first spot), or null. */
   private restZone: string | null = null;

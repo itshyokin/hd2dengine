@@ -601,7 +601,38 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       h('h3', {}, 'Developer console'),
       field('The \u0060 key opens it', select([['playtest', 'In playtests only'], ['always', 'Always (the released game too)'], ['off', 'Never']], devConsole, (v) => { devConsole = v as typeof devConsole; })),
       h('p', { class: 'note' }, 'Type commands to test quickly: give items, teleport, god mode, ghost through walls… (help lists them). On a tablet: three fingers on the screen, or Console in the playtest panel. Using a cheat turns achievements off for that game.')),
+    defaultSettingsSection(),
   ];
+  /**
+   * New players' settings (Update 117): the HUD layout, controls, picture and sound a new player starts with. Set it
+   * up in a playtest, Settings → Export settings, then choose that file here (it's kept as data/settings.json).
+   */
+  function defaultSettingsSection(): HTMLElement {
+    const status = h('p', { class: 'note' }, 'Checking…');
+    const p = store.project;
+    void p.readFile('data/settings.json').then(async (b) => {
+      try { const d = JSON.parse(await b.text()) as { saved?: string }; status.textContent = `In use: data/settings.json${d.saved ? ` (exported ${new Date(d.saved).toLocaleString()})` : ''}.`; }
+      catch { status.textContent = 'data/settings.json is there but isn’t a settings file.'; }
+    }).catch(() => { status.textContent = 'None yet: new players start with the built-in settings.'; });
+    const choose = () => {
+      const input = h('input', { type: 'file', accept: '.json,application/json' });
+      input.addEventListener('change', async () => {
+        const f = input.files?.[0];
+        if (!f) return;
+        const text = await f.text();
+        try { const d = JSON.parse(text) as { kind?: string }; if (d.kind !== 'hd2d-settings') throw new Error(); }
+        catch { toast('That isn’t a settings file (export one from the game’s Settings).', 'error'); return; }
+        if (!p.canSave) { toast('Open the project folder to keep it.', 'error'); return; }
+        try { await p.write('settings.json', text); status.textContent = 'In use: data/settings.json (just chosen).'; toast('New players will start with these settings.'); }
+        catch (err) { toast(`Couldn’t save it: ${err instanceof Error ? err.message : String(err)}`, 'error'); }
+      });
+      input.click();
+    };
+    return h('section', { class: 'db-section' }, h('h3', {}, 'Default settings for new players'),
+      h('p', { class: 'note' }, 'The HUD layout and the rest of Settings (controls, picture, sound, gameplay) a new player starts with. Arrange the HUD and settings in a playtest, then Settings → Save settings to a file, and choose that file here. Replace it any time; players who already changed their own settings keep theirs.'),
+      status,
+      h('button', { type: 'button', class: 'btn', onclick: choose }, 'Choose settings file…'));
+  }
 
   render();
 

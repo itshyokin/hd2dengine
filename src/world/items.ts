@@ -1,7 +1,7 @@
 /**
  * Item helpers shared by the game and the editor: bringing older item data up to date.
  */
-import { RARITY_COLORS, type Database, type FieldPower, type ItemDef, type Rarity } from './types';
+import { RARITY_COLORS, type Database, type FieldPower, type FieldUseKind, type ItemDef, type Rarity } from './types';
 import { FISH } from './fishing';
 import { withEssenceItems } from '../game/essence';
 
@@ -152,6 +152,29 @@ export const POWER_NAMES: Record<FieldPower, string> = {
   light: 'Light',
   waterWalk: 'Water Walk',
 };
+
+/** Key item field uses (Update 118), for menus and the editor. */
+export const FIELD_USE_NAMES: Record<FieldUseKind, string> = {
+  dash: 'Dash', swim: 'Swim', climb: 'Climb', cut: 'Cut', fireBow: 'Fire Bow', smash: 'Smash Stone', weather: 'Change weather', time: 'Change time',
+  season: 'Change season', fish: 'Start fishing', horse: 'Ride horse', skeletonKey: 'Skeleton Key',
+};
+/** What each does (the editor's note and a new item's description). */
+export const FIELD_USE_TEXT: Record<FieldUseKind, string> = {
+  dash: 'Carrying it, the hero can run (dash), even before learning to.',
+  swim: 'Carrying it, the party can swim in deep water (without one, deep water stops them).',
+  climb: 'Carrying it, the hero can climb climbable walls, even before learning to.',
+  cut: 'Use it (bag or B button) facing vines or a thin tree to cut them down.',
+  fireBow: 'Use it facing a fire that’s out to light it again for an hour, no fuel needed, or facing vines to burn them away.',
+  smash: 'Use it facing a boulder or ore vein to break it in one blow, no pickaxe needed.',
+  weather: 'Use it outdoors to change the weather here.',
+  time: 'Use it to jump to another time of day.',
+  season: 'Use it outdoors to change the season.',
+  fish: 'Use it facing a fishing spot to cast (works as a basic rod).',
+  horse: 'Use it to call your horse to you and get on (riding: get off).',
+  skeletonKey: 'Carrying it opens any lock, even ones that can’t be picked.',
+};
+/** Field uses that work just by being carried (no Use, no B button). */
+export const carriedUse = (k: FieldUseKind | undefined): boolean => k === 'dash' || k === 'swim' || k === 'climb' || k === 'skeletonKey';
 
 /** Field spells stay on until switched off. */
 export const isToggle = (p: string): boolean => p === 'light' || p === 'waterWalk';

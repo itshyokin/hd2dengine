@@ -174,13 +174,25 @@ decide things; the tablet editor keeps working.
         Done: Game `reflections` map (hero, horse, allies, event visuals that are meshes, map enemies via
         Enemy.spriteMesh); WorldBuilder adds a mirrored InstancedMesh per prop type for props at the water's edge
         (a cut-down prop's reflection stays until the map is reloaded).
-  - [ ] Update 117: drying indicator on a hero's panel while a fire dries them; a default HUD / settings file
+  - [x] Update 117: drying indicator on a hero's panel while a fire dries them; a default HUD / settings file
         (Database: save the current HUD layout and settings, export it, and new games start from it).
-  - [ ] Update 118: key items with field uses (besides Water Walk): Dash, Swim, Climb, Cut, Fire Bow, Smash Stone,
+        Done: Game `drying` map (hero id → wet left) set in the body step while by a fire, out of the rain;
+        StatusBars `dryingBar` on the HUD cards and `setHeroDrying` under the hero's own bars; PartyScreen card
+        `drying`. Database → Menus → Default settings file: choose a file saved from Settings → "Save settings to a
+        file"; it's written to data/settings.json, which new players start from (settings.ts loadProjectSettings).
+  - [x] Update 118: key items with field uses (besides Water Walk): Dash, Swim, Climb, Cut, Fire Bow, Smash Stone,
         Change weather, Change time, Change season, Start fishing, Ride horse (call it), Skeleton Key (opens any lock).
-  - [ ] Update 119: locks and lockpicking (Skyrim style): door transfers and chests get Lock settings (Easy green,
+        Done: ItemDef `field {use, weather, hour, season, horse}` (types FieldUseKind / FIELD_USES; items.ts
+        FIELD_USE_NAMES / FIELD_USE_TEXT / carriedUse). Carried: dash / climb (PlayerMotion `has`), swim (canSwim),
+        skeletonKey. Used (bag or B): Game `fieldUse` (cutAhead, mineAhead(smash), fire relight / burnAt, weather
+        command, clock jump, GameState `seasonPick` (saved), fishing via bestRod, horse call + mount).
+  - [x] Update 119: locks and lockpicking (Skyrim style): door transfers and chests get Lock settings (Easy green,
         Medium yellow, Hard orange, Impossible red, or Cannot be picked); rotate the pick round a half circle to
         find the sweet spot (smaller the harder), with rumble on controllers and a sound that grows near it.
+        Done: Command `lock {level, key?, switch?}` (Interpreter stops the event on failure; opened state in switch
+        `lock:<map:event>`); ui/LockpickScreen.ts (LOCK_NAMES / LOCK_COLORS); Game `openLock` (key, Skeleton Key,
+        lockpick items `lockpick`); Input `rumble` (Gamepad vibrationActuator); Inspector "Lock settings" section and
+        CommandEditor `lockFields`; ItemsEditor Lockpick checkbox.
   - [ ] Update 120: worn looks rework: pick the Character Builder's own parts (torso, legs, feet, arms, hats, back)
         for an item in the editor, per body type, with colours; the engine builds the sheets, no hand-made PNGs.
         Drawn over the hero's own clothes.

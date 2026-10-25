@@ -71,7 +71,12 @@ export interface PartyCard { name: string; level?: number; face?: string; hp: nu
   /** Their ailment: a balloon off the face and a pill beside the weather's. */
   ailment?: { id?: string; tag: string; color: string; ink: string; name: string };
   /** Their good state (Rested / Well Rested), the third pill. */
-  good?: { name: string; color: string; ink: string; left?: string } }
+  good?: { name: string; color: string; ink: string; left?: string };
+  /** Drying off by a fire: how wet they still are (0 … 1), shown as a small bar. */
+  drying?: number | null }
+
+/** "Drying" with a bar of the water left (drying off by a fire, Update 117). */
+const dryingBar = (wet: number): string => `<span class="hud-dry" title="Drying off by the fire"><span class="hud-dry-label">Drying</span><span class="hud-dry-bar"><i style="width:${Math.round(Math.max(0, Math.min(1, wet)) * 100)}%"></i></span></span>`;
 
 const pct = (a: number, b: number) => Math.max(0, Math.min(100, b > 0 ? (a / b) * 100 : 0));
 
@@ -118,7 +123,7 @@ export class StatusBars {
   private partyKey = '';
   private partyCount = 0;
   setParty(list: PartyCard[]): void {
-    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint, m.ailment?.id, m.ailment?.tag, m.good?.name]));
+    const key = JSON.stringify(list.map((m) => [m.name, m.level, m.face?.length, Math.round(m.hp), Math.round(m.mp), m.xp, m.toNext, m.down, m.elements, m.weather, m.rumble, m.tint, m.ailment?.id, m.ailment?.tag, m.good?.name, m.drying ? Math.round(m.drying * 20) : 0]));
     if (key === this.partyKey) return;
     this.partyKey = key;
     this.partyCount = list.length;
@@ -132,8 +137,21 @@ export class StatusBars {
       <span class="hud-ally-name">${m.name.replace(/[<&]/g, '')}${m.level ? ` <span class="lv-pill" style="color:#3a2200">Lv ${m.level}</span>` : ''}${(m.elements ?? []).map(elementDot).join('')}</span>
       <span class="hud-ally-bar hp" title="HP ${Math.ceil(m.hp)} / ${m.maxHp}"><i style="width:${pct(m.hp, m.maxHp)}%"></i></span>
       <span class="hud-ally-bar mp" title="MP ${Math.ceil(m.mp)} / ${m.maxMp}"><i style="width:${pct(m.mp, m.maxMp)}%"></i></span>${m.xp !== undefined ? `
-      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.weather || (!m.down && (m.ailment || m.good)) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment) + goodPill(m.good, true)}</span>` : ''}</div>` : '';
+      <span class="hud-ally-bar xp" title="${m.toNext ? `EXP ${m.xp} / ${m.toNext}` : 'Top level'}"><i style="width:${m.toNext ? pct(m.xp, m.toNext) : 100}%"></i></span>` : ''}${m.drying ? dryingBar(m.drying) : ''}${m.weather || (!m.down && (m.ailment || m.good)) ? `<span class="wf-pills">${weatherPill(m.weather)}${m.down ? '' : ailmentPill(m.ailment) + goodPill(m.good, true)}</span>` : ''}</div>` : '';
     });
+  }
+
+  /** The hero's own drying bar (drying off by a fire; null: none). */
+  private readonly heroDryEl = document.createElement('span');
+  private heroDryKey = -1;
+  setHeroDrying(v: number | null): void {
+    const k = v ? Math.round(v * 20) : 0;
+    if (k === this.heroDryKey) return;
+    this.heroDryKey = k;
+    if (!k) { this.heroDryEl.remove(); return; }
+    this.heroDryEl.className = 'hud-dry-top';
+    this.heroDryEl.innerHTML = dryingBar(v!);
+    if (!this.heroDryEl.isConnected) this.top.appendChild(this.heroDryEl);
   }
 
   /** The hero's own health bar in their ailment's colour (null: the usual). */

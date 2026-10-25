@@ -304,6 +304,11 @@ export type Command =
   | { cmd: 'fadeIn'; seconds?: number }
   | { cmd: 'setTime'; hour: number; instant?: boolean }
   /**
+   * A lock (Update 119): until it's opened, the event stops here unless the player picks it (or carries its key or a
+   * Skeleton Key). Opened once, it stays open (remembered per event, or in `switch`).
+   */
+  | { cmd: 'lock'; level: LockLevel; key?: string; switch?: string }
+  /**
    * Sleep (a camp, an inn): the camera tilts up to the sky, the hours rush by overhead, then it comes back down.
    * Until morning (7:00), until night (21:00), or for some hours; `rest`: health, magic and stamina refill.
    */
@@ -1153,6 +1158,25 @@ export interface WeaponDef {
 export type FieldPower = 'light' | 'waterWalk';
 export const FIELD_POWERS: FieldPower[] = ['light', 'waterWalk'];
 /**
+ * Key item field uses (Update 118), besides the Light / Water Walk toggles. Carried ones work just by being in the bag
+ * (Dash, Climb, Skeleton Key); the others are used from the bag or the B button.
+ */
+/** How hard a lock is to pick (Update 119); 'never': it can't be picked (only its key or a Skeleton Key opens it). */
+export type LockLevel = 'easy' | 'medium' | 'hard' | 'impossible' | 'never';
+export type FieldUseKind = 'dash' | 'swim' | 'climb' | 'cut' | 'fireBow' | 'smash' | 'weather' | 'time' | 'season' | 'fish' | 'horse' | 'skeletonKey';
+export const FIELD_USES: FieldUseKind[] = ['dash', 'swim', 'climb', 'cut', 'fireBow', 'smash', 'weather', 'time', 'season', 'fish', 'horse', 'skeletonKey'];
+export interface FieldUse {
+  use: FieldUseKind;
+  /** Change weather: the weather it brings (unset: the next one of clear, rain, snow, haze). */
+  weather?: WeatherKind;
+  /** Change time: the hour it jumps to (unset: the next of dawn 6, noon 12, dusk 18, midnight 0). */
+  hour?: number;
+  /** Change season: the season it brings (unset: the next one; 'auto' goes back to the calendar's). */
+  season?: import('./seasons').Season | 'auto';
+  /** Ride horse: the horse it calls when the party has none (a horse id; unset: only calls the one they have). */
+  horse?: string;
+}
+/**
  * Older databases: powers rings used to carry. Light and Water walking are spell shards now (moved over when the
  * database loads); cutting is gone (swords cut vines).
  */
@@ -1239,6 +1263,10 @@ export interface ItemDef {
   tool?: FieldPower;
   /** Weapons: breaks rock (pickaxes, hammers): mineable boulders and ore veins. */
   mines?: boolean;
+  /** Key items: one of the other field uses (Update 118): Dash, Climb, Cut, Fire Bow, Smash Stone, the weather, time or season, fishing, calling the horse, a Skeleton Key. */
+  field?: FieldUse;
+  /** A lockpick (Update 119): one is used up each time a pick snaps. With none in the database, picking is free. */
+  lockpick?: boolean;
   /** Key items: a Saddle (using it from the bag sends the rented horse home to its stable). */
   saddle?: boolean;
   /**

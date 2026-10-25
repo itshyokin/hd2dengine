@@ -81,6 +81,8 @@ export interface EventContext {
   /** Show a tutorial (the first time; the event waits while busy() says so). */
   tutorial?(id: string): void;
   console?(line: string): void;
+  /** A lock: `done(true)` once it's open (picked, a key, or opened before); `done(false)` stops the event. */
+  lock?(c: Extract<Command, { cmd: 'lock' }>, key: string, done: (ok: boolean) => void): void;
 }
 
 interface Frame { list: Command[]; i: number }
@@ -203,6 +205,13 @@ export class Interpreter {
         this.ctx.ailment(c.op, c.ailment, c.seconds, c.hero);
         break;
       case 'rest': message.close(); this.ctx.rest?.(c); break;
+      case 'lock': {
+        message.close();
+        const key = c.switch || (this.self ? `lock:${this.self}` : '');
+        const stack = this.stack;
+        this.ctx.lock?.(c, key, (ok) => { if (!ok && this.stack === stack) this.stack = []; });
+        break;
+      }
       case 'goodState': this.ctx.goodState?.(c); break;
       case 'heroWeather': this.ctx.heroWeather?.(c); break;
       case 'gauge':

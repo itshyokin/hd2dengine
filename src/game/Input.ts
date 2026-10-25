@@ -231,6 +231,16 @@ export class Input {
     this.rebuildHeld();
   }
 
+  /** Shake the controller (Update 119: lockpicking), if it can; strength 0 … 1. */
+  rumble(strength: number, ms: number): void {
+    try {
+      const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
+      const pad = [...pads].find((p) => p && p.connected) as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, o: object) => Promise<unknown> } }) | undefined;
+      const s = Math.max(0, Math.min(1, strength));
+      void pad?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: s * 0.7, weakMagnitude: s })?.catch(() => {});
+    } catch { /* no rumble here */ }
+  }
+
   isHeld(a: Action): boolean {
     return this.held.has(a);
   }

@@ -12,7 +12,7 @@ import { BORDER_KINDS, type Side, borderSides } from '../world/border';
 import type { AreaLightData, BorderKind, BreakableDef, Command, Dir, EventData, MapBorder, MapEnvironment, EventPage, LightData, MapData, PointLightData, SpotLightData, Trigger } from '../world/types';
 import { audioFiles, mapAudioFields, preview } from './audioEditor';
 import { loopChoices } from '../audio/sfx';
-import { CommandEditor, WEATHER_NAMES, conditionForm, conditionText } from './CommandEditor';
+import { CommandEditor, WEATHER_NAMES, conditionForm, conditionText, lockFields } from './CommandEditor';
 import { checkbox, confirmModal, openModal, field, h, numberInput, select, textInput, toast } from './dom';
 import { paletteProps, propName } from './editorArt';
 import { lightFields } from './lightForm';
@@ -778,6 +778,17 @@ export class Inspector {
     ].filter((n): n is HTMLElement => !!n);
   }
 
+  /** Lock settings (Update 119): a Lock command first in the page's commands (doors, chests…). */
+  private lockSection(page: EventPage): HTMLElement[] {
+    const lock = page.commands[0]?.cmd === 'lock' ? page.commands[0] as Extract<Command, { cmd: 'lock' }> : null;
+    return [h('div', { class: 'section-label' }, 'Lock settings'),
+      checkbox('Locked: the player picks the lock (or uses its key) before the rest runs', !!lock, (v) => this.edit(() => {
+        if (v && !lock) page.commands.unshift({ cmd: 'lock', level: 'easy' });
+        else if (!v && lock) page.commands.shift();
+      }, true)),
+      ...(lock ? lockFields(this.store, lock, (f) => this.edit(f, true)) : [])];
+  }
+
   /** Health, defence, what can break it, and the name over its health bar. */
   private breakableFields(b: BreakableDef): HTMLElement[] {
     const kinds = new Set(b.hitBy?.length ? b.hitBy : HIT_KINDS.map(([k]) => k));
@@ -1039,7 +1050,8 @@ export class Inspector {
               if (v === dflt) delete page.wall; else page.wall = v;
             }))] : []),
             page.trigger === 'touch' ? h('p', { class: 'hint' }, 'Player touch runs when the player steps onto it, or walks into it when they can’t step there (it’s solid, or it’s up on a cliff, like a cave mouth on the wall).') : null,
-            checkbox('Is respawn point (after losing all health, the player comes back here)', !!page.respawn, (v) => this.edit(() => (page.respawn = v || undefined)))]),
+            checkbox('Is respawn point (after losing all health, the player comes back here)', !!page.respawn, (v) => this.edit(() => (page.respawn = v || undefined))),
+            ...this.lockSection(page)]),
           ...this.bubbleFields(page),
           ...this.soundFields(page),
           ...this.markerFields(ev)),

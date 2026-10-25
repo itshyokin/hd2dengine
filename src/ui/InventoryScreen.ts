@@ -9,7 +9,7 @@ import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
 import { type Inventory, type Pocket } from '../game/inventory';
 import type { ItemDef } from '../world/types';
-import { POWER_NAMES, itemColor, rarityOf } from '../world/items';
+import { FIELD_USE_NAMES, POWER_NAMES, carriedUse, itemColor, rarityOf } from '../world/items';
 import { RARITY_NAMES } from '../world/types';
 import { ATTRS, ATTR_INFO } from '../game/attributes';
 import { ELEMENT_COLORS, ELEMENT_NAMES } from '../game/elements';
@@ -300,6 +300,12 @@ export class InventoryScreen {
       options.push({ label: on ? 'Turn off' : 'Turn on', run: () => after(this.actions.toggleTool!(this.sel)) });
       if (def.tool && this.actions.assignB) options.push({ label: inv.bTool === s.id ? `Take off the ${b} button` : `Assign to the ${b} button`, run: () => after(this.actions.assignB!(this.sel)) });
     }
+    // Other field uses (Update 118): Use, or put on the B button (carried ones just work).
+    if (def?.field && !carriedUse(def.field.use) && this.actions.toggleTool) {
+      const b = this.actions.bLabel?.() ?? 'B';
+      options.push({ label: FIELD_USE_NAMES[def.field.use], run: () => after(this.actions.toggleTool!(this.sel)) });
+      if (this.actions.assignB) options.push({ label: inv.bTool === s.id ? `Take off the ${b} button` : `Assign to the ${b} button`, run: () => after(this.actions.assignB!(this.sel)) });
+    }
     // A Saddle: send the rented horse home (so another can be rented).
     if (def?.saddle && this.actions.toggleTool) options.push({ label: 'Send your horse home', run: () => after(this.actions.toggleTool!(this.sel)) });
     // In use: let go of it (it stays in the bag).
@@ -564,7 +570,7 @@ export class InventoryScreen {
 }
 
 function kindLine(d: ItemDef): string {
-  if (d.kind === 'key') return `Key item${d.tool ? ` · ${POWER_NAMES[d.tool]} (switch on and off here, or assign it to B)` : d.exp?.all ? ` · EXP All: those sitting a battle out get ${d.exp.share}% (switch on and off here)` : d.saddle ? ' · Saddle: sends your rented horse home' : ''}`;
+  if (d.kind === 'key') return `Key item${d.tool ? ` · ${POWER_NAMES[d.tool]} (switch on and off here, or assign it to B)` : d.exp?.all ? ` · EXP All: those sitting a battle out get ${d.exp.share}% (switch on and off here)` : d.saddle ? ' · Saddle: sends your rented horse home' : d.field ? ` · ${FIELD_USE_NAMES[d.field.use]}${carriedUse(d.field.use) ? ' (works while carried)' : ' (use it here, or assign it to B)'}` : ''}`;
   if (d.kind === 'material') return `Loot${d.fuel ? ` · fire fuel +${d.fuel} h` : ''}${d.smelt ? ' · smelt it at a forge' : ''}`;
   if (d.kind === 'ammo') return `Arrows${d.element && d.element !== 'neutral' ? ` · ${ELEMENT_NAMES[d.element]}` : ''} · +${d.ammo?.damage ?? 0} damage${d.ammo?.infinite ? ' · never run out' : ''}`;
   if (d.kind === 'equipment') {

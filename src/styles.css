@@ -2328,3 +2328,28 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
   -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 34%, #000 62%); mask-image: radial-gradient(circle at 50% 50%, transparent 0 34%, #000 62%); }
 .speed-lines.on { opacity: 0.55; animation: speed-flicker 0.18s steps(2) infinite; }
 @keyframes speed-flicker { 50% { transform: rotate(3deg); } }
+
+/* Drying off by a fire (Update 117): a small bar of the water left. */
+.hud-dry { display: flex; align-items: center; gap: 5px; font: 700 9.5px var(--f-body); color: #9fd2ff; letter-spacing: 0.04em; text-transform: uppercase; }
+.hud-ally .hud-dry { grid-column: 2; }
+.hud-dry-bar { flex: 1; height: 4px; min-width: 40px; border-radius: 2px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.hud-dry-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6ab8ff, #bfe4ff); transition: width 0.4s linear; }
+.hud-dry-top { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); width: 160px; }
+.pr-dry { width: 100%; margin-top: 2px; }
+
+/* Lockpicking (Update 119). */
+.lockpick { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6, 8, 14, 0.62); z-index: 60; }
+.lockpick[hidden] { display: none; }
+.lp-box { width: min(420px, 92vw); padding: 16px 18px 12px; border-radius: 12px; background: var(--panel, #161a26); border: 2px solid var(--lock); box-shadow: 0 10px 40px rgba(0,0,0,0.5); color: #e8ecf4; }
+.lp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.lp-level { font: 800 13px var(--f-body); padding: 2px 10px; border: 2px solid; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; }
+.lp-dial { position: relative; width: 260px; height: 260px; margin: 0 auto; }
+.lp-ring { position: absolute; inset: 10px; border-radius: 50%; background: radial-gradient(circle, #3a3f4c 0 38%, #262a34 39% 60%, #1a1d26 61%); border: 3px solid #4a4f5e; }
+.lp-cyl { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle, #8a8f9e, #50545f); border: 3px solid #2a2d36; }
+.lp-cyl i { position: absolute; left: 50%; top: 18%; width: 10px; height: 64%; transform: translateX(-50%); border-radius: 4px; background: #15171e; }
+.lp-pick { position: absolute; left: calc(50% - 2px); top: 4px; width: 4px; height: 126px; transform-origin: 50% 100%; background: linear-gradient(#d8dce6, #9aa0ae); border-radius: 2px 2px 1px 1px; box-shadow: 0 0 4px rgba(0,0,0,0.6); }
+.lp-pick::before { content: ''; position: absolute; top: -6px; left: -3px; width: 10px; height: 8px; border-radius: 4px 4px 0 0; background: #c8ccd6; }
+.lp-pick.strain { background: linear-gradient(#ffd0a0, #c87a4a); }
+.lp-pin { position: absolute; left: 50%; top: 50%; width: 30px; height: 120px; pointer-events: none; }
+.lp-pin::after { content: ''; position: absolute; left: 50%; bottom: 0; width: 6px; height: 54px; transform: translateX(-50%); background: #6a5030; border-radius: 3px; }
+.lp-status { text-align: center; min-height: 1.2em; margin: 8px 0 2px; font-weight: 700; }

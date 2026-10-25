@@ -45,6 +45,8 @@ export class GameState {
   cheated = false;
   /** The console's achievements_allow: cheats don't lock achievements on this save. */
   allowAchievements = false;
+  /** A season brought by a key item (Change season, Update 118; null: the calendar's). */
+  seasonPick: string | null = null;
   /** Props cut down with a cutting ring, per map (keys from propKey). */
   readonly cut = new Map<string, Set<string>>();
   /** Game hours passed since the game began (the clock running; fires burn by it). */
@@ -154,7 +156,7 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }> }): void {
+  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string }): void {
     this.weaponsOff = !!d.weaponsOff;
     this.body.clear();
     this.good.clear();
@@ -171,6 +173,7 @@ export class GameState {
     this.enemyLevels = d.enemyLevels && typeof d.enemyLevels === 'object' ? { spread: Math.max(0, Math.round(Number(d.enemyLevels.spread) || 0)) } : null;
     this.cheated = !!d.cheated;
     this.allowAchievements = !!d.allowAchievements;
+    this.seasonPick = d.seasonPick ?? null;
     this.switches.clear();
     this.variables.clear();
     this.cut.clear();
@@ -192,7 +195,7 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }> } {
+  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
     const body = [...this.body].filter(([, b]) => Math.abs(b.meter) > 0.5 || b.wet > 0.01);
@@ -206,6 +209,7 @@ export class GameState {
     if (this.roosts.size) out.roosts = Object.fromEntries([...this.roosts].map(([k, v]) => [k, { ...v }]));
     if (this.cheated) out.cheated = true;
     if (this.allowAchievements) out.allowAchievements = true;
+    if (this.seasonPick) out.seasonPick = this.seasonPick;
     if (this.cut.size) out.cut = Object.fromEntries([...this.cut].map(([m, s]) => [m, [...s]]));
     if (this.clock) out.clock = this.clock;
     if (this.fires.size) out.fires = Object.fromEntries([...this.fires].map(([m, f]) => [m, Object.fromEntries(f)]));

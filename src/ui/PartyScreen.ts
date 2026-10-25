@@ -36,6 +36,8 @@ export interface PartyMemberView {
   ailment?: { tag: string; color: string; ink: string; name: string; id?: string };
   /** Their good state (Rested / Well Rested). */
   good?: { name: string; color: string; ink: string; left?: string };
+  /** Drying off by a fire: how wet they still are (0 … 1). */
+  drying?: number | null;
   /** The elements on them (out of battle): the panel's frame and a pill. */
   weather?: WeatherState | null;
   /** Their health bar's colour (their ailment's, when Database → Climate tints it). */
@@ -214,7 +216,7 @@ export class PartyScreen {
         ${c.down ? '' : weatherDecor(c.weather)}
         ${show('levelUp') && c.skillPoints > 0 ? '<span class="pt-badge">LEVEL UP</span>' : ''}
         ${show('picture') ? `<div class="pr-art">${c.down ? '' : ailmentBalloon(c.ailment?.id, c.ailment?.name)}<img src="${c.art}" alt=""></div>` : '<div class="pr-gap"></div>'}
-        ${show('name') || show('level') || show('ailment') || show('elements') ? `<div class="pr-name">${show('name') ? `<b>${esc(c.name)}</b>` : ''}${show('level') ? lv(c) : ''}${show('ailment') ? ail(c) : ''}${show('ailment') && !c.down ? weatherPill(c.weather) + goodPill(c.good) : ''}${show('elements') && c.elements?.length ? `<span class="pr-els">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>` : ''}
+        ${show('name') || show('level') || show('ailment') || show('elements') ? `<div class="pr-name">${show('name') ? `<b>${esc(c.name)}</b>` : ''}${show('level') ? lv(c) : ''}${show('ailment') ? ail(c) : ''}${show('ailment') && !c.down ? weatherPill(c.weather) + goodPill(c.good) : ''}${c.drying ? `<span class="hud-dry pr-dry" title="Drying off by the fire"><span class="hud-dry-label">Drying</span><span class="hud-dry-bar"><i style="width:${Math.round(Math.min(1, c.drying) * 100)}%"></i></span></span>` : ''}${show('elements') && c.elements?.length ? `<span class="pr-els">${c.elements.map((e) => elementPill(e)).join('')}</span>` : ''}</div>` : ''}
         ${show('hp') ? `<div class="pr-line"><span class="pr-k">HP</span><div class="pr-bar hp${hpTier(c)}"><i style="width:${pct(c.hp[0], c.hp[1])}%"></i></div><span class="pr-num">${Math.round(c.hp[0])} / ${Math.round(c.hp[1])}</span></div>` : ''}
         ${show('mp') ? `<div class="pr-line"><span class="pr-k">MP</span><div class="pr-bar mp"><i style="width:${pct(c.mp[0], c.mp[1])}%"></i></div><span class="pr-num">${Math.round(c.mp[0])} / ${Math.round(c.mp[1])}</span></div>` : ''}
         ${show('exp') ? `<div class="pr-line thin"><span class="pr-k">EXP</span><div class="pr-bar xp"><i style="width:${xp}%"></i></div>${show('expNumbers') ? `<span class="pr-num">${c.xp.next === null ? 'MAX' : `${c.xp.have} / ${c.xp.next}`}</span>` : ''}</div>`

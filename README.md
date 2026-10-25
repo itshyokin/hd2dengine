@@ -671,6 +671,8 @@ them: Freezing before a fight, still Freezing after.
   within about two and a half tiles; indoors keeps the rain off; the sun dries you on a warm, clear day. Items with
   **Warms / cools** (Database → Items: + a Hot Cocoa, − a Chilled Tea; 100 takes them all the way back) work from the
   bag, and items have a **Camp value** for camping (Update 106).
+  While a fire dries someone, their panel shows **Drying** with a bar of the water left (HUD cards, the hero's own
+  bars and the pause menu's party panels).
 - **Maps** (Map Properties → Weather): *Temperature: its own* for caves and houses (a cool cave 50°F, an ice cave 20,
   a lava cave 105): it wanders a few degrees but never into another state's range (a warm cave never turns
   sweltering); *Damp* slowly soaks whoever is in it; *Keep the elements out* for cozy towns. Unset, indoors is 68°F
@@ -836,6 +838,8 @@ them: Freezing before a fight, still Freezing after.
 - **The game's default settings**: put a saved settings file at `public/data/settings.json` and it becomes the
   starting settings for every player who hasn't changed theirs (controls, HUD layout, picture…). **Restore
   defaults** goes back to it (it asks "Are you sure?" first). A browser that already has settings saved keeps them until Restore defaults.
+  The editor does this for you: **Database → Menus → Default settings file → Choose settings file…** takes a file
+  saved from Settings → **Save settings to a file** and puts it in the data folder (and shows whether one is set).
 - Exit closes the game where the browser allows it; in a normal tab it asks the player to close the tab.
 
 ### World layout, the world map and seamless maps
@@ -1057,6 +1061,16 @@ them: Freezing before a fight, still Freezing after.
   pickup here**. Both make a two-page event: page 1 gives the item and sets a switch
   (`chest_<map>_<id>`), page 2 (when the switch is on) shows the open chest, or nothing for a pickup.
   If the bag is full the player is told and the chest stays closed.
+- **Locks and lockpicking** (Update 119): select any event (a door transfer, a chest…) and tick **Lock settings →
+  Locked**. Pick the difficulty: **Easy** (green), **Medium** (yellow), **Hard** (orange), **Impossible** (red) or
+  **Cannot be picked** (grey: only its key opens it), and optionally a key item that opens it. It's a **Lock**
+  command first in the page's commands (you can also add it anywhere yourself). Until it's open the event stops there.
+  Picking works like Skyrim: move the pick round the half circle (← → , the stick or the mouse) and hold Space / A
+  (or click) to turn. On the sweet spot the lock turns all the way and opens; near it, it turns part way; off it, it
+  jams and the pick strains until it snaps. Easier locks have a wider sweet spot; Impossible is a sliver. A soft click
+  ticks faster near the spot, and controllers rumble more the closer the pick gets. A **Skeleton Key** (Field use)
+  or the lock's own key opens it straight away. Items ticked **Lockpick** are used up when picks snap; with no
+  lockpick items in the game, picking is free. An opened lock stays open (saved).
 - **Shops**: the **Open shop** command lists what's for sale (prices come from the item unless you set one) and
   whether the player can sell (for half the price). In the sample map, talk to Mira twice and ask to trade.
 - Built-in sprites for events: **Chest**, **Chest (open)** and **Item sparkle** (which glows in the dark).
@@ -1616,7 +1630,7 @@ skills as new abilities arrive). A **LEVEL UP** banner appears at the top of the
 - **Settings → Sound**: **Master volume** (50% to start), music, sound effects, background sounds, **menus and text**, and **fanfares and chimes**. Browsers only allow sound after the first
   click or key press, so the title music starts then.
 
-### Field uses: key items (Light, Water Walk)
+### Field uses: key items (Light, Water Walk, Dash, Cut…)
 
 Overworld abilities come from **key items**: the built-in **Lantern** (Light) and **Strider Boots** (Water Walk).
 Pick one in the bag (**Key items** tab) and choose **Turn on** / **Turn off**, or **Assign to the B button** so **B**
@@ -1627,6 +1641,21 @@ they cost no magic. Set them up in **Database → Items**: Kind *Key / quest ite
 | --- | --- |
 | **Light** | A glow all around the hero: a **lantern**, a flickering **torch** or an **orb** floating by them. Colour, brightness, reach and shadows are set per item. |
 | **Water Walk** | Water of any depth is solid ground: no swimming, no stamina. Switches off by itself when the hero steps back on land. |
+| **Dash** | Carried: the hero can run, even before learning to (Change ability → Run off). |
+| **Swim** | Carried: the party can swim in deep water (same as *Lets the party swim*). |
+| **Climb** | Carried: the hero can climb climbable walls, even before learning to. |
+| **Cut** | Use it facing vines or a thin tree to cut them down. |
+| **Fire Bow** | Use it facing a fire that's out to light it for an hour (no fuel), or facing vines to burn them. |
+| **Smash Stone** | Use it facing a boulder or ore vein to break it in one blow (no pickaxe). |
+| **Change weather** | Outdoors: brings the weather you pick (or steps through clear, rain, snow, haze). |
+| **Change time** | Jumps to the hour you pick (or the next of dawn, noon, dusk, midnight). |
+| **Change season** | Outdoors: brings the season you pick (or the next one; *Back to the calendar's* undoes it). Saved with the game. |
+| **Start fishing** | Use it facing a fishing spot to cast; works as a basic rod. |
+| **Ride horse** | Calls your horse to you and gets on (riding: gets off). Can bring a horse of its own the first time (a whistle). |
+| **Skeleton Key** | Carried: opens any lock, even ones that can't be picked. |
+
+Carried uses just work while they're in the bag; the others are used from the bag (the use's name in the item's
+menu) or assigned to the B button (Update 118).
 
 - While one is on the hero glows (gold for Light, blue for Water Walk). Over deep water the hero is put back on the last bit of shore.
 - The HUD's spell box shows the item on the B button; it lights up while it's on.

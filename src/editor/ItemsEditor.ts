@@ -13,7 +13,10 @@ import { DEFAULT_BAG_SLOTS } from '../game/inventory';
 import { EQUIP_SLOTS, RARITIES, RARITY_COLORS, RARITY_NAMES, FIELD_POWERS, type FieldPower, type Rarity, type SpellDef, type EquipSlot, type Gauge, type InventorySetup, type ItemDef, type ItemKind, type ItemLight, type WeaponClass, type WeaponType, type ArmorWeight, type ArmorTypeDef, type WeaponTypeDef, type EssenceTier } from '../world/types';
 import { armorTypes, armorWeightOf, weaponTypeName, weaponTypeOf, weaponTypes } from '../game/classes';
 import { openArmorTypes, openWeaponTypes } from './armorTypesEditor';
-import { FIELD_GLOW, POWER_NAMES, itemColor } from '../world/items';
+import { FIELD_GLOW, FIELD_USE_NAMES, FIELD_USE_TEXT, POWER_NAMES, carriedUse, itemColor } from '../world/items';
+import { FIELD_USES, WEATHER_KINDS, type FieldUseKind, type WeatherKind } from '../world/types';
+import { SEASONS, SEASON_NAMES, type Season } from '../world/seasons';
+import { horseList } from '../game/horses';
 import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
 import { RANKS, RANK_GAIN, type Rank } from '../game/statRanks';
 import { checkbox, field, h, numberInput, select, textInput, toast } from './dom';
@@ -282,17 +285,23 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
   // Key items: a field use (switched on and off from the bag or the B button).
   if (d.kind === 'key') {
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Field use'),
-      field('Use', select([['', 'None (a plain key item)'], ...FIELD_POWERS.map((p) => [p, POWER_NAMES[p]] as [string, string])], d.tool ?? '', (v) => {
-        if (v) { d.tool = v as FieldPower; delete d.exp; } else delete d.tool;
+      field('Use', select([['', 'None (a plain key item)'], ...FIELD_POWERS.map((p) => [p, POWER_NAMES[p]] as [string, string]), ...FIELD_USES.map((u) => [`f:${u}`, FIELD_USE_NAMES[u]] as [string, string])], d.field ? `f:${d.field.use}` : d.tool ?? '', (v) => {
+        delete d.field;
+        if (v.startsWith('f:')) { delete d.tool; delete d.exp; d.field = { use: v.slice(2) as FieldUseKind }; if (!d.description) d.description = FIELD_USE_TEXT[d.field.use]; }
+        else if (v) { d.tool = v as FieldPower; delete d.exp; } else delete d.tool;
         if (d.tool === 'light') d.light ??= defaultLight('lantern'); else delete d.light;
         rerender();
       }), 'Light: a lantern, torch or floating orb lights the way in the dark. Water Walk: walk on water of any depth (it switches off back on land). The player switches it on and off in the bag, or assigns it to the B button. No magic needed.'),
       d.tool === 'light' ? lightForm(d, rerender) : h('span'),
-      d.tool ? h('span') : checkbox('Saddle: using it from the bag sends the rented horse home (stables give one with a horse)', !!d.saddle, (v) => { if (v) d.saddle = true; else delete d.saddle; }),
-      d.tool ? h('span') : checkbox('Lets the party swim: carrying it, they can swim in deep water (without one, deep water stops them)', !!d.swim, (v) => { if (v) d.swim = true; else delete d.swim; }),
-      d.tool ? h('span') : field('EXP All: % for everyone sitting a battle out', numberInput(d.exp?.all ? d.exp.share : 0, (v) => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n) d.exp = { share: n, all: true }; else delete d.exp; }, { step: 5, min: 0, max: 100 }),
+      d.field ? fieldUseForm(store, d) : h('span'),
+      d.tool || d.field ? h('span') : checkbox('Saddle: using it from the bag sends the rented horse home (stables give one with a horse)', !!d.saddle, (v) => { if (v) d.saddle = true; else delete d.saddle; }),
+      d.tool || d.field ? h('span') : checkbox('Lets the party swim: carrying it, they can swim in deep water (without one, deep water stops them)', !!d.swim, (v) => { if (v) d.swim = true; else delete d.swim; }),
+      d.tool || d.field ? h('span') : field('EXP All: % for everyone sitting a battle out', numberInput(d.exp?.all ? d.exp.share : 0, (v) => { const n = Math.max(0, Math.min(100, Math.round(v))); if (n) d.exp = { share: n, all: true }; else delete d.exp; }, { step: 5, min: 0, max: 100 }),
         'While held and switched on (the player switches it on and off in the bag’s Key items), everyone on the bench gets this percent of the foes’ EXP. Fighters always get the most. 0: not an EXP All.')));
   }
+  // Lockpicks (Update 119): one is used up when a pick snaps.
+  if (d.kind !== 'equipment') out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Lockpicking'),
+    checkbox('Lockpick: picking a lock needs one in the bag, and a snapped pick uses one up (with no lockpick items in the game, picking is free)', !!d.lockpick, (v) => { if (v) d.lockpick = true; else delete d.lockpick; })));
   // Fishing: a rod (any item kind; with one in the bag the hero can fish), or a fish (its usual size, for Records).
   out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Fishing'),
     checkbox('Fishing rod: with this in the bag, the hero can fish at fishing spots (Map editor → Water → Fishing)', !!d.rod, (v) => { if (v) d.rod = { power: d.rod?.power ?? 0 }; else delete d.rod; rerender(); }),
@@ -603,4 +612,19 @@ function statRankField(d: ItemDef, rerender: () => void, note: string): HTMLElem
       if (v) d.statRank = { stat: v as Attr, rank: sr?.rank ?? 'A' }; else delete d.statRank; rerender();
     }), sr ? undefined : note),
     sr ? field('Rank', select(RANKS.map((r) => [r, `${r} (+${RANK_GAIN[r]} a level)`] as [string, string]), sr.rank, (v) => { sr.rank = v as Rank; }), note) : h('span'));
+}
+
+/** A key item's field use settings (Update 118): what it does, and the weather / hour / season / horse it brings. */
+function fieldUseForm(store: EditorStore, d: ItemDef): HTMLElement {
+  const f = d.field!;
+  const extra = f.use === 'weather'
+    ? field('Brings', select([['', 'The next one (clear, rain, snow, haze)'], ...WEATHER_KINDS.map((k) => [k, k === 'none' ? 'Clear skies' : k[0].toUpperCase() + k.slice(1)] as [string, string])], f.weather ?? '', (v) => { if (v) f.weather = v as WeatherKind; else delete f.weather; }))
+    : f.use === 'time'
+      ? field('Jumps to', select([['', 'The next of dawn, noon, dusk, midnight'], ...Array.from({ length: 24 }, (_, k) => [String(k), `${String(k).padStart(2, '0')}:00`] as [string, string])], f.hour === undefined ? '' : String(f.hour), (v) => { if (v) f.hour = Number(v); else delete f.hour; }))
+      : f.use === 'season'
+        ? field('Brings', select([['', 'The next season'], ...SEASONS.map((x) => [x, SEASON_NAMES[x]] as [string, string]), ['auto', 'Back to the calendar’s']], f.season ?? '', (v) => { if (v) f.season = v as Season | 'auto'; else delete f.season; }))
+        : f.use === 'horse'
+          ? field('With no horse, it brings', select([['', 'Nothing (only calls the horse they have)'], ...horseList(store.db).map((x) => [x.id, x.name] as [string, string])], f.horse ?? '', (v) => { if (v) f.horse = v; else delete f.horse; }), 'A whistle for a horse of its own: the first use gives the party that horse for free.')
+          : h('span');
+  return h('div', {}, h('p', { class: 'note' }, `${FIELD_USE_TEXT[f.use]}${carriedUse(f.use) ? '' : ' The player uses it from the bag, or assigns it to the B button.'}`), extra);
 }

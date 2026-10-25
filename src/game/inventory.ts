@@ -261,7 +261,7 @@ export class Inventory {
     this.elements = [0, 1].map((k) => { const id = d.elements?.[k]; return id && this.def(id)?.essence ? id : null; });
     this.ammo = d.ammo && this.def(d.ammo) ? d.ammo : null;
     this.quick = Array.from({ length: QUICK_SLOTS }, (_, k) => { const id = d.quick?.[k]; return id && this.def(id) ? id : null; });
-    this.bTool = d.bTool && this.def(d.bTool)?.tool ? d.bTool : null;
+    this.bTool = d.bTool && (this.def(d.bTool)?.tool || this.def(d.bTool)?.field) ? d.bTool : null;
     // Saves from before rings kept light items in a "light" slot.
     const eq = { ...d.equip } as Record<string, string | undefined>;
     if (eq.light && !eq.ring) eq.ring = eq.light;

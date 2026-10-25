@@ -4,7 +4,8 @@
  */
 import { findHorse, horseList, stars } from '../game/horses';
 import type { EncounterPick } from '../world/types';
-import { SELF_SWITCHES, type SelfSwitch } from '../world/types';
+import { SELF_SWITCHES, type SelfSwitch, type LockLevel } from '../world/types';
+import { LOCK_COLORS, LOCK_LEVELS, LOCK_NAMES } from '../ui/LockpickScreen';
 import { WEEKDAYS } from '../world/seasons';
 import { MOON_NAMES, MOON_PHASES, moonPhase } from '../world/moon';
 import { ABILITIES, WEATHER_KINDS, type WeatherKind, type Ailment, type Ability, type Command, type Database, type Condition, type Gauge, type QuestDef, type QuestOp, type QuestStatus } from '../world/types';
@@ -22,10 +23,23 @@ import { applyLook, messageStyles, parseRich, richHTML, setTextColors, textColor
 
 type Cmd = Command['cmd'];
 
+/** A lock's settings (Update 119): how hard it is to pick, and the key that opens it. Also used by the Inspector. */
+export function lockFields(store: EditorStore, d: { level: LockLevel; key?: string; switch?: string }, edit: (f: () => void) => void = (f) => f()): HTMLElement[] {
+  const opt = (l: LockLevel) => { const o = h('option', { value: l }, LOCK_NAMES[l]) as HTMLOptionElement; o.style.color = LOCK_COLORS[l]; return o; };
+  const sel = h('select', {}, ...LOCK_LEVELS.map(opt)) as HTMLSelectElement;
+  sel.value = d.level;
+  const paint = () => { sel.style.color = LOCK_COLORS[d.level]; sel.style.borderColor = LOCK_COLORS[d.level]; };
+  paint();
+  sel.addEventListener('change', () => edit(() => { d.level = sel.value as LockLevel; paint(); }));
+  return [field('Difficulty', sel),
+    field('Key (optional)', select([['', 'No key'], ...(store.db.items ?? []).filter((x) => x.kind === 'key').map((x) => [x.id, x.name] as [string, string])], d.key ?? '', (v) => edit(() => { if (v) d.key = v; else delete d.key; }))),
+    h('p', { class: 'hint' }, 'Until it’s open, the event stops here. The player picks it (the easier, the wider the sweet spot), or carries its key or a Skeleton Key. “Cannot be picked” only opens with the key (or a Skeleton Key). Once open it stays open. Lockpick items (Database → Items) are used up when picks snap; with none in the game, picking is free.')];
+}
+
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'], ['lock', 'Lock (pick it, or a key)'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['roost', 'Griffin roost (fly)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -33,7 +47,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen', lock: 'flow',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', roost: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -57,6 +71,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'ailment': return { cmd, op: 'give', ailment: 'poison' };
     case 'fullRest': return { cmd };
     case 'rest': return { cmd };
+    case 'lock': return { cmd, level: 'easy' };
     case 'goodState': return { cmd, hero: 'all', kind: 'wellRested' };
     case 'heroWeather': return { cmd, hero: 'all', state: 'wet' };
     case 'tendFire': return { cmd };
@@ -191,6 +206,7 @@ function summary(c: Command): string {
     case 'ability': return `${ABILITY_NAMES[c.ability]}: ${c.on ? 'learn (on)' : 'lose (off)'}`;
     case 'transfer': return transferSummary(c);
     case 'save': return 'Let the player save (a save point)';
+    case 'lock': return `Lock: ${LOCK_NAMES[c.level]}${c.key ? ` · key: ${c.key}` : ''}`;
     case 'fullRest': return 'Health, magic and stamina to full; ailments cured';
     case 'rest': return `Pick hours to rest${c.noSupplies ? '' : ', then camping supplies'}${c.noRespawn ? '' : '; sets the respawn point'}`;
     case 'goodState': return `${heroWhoName(c.hero)}: ${c.kind === 'none' ? 'no good state' : `${c.kind === 'rested' ? 'Rested' : 'Well Rested'}${c.hours || c.minutes ? ` for ${c.hours ? `${c.hours} h` : ''}${c.hours && c.minutes ? ' ' : ''}${c.minutes ? `${c.minutes} m` : ''}` : ''}`}`;
@@ -574,6 +590,8 @@ export class CommandEditor {
         return [h('p', { class: 'hint' }, 'For an inn bed or a campfire: health, magic and stamina back to full for the whole party, and ailments cured (Zombie needs its own cure). Pair it with “Set time of day” to sleep until morning.')];
       case 'tendFire':
         return [h('p', { class: 'hint' }, 'Opens the fuel menu of the fire nearest the hero (a fire prop with a burn time): how long it burns, and fuel from the bag to add. Use it as one of a campfire event’s choices. In text, \\fire shows how long the nearest fire burns, e.g. “The fire will burn for \\fire.”')];
+      case 'lock':
+        return lockFields(this.store, d);
       case 'rest':
         return [checkbox('Camping supplies (Rested / Well Rested)', !d.noSupplies, (v) => { if (v) delete d.noSupplies; else d.noSupplies = true; }),
           checkbox('Sets the respawn point', !d.noRespawn, (v) => { if (v) delete d.noRespawn; else d.noRespawn = true; }),
