@@ -282,7 +282,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
       a.infinite ? h('span') : field('Stack', numberInput(d.stack ?? 64, (v) => { const n = Math.max(1, Math.min(999, Math.round(v))); d.stack = n === 64 ? undefined : n; }, { step: 1, min: 1 }), 'How many fit in one bag slot (64 by default).'),
       h('p', { class: 'note' }, 'The player picks which arrows to shoot in the bag (Nock these arrows). When they run out, the never-ending ones are used.')));
   }
-  // Key items: a field use (switched on and off from the bag or the B button).
+  // Key items: a field use (switched on and off from the bag or a quick slot).
   if (d.kind === 'key') {
     out.push(h('section', { class: 'db-section' }, h('h3', {}, 'Field use'),
       field('Use', select([['', 'None (a plain key item)'], ...FIELD_POWERS.map((p) => [p, POWER_NAMES[p]] as [string, string]), ...FIELD_USES.map((u) => [`f:${u}`, FIELD_USE_NAMES[u]] as [string, string])], d.field ? `f:${d.field.use}` : d.tool ?? '', (v) => {
@@ -291,7 +291,7 @@ function itemForm(store: EditorStore, work: ItemsWork, d: ItemDef, rerender: () 
         else if (v) { d.tool = v as FieldPower; delete d.exp; } else delete d.tool;
         if (d.tool === 'light') d.light ??= defaultLight('lantern'); else delete d.light;
         rerender();
-      }), 'Light: a lantern, torch or floating orb lights the way in the dark. Water Walk: walk on water of any depth (it switches off back on land). The player switches it on and off in the bag, or assigns it to the B button. No magic needed.'),
+      }), 'Light: a lantern, torch or floating orb lights the way in the dark. Water Walk: walk on water of any depth (it switches off back on land). The player switches it on and off in the bag, or puts it on a quick slot (the D-pad). No magic needed.'),
       d.tool === 'light' ? lightForm(d, rerender) : h('span'),
       d.field ? fieldUseForm(store, d) : h('span'),
       d.tool || d.field ? h('span') : checkbox('Saddle: using it from the bag sends the rented horse home (stables give one with a horse)', !!d.saddle, (v) => { if (v) d.saddle = true; else delete d.saddle; }),
@@ -634,14 +634,16 @@ function statRankField(d: ItemDef, rerender: () => void, note: string): HTMLElem
 /** A key item's field use settings (Update 118): what it does, and the weather / hour / season / horse it brings. */
 function fieldUseForm(store: EditorStore, d: ItemDef): HTMLElement {
   const f = d.field!;
-  const extra = f.use === 'weather'
-    ? field('Brings', select([['', 'The next one (clear, rain, snow, haze)'], ...WEATHER_KINDS.map((k) => [k, k === 'none' ? 'Clear skies' : k[0].toUpperCase() + k.slice(1)] as [string, string])], f.weather ?? '', (v) => { if (v) f.weather = v as WeatherKind; else delete f.weather; }))
+  const extra = f.use === 'cut' || f.use === 'bow'
+    ? field('Damage', numberInput(f.damage ?? 10, (v) => { const n = Math.max(1, Math.min(999, Math.round(v))); if (n === 10) delete f.damage; else f.damage = n; }, { min: 1, max: 999, step: 1 }), f.use === 'cut' ? 'A fixed amount each swing (crates, barrels and other breakables).' : 'A fixed amount for a full draw (half that for a quick shot).')
+    : f.use === 'weather'
+    ? field('Brings', select([['', 'The player picks (a list)'], ...WEATHER_KINDS.map((k) => [k, k === 'none' ? 'Clear skies' : k[0].toUpperCase() + k.slice(1)] as [string, string])], f.weather ?? '', (v) => { if (v) f.weather = v as WeatherKind; else delete f.weather; }))
     : f.use === 'time'
-      ? field('Jumps to', select([['', 'The next of dawn, noon, dusk, midnight'], ...Array.from({ length: 24 }, (_, k) => [String(k), `${String(k).padStart(2, '0')}:00`] as [string, string])], f.hour === undefined ? '' : String(f.hour), (v) => { if (v) f.hour = Number(v); else delete f.hour; }))
+      ? field('Jumps to', select([['', 'The player sets the time'], ...Array.from({ length: 24 }, (_, k) => [String(k), `${String(k).padStart(2, '0')}:00`] as [string, string])], f.hour === undefined ? '' : String(f.hour), (v) => { if (v) f.hour = Number(v); else delete f.hour; }))
       : f.use === 'season'
-        ? field('Brings', select([['', 'The next season'], ...SEASONS.map((x) => [x, SEASON_NAMES[x]] as [string, string]), ['auto', 'Back to the calendar’s']], f.season ?? '', (v) => { if (v) f.season = v as Season | 'auto'; else delete f.season; }))
+        ? field('Brings', select([['', 'The player picks one'], ...SEASONS.map((x) => [x, SEASON_NAMES[x]] as [string, string]), ['auto', 'Back to the calendar’s']], f.season ?? '', (v) => { if (v) f.season = v as Season | 'auto'; else delete f.season; }))
         : f.use === 'horse'
           ? field('With no horse, it brings', select([['', 'Nothing (only calls the horse they have)'], ...horseList(store.db).map((x) => [x.id, x.name] as [string, string])], f.horse ?? '', (v) => { if (v) f.horse = v; else delete f.horse; }), 'A whistle for a horse of its own: the first use gives the party that horse for free.')
           : h('span');
-  return h('div', {}, h('p', { class: 'note' }, `${FIELD_USE_TEXT[f.use]}${carriedUse(f.use) ? '' : ' The player uses it from the bag, or assigns it to the B button.'}`), extra);
+  return h('div', {}, h('p', { class: 'note' }, `${FIELD_USE_TEXT[f.use]}${carriedUse(f.use) ? '' : ' The player uses it from the bag or puts it on a quick slot (the D-pad).'}`), extra);
 }

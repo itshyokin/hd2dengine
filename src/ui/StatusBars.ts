@@ -98,6 +98,8 @@ export class StatusBars {
   private quickKey = '';
   /** A quick slot was tapped (touch screens). */
   onQuick: (k: number) => void = () => {};
+  /** The quick slot a finger (or the mouse) is holding down, or -1. */
+  quickHeld = -1;
   private readonly rows = new Map<BarKey, Row>();
   private readonly clockIcon: HTMLElement;
   private readonly clockTime: HTMLElement;
@@ -308,8 +310,13 @@ export class StatusBars {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-q]');
       if (!b || document.body.classList.contains('hud-arranging')) return;
       e.stopPropagation();
+      this.quickHeld = Number(b.dataset.q);
       this.onQuick(Number(b.dataset.q));
     });
+    // A touch held on a slot (drawing the Bow key item) until it lifts.
+    const lift = () => { this.quickHeld = -1; };
+    window.addEventListener('pointerup', lift);
+    window.addEventListener('pointercancel', lift);
     parent.append(this.vignette, this.top, this.partyEl, this.stamina, this.side, this.minimap, this.goldEl, this.weapons, this.quick, this.xpBar);
   }
 
@@ -355,6 +362,9 @@ export class StatusBars {
    * `switches` changes on every switch, which plays the swap animation.
    */
   setWeapons(slots: WeaponSlot[], current: string, switches: number, keyLabel: string): void {
+    // No field weapons (Update 132): the card goes.
+    this.weapons.classList.toggle('gone', !slots.length);
+    if (!slots.length) { this.weaponKey = ''; this.weapons.innerHTML = ''; return; }
     const key = `${current}|${switches}|${keyLabel}|${slots.map((s) => s.id + s.icon + s.available + s.name + s.color + !!s.blocked).join()}`;
     if (key === this.weaponKey) return;
     const swapped = this.weaponKey !== '' && this.weaponKey.split('|')[1] !== String(switches);
@@ -372,17 +382,16 @@ export class StatusBars {
   }
 
   /**
-   * The quick items: icon, how many are left and the key for each slot (null: empty). `down` is whatever the fourth
-   * D-pad direction does (Release target by default; it follows the player's controls), so the cross is complete.
+   * The quick slots (Update 132: four, one per D-pad direction, items and key items): icon, how many are left (key
+   * items show none) and the key for each slot (null: empty); `drawing` lights the slot whose bow is drawn.
    */
-  setQuick(slots: ({ icon: string; name: string; count: number } | null)[], keys: string[], down?: { label: string; key: string } | null): void {
-    const key = JSON.stringify([slots, keys, down]);
+  setQuick(slots: ({ icon: string; name: string; count: number; key?: boolean } | null)[], keys: string[], drawing = -1): void {
+    const key = JSON.stringify([slots, keys, drawing]);
     if (key === this.quickKey) return;
     this.quickKey = key;
-    const pos = ['left', 'up', 'right'];
-    this.quick.innerHTML = slots.map((s, k) => `<button type="button" class="hud-qslot ${pos[k]}${s ? '' : ' empty'}${s && s.count < 1 ? ' out' : ''}" data-q="${k}" title="${s ? `${s.name} (${s.count})` : 'Empty: assign an item in the bag'}">${
-      s ? `<img src="${s.icon}" alt=""><span class="hud-qn">${s.count}</span>` : ''}<kbd>${keys[k]}</kbd></button>`).join('')
-      + (down ? `<div class="hud-qslot down action" title="${down.label}"><span class="hud-qact">${down.label.replace(/[<&]/g, '')}</span><kbd>${down.key}</kbd></div>` : '');
+    const pos = ['left', 'up', 'right', 'down'];
+    this.quick.innerHTML = slots.map((s, k) => `<button type="button" class="hud-qslot ${pos[k]}${s ? '' : ' empty'}${s && s.count < 1 ? ' out' : ''}${k === drawing ? ' drawing' : ''}" data-q="${k}" title="${s ? (s.key ? s.name : `${s.name} (${s.count})`) : 'Empty: assign an item in the bag'}">${
+      s ? `<img src="${s.icon}" alt="">${s.key ? '' : `<span class="hud-qn">${s.count}</span>`}` : ''}<kbd>${keys[k]}</kbd></button>`).join('');
     this.quick.hidden = this.hiddenAll || slots.every((s) => !s);
     this.quick.dataset.empty = slots.every((s) => !s) ? '1' : '';
   }

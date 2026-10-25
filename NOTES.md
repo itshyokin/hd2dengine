@@ -320,13 +320,18 @@ decide things; the tablet editor keeps working.
         uses CommandEditor's new standalone mode. Game `fireGlobal` queues, `nextGlobal` runs one when idle and checks
         `state.realDay` (saved) every 5 s. changeParty in a rest zone: others placed at their spots, `walkIn` puts the
         newcomer 12 tiles to the side (Ally `walkLimit` 14 s); updateRestZone gives late joiners a free spot.
-  - [ ] Update 132: key items and the overworld. Key items go on the d-pad quick slots like consumables (4 slots, one
+  - [x] Update 132: key items and the overworld. Key items go on the d-pad quick slots like consumables (4 slots, one
         per direction); no B-button key items. Field-use pop-ups: Change weather (a list), Change season (four),
         Change time (4 digits moved up / down + AM/PM, controller friendly): a bubble appears round the hero and the
         world fast-forwards around them (time passes: fires, rest effects) until the time is reached, then it pops.
         Overworld sword / bow removed: the Cut key item (tap the slot: a swing, fixed damage; vines, crates) and the
         Bow key item (hold to draw, release; lock-on aims at switches and targets, NOT enemies). The ambush mechanic is
         removed: touching a map enemy (either way) starts a normal battle.
+        Done: QUICK_SLOTS 4 (quick4: D-pad ↓ / 8; Release target → left stick, BINDINGS_VERSION 3); bTool moves to
+        a quick slot on load; useQuick runs key items (Cut → Combat.keySwing, Bow → keyDraw held by the slot, others
+        toggleTool). Combat ignores melee / bow / attack / switch; lock-on uses `lockables()` (breakables only).
+        ui/TimePicker.ts; Game startTimeWarp / updateTimeWarp (bubble, 3+ h/s); weather and season lists via
+        menu.push. encounter() is always 'normal'. FieldUseKind 'bow', FieldUse.damage; built-in key_cut / key_bow.
   - [ ] Update 133: items. Database → Materials tab. "Cannot be sold" on any item (shops won't buy it). Icon effects
         with colours: glow, outline, pattern overlay (stripes, dots, cracks, swirls, checker): a "corrupted" pumpkin.
   - [x] Update 134: bedroll and custom worn sprites. Replace the bedroll: lying head-to-foot (pillow at the top), drawn

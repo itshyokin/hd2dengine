@@ -622,7 +622,7 @@ body.hud-arranging .hud-quest[data-empty]:not([hidden]) { display: block; }
 
 /* ---------------- Quick items (D-pad left / up / right; 5 / 6 / 7) ---------------- */
 .hud-quick { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(34px + env(safe-area-inset-bottom, 0px)); z-index: 3;
-  display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: 56px 56px; gap: 6px; scale: var(--hud-scale, 1); transform-origin: bottom right; pointer-events: none; }
+  display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: 56px 56px 56px; gap: 6px; scale: var(--hud-scale, 1); transform-origin: bottom right; pointer-events: none; }
 .hud-quick[hidden] { display: none; }
 body.hud-arranging .hud-quick:not([hidden]), body.hud-arranging .hud-quick[data-empty="1"] { display: grid !important; }
 .hud-qslot { position: relative; display: grid; place-items: center; border-radius: 12px; background: rgba(8, 10, 18, 0.62); border: 1px solid rgba(255,255,255,0.14);
@@ -910,10 +910,11 @@ body.hud-arranging .hud-party[data-empty="1"]::before { content: 'Party members 
 .adv-log.bg-box .loot, .adv-log.bg-none .loot { background: none; padding: 0; }
 .adv-log.bg-none .loot { text-shadow: 0 1px 2px #000, 0 0 4px rgba(0,0,0,0.8); }
 body.hud-arranging .adv-log { min-width: 0; min-height: 0; }
-/* Quick items: the fourth D-pad direction shows what it does (Release target unless rebound). */
-.hud-qslot.down { grid-column: 2; grid-row: 3; pointer-events: none; cursor: default; background: rgba(8, 10, 18, 0.45); }
-.hud-qact { font: 700 10px/1.15 var(--f-body); color: #d8d2c4; text-align: center; padding: 0 3px; }
-.hud-quick:has(.hud-qslot.down) { grid-template-rows: 56px 56px 56px; }
+/* Quick slots (Update 132): all four D-pad directions, items and key items. */
+.hud-qslot.down { grid-column: 2; grid-row: 3; }
+.hud-qslot.drawing { box-shadow: 0 0 0 2px #ffd27a, 0 0 12px rgba(255, 210, 122, 0.6); }
+/* No sword or bow on the map (Update 132): the weapons card is gone. */
+.hud-weapons.gone { display: none !important; }
 
 /* ---------------- Bag (update 31): a tab per kind, 8 × 8 slots, details beside the grid ---------------- */
 .inv-box:has(> .tab-strip) { width: min(920px, 100%); }
@@ -2434,3 +2435,21 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .tab-strip.with-icons .tab-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; min-height: 34px; }
 .tab-strip.with-icons .tab-ico { display: inline-flex; width: 16px; height: 16px; }
 .tab-strip.with-icons .tab-ico svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------------- Change time pop-up (Update 132): four digits and AM / PM ---------------- */
+.time-picker { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6, 8, 14, 0.55); z-index: 60; }
+.time-picker[hidden] { display: none; }
+.tp-box { padding: 16px 20px 14px; border-radius: 14px; background: var(--panel, #161a26); border: 2px solid #7ac8ff; box-shadow: 0 10px 40px rgba(0,0,0,0.5); color: #e8ecf4; text-align: center; }
+.tp-title { font: 800 15px var(--f-body); letter-spacing: 0.04em; margin-bottom: 10px; color: #bfe6ff; }
+.tp-row { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tp-col { display: grid; justify-items: center; gap: 2px; padding: 4px 2px; border-radius: 10px; border: 2px solid transparent; }
+.tp-col.on { border-color: #ffd27a; background: rgba(255, 210, 122, 0.08); }
+.tp-arrow { background: none; border: 0; color: #8a93a8; font-size: 12px; cursor: pointer; padding: 2px 8px; }
+.tp-col.on .tp-arrow { color: #ffd27a; }
+.tp-digit { min-width: 44px; font: 800 36px/1.1 var(--f-mono); color: #f3ead8; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 4px 6px; cursor: pointer; }
+.tp-ampm .tp-digit { font-size: 22px; min-width: 56px; padding: 11px 6px; }
+.tp-colon { font: 800 32px var(--f-mono); color: #8a93a8; margin: 0 2px 4px; }
+.tp-hint { margin-top: 8px; font: 600 11px var(--f-body); color: #8a93a8; }
+.tp-btns { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+.tp-btn { font: 700 12px var(--f-body); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: #e8ecf4; cursor: pointer; }
+.tp-btn.primary { background: #ffd27a; color: #1a1408; border-color: #ffd27a; }

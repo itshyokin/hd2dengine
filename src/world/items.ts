@@ -52,6 +52,15 @@ export function migrateItems(db: Database): boolean {
       description: 'A thin steel pick for locks. It snaps if you force a lock in the wrong spot.' });
     changed = true;
   }
+  // The Cut and Bow key items (Update 132: the map's sword and bow are gone), added once each and put in the
+  // starting bag the first time.
+  for (const [use, id, name, icon, text] of [['cut', 'key_cut', 'Machete', 'builtin:sword', 'A broad blade for vines, thin trees and crates.'], ['bow', 'key_bow', 'Hunting Bow', 'builtin:bow', 'For switches and targets out of reach.']] as const) {
+    if (items.some((d) => d.field?.use === use)) continue;
+    items.push({ id, name, kind: 'key', icon, description: text, field: { use, damage: 10 } });
+    const start = ((db.inventory ??= {}).startItems ??= []);
+    if (!start.some((x) => x.item === id)) start.push({ item: id, count: 1 });
+    changed = true;
+  }
   if (addOutfits(db)) changed = true;
   if (ringsToShards(db)) changed = true;
   if (shardsToTools(db)) changed = true;
@@ -184,7 +193,7 @@ export const POWER_NAMES: Record<FieldPower, string> = {
 
 /** Key item field uses (Update 118), for menus and the editor. */
 export const FIELD_USE_NAMES: Record<FieldUseKind, string> = {
-  dash: 'Dash', swim: 'Swim', climb: 'Climb', cut: 'Cut', fireBow: 'Fire Bow', smash: 'Smash Stone', weather: 'Change weather', time: 'Change time',
+  dash: 'Dash', swim: 'Swim', climb: 'Climb', cut: 'Cut', bow: 'Bow', fireBow: 'Fire Bow', smash: 'Smash Stone', weather: 'Change weather', time: 'Change time',
   season: 'Change season', fish: 'Start fishing', horse: 'Ride horse', skeletonKey: 'Skeleton Key',
 };
 /** What each does (the editor's note and a new item's description). */
@@ -192,17 +201,18 @@ export const FIELD_USE_TEXT: Record<FieldUseKind, string> = {
   dash: 'Carrying it, the hero can run (dash), even before learning to.',
   swim: 'Carrying it, the party can swim in deep water (without one, deep water stops them).',
   climb: 'Carrying it, the hero can climb climbable walls, even before learning to.',
-  cut: 'Use it (bag or B button) facing vines or a thin tree to cut them down.',
+  cut: 'Put it on a quick slot: each press swings it, cutting vines and thin trees and breaking crates (a fixed amount of damage). A foe it reaches starts a battle.',
+  bow: 'Put it on a quick slot: hold to draw, let go to shoot (a fixed amount of damage). Lock-on aims it at switches and targets.',
   fireBow: 'Use it facing a fire that’s out to light it again for an hour, no fuel needed, or facing vines to burn them away.',
   smash: 'Use it facing a boulder or ore vein to break it in one blow, no pickaxe needed.',
-  weather: 'Use it outdoors to change the weather here.',
-  time: 'Use it to jump to another time of day.',
-  season: 'Use it outdoors to change the season.',
+  weather: 'Use it outdoors to change the weather here (the player picks it from a list).',
+  time: 'Use it to set the time: a bubble forms round the hero while the world fast-forwards.',
+  season: 'Use it outdoors to change the season (the player picks it).',
   fish: 'Use it facing a fishing spot to cast (works as a basic rod).',
   horse: 'Use it to call your horse to you and get on (riding: get off).',
   skeletonKey: 'Carrying it opens any lock, even ones that can’t be picked.',
 };
-/** Field uses that work just by being carried (no Use, no B button). */
+/** Field uses that work just by being carried (no Use, no quick slot). */
 export const carriedUse = (k: FieldUseKind | undefined): boolean => k === 'dash' || k === 'swim' || k === 'climb' || k === 'skeletonKey';
 
 /** Field spells stay on until switched off. */

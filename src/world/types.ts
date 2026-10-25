@@ -1242,15 +1242,17 @@ export const FIELD_POWERS: FieldPower[] = ['light', 'waterWalk'];
  */
 /** How hard a lock is to pick (Update 119); 'never': it can't be picked (only its key or a Skeleton Key opens it). */
 export type LockLevel = 'easy' | 'medium' | 'hard' | 'impossible' | 'never';
-export type FieldUseKind = 'dash' | 'swim' | 'climb' | 'cut' | 'fireBow' | 'smash' | 'weather' | 'time' | 'season' | 'fish' | 'horse' | 'skeletonKey';
-export const FIELD_USES: FieldUseKind[] = ['dash', 'swim', 'climb', 'cut', 'fireBow', 'smash', 'weather', 'time', 'season', 'fish', 'horse', 'skeletonKey'];
+export type FieldUseKind = 'dash' | 'swim' | 'climb' | 'cut' | 'bow' | 'fireBow' | 'smash' | 'weather' | 'time' | 'season' | 'fish' | 'horse' | 'skeletonKey';
+export const FIELD_USES: FieldUseKind[] = ['dash', 'swim', 'climb', 'cut', 'bow', 'fireBow', 'smash', 'weather', 'time', 'season', 'fish', 'horse', 'skeletonKey'];
 export interface FieldUse {
   use: FieldUseKind;
-  /** Change weather: the weather it brings (unset: the next one of clear, rain, snow, haze). */
+  /** Cut and Bow (Update 132): the fixed damage a swing or a full draw does (unset: 10). */
+  damage?: number;
+  /** Change weather: the weather it brings (unset: the player picks from a list). */
   weather?: WeatherKind;
-  /** Change time: the hour it jumps to (unset: the next of dawn 6, noon 12, dusk 18, midnight 0). */
+  /** Change time: the hour it jumps to (unset: the player sets a time). */
   hour?: number;
-  /** Change season: the season it brings (unset: the next one; 'auto' goes back to the calendar's). */
+  /** Change season: the season it brings (unset: the player picks one; 'auto' goes back to the calendar's). */
   season?: import('./seasons').Season | 'auto';
   /** Ride horse: the horse it calls when the party has none (a horse id; unset: only calls the one they have). */
   horse?: string;

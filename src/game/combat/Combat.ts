@@ -161,7 +161,8 @@ export class Combat {
   /** Seconds the bow stays in hand after a shot (the release animation), before going back on the back. */
   private bowHands = 0;
   private queued = false;
-  private draw: { t: number } | null = null;
+  /** The bow being drawn: how long, and (the Bow key item, Update 132) its fixed damage and what keeps it drawn. */
+  private draw: { t: number; fixed?: number; held?: () => boolean } | null = null;
   private cast = 0;
   private drawPosed = false;
   /** What the hero holds while fighting, and how long the casting glow lasts. */
@@ -287,28 +288,17 @@ export class Combat {
     // Weapons: switch between the sword and the bow (Y), then attack with the one selected (the trigger). The
     // keyboard's 1 / 2 pick one and use it at once. Spells are their own button (B, F, or 3): cast between attacks.
     if (this.weapon === 'magic') this.weapon = 'melee';
-    if (i.consume('switchWeapon')) this.switchWeapon();
+    // Update 132: no sword or bow on the map; the Cut and Bow key items (quick slots) do their jobs.
+    i.consume('switchWeapon'); i.consume('attack');
+    for (const w of ARMS) i.consume(w);
     let use: WeaponMode | null = null;
-    for (const w of ARMS) if (i.consume(w)) { if (this.available(w)) { this.select(w); use = w; } else this.whyNot(w); }
     // A spell pressed mid-swing waits (briefly) for the swing to end, so sword-then-spell combos flow.
     const pressed = i.consume('magic');
     if (pressed || this.castQueued > 0) { use = this.available('magic') ? 'magic' : null; if (!use && pressed) this.whyNot('magic'); }
     if (pressed && use) this.castQueued = Math.max(this.castQueued, 0.5);
-    if (i.consume('attack')) use = this.weapon;
-    // "Disable Overworld Weapons" (indoors, restricted areas): the sword and bow stay put.
-    if (this.toolsOff && (use === 'melee' || use === 'bow')) { h.notice('You can’t use weapons here'); use = null; }
-    const held = i.isHeld(this.weapon) || i.isHeld('attack');
-
-    if (use === 'melee' && free) {
-      if (this.swing) this.queued = true; else this.startSwing();
-    }
-    // The bow: hold to draw, let go to shoot.
-    if (use === 'bow' && free && !this.swing && !this.draw) {
-      if (this.available('bow')) { this.draw = { t: 0 }; h.sound('draw'); }
-      else this.whyNot('bow');
-    }
-    if (this.draw && (!held || this.weapon !== 'bow' || !free)) {
-      if (free && this.draw.t >= 0.12) this.shootArrow(Math.min(1, this.draw.t / this.drawTime));
+    // The Bow key item: held while its quick slot is held; let go to shoot.
+    if (this.draw && (!this.draw.held?.() || !free)) {
+      if (free && this.draw.t >= 0.12) this.shootArrow(Math.min(1, this.draw.t / this.drawTime), this.draw.fixed);
       this.draw = null;
     }
     if (use === 'magic' && free && !this.swing && !this.draw && this.cast <= 0) {
@@ -316,6 +306,31 @@ export class Combat {
       this.castQueued = 0;
     }
   }
+
+  /**
+   * The Cut key item (Update 132): one swing ahead, a fixed amount of damage to whatever it hits (vines and thin trees
+   * are cut down, crates broken; a foe on the map starts a battle). Returns why it can't, or null.
+   */
+  keySwing(damage: number): string | null {
+    const m = this.host.motion;
+    if (this.toolsOff) return 'You can’t use that here.';
+    if (m.airborne || m.climbing || m.swimming || m.dashing || m.crawling) return null;
+    if (this.swing) { this.queued = false; return null; }
+    if (this.draw) return null;
+    this.startSwing(damage);
+    return null;
+  }
+  /** The Bow key item (Update 132): start drawing; `held` keeps it drawn (the quick slot held), letting go shoots. */
+  keyDraw(damage: number, held: () => boolean): string | null {
+    const m = this.host.motion;
+    if (this.toolsOff) return 'You can’t use that here.';
+    if (m.airborne || m.climbing || m.swimming || m.dashing || m.crawling || this.swing || this.draw) return null;
+    this.draw = { t: 0, fixed: damage, held };
+    this.host.sound('draw');
+    return null;
+  }
+  /** Drawing the bow, and for how long (seconds). */
+  get drawing(): number | null { return this.draw ? this.draw.t : null; }
 
   /** Something held in the hand instead of a weapon (a fishing rod while fishing), tilted 0 … 1. */
   holding: { icon: HTMLCanvasElement; tilt: number } | null = null;
@@ -420,9 +435,10 @@ export class Combat {
     return best ? norm(best.x - p.x, best.z - p.z) : [fx, fz];
   }
 
-  private startSwing(): void {
+  private startSwing(fixed?: number): void {
     const h = this.host, w = this.equipped('weapon');
     const cls = w?.weapon && w.weapon.class !== 'bow' ? w.weapon.class : 'unarmed';
+    this.swingFixed = fixed;
     const t = h.cfg.classes[cls];
     if (this.comboWindow <= 0) this.combo = 0;
     this.combo = (this.combo % 3) + 1;
@@ -434,7 +450,7 @@ export class Combat {
     const bonus = (1 + (sk.get('meleeDamage') + (cls === 'unarmed' ? 0 : sk.get(`${cls}Damage` as 'lightDamage'))) / 100) * powerMultiplier(hero.str);
     const [dx, dz] = this.aim(t.reach);
     const ha = h.heroAffinity?.(), el = ha?.primary ?? (cls === 'unarmed' ? undefined : w?.element) ?? 'neutral', boost = 1 + (ha?.bonus[el] ?? 0) / 100;
-    this.swing = { t: 0, dur: SWING_TIME / speed * (this.combo === 3 ? 1.25 : 1), hit: false, dx, dz, combo: this.combo, reach: t.reach, damage: base * t.damage * bonus * boost * (this.combo === 3 ? 1.3 : 1), element: el, inflicts: cls === 'unarmed' ? undefined : w?.inflicts };
+    this.swing = { t: 0, dur: SWING_TIME / speed * (this.combo === 3 ? 1.25 : 1), hit: false, dx, dz, combo: this.combo, reach: t.reach, damage: fixed ?? base * t.damage * bonus * boost * (this.combo === 3 ? 1.3 : 1), element: el, inflicts: cls === 'unarmed' ? undefined : w?.inflicts };
     h.player.faceVector(dx, dz);
     // Animated sheets: a slash, the other way on the second hit of a combo, and a big backswing to finish
     // (heavy weapons always swing the big one).
@@ -503,11 +519,14 @@ export class Combat {
       this.swing = null;
       if (this.slash) this.slash.pivot.visible = false;
       this.comboWindow = 0.45;
-      if (this.queued) { this.queued = false; this.startSwing(); }
+      if (this.queued) { this.queued = false; this.startSwing(this.swingFixed); }
     }
   }
 
-  private shootArrow(power: number): void {
+  /** The Cut key item's damage while its swing (and combo) runs. */
+  private swingFixed: number | undefined;
+
+  private shootArrow(power: number, fixed?: number): void {
     const h = this.host, bow = this.equipped('ranged');
     if (!bow?.weapon) return;
     // The field bow is a tool (switches, starting fights): it uses no arrows, and arrows don't change it.
@@ -518,7 +537,7 @@ export class Combat {
     const ty = this.lock ? this.lock.y + 0.6 : p.y + 0.7;
     const dist = this.lock ? Math.hypot(this.lock.x - p.x, this.lock.z - p.z) : range;
     const speed = h.cfg.bow.arrowSpeed * (0.55 + 0.45 * power);
-    const damage = (bow.weapon.damage + (arrow?.ammo?.damage ?? 0)) * (0.35 + 0.65 * power) * (1 + h.skills.get('bowDamage') / 100) * powerMultiplier(h.hero().attrs.dex);
+    const damage = fixed !== undefined ? fixed * (0.5 + 0.5 * power) : (bow.weapon.damage + (arrow?.ammo?.damage ?? 0)) * (0.35 + 0.65 * power) * (1 + h.skills.get('bowDamage') / 100) * powerMultiplier(h.hero().attrs.dex);
     // Elemental arrows hit with their own element; plain ones with the bow's.
     const ha = h.heroAffinity?.(), ael: Element = (arrow?.element && arrow.element !== 'neutral' ? arrow.element : ha?.primary ?? bow.element) ?? 'neutral';
     this.launch('arrow', 'player', p.x + dx * 0.3, p.y + 0.7, p.z + dz * 0.3, dx, (ty - (p.y + 0.7)) / Math.max(1, dist), dz, speed, range, damage * (1 + (ha?.bonus[ael] ?? 0) / 100), undefined, ael, [...(bow.inflicts ?? []), ...(arrow?.inflicts ?? [])]);
@@ -635,6 +654,9 @@ export class Combat {
     const rise = a === 'burn' ? 1.6 : a === 'poison' || a === 'zombie' ? 0.8 : a === 'sleep' ? 0.5 : 0.3;
     this.host.bursts.spawn(x + (Math.random() - 0.5) * 0.4, y + 0.4 + Math.random() * 0.6, z, { color: effectColor(a), n: 2, speed: 0.3, up: rise, life: 0.6, size: 0.07, gravity: -0.6, additive: a !== 'poison' && a !== 'zombie' });
   }
+
+  /** What lock-on can aim at (Update 132): switches, targets and other breakables, not enemies. */
+  private lockables(): Target[] { return this.breakables; }
 
   /** Everything the hero can hit: enemies and things to break. */
   private targets(): Target[] { return this.breakables.length ? [...this.enemies, ...this.breakables] : this.enemies; }
@@ -764,7 +786,8 @@ export class Combat {
     const h = this.host, p = h.player.position;
     const range = this.lockReach;
     const [fx, fz] = DIR_VECTOR[h.player.dir];
-    const list = this.targets().filter((e) => !e.dead && e !== after && (!alertOnly || (e instanceof Enemy && e.alert))
+    // Update 132: lock-on aims at switches and targets (things to hit), not foes on the map.
+    const list = this.lockables().filter((e) => !e.dead && e !== after && (!alertOnly || (e instanceof Enemy && e.alert))
       && Math.hypot(e.x - p.x, e.z - p.z) <= range
       && lineOfSight(h.map, p.x, p.y + 0.8, p.z, e.x, e.y + 0.6, e.z));
     const score = (e: Target) => { const dx = e.x - p.x, dz = e.z - p.z, d = Math.hypot(dx, dz) || 1; return d * (1.6 - (dx * fx + dz * fz) / d); };
@@ -779,7 +802,7 @@ export class Combat {
     const range = this.lockReach;
     const angle = (e: Target) => Math.atan2(e.z - p.z, e.x - p.x);
     const a0 = angle(cur);
-    const list = this.targets().filter((e) => !e.dead && e !== cur && Math.hypot(e.x - p.x, e.z - p.z) <= range
+    const list = this.lockables().filter((e) => !e.dead && e !== cur && Math.hypot(e.x - p.x, e.z - p.z) <= range
       && lineOfSight(h.map, p.x, p.y + 0.8, p.z, e.x, e.y + 0.6, e.z));
     if (!list.length) return;
     const delta = (e: Target) => { let d = (angle(e) - a0) * dir; while (d <= 0) d += Math.PI * 2; return d; };

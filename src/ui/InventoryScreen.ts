@@ -293,19 +293,18 @@ export class InventoryScreen {
     if (def?.kind === 'consumable') options.push(who.length > 1
       ? { label: 'Use on…', run: () => this.useOn(who, after) }
       : { label: this.actions.useWarning?.(this.sel) ?? 'Use', run: () => after(this.actions.use(this.sel)) });
-    if (def?.kind === 'consumable') options.push({ label: inv.quick.includes(s.id) ? 'Quick slot… (assigned)' : 'Quick slot…', run: () => this.quickMenu(s.id, def.name, after) });
-    // Key items with a field use: switch on and off, or put on the B button.
+    // Consumables and key items with a use (Update 132: key items go on the D-pad's quick slots too).
+    const quickable = def?.kind === 'consumable' || !!def?.tool || (!!def?.field && !carriedUse(def.field.use));
+    // Key items with a field use: switch on and off.
     if ((def?.tool || def?.exp?.all) && this.actions.toggleTool) {
-      const on = this.actions.toolOn?.(this.sel) ?? false, b = this.actions.bLabel?.() ?? 'B';
+      const on = this.actions.toolOn?.(this.sel) ?? false;
       options.push({ label: on ? 'Turn off' : 'Turn on', run: () => after(this.actions.toggleTool!(this.sel)) });
-      if (def.tool && this.actions.assignB) options.push({ label: inv.bTool === s.id ? `Take off the ${b} button` : `Assign to the ${b} button`, run: () => after(this.actions.assignB!(this.sel)) });
     }
-    // Other field uses (Update 118): Use, or put on the B button (carried ones just work).
-    if (def?.field && !carriedUse(def.field.use) && this.actions.toggleTool) {
-      const b = this.actions.bLabel?.() ?? 'B';
+    // Other field uses (Update 118): Use (carried ones just work; Cut and Bow are used from a quick slot).
+    if (def?.field && !carriedUse(def.field.use) && def.field.use !== 'cut' && def.field.use !== 'bow' && this.actions.toggleTool) {
       options.push({ label: FIELD_USE_NAMES[def.field.use], run: () => after(this.actions.toggleTool!(this.sel)) });
-      if (this.actions.assignB) options.push({ label: inv.bTool === s.id ? `Take off the ${b} button` : `Assign to the ${b} button`, run: () => after(this.actions.assignB!(this.sel)) });
     }
+    if (quickable && def) options.push({ label: inv.quick.includes(s.id) ? 'Quick slot… (assigned)' : 'Quick slot…', run: () => this.quickMenu(s.id, def.name, after) });
     // A Saddle: send the rented horse home (so another can be rented).
     if (def?.saddle && this.actions.toggleTool) options.push({ label: 'Send your horse home', run: () => after(this.actions.toggleTool!(this.sel)) });
     // In use: let go of it (it stays in the bag).
@@ -420,7 +419,7 @@ export class InventoryScreen {
 
   /** Put an item on a quick slot (or take it off). */
   private quickMenu(id: string, name: string, after: (msg: string | null) => void): void {
-    const inv = this.inv(), dirs = ['←', '↑', '→'];
+    const inv = this.inv(), dirs = ['←', '↑', '→', '↓'];
     const options: { label: string; run: () => void; disabled?: boolean }[] = inv.quick.map((cur, k) => ({
       label: `${dirs[k]} ${this.actions.quickLabel?.(k) ?? ''}: ${cur === id ? `${name} (here)` : cur ? `replace ${inv.def(cur)?.name ?? cur}` : 'empty'}`.replace(/\s+:/, ':'),
       disabled: cur === id,
@@ -523,7 +522,7 @@ export class InventoryScreen {
             const c = this.actions.usedColor?.(i);
             return `<span class="inv-tag"${c ? ` style="background:${c}"` : ''} title="${esc(u.startsWith('In ') ? `Set in ${u.slice(3)}` : `Equipped by ${u}`)}">${u.startsWith('In ') ? 'set' : 'equipped'}</span>`;
           })()}${
-          inv.quick.includes(st!.id) ? `<span class="inv-quick" title="Quick slot">${['←', '↑', '→'][inv.quick.indexOf(st!.id)]}</span>` : ''}` : ''}</button>`;
+          inv.quick.includes(st!.id) ? `<span class="inv-quick" title="Quick slot">${['←', '↑', '→', '↓'][inv.quick.indexOf(st!.id)]}</span>` : ''}` : ''}</button>`;
     }).join('');
     const color = itemColor(def), rarity = rarityOf(def);
     const info = def ? `<div class="inv-name"${color ? ` style="color:${color}"` : ''}>${esc(def.name)}${rarity ? ` <span class="inv-rarity" style="color:${color}">${RARITY_NAMES[rarity]}</span>` : ''}</div><div class="inv-kind">${kindLine(def)}</div>${def.description ? `<div class="inv-desc">${esc(def.description)}</div>` : ''}`

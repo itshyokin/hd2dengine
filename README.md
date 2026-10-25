@@ -1089,9 +1089,9 @@ them: Freezing before a fight, still Freezing after.
 
 ### Items, the bag, equipment and shops
 
-- **Five item tabs** in the Database's Items group, each listing part of the game's items: **Items** (potions,
-  food, loot and materials), **Weapons** (melee weapons, bows and arrows), **Gear** (armor, shields and
-  accessories), **Shards** (spell shards and element stones) and **Key items**. *+ New* in each starts the right
+- **Six item tabs** in the Database's Items group, each listing part of the game's items: **Items** (potions, food
+  and other consumables), **Materials** (Update 133: loot, ore, wood, ingots…), **Weapons** (melee weapons, bows and
+  arrows), **Gear** (armor, shields and accessories), **Shards** (spell shards and element stones) and **Key items**. *+ New* in each starts the right
   kind (a new weapon is a sword, new gear is armor…). Changing an item's kind or slot moves it to its tab, still
   selected. Duplicate, copy and paste work in every tab.
 - **Icons**: over 250 built-in pixel icons, in folding groups (potions and bottles, food, drinks, weapons, armor and
@@ -1099,6 +1099,10 @@ them: Freezing before a fight, still Freezing after.
   magic, element stones), or **Import image…** (a 16 × 16 or 32 × 32 PNG, saved to `assets/icons/`). **Tint**
   recolours any icon, built-in or imported, keeping its shading: a red potion becomes a teal one, a steel helmet a
   golden one (ten quick colours or any colour).
+- **Icon effects** (Update 133, under the icon): a **Glow** behind it, an **Outline** round it and a **Pattern** laid
+  over it (stripes, dots, cracks, swirls or checker, with how strong it shows), each in a colour of your choosing: a
+  *corrupted* pumpkin with purple cracks and a green glow. They show everywhere the icon does (bag, shops, HUD, loot).
+- **Cannot be sold** (Update 133, any item): shops list it greyed out in their Sell tab (*Can’t be sold*) and won't buy it.
 - **Every item** has a name, description, icon, a price and a kind:
   - **Consumable**: restores health, magic and/or stamina. Health and magic each have an amount box and a **%** box
     (of the maximum), used together: 10 and 30 % restores 10 + 30% of max HP ("+10 + 30% HP"). Items work on
@@ -1225,9 +1229,12 @@ steps through them showing each price, A again (or a click on the chosen one) fl
 
 Battles are turn-based (next section); the real-time battle system was removed in update 65. On the map:
 
+- **Update 132**: the map has no sword or bow any more and no ambushes. Touching a foe (either way: it reaching the
+  hero, or the hero reaching it) starts a **normal** battle. The **Cut** and **Bow** key items do the field jobs from a
+  quick slot (Field uses below); lock-on (Tab / RB) aims at switches and targets, not foes. *(Older notes follow.)*
 - **Bumping into foes**: an enemy that sees or hears the hero chases them, and reaching the hero starts a battle with
-  it and its friends nearby (from behind: an **ambush**, the foes act first). Ranged foes start it when they shoot.
-- **The sword (1) and the bow (2)** are field tools the hero always has (no arrows needed): they cut vines and grass,
+  it and its friends nearby. Ranged foes start it when they shoot.
+- **The sword (1) and the bow (2)** (before Update 132) were field tools the hero always had: they cut vines and grass,
   hit switches and break things. An equipped weapon or bow shows in their place. The field bow never uses up arrows
   (and picking arrows up doesn't equip them: arrows are only used in battle once equipped on the Equipment page).
   Hold the bow to draw, let go to shoot. Fire spells, fire arrows and fire weapons light torches and campfires.
@@ -1276,7 +1283,7 @@ Short Sword, a Hunting Bow and Iron Arrows; bandits drop Steel Arrows.
 **Turn-based**, in the style of Final Fantasy X and the Game Boy Advance Pokémon games. Heroes, stats, gear, spell
 shards, items, enemies, EXP, gold and drops are the same in both, so a game can switch at any time.
 
-- **On the overworld** the hero's **sword and bow are field tools**: always there (not bag items, no arrows needed),
+- **On the overworld** (before Update 132; now the Cut and Bow key items) the hero's **sword and bow were field tools**: always there (not bag items, no arrows needed),
   for cutting vines, breaking crates and shooting switches. An equipped weapon or bow is shown instead when there is
   one. The **Enable / disable overworld weapons** event command turns them off indoors or in restricted areas: they're
   greyed out on the HUD with a red ✕ until an event turns them back on.
@@ -1643,10 +1650,11 @@ page shows up on that switch), a cracked boulder blocking a cave, crates with so
 
 ### Quick items
 
-Three quick slots, laid out like the D-pad (bottom right): **←, ↑ and →** on a controller, **5, 6 and 7** on a
-keyboard (rebindable), or tap them on a touch screen. The fourth spot shows what D-pad ↓ does (*Release target*, or
-whatever it's rebound to, with its key). In the bag, pick a
-consumable → **Quick slot…** and choose a slot (it shows a small arrow badge in the bag). Each slot shows the item and
+Four quick slots (Update 132), laid out like the D-pad (bottom right): **←, ↑, → and ↓** on a controller, **5, 6, 7
+and 8** on a keyboard (rebindable), or tap them on a touch screen. They take consumables and **key items** with a use
+(Cut, Bow, a lantern, Change time…; key items show no count). A new game puts the starting key items on the free
+slots. On a controller *Release target* moved to the left stick (press). In the bag, pick a
+consumable or key item → **Quick slot…** and choose a slot (it shows a small arrow badge in the bag). Each slot shows the item and
 how many are left; it stays assigned when they run out (greyed out) and fills again when you get more. An item that
 would do nothing (health already full) isn't used up. The HUD arranger can move and resize the slots.
 
@@ -1739,8 +1747,8 @@ skills as new abilities arrive). A **LEVEL UP** banner appears at the top of the
 ### Field uses: key items (Light, Water Walk, Dash, Cut…)
 
 Overworld abilities come from **key items**: the built-in **Lantern** (Light) and **Strider Boots** (Water Walk).
-Pick one in the bag (**Key items** tab) and choose **Turn on** / **Turn off**, or **Assign to the B button** so **B**
-(controller), **F** / **3** or the Spell button on touch screens switches it on and off. Only one is on at a time;
+Pick one in the bag (**Key items** tab) and choose **Turn on** / **Turn off**, or put it on a **quick slot** (the
+D-pad; Update 132 replaced the B button for key items) to switch it on and off from there. Only one is on at a time;
 they cost no magic. Set them up in **Database → Items**: Kind *Key / quest item* → **Field use**:
 
 | Use | What it does |
@@ -1750,21 +1758,23 @@ they cost no magic. Set them up in **Database → Items**: Kind *Key / quest ite
 | **Dash** | Carried: the hero can run, even before learning to (Change ability → Run off). |
 | **Swim** | Carried: the party can swim in deep water (same as *Lets the party swim*). |
 | **Climb** | Carried: the hero can climb climbable walls, even before learning to. |
-| **Cut** | Use it facing vines or a thin tree to cut them down. |
+| **Cut** | On a quick slot: each press swings it, cutting vines and thin trees and breaking crates for a fixed **Damage** (set on the item, 10 by default). A foe it reaches starts a normal battle. Built in: the **Machete**. |
+| **Bow** | On a quick slot: hold to draw, let go to shoot (fixed **Damage** for a full draw, half for a quick shot). Lock-on aims it at switches and targets. Built in: the **Hunting Bow**. |
 | **Fire Bow** | Use it facing a fire that's out to light it for an hour (no fuel), or facing vines to burn them. |
 | **Smash Stone** | Use it facing a boulder or ore vein to break it in one blow (no pickaxe). |
-| **Change weather** | Outdoors: brings the weather you pick (or steps through clear, rain, snow, haze). |
-| **Change time** | Jumps to the hour you pick (or the next of dawn, noon, dusk, midnight). |
-| **Change season** | Outdoors: brings the season you pick (or the next one; *Back to the calendar's* undoes it). Saved with the game. |
+| **Change weather** | Outdoors: brings the weather set on the item, or (unset) the player picks from a list. |
+| **Change time** | Unset: a pop-up sets any time (four digits moved up / down, AM / PM; ← → to pick, controller friendly). A bubble forms round the hero while the world fast-forwards (fires burn down, the sky turns), then pops at that time. Set on the item: goes to that hour the same way. |
+| **Change season** | Outdoors: brings the season set on the item, or (unset) the player picks one (*Follow the calendar* undoes it). Saved with the game. |
 | **Start fishing** | Use it facing a fishing spot to cast; works as a basic rod. |
 | **Ride horse** | Calls your horse to you and gets on (riding: gets off). Can bring a horse of its own the first time (a whistle). |
 | **Skeleton Key** | Carried: opens any lock, even ones that can't be picked. |
 
 Carried uses just work while they're in the bag; the others are used from the bag (the use's name in the item's
-menu) or assigned to the B button (Update 118).
+menu) or from a quick slot. The built-in Machete and Hunting Bow are added (and put in the starting bag) once, when
+the game has no Cut or Bow key item.
 
 - While one is on the hero glows (gold for Light, blue for Water Walk). Over deep water the hero is put back on the last bit of shore.
-- The HUD's spell box shows the item on the B button; it lights up while it's on.
+- A lantern on a quick slot switches on and off from there; the HUD's spell box lights up while one is on.
 - **Older databases**: spell shards that carried Light or Water Walk become these key items when the database loads
   (a shard still named *Light* / *Water Walk* becomes the Lantern / Strider Boots); choosing a field use for a shard
   in the editor makes it a key item too. Older still: Light and Tide rings (open the editor and Save to keep the
@@ -2005,13 +2015,10 @@ Every key and button can be changed in **Settings → Controls** (per player, ke
 | Run / sprint (hold by default; toggle in Settings → Gameplay) | Shift | X, or a full stick push |
 | Talk / interact | Enter | A (when facing someone or something) |
 | Jump | Space | A |
-| Attack with the selected weapon (sword or bow) | — (1 / 2 below) | LT (hold with the bow to draw) |
-| Switch weapon (sword ↔ bow) | R | Y |
-| Sword / bow: select and use at once | 1 / 2 | — |
 | Cast the readied spell shard (a bolt, or switch Light / Water Walk on and off) | F, 3 or 4 | B |
-| Lock on / next target (snipe with the bow to strike first) | Tab | RB (LB cycles the other way) |
-| Release target | Q | D-pad ↓ |
-| Quick items (left / up / right) | 5 / 6 / 7 | D-pad ← / ↑ / → |
+| Lock on / next target (switches and targets for the Bow key item) | Tab | RB (LB cycles the other way) |
+| Release target | Q | Left stick click |
+| Quick slots: items and key items (left / up / right / down) | 5 / 6 / 7 / 8 | D-pad ← / ↑ / → / ↓ |
 | Sneak / crouch (toggle by default; hold in Settings → Gameplay) | C | Right stick click |
 | Menu / back | Esc, Backspace or X | Start |
 

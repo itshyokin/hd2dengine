@@ -159,6 +159,7 @@ import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
 import { LockpickScreen } from '../ui/LockpickScreen';
+import { TimePicker } from '../ui/TimePicker';
 import { Footprints } from '../render/footprints';
 import { Puddles, type PuddleSpot } from '../render/puddles';
 import { TutorialPopup } from '../ui/TutorialPopup';
@@ -373,6 +374,7 @@ export class Game {
   private equipScreen!: EquipScreen;
   private restScreen!: RestScreen;
   private lockpick!: LockpickScreen;
+  private timePicker!: TimePicker;
   private tutorialPop!: TutorialPopup;
   private partyScreen!: PartyScreen;
   private pauseShell!: PauseShell;
@@ -703,6 +705,7 @@ export class Game {
     this.equipScreen = new EquipScreen(this.ui, this.input, this.equipHost());
     this.tutorialPop = new TutorialPopup(this.ui, this.input);
     this.ui.appendChild(this.speedLines);
+    this.timePicker = new TimePicker(this.ui, this.input);
     this.lockpick = new LockpickScreen(this.ui, this.input, {
       picks: () => { const ids = [...this.items.values()].filter((d) => d.lockpick).map((d) => d.id); return ids.length ? ids.reduce((n, id) => n + this.inventory.count(id), 0) : null; },
       breakPick: () => { const i = this.inventory.slots.findIndex((s) => !!s && !!this.items.get(s.id)?.lockpick); if (i >= 0) this.inventory.removeAt(i, 1); },
@@ -835,14 +838,6 @@ export class Game {
       equip: (i) => this.equipItem(i),
       toolOn: (i) => { const id = this.inventory.slots[i]?.id; if (id && this.items.get(id)?.exp?.all) return !this.state.expAllOff.has(id); return !!id && this.rings.ring?.id === id && this.rings.active; },
       toggleTool: (i) => { const id = this.inventory.slots[i]?.id; return id ? this.toggleTool(id) : null; },
-      assignB: (i) => {
-        const id = this.inventory.slots[i]?.id, d = id ? this.items.get(id) : undefined;
-        if (!id || !(d?.tool || (d?.field && !carriedUse(d.field.use)))) return null;
-        this.inventory.bTool = this.inventory.bTool === id ? null : id;
-        this.refreshRing();
-        return this.inventory.bTool ? `${d.name} is on the ${this.input.label('ring')} button.` : `${d.name} taken off the ${this.input.label('ring')} button.`;
-      },
-      bLabel: () => this.input.label('ring'),
       // Equipment picked in the bag: who puts it on (only those who can use it; arrows are the hero's).
       equipTargets: (i) => {
         const id = this.inventory.slots[i]?.id, host = this.equipHost();
@@ -1497,11 +1492,24 @@ export class Game {
     return !this.onTitle && !this.pauseShell.isOpen && !this.menu.isOpen && !this.bag.isOpen && !this.shop.isOpen && !this.interpreter.running && !this.transfer && !this.dying && !this.message.isOpen;
   }
 
-  /** Use the item on quick slot k (D-pad left / up / right, or 5 / 6 / 7). */
+  /** The quick slot whose Bow key item is being drawn. */
+  private drawSlot = -1;
+  /** Use the item on quick slot k (the D-pad, or 5 / 6 / 7 / 8). Key items (Update 132) do their field use. */
   private useQuick(k: number): void {
-    const id = this.inventory.quick[k], dir = ['←', '↑', '→'][k];
-    if (!id) { this.menu.notice(`Quick slot ${dir} is empty: assign an item in the bag (Items → an item → Quick slot)`); return; }
-    const d = this.items.get(id), i = this.inventory.slots.findIndex((s) => s?.id === id);
+    const id = this.inventory.quick[k], dir = ['←', '↑', '→', '↓'][k];
+    if (!id) { this.menu.notice(`Quick slot ${dir} is empty: assign an item in the bag (an item → Quick slot)`); return; }
+    const d = this.items.get(id);
+    if (d && d.kind !== 'consumable') {
+      if (this.inventory.count(id) < 1) { this.audio.play('menuBack'); this.menu.notice(`No ${d.name} in the bag`); return; }
+      const f = d.field, dmg = Math.max(1, f?.damage ?? 10);
+      let msg: string | null;
+      if (f?.use === 'cut') msg = this.combat.keySwing(dmg);
+      else if (f?.use === 'bow') { this.drawSlot = k; msg = this.combat.keyDraw(dmg, () => this.input.isHeld(`quick${k + 1}` as Action) || this.hud.quickHeld === k); }
+      else msg = this.toggleTool(id);
+      if (msg) this.menu.notice(msg);
+      return;
+    }
+    const i = this.inventory.slots.findIndex((s) => s?.id === id);
     if (i < 0) { this.audio.play('menuBack'); this.menu.notice(`No ${d?.name ?? id} left`); return; }
     const msg = this.useItem(i);
     if (!msg) return;
@@ -1941,7 +1949,7 @@ export class Game {
     this.updateFps(raw);
     const dt = Math.min(raw, 0.05);
     this.elapsed += dt;
-    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.restScreen.isOpen || this.lockpick.isOpen || this.tutorialPop.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
+    const paused = this.devConsole.isOpen || this.worldMap.isOpen || this.achScreen.isOpen || this.pauseShell.isOpen || this.menu.isOpen || this.saveScreen.isOpen || this.statusScreen.isOpen || this.equipScreen.isOpen || this.restScreen.isOpen || this.lockpick.isOpen || this.timePicker.isOpen || this.tutorialPop.isOpen || this.partyScreen.isOpen || this.charScreen.isOpen || this.creation.isOpen || this.bag.isOpen || this.shop.isOpen || this.skillScreen.isOpen || this.controls.isOpen || this.arranger.isOpen || this.creditsScreen.isOpen || this.logScreen.isOpen || this.questScreen.isOpen || this.recordsScreen.isOpen || this.bestiaryScreen.isOpen || this.evolve.isOpen;
     // The controller's buttons mean different things in menus and on the field.
     // A turn-based battle holds the field still (the world stays on screen behind it).
     const fighting = this.battle.active && !paused;
@@ -1966,6 +1974,7 @@ export class Game {
       else if (this.tutorialPop.isOpen) this.tutorialPop.update();
       else if (this.restScreen.isOpen) this.restScreen.update();
       else if (this.lockpick.isOpen) this.lockpick.update(dt);
+      else if (this.timePicker.isOpen) this.timePicker.update();
       else if (this.equipScreen.isOpen) this.equipScreen.update();
       else if (this.partyScreen.isOpen) this.partyScreen.update();
       else if (this.charScreen.isOpen) this.charScreen.update();
@@ -1995,6 +2004,7 @@ export class Game {
     } else {
       const auto = this.events.find((e) => e.trigger === 'auto' && !e.autoDone);
       if (auto) { auto.autoDone = true; this.runEvent(auto); }
+      else if (this.timeWarp && this.timeWarp.pop < 0) this.player.animate(dt, false);
       else if (this.nextGlobal()) this.player.animate(dt, false);
       else {
         for (let k = 0; k < QUICK_SLOTS; k++) if (this.input.consume(`quick${k + 1}` as Action)) this.useQuick(k);
@@ -2034,6 +2044,7 @@ export class Game {
       if (!this.nextEvolution(fadeIn)) fadeIn();
     }
     this.updateSleep(dt);
+    this.updateTimeWarp(dt);
     document.body.classList.toggle('sleeping', this.sleepLook > 0.05);
     this.updateCamera(dt);
     this.updateBubbles();
@@ -2083,8 +2094,8 @@ export class Game {
     this.updateWeaponHud();
     this.hud.setQuick(this.inventory.quick.map((id) => {
       const d = id ? this.items.get(id) : undefined;
-      return d ? { icon: this.itemIcon(d.id), name: d.name, count: this.inventory.count(d.id) } : null;
-    }), [1, 2, 3].map((n) => this.input.label(`quick${n}` as Action)), this.quickDown());
+      return d ? { icon: this.itemIcon(d.id), name: d.name, count: this.inventory.count(d.id), key: d.kind === 'key' } : null;
+    }), [1, 2, 3, 4].map((n) => this.input.label(`quick${n}` as Action)), this.combat.drawing !== null ? this.drawSlot : -1);
     this.hud.setLevel(this.progress.level, this.progress.xp, this.progress.toNext);
     this.hud.setSeason(this.season ?? '');
     this.hud.setGold(this.inventory.gold);
@@ -2139,15 +2150,12 @@ export class Game {
     // Fishing: the hero stands still with the rod out (moving, jumping or attacking reels in).
     if (this.fishing) this.updateFishing(dt);
     if (i.consume('cancel') && !this.motion.airborne && !this.motion.climbing) { this.openPauseMenu(); return; }
-    // B / F / 3: the key item assigned to it (a lantern…) switches on or off; otherwise cast the readied shard — a
-    // field spell (Light, Water Walk) switches on or off; the rest fire a bolt.
-    // Riding, B gets off the horse instead.
+    // B / F / 3: cast the readied shard — a field spell (Light, Water Walk) switches on or off; the rest fire a bolt.
+    // (Key items are on the quick slots since Update 132.) Riding, B gets off the horse instead.
     if (this.state.horse?.mounted && !this.motion.airborne && i.consume('ring')) this.dismount();
     if (i.consume('ring') && !this.motion.climbing) {
-      const tool = this.inventory.bTool;
-      if (tool && this.inventory.count(tool) > 0) { const msg = this.toggleTool(tool); if (msg && this.items.get(tool)?.field) this.menu.notice(msg); }
       // A learned spell readied in Menu → Abilities comes first; otherwise the shard in the magic slot.
-      else if (this.readiedSpell()) this.combat.castShard();
+      if (this.readiedSpell()) this.combat.castShard();
       else if (this.rings.power) this.useRing();
       else if (this.inventory.equip.magic) this.combat.castShard();
       else this.menu.notice('No spell readied: equip a shard in Menu → Bag → Shards');
@@ -3281,28 +3289,16 @@ export class Game {
   }
 
   /** What the fourth D-pad direction (↓) does, for the quick items cross: it follows the player's controller bindings. */
-  private quickDown(): { label: string; key: string } | null {
-    const a = this.input.padAction(13) ?? 'lock';
-    const NAMES: Partial<Record<Action, string>> = {
-      lock: 'Release target', target: 'Lock on', targetPrev: 'Prev. target', ring: 'Spell', magic: 'Spell', melee: 'Sword', bow: 'Bow',
-      switchWeapon: 'Switch weapon', sneak: 'Sneak', jump: 'Jump', run: 'Run', ok: 'Talk', attack: 'Attack', cancel: 'Menu',
-      quick1: 'Quick item', quick2: 'Quick item', quick3: 'Quick item',
-    };
-    return { label: NAMES[a] ?? a, key: this.input.label(a) };
-  }
-
   /** Ready the field spell of the shard in the magic slot (Light, Water Walk), if it has one. */
   private refreshRing(): void {
     const id = this.inventory.equip.magic, d = id ? this.items.get(id) : undefined;
-    // A key item in use (a lantern switched on from the bag or with B) stays in hand while it's in the bag.
+    // A key item in use (a lantern switched on from the bag or a quick slot) stays in hand while it's in the bag.
     const worn = this.rings.ring, keep = worn?.tool && this.inventory.count(worn.id) > 0 ? this.items.get(worn.id) ?? null : null;
-    const bt = this.inventory.bTool && this.inventory.count(this.inventory.bTool) > 0 ? this.items.get(this.inventory.bTool) : undefined;
-    this.rings.wear(keep ?? (bt?.tool ? bt : null) ?? (d?.spell?.power ? d : null), this.settings.lightShadows);
-    // The HUD shows what the spell button does: the key item on it, or the readied spell (a learned spell, or the
-    // shard's bolt or field spell).
+    this.rings.wear(keep ?? (d?.spell?.power ? d : null), this.settings.lightShadows);
+    // The HUD shows what the spell button does: the readied spell (a learned spell, or the shard's bolt or field spell).
     const learned = this.readiedSpell();
-    this.hud.setRing(bt ? { name: bt.name, icon: this.itemIcon(bt.id) } : learned ? { name: learned.name, icon: elementIconUrl(learned.element ?? 'neutral') } : d ? { name: d.name, icon: this.itemIcon(d.id) } : null);
-    this.touch.setRing(!!(bt || learned || d));
+    this.hud.setRing(learned ? { name: learned.name, icon: elementIconUrl(learned.element ?? 'neutral') } : d ? { name: d.name, icon: this.itemIcon(d.id) } : null);
+    this.touch.setRing(!!(learned || d));
   }
 
   /** Switch a key item's field use (a lantern, water-walking boots) on or off; another one in use goes off first. */
@@ -3350,9 +3346,9 @@ export class Game {
       case 'dash': case 'swim': case 'climb': case 'skeletonKey':
         return `${d.name} works just by being carried.`;
       case 'cut':
-        if (!this.propAhead((x) => !!x.cuttable)) return 'Nothing to cut here.';
-        this.cutAhead(0, true);
-        return null;
+        return this.combat.keySwing(Math.max(1, f.damage ?? 10));
+      case 'bow':
+        return `Put the ${d.name} on a quick slot (bag → Quick slot), then hold it to draw and let go to shoot.`;
       case 'smash':
         if (!this.propAhead((x) => !!x.mineable)) return 'No rock to smash here.';
         this.mineAhead(true);
@@ -3376,30 +3372,37 @@ export class Game {
       }
       case 'weather': {
         if (!outdoor) return 'The weather can only be changed outdoors.';
-        const cycle: WeatherKind[] = ['none', 'rain', 'snow', 'haze'];
-        const kind = f.weather ?? cycle[(cycle.indexOf(this.weather.kind) + 1) % cycle.length];
-        this.interpreter.start([{ cmd: 'weather', kind, amount: 1 }]);
-        this.audio.play('ringOn');
-        return `${d.name}: ${WEATHER_LABEL[kind] ?? kind}.`;
+        const set = (kind: WeatherKind) => {
+          this.interpreter.start([{ cmd: 'weather', kind, amount: 1 }]);
+          this.audio.play('ringOn');
+          this.menu.notice(`${d.name}: ${WEATHER_LABEL[kind] ?? kind}.`);
+        };
+        if (f.weather) { set(f.weather); return null; }
+        // Update 132: a list to pick from.
+        this.leaveMenusForPicker();
+        this.menu.push(d.name, WEATHER_KINDS.map((kind) => ({ label: WEATHER_PICK[kind], detail: kind === this.weather.kind ? 'now' : undefined, pick: () => { this.menu.close(); set(kind); } })), { note: 'The weather here changes to…', start: Math.max(0, WEATHER_KINDS.indexOf(this.weather.kind)) });
+        return null;
       }
       case 'time': {
-        const now = this.time.target, marks = [0, 6, 12, 18];
-        const to = f.hour ?? marks.find((m) => m > now + 0.01) ?? 0;
-        this.state.clock += wrapHour(to - this.time.target);
-        this.fireCheck = 0;
-        this.time.set(to, false);
-        this.audio.play('ringOn');
-        const names: Record<number, string> = { 0: 'midnight', 6: 'dawn', 12: 'noon', 18: 'dusk' };
-        return `${d.name}: ${names[to] ?? (this.settings.clock12 ? `${to % 12 || 12} ${to < 12 ? 'AM' : 'PM'}` : `${String(to).padStart(2, '0')}:00`)}.`;
+        if (f.hour !== undefined) { this.startTimeWarp(f.hour, d.name); return null; }
+        // Update 132: set any time (four digits and AM / PM); the world fast-forwards to it.
+        this.leaveMenusForPicker();
+        this.timePicker.show(this.time.target, this.settings.clock12, d.name, (to) => { if (to !== null) this.startTimeWarp(to, d.name); });
+        return null;
       }
       case 'season': {
         if (!outdoor) return 'The season can only be changed outdoors.';
-        const order: Season[] = ['spring', 'summer', 'autumn', 'winter'];
-        const now = this.seasonNow() ?? 'spring';
-        const to = f.season ?? order[(order.indexOf(now) + 1) % 4];
-        this.state.seasonPick = to === 'auto' ? null : to;
-        this.audio.play('ringOn');
-        return `${d.name}: ${to === 'auto' ? 'the seasons follow the calendar again' : SEASON_NAMES[to]}.`;
+        const set = (to: Season | 'auto') => {
+          this.state.seasonPick = to === 'auto' ? null : to;
+          this.audio.play('ringOn');
+          this.menu.notice(`${d.name}: ${to === 'auto' ? 'the seasons follow the calendar again' : SEASON_NAMES[to]}.`);
+        };
+        if (f.season) { set(f.season); return null; }
+        const now = this.seasonNow() ?? 'spring', order: Season[] = ['spring', 'summer', 'autumn', 'winter'];
+        this.leaveMenusForPicker();
+        this.menu.push(d.name, [...order.map((x) => ({ label: SEASON_NAMES[x], detail: x === now ? 'now' : undefined, pick: () => { this.menu.close(); set(x); } })),
+          ...(this.state.seasonPick ? [{ label: 'Follow the calendar', pick: () => { this.menu.close(); set('auto'); } }] : [])], { note: 'The season here changes to…', start: order.indexOf(now) });
+        return null;
       }
       case 'fish': {
         const spot = this.fishSpotAhead();
@@ -4186,16 +4189,8 @@ export class Game {
     const st = c.heroStatus;
     this.hud.setStatus([...(st.zombie && !st.has('zombie') ? [{ id: 'zombie', name: 'Zombie', icon: statusIconUrl('zombie'), left: 1, total: Infinity }] : []),
       ...st.list.map((e) => ({ id: e.id, name: effectName(e.id), icon: statusIconUrl(e.id), left: e.left, total: e.total }))]);
-    const melee = inv.equip.weapon, bow = inv.equip.ranged;
-    const icon = (id: string | undefined, fallback: string) => (id ? this.itemIcon(id) : this.builtinUrl(fallback));
-    const rc = (id: string | undefined) => (id ? itemColor(this.items.get(id)) ?? undefined : undefined);
-    const off = this.state.weaponsOff;
-    // A built-in sword and bow (field tools, not bag items) unless a weapon is equipped.
-    const ownBow = bow && this.items.get(bow)?.weapon?.class === 'bow' ? bow : undefined;
-    this.hud.setWeapons([
-      { id: 'melee', name: melee ? this.items.get(melee)?.name ?? 'Weapon' : 'Sword', icon: icon(melee, 'sword'), available: true, color: rc(melee), blocked: off },
-      { id: 'bow', name: ownBow ? this.items.get(ownBow)?.name ?? 'Bow' : 'Bow', icon: icon(ownBow, 'bow'), available: true, color: rc(ownBow), blocked: off },
-    ], c.weapon, c.switches, this.input.label('switchWeapon'));
+    // Update 132: no sword or bow on the map (the Cut and Bow key items took over), so no weapons card.
+    this.hud.setWeapons([], c.weapon, c.switches, this.input.label('switchWeapon'));
   }
   private readonly builtinUrls = new Map<string, string>();
   private builtinUrl(name: string): string {
@@ -5482,7 +5477,9 @@ export class Game {
    * A fight broke out on the map (turn-based mode): a battle with that enemy and its friends nearby. True when it's
    * taken over (so the hit on the map doesn't happen); just after a battle, hits are ignored for a moment.
    */
-  private encounter(e: Enemy, opening: Opening): boolean {
+  private encounter(e: Enemy, _how: Opening): boolean {
+    // Update 132: touching a foe on the map (or it touching the hero) is always a normal start, no ambush.
+    const opening: Opening = 'normal';
     if (this.battle.active || this.battlePending || this.battleGrace > 0 || this.dying || this.onTitle || this.transfer || this.interpreter.running) return true;
     const tb = this.combatCfg.turnBased;
     const near = this.combat.enemies
@@ -6984,6 +6981,12 @@ export class Game {
         this.respawnPoint = null;
         this.playTime = 0;
         this.inventory.load(Inventory.fresh(this.db).toJSON(), this.bagSize);
+        // Key items to use (Cut, Bow, a lantern…) start on the free quick slots (Update 132).
+        for (const st of this.inventory.slots) {
+          const d = st ? this.items.get(st.id) : undefined, k = this.inventory.quick.indexOf(null);
+          if (k < 0) break;
+          if (d && (d.tool || (d.field && !carriedUse(d.field.use))) && !this.inventory.quick.includes(d.id)) this.inventory.quick[k] = d.id;
+        }
         this.progress.load(undefined, attrs ?? this.heroBase());
         this.combat.heroStatus.clear(); this.heroAilments = {};
         this.quests.load(undefined);
@@ -7610,6 +7613,74 @@ export class Game {
   /** Heroes drying off by a fire, and how wet they still are (0 … 1). */
   private readonly drying = new Map<string, number>();
 
+  /* ---------------------------------------------------------------- time bubble */
+
+  /** A field-use pop-up opened from the bag: the bag and pause menu step aside for it. */
+  private leaveMenusForPicker(): void {
+    if (this.bag.isOpen) this.bag.hide();
+    if (this.pauseShell.isOpen) this.closePause();
+  }
+
+  /**
+   * Change time (Update 132): a bubble forms round the hero and the world fast-forwards around them (fires burn down,
+   * the sky turns) until the time is reached, then it pops.
+   */
+  private timeWarp: { left: number; rate: number; name: string; t: number; pop: number; bubble: THREE.Group; mats: THREE.MeshBasicMaterial[] } | null = null;
+  private startTimeWarp(to: number, name: string): void {
+    if (this.timeWarp) return;
+    const left = wrapHour(to - this.time.hour);
+    if (left < 1 / 60) { this.menu.notice(`It’s already ${this.time.label(this.settings.clock12)}.`); return; }
+    const mats = [
+      new THREE.MeshBasicMaterial({ color: '#bfe6ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide }),
+      new THREE.MeshBasicMaterial({ color: '#7ac8ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide, wireframe: true }),
+    ];
+    const bubble = new THREE.Group();
+    bubble.add(new THREE.Mesh(new THREE.SphereGeometry(1.15, 32, 20), mats[0]), new THREE.Mesh(new THREE.SphereGeometry(1.18, 18, 12), mats[1]));
+    bubble.scale.setScalar(0.01);
+    this.scene.add(bubble);
+    // Two to four seconds, whatever the wait.
+    this.timeWarp = { left, rate: Math.max(3, left / 3.5), name, t: 0, pop: -1, bubble, mats };
+    this.audio.play('ringOn');
+  }
+  private updateTimeWarp(dt: number): void {
+    const w = this.timeWarp;
+    if (!w) return;
+    const p = this.player.position;
+    w.bubble.position.set(p.x, p.y + 0.75, p.z);
+    w.t += dt;
+    if (w.pop >= 0) {
+      w.pop += dt;
+      const k = Math.min(1, w.pop / 0.28);
+      w.bubble.scale.setScalar(1 + k * 0.7);
+      w.mats[0].opacity = 0.22 * (1 - k); w.mats[1].opacity = 0.14 * (1 - k);
+      if (k >= 1) {
+        this.scene.remove(w.bubble);
+        w.bubble.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+        for (const m of w.mats) m.dispose();
+        this.timeWarp = null;
+      }
+      return;
+    }
+    // Grows in, shimmers while the hours race past.
+    const grow = Math.min(1, w.t / 0.35), wob = 1 + Math.sin(w.t * 9) * 0.02;
+    w.bubble.scale.set(grow * wob, grow / wob, grow * wob);
+    w.bubble.rotation.y += dt * 1.5;
+    w.mats[0].opacity = 0.16 + Math.sin(w.t * 6) * 0.04; w.mats[1].opacity = 0.14;
+    if (w.t < 0.35) return;
+    const step = Math.min(w.left, w.rate * dt);
+    w.left -= step;
+    this.state.clock += step;
+    this.fireCheck = 0;
+    this.time.set(wrapHour(this.time.hour + step), true);
+    this.time.update(0);
+    if (w.left <= 1e-6) {
+      w.pop = 0;
+      this.audio.play('ringOff');
+      this.bursts.spawn(p.x, p.y + 0.8, p.z, { color: '#bfe6ff', n: 26, speed: 2.6, up: 1.6, life: 0.6, size: 0.07, additive: true });
+      this.menu.notice(`${w.name}: ${this.time.label(this.settings.clock12)}.`);
+    }
+  }
+
   /* ----------------------------------------------------------- global events */
 
   /** Global event scripts waiting to run (Update 131), oldest first. */
@@ -7866,6 +7937,8 @@ export class Game {
 }
 
 /** The weather's name for the clock card. */
+/** The weather list of the Change weather key item (Update 132). */
+const WEATHER_PICK: Record<WeatherKind, string> = { none: 'Clear skies', rain: 'Rain', storm: 'Thunderstorm', snow: 'Snow', blizzard: 'Blizzard', haze: 'Haze', sandstorm: 'Sandstorm', pollen: 'Pollen', dust: 'Dust', leaves: 'Falling leaves' };
 const WEATHER_LABEL: Record<WeatherKind, string> = { none: 'Clear', rain: 'Rain', storm: 'Storm', snow: 'Snow', blizzard: 'Blizzard', haze: 'Hazy', sandstorm: 'Sandstorm', pollen: 'Pollen', dust: 'Dusty', leaves: 'Windy' };
 
 /** The adventure log's line when the weather turns. */

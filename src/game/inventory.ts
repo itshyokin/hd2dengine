@@ -32,7 +32,7 @@ export function pocketOf(d: ItemDef | undefined): Pocket {
 }
 
 /** How many quick item slots there are (left, up, right on the D-pad; 5, 6, 7 on the keyboard). */
-export const QUICK_SLOTS = 3;
+export const QUICK_SLOTS = 4;
 
 /** Slots in each pocket (8 × 8). */
 export const DEFAULT_BAG_SLOTS = 64;
@@ -261,7 +261,10 @@ export class Inventory {
     this.elements = [0, 1].map((k) => { const id = d.elements?.[k]; return id && this.def(id)?.essence ? id : null; });
     this.ammo = d.ammo && this.def(d.ammo) ? d.ammo : null;
     this.quick = Array.from({ length: QUICK_SLOTS }, (_, k) => { const id = d.quick?.[k]; return id && this.def(id) ? id : null; });
-    this.bTool = d.bTool && (this.def(d.bTool)?.tool || this.def(d.bTool)?.field) ? d.bTool : null;
+    this.bTool = null;
+    // Update 132: key items go on the quick slots; one that was on the B button moves to a free one.
+    const b = d.bTool && (this.def(d.bTool)?.tool || this.def(d.bTool)?.field) ? d.bTool : null;
+    if (b && !this.quick.includes(b)) { const k = this.quick.indexOf(null); if (k >= 0) this.quick[k] = b; }
     // Saves from before rings kept light items in a "light" slot.
     const eq = { ...d.equip } as Record<string, string | undefined>;
     if (eq.light && !eq.ring) eq.ring = eq.light;

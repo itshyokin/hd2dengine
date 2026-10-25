@@ -14,7 +14,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 25 evening: Updates 115–131 and 134 done; next 132–133 in NOTES)
+## Pick up here (state as of Oct 25 evening: Updates 115–132 and 134 done; next 133 in NOTES)
+- **Update 132 done:** four quick slots (D-pad ↓ = slot 4, Release target on the left stick) taking key items; no
+  map sword / bow (Machete = Cut, Hunting Bow = Bow, built in and in the starting bag); lock-on only switches /
+  targets; no ambushes; Change weather / season lists and the Change time pop-up with the bubble fast-forward.
+  Browser-checked: HUD slots, Cut swing, Bow shot, time picker, bubble (8:00 → 13:00). Weather list not screenshot.
 - **Update 131 done:** Database → Story → Global events (scripts run at a new game, a load, a sleep, entering a rest
   zone, a new real day); someone joining in a rest zone walks in from off-screen. Browser-checked (editor tab, the
   queue and the day rollover); the walk-in is not screenshot-checked.
