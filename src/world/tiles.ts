@@ -43,6 +43,7 @@ export class TileCatalog {
   private readonly blendOverrides: Record<string, Partial<TileBlend>>;
   private readonly roads: Record<string, boolean>;
   private readonly steps: Record<string, string>;
+  private readonly printsSet: Record<string, boolean>;
   private readonly ailments: NonNullable<AssetRegistry['tileAilments']>;
 
   constructor(assets?: Partial<AssetRegistry>) {
@@ -50,6 +51,7 @@ export class TileCatalog {
     this.blendOverrides = { ...(assets?.tileBlend ?? {}) };
     this.roads = { ...(assets?.tileRoads ?? {}) };
     this.steps = { ...(assets?.tileSteps ?? {}) };
+    this.printsSet = { ...(assets?.tilePrints ?? {}) };
     this.ailments = { ...(assets?.tileAilments ?? {}) };
     for (const t of BUILTIN_TILES) this.byKey.set(t.key, t);
     for (const t of assets?.tiles ?? []) {
@@ -97,6 +99,9 @@ export class TileCatalog {
   /** Is this tile a road (continues straight on past the map edge)? The built-in path is, unless switched off. */
   /** What this tile sounds like underfoot: its own setting, else guessed from its name. */
   footstep(key: string): FootMaterial { return (this.steps[key] as FootMaterial | undefined) ?? guessFootstep(this.get(key)); }
+  /** Footprints on it (Update 123): its setting, else on for snow and sand. */
+  prints(key: string): boolean { return this.printsSet[key] ?? this.printsDefault(key); }
+  printsDefault(key: string): boolean { const f = this.footstep(key); return f === 'snow' || f === 'sand'; }
   /** The footstep setting for this tile, if it has one (undefined: guessed). */
   footstepChoice(key: string): string | undefined { return this.steps[key]; }
 

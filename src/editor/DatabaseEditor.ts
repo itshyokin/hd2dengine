@@ -24,7 +24,7 @@ import type { OverworldCamera } from '../world/types';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
 import { battleLayoutSection } from './BattleLayoutEditor';
 import { tutorialsTab } from './TutorialsEditor';
-import type { TutorialDef } from '../world/types';
+import type { GroupChatter, TutorialDef } from '../world/types';
 import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
 import type { EditorStore } from './store';
 import { ITEM_CATS, type ItemCat, cleanInventory, inventoryTab, itemCategory, itemsTab, type ItemsWork } from './ItemsEditor';
@@ -148,6 +148,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const heroes = heroesWork(store.db.heroes, store.db.player), heroState = { sel: 0 };
   let charView: 'looks' | 'chatter' = 'looks';
   const tutorials: TutorialDef[] = JSON.parse(JSON.stringify(store.db.tutorials ?? []));
+  const groupChatter: GroupChatter[] = JSON.parse(JSON.stringify(store.db.groupChatter ?? []));
   let activeParty: 3 | 4 = store.db.activeParty === 4 ? 4 : 3;
   const chatState = { sel: 0 };
   const spells: SpellEntry[] = JSON.parse(JSON.stringify(spellList(store.db)));
@@ -353,7 +354,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Characters view' },
         ...(([['looks', 'Looks'], ['chatter', 'Chatter']] as const).map(([v, label]) => h('button', { type: 'button', 'aria-pressed': String(charView === v), onclick: () => { charView = v; render(); } }, label))));
       const bar = h('div', { class: 'char-view-bar' }, seg);
-      content.replaceChildren(bar, ...(charView === 'chatter' ? [h('div', { class: 'chat-tab' }, ...chatterTab(heroes.heroes, store.maps, chatState, render))] : charactersTab(store, people, render)));
+      content.replaceChildren(bar, ...(charView === 'chatter' ? [h('div', { class: 'chat-tab' }, ...chatterTab(heroes.heroes, store.maps, chatState, render, groupChatter))] : charactersTab(store, people, render)));
       return;
     }
     if (tab === 'credits') { content.replaceChildren(...creditsTab(credits, people.chars, render, [...store.assets.props, ...store.assets.tiles].map((d) => d.credits ?? []))); return; }
@@ -705,7 +706,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
         JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) &&
-        (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? [])) return 'same';
+        (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? [])) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -737,6 +738,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (achOut) db.achievements = C(achOut); else delete db.achievements;
       const tutOut = tutorials.filter((t) => t.id && t.title);
       if (tutOut.length) db.tutorials = C(tutOut); else delete db.tutorials;
+      const gOut = cleanGroups(groupChatter);
+      if (gOut.length) db.groupChatter = C(gOut); else delete db.groupChatter;
       if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
       if (markersOut) db.markers = C(markersOut); else delete db.markers;
       if (themesOut) db.mapThemes = C(themesOut); else delete db.mapThemes;
@@ -900,4 +903,9 @@ function pickTitleFile(store: EditorStore, accept: string, done: (path: string) 
     done(path);
   });
   input.click();
+}
+
+/** Group chatter for saving (Update 122): empty lines dropped, conversations with no lines left out. */
+function cleanGroups(list: GroupChatter[]): GroupChatter[] {
+  return list.map((g) => ({ ...g, name: g.name.trim() || g.id, lines: g.lines.map((l) => ({ hero: l.hero, text: l.text.trim() })).filter((l) => l.hero && l.text) })).filter((g) => g.lines.length);
 }

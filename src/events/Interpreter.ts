@@ -205,6 +205,7 @@ export class Interpreter {
         this.ctx.ailment(c.op, c.ailment, c.seconds, c.hero);
         break;
       case 'rest': message.close(); this.ctx.rest?.(c); break;
+      case 'groupChatter': if (c.id && !state.groupQueue.includes(c.id)) state.groupQueue.push(c.id); break;
       case 'lock': {
         message.close();
         const key = c.switch || (this.self ? `lock:${this.self}` : '');

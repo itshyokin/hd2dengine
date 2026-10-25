@@ -269,6 +269,19 @@ export async function setTileSteps(store: EditorStore, key: string, material: st
   store.setAssets(next);
 }
 
+/** Save whether a tile keeps footprints (Update 123; undefined: its default, on for snow and sand). */
+export async function setTilePrints(store: EditorStore, key: string, on: boolean | undefined): Promise<void> {
+  const all = { ...(store.assets.tilePrints ?? {}) };
+  if (on === undefined) delete all[key]; else all[key] = on;
+  const next = { ...store.assets, tilePrints: Object.keys(all).length ? all : undefined };
+  if (!next.tilePrints) delete next.tilePrints;
+  if (store.project.canSave && store.project.canStoreImages) {
+    try { await store.project.write('assets.json', formatAssets(next)); }
+    catch (err) { toast(`Couldn’t save the footprints setting: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+  }
+  store.setAssets(next);
+}
+
 /** Save a tile's edge blending (only the settings that differ from its defaults). */
 export async function setTileBlend(store: EditorStore, key: string, blend: TileBlend): Promise<void> {
   const def = defaultBlend(store.tiles.get(key));

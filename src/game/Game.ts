@@ -61,7 +61,7 @@ import {
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
 import type { AbilityData, BattleWeather, Command, EventData } from '../world/types';
-import { WEATHER_KINDS, type FieldUseKind } from '../world/types';
+import { WEATHER_KINDS, type FieldUseKind, type GroupChatter } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
@@ -148,11 +148,14 @@ import { DEFAULT_SETTINGS, type Settings, SettingsStore, TEXT_SPEEDS, exportSett
 import { type SaveData, type SavePoint, SAVE_VERSION, SaveStore, type SlotId, formatPlayTime } from './saves';
 import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
-import { type Talker, chatterSeconds, pickChatter } from './chatter';
+import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
+import { campLine, nextGroup } from './campTalk';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
 import { LockpickScreen } from '../ui/LockpickScreen';
+import { Footprints } from '../render/footprints';
+import { Puddles, type PuddleSpot } from '../render/puddles';
 import { TutorialPopup } from '../ui/TutorialPopup';
 import type { ChatterTrigger } from '../world/types';
 import { type RestSpot, isSafeMark, safeAt, shareSpots, zoneSpots } from '../world/safeZones';
@@ -310,6 +313,11 @@ export class Game {
   /** Props cut on this visit that grow back (forgotten when the player leaves the map). */
   private readonly cutThisVisit = new Set<string>();
   private readonly bursts = new Bursts();
+  /** Footprints in snow and sand, and puddles after rain (Update 123); made with the scene. */
+  private prints!: Footprints;
+  private puddles!: Puddles;
+  /** Each party member's distance walked since their last print, and which foot is next. */
+  private readonly printWalk = new Map<object, { x: number; z: number; d: number; left: boolean }>();
   private readonly combat = new Combat();
   private overlay!: CombatOverlay;
   /** Turn-based battles (Database → Combat → Battle system: Turn-based). */
@@ -584,6 +592,8 @@ export class Game {
     this.cursor.rotation.x = -Math.PI / 2;
     this.cursor.visible = false;
     this.scene.add(this.cursor);
+    this.prints = new Footprints(this.scene);
+    this.puddles = new Puddles(this.scene);
 
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
@@ -1032,6 +1042,9 @@ export class Game {
     // Reaching a map counts for "visit" objectives.
     if (!this.onTitle) this.quests.mapEntered(name);
     this.preloadBattleMaps(data);
+    this.prints.clear();
+    this.printWalk.clear();
+    this.puddles.setSpots(this.puddleSpots(data));
 
     const s = start ?? this.findOpenTile(data);
     const game = this;
@@ -1631,6 +1644,67 @@ export class Game {
     if (this.weatherStates.get(mainHero(this.db).id) === 'wet' && mat !== 'water') this.audio.play('stepWater', undefined, undefined, 0.22 * loud * (0.8 + Math.random() * 0.4));
   }
 
+  /** Does this spot keep footprints (Update 123)? Its tile's setting; in winter, any snowed-over outdoor ground. */
+  private keepsPrints(x: number, z: number): boolean {
+    const cx = Math.floor(x), cz = Math.floor(z);
+    if (!this.map?.inMap(cx, cz) || this.map.footWaterAt(cx, cz)) return false;
+    const key = this.map.terrain(cx, cz);
+    if (this.tiles.prints(key)) return true;
+    const f = this.tiles.footstep(key);
+    return this.season === 'winter' && this.time.environment === 'outdoor' && (f === 'grass' || f === 'dirt');
+  }
+
+  /** Leave a print at (x, z) facing (dx, dz): a foot to the left or right of the line, or a hoof. */
+  private printAt(x: number, z: number, dx: number, dz: number, left: boolean, hoof = false): void {
+    if (!this.keepsPrints(x, z) || this.settings.quality === 'potato') return;
+    const len = Math.hypot(dx, dz) || 1, nx = dx / len, nz = dz / len, side = (left ? -1 : 1) * (hoof ? 0.16 : 0.09);
+    const px = x - nz * side, pz = z + nx * side;
+    this.prints.add(px, this.map.standY(px, pz), pz, Math.atan2(nx, nz), hoof, hoof ? 30 : 25);
+  }
+
+  /** Footprints for the party (each step), and puddles growing and drying with the ground. */
+  private updatePrints(dt: number): void {
+    const snowing = this.time.environment === 'outdoor' && (this.weather.kind === 'snow' || this.weather.kind === 'blizzard') && this.weather.amount > 0.2;
+    this.prints.update(dt, snowing ? 3 : 1);
+    this.puddles.update(this.time.environment === 'outdoor' ? this.wet : 0);
+    if (!dt || !this.motion) return;
+    const walkers: [object, number, number][] = this.riding ? [] : [[this.player, this.motion.x, this.motion.z]];
+    for (const a of this.allies) if (!a.down && a.sprite.mesh.visible && !a.resting) walkers.push([a, a.x, a.z]);
+    if (this.horseSprite?.mesh.visible) walkers.push([this.horseSprite, this.horseSprite.mesh.position.x, this.horseSprite.mesh.position.z]);
+    for (const [key, x, z] of walkers) {
+      let w = this.printWalk.get(key);
+      if (!w) { w = { x, z, d: 0, left: false }; this.printWalk.set(key, w); continue; }
+      const dx = x - w.x, dz = z - w.z, step = Math.hypot(dx, dz);
+      if (step > 1.5) { w.x = x; w.z = z; w.d = 0; continue; }
+      w.d += step;
+      const hoof = key === this.horseSprite, every = hoof ? 0.55 : 0.42;
+      if (w.d >= every && step > 1e-4) {
+        w.d = 0;
+        w.left = !w.left;
+        if (key !== this.player || (!this.motion.airborne && !this.motion.swimming && !this.motion.climbing)) this.printAt(x, z, dx, dz, w.left, hoof);
+      }
+      w.x = x; w.z = z;
+    }
+  }
+
+  /** Where this map's puddles go (Update 123): flat, open outdoor ground, picked by a hash of the tile. */
+  private puddleSpots(data: MapData): PuddleSpot[] {
+    if ((data.environment ?? 'outdoor') !== 'outdoor' || data.kind === 'battle') return [];
+    const m = this.map, out: PuddleSpot[] = [];
+    const hash = (x: number, z: number, k: number) => { const v = Math.sin(x * 127.1 + z * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
+    for (let z = 1; z < m.h - 1 && out.length < 60; z++) for (let x = 1; x < m.w - 1 && out.length < 60; x++) {
+      if (hash(x, z, 1) > 0.035) continue;
+      if (m.isBlocked(x, z) || m.waterAt(x, z) || m.footWaterAt(x, z)) continue;
+      const f = this.tiles.footstep(m.terrain(x, z));
+      if (f !== 'grass' && f !== 'dirt' && f !== 'stone') continue;
+      const s = m.step(x, z);
+      if (m.step(x + 1, z) !== s || m.step(x - 1, z) !== s || m.step(x, z + 1) !== s || m.step(x, z - 1) !== s) continue;
+      const px = x + 0.25 + hash(x, z, 2) * 0.5, pz = z + 0.25 + hash(x, z, 3) * 0.5;
+      out.push({ x: px, y: m.surfaceY(px, pz), z: pz, size: 0.45 + hash(x, z, 4) * 0.55, angle: hash(x, z, 5) * Math.PI });
+    }
+    return out;
+  }
+
   /** An EXP orb reached the hero: counted now, shown as one "+N EXP" once the burst of orbs is over. */
   private absorbXp(n: number): void {
     this.xpBurst += n;
@@ -1905,6 +1979,7 @@ export class Game {
       this.updateFootsteps(dt);
       this.updateRipples(dt);
       this.updateReflection();
+      this.updatePrints(paused ? 0 : dt);
       this.updateTileAilment(dt);
       this.updateFires(dt);
     }
@@ -2011,6 +2086,9 @@ export class Game {
     if (!this.fishing && i.consume('ok')) {
       const [fx, fz] = DIR_VECTOR[this.player.dir];
       const tx = Math.floor(this.player.position.x + fx * 0.75), tz = Math.floor(this.player.position.z + fz * 0.75);
+      // A party member resting at camp, right in front: they say their camp line (Update 122).
+      const pal = this.restingAllyAt(this.player.position.x + fx * 0.8, this.player.position.z + fz * 0.8);
+      if (pal) { i.consume('jump'); this.talkAtCamp(pal); return; }
       // A respawn prop counts even when an event sits on it too (a campfire you can also talk at).
       const ev = this.actionEventAt(tx, tz), rest = this.respawnPropAt(tx, tz), fire = ev ? null : this.fireAt(tx, tz);
       const forge = ev || fire ? null : this.forgeAt(tx, tz);
@@ -7237,6 +7315,7 @@ export class Game {
   /** Each frame out of battle: notice the weather, wind and map changing; say the waiting line when it's calm. */
   private updateChatter(dt: number): void {
     const busy = this.interpreter.running || !!this.transfer || this.pauseShell.isOpen || !!this.sleeping || this.dying || this.battle.active || this.battlePending || !!this.stage;
+    if (this.updateGroup(!!busy)) return;
     if (this.chatSay) {
       if (this.elapsed >= this.chatSay.until || busy) { this.chatSay = null; this.chatQuiet = 25 + Math.random() * 20; }
       return;
@@ -7274,6 +7353,62 @@ export class Game {
     this.chatLast.set(p.what.map ? `map:${p.what.map}` : `t:${p.what.trigger}`, this.elapsed);
     const got = pickChatter(this.chatTalkers(), p.what, p.opts);
     if (got) this.sayChatter(got.id, got.name, got.line);
+  }
+
+  /** A group conversation playing (Update 122): its lines, the one up next. */
+  private groupPlay: { lines: { hero: string; text: string }[]; i: number } | null = null;
+  /** When a group conversation waiting for this camp starts (elapsed seconds; 0: none). */
+  private groupDue = 0;
+
+  private pickGroup(): GroupChatter | null {
+    return nextGroup(this.db.groupChatter, this.state.groupQueue, (id) => this.state.getSwitch(`gchat:${id}`), (sw) => this.state.getSwitch(sw));
+  }
+
+  /** Group chatter, each frame: start it when due, then one line after another. True while it holds the stage. */
+  private updateGroup(busy: boolean): boolean {
+    if (!this.groupPlay && this.groupDue && this.elapsed >= this.groupDue && !busy) {
+      this.groupDue = 0;
+      const g = this.restZone ? this.pickGroup() : null;
+      if (g) {
+        this.state.groupQueue = this.state.groupQueue.filter((x) => x !== g.id);
+        this.state.setSwitch(`gchat:${g.id}`, true);
+        this.groupPlay = { lines: g.lines.filter((l) => l.hero && l.text.trim()), i: 0 };
+        this.chatSay = null;
+      }
+    }
+    const gp = this.groupPlay;
+    if (!gp) return false;
+    if (busy) return true;
+    if (this.chatSay && this.elapsed < this.chatSay.until) return true;
+    const party = this.bodyParty();
+    while (gp.i < gp.lines.length) {
+      const l = gp.lines[gp.i++], who = party.find((p) => p.id === l.hero);
+      // Someone not here (out of the party, knocked out): their line is skipped.
+      if (!who || !who.shown || who.hp <= 0) continue;
+      this.sayChatter(who.id, who.name, l.text.trim());
+      this.chatSay!.until += 0.5;
+      return true;
+    }
+    this.groupPlay = null;
+    this.chatSay = null;
+    this.chatQuiet = 30;
+    return false;
+  }
+
+  /** A party member resting at camp near (x, z), if any. */
+  private restingAllyAt(x: number, z: number): Ally | null {
+    if (!this.restZone) return null;
+    let best: Ally | null = null, bd = 0.75;
+    for (const a of this.allies) { if (!a.resting || a.down) continue; const d = Math.hypot(a.x - x, a.z - z); if (d < bd) { bd = d; best = a; } }
+    return best;
+  }
+
+  /** Talk to someone resting at camp: their camp line over their head (a default, or one for what's going on). */
+  private talkAtCamp(a: Ally): void {
+    if (this.groupPlay) return;
+    const line = campLine(a.def.chatter, (c) => this.state.test(c)) ?? linesFor(a.def.chatter, { trigger: 'camp' })[0] ?? null;
+    a.sprite.faceVector(this.player.position.x - a.x, this.player.position.z - a.z);
+    this.sayChatter(a.def.id, a.def.name, line ?? '…');
   }
 
   /** This is the hero's first time on the map they've just come onto. */
@@ -7351,7 +7486,10 @@ export class Game {
       if (calm) this.restPicks = null;
       return;
     }
-    if (entering && this.restPicks?.key !== key) this.chatter({ trigger: 'rest' });
+    if (entering && this.restPicks?.key !== key) {
+      // Group chatter waiting for a camp plays a moment after everyone sits down; otherwise the usual rest line.
+      if (this.pickGroup()) this.groupDue = this.elapsed + 3.5; else this.chatter({ trigger: 'rest' });
+    }
     if (this.restPicks?.key !== key) {
       // In party order (the list's order): ties go to whoever is higher.
       free.sort((a, b) => this.members().findIndex((x) => x.data === a.data) - this.members().findIndex((x) => x.data === b.data));

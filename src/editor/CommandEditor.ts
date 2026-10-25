@@ -39,7 +39,7 @@ export function lockFields(store: EditorStore, d: { level: LockLevel; key?: stri
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'], ['lock', 'Lock (pick it, or a key)'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'], ['lock', 'Lock (pick it, or a key)'], ['groupChatter', 'Group chatter at next camp'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['roost', 'Griffin roost (fly)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -47,7 +47,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen', lock: 'flow',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen', lock: 'flow', groupChatter: 'msg',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', roost: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -72,6 +72,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'fullRest': return { cmd };
     case 'rest': return { cmd };
     case 'lock': return { cmd, level: 'easy' };
+    case 'groupChatter': return { cmd, id: '' };
     case 'goodState': return { cmd, hero: 'all', kind: 'wellRested' };
     case 'heroWeather': return { cmd, hero: 'all', state: 'wet' };
     case 'tendFire': return { cmd };
@@ -206,6 +207,7 @@ function summary(c: Command): string {
     case 'ability': return `${ABILITY_NAMES[c.ability]}: ${c.on ? 'learn (on)' : 'lose (off)'}`;
     case 'transfer': return transferSummary(c);
     case 'save': return 'Let the player save (a save point)';
+    case 'groupChatter': return `Group chatter at the next camp: ${c.id || '(none picked)'}`;
     case 'lock': return `Lock: ${LOCK_NAMES[c.level]}${c.key ? ` · key: ${c.key}` : ''}`;
     case 'fullRest': return 'Health, magic and stamina to full; ailments cured';
     case 'rest': return `Pick hours to rest${c.noSupplies ? '' : ', then camping supplies'}${c.noRespawn ? '' : '; sets the respawn point'}`;
@@ -592,6 +594,11 @@ export class CommandEditor {
         return [h('p', { class: 'hint' }, 'Opens the fuel menu of the fire nearest the hero (a fire prop with a burn time): how long it burns, and fuel from the bag to add. Use it as one of a campfire event’s choices. In text, \\fire shows how long the nearest fire burns, e.g. “The fire will burn for \\fire.”')];
       case 'lock':
         return lockFields(this.store, d);
+      case 'groupChatter': {
+        const list = this.store.db.groupChatter ?? [];
+        return [field('Conversation', select([['', list.length ? 'Choose…' : '(none yet: Database → Characters → Chatter → Group chatter)'], ...list.map((g) => [g.id, g.name || g.id] as [string, string])], d.id, (v) => (d.id = v))),
+          h('p', { class: 'hint' }, 'Queues the conversation: the next time the party makes camp (a rest area), it plays line by line over each speaker’s head. It plays once.')];
+      }
       case 'rest':
         return [checkbox('Camping supplies (Rested / Well Rested)', !d.noSupplies, (v) => { if (v) delete d.noSupplies; else d.noSupplies = true; }),
           checkbox('Sets the respawn point', !d.noRespawn, (v) => { if (v) delete d.noRespawn; else d.noRespawn = true; }),

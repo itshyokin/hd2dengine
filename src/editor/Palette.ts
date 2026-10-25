@@ -2,7 +2,7 @@ import { HEIGHT_STYLES, type HeightStyle } from '../world/heights';
 import { levelRangeField } from './levelFields';
 import { openDatabase } from './DatabaseEditor';
 /** Left panel: layer tabs, tools, brush options and the swatch / sprite palette. */
-import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSkin, setTileSteps } from './assets';
+import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSkin, setTilePrints, setTileSteps } from './assets';
 import { AILMENTS, AILMENT_INFO } from '../game/status';
 import type { Ailment } from '../world/types';
 import { FOOT_MATERIALS, guessFootstep } from '../world/footsteps';
@@ -134,6 +134,12 @@ export class Palette {
           { 'aria-label': 'Footsteps on this tile' });
         return h('div', { class: 'cliff-field' }, h('span', { class: 'swatch-note' }, 'Footsteps'), sel);
       };
+      // Update 123: footprints on it (default on for snow and sand).
+      const printsField = (key: string) => {
+        const c = checkbox('Leaves footprints', s.tiles.prints(key), (v) => void setTilePrints(s, key, v === s.tiles.printsDefault(key) ? undefined : v));
+        c.title = 'Prints fade over half a minute (sooner while snow falls). On by default for snow and sand; in winter, grass under snow keeps them too.';
+        return c;
+      };
       const ailmentField = (key: string) => {
         const cur = s.tiles.ailment(key);
         const chance = numberInput(cur?.chance ?? 100, (v) => { const c = s.tiles.ailment(key); if (c) void setTileAilment(s, key, { ...c, chance: Math.max(1, Math.min(100, Math.round(v))) }); },
@@ -169,7 +175,7 @@ export class Palette {
         body.push(h('div', { class: 'prop-current' },
           h('span', { class: 'prop-current-thumb' }, tileThumb(cur.key, 40)),
           h('div', { class: 'prop-current-info' }, h('div', { class: 'prop-current-name' }, cur.name), h('div', { class: 'swatch-note' }, `${cur.skin ? 'Built-in, your picture' : 'Built-in'} · ${tileNote(cur)}`)),
-          h('div', { class: 'prop-current-actions' }, pictureField(cur), cliffField(cur.key), stepsField(cur.key), ailmentField(cur.key), roadField(cur.key),
+          h('div', { class: 'prop-current-actions' }, pictureField(cur), cliffField(cur.key), stepsField(cur.key), printsField(cur.key), ailmentField(cur.key), roadField(cur.key),
             h('button', { type: 'button', class: 'btn small', onclick: () => openBlendSettings(s, cur.key) }, `Edge blending… (${blendSummary(cur.key)})`))));
       }
       if (cur && !cur.builtin) {
@@ -179,7 +185,7 @@ export class Palette {
             h('div', { class: 'prop-current-name' }, cur.name),
             h('div', { class: 'swatch-note' }, `Imported · ${tileNote(cur)} · repeats every ${cur.span} tile${cur.span === 1 ? '' : 's'}`)),
           h('div', { class: 'prop-current-actions' },
-            cliffField(cur.key), stepsField(cur.key), ailmentField(cur.key), roadField(cur.key),
+            cliffField(cur.key), stepsField(cur.key), printsField(cur.key), ailmentField(cur.key), roadField(cur.key),
             h('button', { type: 'button', class: 'btn small', onclick: () => openBlendSettings(s, cur.key) }, `Edge blending… (${blendSummary(cur.key)})`),
             h('button', { type: 'button', class: 'btn small', onclick: () => editTile(cur.key) }, 'Edit…'),
             h('button', { type: 'button', class: 'btn small danger', onclick: () => confirmModal('Delete tile?',

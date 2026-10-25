@@ -210,16 +210,25 @@ decide things; the tablet editor keeps working.
         Done: Game `bodyEffects` places breath / drips / steam up the leaned sprite (leanNow); chatter spot height 1.5;
         season.ts winter leaves → snow-white `laden` (no more ice blue, no discard on bare trees); equipTargets uses
         gear(true) and marks the wearer "(wearing it)".
-  - [ ] Update 122: camp. Party members walking to camp spots pass through props and each other until seated
+  - [x] Update 122: camp. Party members walking to camp spots pass through props and each other until seated
         (then solid; after a few seconds stuck, they appear in their spot). Talk to a resting party member: a camp
         chatter line. Chatter gets a Camp trigger: a default line plus conditional lines ("if switch X is on",
         "if quest Y is active", etc.) so they comment on what's going on.
         Group chatter: a list of up to ~10 lines (speaker dropdown + text) that plays top to bottom at the next camp
         visit, each line over its speaker's head, like a live conversation. Queued by an event command ("Group chatter
         at next camp") or set to play when a switch is on; plays once.
-  - [ ] Update 123: footprints and puddles. Terrain materials get "Leaves footprints" (default on for snow, sand,
+        Done: party.ts updateRest walks as a ghost (place after 0.5 s stuck / 6 s); HeroChatter `camp [{line, if}]`,
+        game/campTalk.ts `campLine` / `nextGroup`; Game `restingAllyAt` + `talkAtCamp` (action button), `updateGroup`
+        (groupDue 3.5 s after entering a camp; played flag switch `gchat:<id>`); Database `groupChatter`, command
+        `groupChatter` (GameState `groupQueue`, saved); ChatterEditor At camp + Group chatter sections.
+  - [x] Update 123: footprints and puddles. Terrain materials get "Leaves footprints" (default on for snow, sand,
         mud): prints fade over ~20–30 s, hoof prints when riding, fresh snow fills them faster. After rain, small
         reflective puddles on soft flat ground (dirt, grass, paths; not sand) shrink away over ~2 game hours.
+        Done: render/footprints.ts (instanced ovals, per-instance fade), render/puddles.ts (glossy instanced pools sized
+        by Game `wet`); assets `tilePrints` + TileRegistry `prints` / `printsDefault`, Palette "Leaves footprints";
+        Game `keepsPrints` (tile setting, or winter grass / dirt outdoors), `printAt`, `updatePrints` (hero, allies,
+        horse; snowfall fills prints 3× faster), `puddleSpots` (hash ~3.5% of flat walkable tiles, max 60).
+        (Puddles are glossy rather than true mirror reflections.)
   - [ ] Update 124: relationships. Each character rates each other party member 0 (hate) … 100 (best friends /
         love), ONE-WAY (Katrina→Eleanor ≠ Eleanor→Katrina). The player's hero (Jordan) is rated by the others but
         has no ratings of his own. Labels: 0–14 Hate, 15–29 Dislike, 30–44 Distrust, 45–59 Neutral, 60–74 Like,

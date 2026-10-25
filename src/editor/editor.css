@@ -899,3 +899,10 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .worn-part { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .worn-part b { flex: 1 1 100%; font-weight: 600; }
 .worn-part select { max-width: 160px; }
+
+/* Camp lines and group chatter (Update 122). */
+.chat-camp-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.chat-cond { display: flex; gap: 8px; align-items: flex-start; padding-left: 12px; }
+.chat-tag { flex: 0 0 auto; min-width: 70px; font-size: 12px; opacity: 0.8; }
+.chat-group { border: 1px solid var(--line, #2a2f3c); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+.chat-num { width: 20px; text-align: right; opacity: 0.6; font-size: 12px; }

@@ -598,6 +598,15 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   picking up or dying down, entering a rest area, making camp or sleeping, a map for the first time; one line per row,
   one picked at random) and *Map chatter* (a map and a line: "This is Reach City. I grew up here!", likeliest the
   first time there). Every line said goes in the adventure log.
+- **Talking at camp** (Update 122): in a rest area, walk up to a resting party member and press Talk: they say their
+  **At camp** line (Chatter tab, per hero): a *Default* line plus lines with **Only when…** (a switch on, a quest
+  active, any condition) so they talk about what's going on; a line whose condition holds wins over the default.
+- **Group chatter** (Chatter tab, bottom): a whole conversation, one row per line (speaker dropdown + what they say,
+  up to 20 rows). It plays at the **next camp**, top to bottom, each line over its speaker's head like a live talk.
+  Start it with the event command **Group chatter at next camp**, or give it a switch and it plays at a camp once the
+  switch is on. Each plays once; speakers not in the party are skipped.
+- On the way to their camp spots, party members walk through props and each other (no getting stuck walking on the
+  spot); once seated they're solid again.
 
 ### Stats and growth ranks
 
@@ -646,6 +655,12 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
   warms it, **Map Properties → Weather → Climate** makes a map warmer or colder (a desert +15, a peak −20), and the
   **Change temperature** command sets it (or warms / cools it) until the player leaves the map. Indoors it's 68°.
   The clock card shows it with a thermometer, beside the moon; **Settings → Gameplay → Temperature**: °F or °C.
+- **Puddles** (Update 123): rain leaves glossy puddles on flat outdoor ground (grass, dirt, stone paths; not sand),
+  growing while it rains and shrinking away as the ground dries over the next couple of game hours. The same spots
+  come back after each shower.
+- **Footprints** (Update 123): the hero, the party and the horse (hoof prints) leave prints in snow and sand that fade
+  over about half a minute (sooner while snow is falling). In the map editor's terrain panel each tile has **Leaves
+  footprints** (on by default for snow and sand: tick it for mud, say). In winter, snowed-over grass keeps prints too.
 - **The ground follows it**: rain leaves it damp (darker and richer, drying over a couple of game hours), below
   freezing grass and leaves frost over white-blue, and in a heat wave grass turns straw-coloured, coming back as the
   evening cools.

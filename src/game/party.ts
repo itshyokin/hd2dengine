@@ -167,14 +167,14 @@ export class Ally {
   }
 
   /** Resting at a spot in a safe zone while the player is in it (null: following). */
-  private rest: { x: number; z: number; act: RestSpot['act']; t: number; posed: boolean } | null = null;
+  private rest: { x: number; z: number; act: RestSpot['act']; t: number; posed: boolean; walk: number } | null = null;
   get resting(): boolean { return !!this.rest; }
   /** Go and rest at a spot (sit, lie down, practise magic, train), or stop and fall in behind again (null). */
   setRest(spot: RestSpot | null): void {
     if (!spot) { if (this.rest) { this.rest = null; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; } return; }
     const x = spot.x + 0.5, z = spot.z + 0.5;
     if (this.rest && this.rest.x === x && this.rest.z === z) return;
-    this.rest = { x, z, act: spot.act, t: 1 + Math.random() * 2, posed: false };
+    this.rest = { x, z, act: spot.act, t: 1 + Math.random() * 2, posed: false, walk: 0 };
     this.sprite.hold(null);
   }
   /** At the spot: walk there, then sit / lie / practise / train until called away. Returns true while resting. */
@@ -184,8 +184,11 @@ export class Ally {
     const far = Math.hypot(r.x - this.x, r.z - this.z);
     if (far > 0.12) {
       if (r.posed) { r.posed = false; this.sprite.hold(null); this.sprite.mesh.rotation.z = 0; }
-      const moving = this.moveToward(r.x, r.z, WALK, dt, 0.05, false);
-      if (!moving) { this.stuck += dt; if (this.stuck > 2) this.place(r.x, r.z, h.map); }
+      // On the way to their spot they pass through props and each other (Update 122: no getting caught on a log or
+      // a tent and walking on the spot); taking too long, they're simply there.
+      r.walk += dt;
+      const moving = this.moveToward(r.x, r.z, WALK, dt, 0.05, true);
+      if (!moving || r.walk > 6) { this.stuck += dt; if (this.stuck > 0.5 || r.walk > 6) this.place(r.x, r.z, h.map); }
       this.finish(dt, moving, false);
       return true;
     }

@@ -236,6 +236,8 @@ export interface AssetRegistry {
   tileBlend?: Record<string, Partial<TileBlend>>;
   /** Footstep sounds per tile key ("grass", "stone", "wood"…), overriding the guess from the tile's name. */
   tileSteps?: Record<string, string>;
+  /** Update 123: tiles that keep footprints (or don't), by key; unset: on for snow and sand. */
+  tilePrints?: Record<string, boolean>;
   /** Ailments a tile gives while it's stood on (lava burns, a swamp poisons): a % chance each half second. */
   tileAilments?: Record<string, { ailment: Ailment; chance?: number; seconds?: number }>;
 }
@@ -303,6 +305,8 @@ export type Command =
   | { cmd: 'fadeOut'; seconds?: number }
   | { cmd: 'fadeIn'; seconds?: number }
   | { cmd: 'setTime'; hour: number; instant?: boolean }
+  /** Group chatter (Update 122): play this conversation at the next camp visit. */
+  | { cmd: 'groupChatter'; id: string }
   /**
    * A lock (Update 119): until it's opened, the event stops here unless the player picks it (or carries its key or a
    * Skeleton Key). Opened once, it stays open (remembered per event, or in `switch`).
@@ -917,6 +921,18 @@ export interface HeroChatter {
   amount?: number;
   lines?: Partial<Record<ChatterTrigger, string[]>>;
   maps?: { map: string; line: string }[];
+  /** Update 122: what they say when talked to at camp: a default (no condition) and lines for while a condition holds. */
+  camp?: { line: string; if?: Condition }[];
+}
+
+/** Group chatter (Update 122): a short conversation played over the speakers' heads at the next camp. */
+export interface GroupChatter {
+  id: string;
+  name: string;
+  /** Top to bottom: who says it (a hero id) and the line. */
+  lines: { hero: string; text: string }[];
+  /** Also plays (once) at a camp while this switch is on. */
+  switch?: string;
 }
 
 /** A tutorial pop-up: a title and a few lines. */
@@ -1023,6 +1039,8 @@ export interface Database {
   achievements?: import('../game/achievements').AchievementDef[];
   /** Tutorial pop-ups (Update 113), shown by the Show tutorial command and kept in the Journal. */
   tutorials?: TutorialDef[];
+  /** Group chatter (Update 122): conversations played at camp (Database → Characters → Chatter). */
+  groupChatter?: GroupChatter[];
   /** The developer console (the ` key): in playtests only (default), always, or never. */
   devConsole?: 'playtest' | 'always' | 'off';
   /** How many heroes fight and walk on the map at once, the hero you play included (3 unset, or 4). */
