@@ -657,8 +657,9 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
     ways), **quest rewards** (Rewards → Relationships), and the **Relationship** condition ("Eleanor rates the hero at
     most 14") for dialogue, event pages and quests that only open at a certain rating.
 - Crossing into a new label shows a notice and goes in the adventure log ("Eleanor's view of Crowley: Like").
-- **Journal → Relationships** shows only the current party: each member's view of the others (the hero included as
-  someone they rate). Members who leave keep their numbers for when they come back.
+- **Each hero's Status page** shows how they see the current party (Update 129: there's no Journal tab for it any
+  more): a bar from red (Hate) through yellow (Neutral) to green (Best friends / Love). Members who leave keep their
+  numbers for when they come back.
 
 ### Stats and growth ranks
 

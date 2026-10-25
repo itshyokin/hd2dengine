@@ -44,6 +44,9 @@ export function relLabel(n: number, love = false): { name: string; color: string
   return out.from === 90 && love ? { name: 'Love', color: '#ff6fa8' } : out;
 }
 
+/** A rating's colour (Update 129): red at 0 (Hate), through yellow (Neutral), to green at 100 (Best friends / Love). */
+export const relColor = (n: number): string => `hsl(${Math.round(Math.max(0, Math.min(100, n)) * 1.2)}, 72%, 50%)`;
+
 /** Where `a`'s rating of `b` starts (the Database's, else 50). */
 export const relStart = (db: Database, a: string, b: string): number => db.relations?.start?.[a]?.[b] ?? REL_START;
 /** The amount for something that happened. */

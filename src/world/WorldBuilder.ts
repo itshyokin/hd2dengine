@@ -2,6 +2,7 @@
  * Turns map data into scene geometry: the ground with its heights, cliff walls and stairs,
  * imported tiles, animated water, and instanced prop sprites.
  */
+import { patchSway } from '../render/wind';
 import { patchLip } from '../render/lipFade';
 import { patchGroundYield, patchLean } from '../render/lean';
 import { buildDecks, placeDecks } from './decks';
@@ -744,6 +745,10 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
       });
       if (wet.length) {
         const rmat = patchLean(new THREE.MeshBasicMaterial({ map: mapTex, transparent: true, opacity: 0.34, alphaTest: 0.3, depthWrite: false, side: THREE.DoubleSide, color: 0xb8d4ff }));
+        // The reflection follows the prop's season colours and sways in the wind with it (Update 129).
+        patchAreaTint(rmat);
+        if (ps !== 'off') patchSeason(rmat, ps === 'bare' ? 'bare' : 'leaves');
+        if (pdef?.sway) patchSway(rmat, pdef.sway);
         const rmesh = new THREE.InstancedMesh(a.geometry, rmat, wet.length);
         rmesh.frustumCulled = false;
         rmesh.renderOrder = 1;

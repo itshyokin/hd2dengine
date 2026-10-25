@@ -296,10 +296,15 @@ decide things; the tablet editor keeps working.
         wornSheet draws under layers before the base. WornLookEditor rewritten (three panels + custom panel with the
         Update 120 builder parts inside a details box). items.ts addOutfits (6 starter items, once).
 - Oct 25 evening (owner's notes; clothing builder works great):
-  - [ ] Update 129: fixes. Event text box style (Sign, etc.) ignored in game. Prop reflections: season colours and wind
+  - [x] Update 129: fixes. Event text box style (Sign, etc.) ignored in game. Prop reflections: season colours and wind
         sway like the prop (mirrored copy of its material). Prop collision grid starts at the prop's full size (1×2 →
         2 blocks), each block toggled. Chatter bubbles get a speech tail. Relationship bars shade red (Hate) → yellow
         (Neutral) → green (Best friends / Love). Relationships only on the Status page (Journal tab removed).
+        Done: themes.ts rules gave every frame and its text !important colours, so a text box style's window colour and
+        ink never showed: `.msg.looked.look-bg .msg-box` keeps --look-bg, text rules skip `.msg.looked .msg-text *`,
+        applyLook sets the ink !important. WorldBuilder reflections get patchAreaTint + patchSeason + patchSway.
+        PropImporter depth follows the height until set by hand (`depthSet`). Chatter tail: ::before outline +
+        ::after fill. relations.ts relColor (hsl 0 → 120). Journal 'bonds' tab and bondsHtml removed.
   - [ ] Update 130: Journal and dates. Journal tabs get icons and a little more height. Database → Journal: reorder the
         tabs, show / hide each; an event command shows / hides a tab (saved; e.g. unlock the Bestiary later). Roleplay
         titles get a type: Text or Date; Date answers (Birthday: Oct 31) get conditions "today is X's [title]" and
