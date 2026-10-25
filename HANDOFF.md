@@ -14,7 +14,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 25 morning: Updates 115–128 done; next: owner playtest, then mini-games / gifting rooms / the older Future list)
+## Pick up here (state as of Oct 25 evening: Updates 115–129 and 134 done; next 130–133 in NOTES)
 - **Oct 24 night list (125–128) done:** Skyrim lockpicks with a required Lockpick item and a pixel-art lock, prop
   reflections, bag Unequip, save portraits, Attack menu, compact swap list; meter / orb styles; gender, outfit
   gender, roleplay, gift reactions, Status page relationships + roleplay; built-in clothing (30 parts) with the

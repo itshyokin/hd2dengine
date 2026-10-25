@@ -941,3 +941,12 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .field-row.rp-row { display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(160px, 1.4fr) auto auto; align-items: end; gap: 10px; }
 .rp-row .rp-id { align-self: center; opacity: 0.7; }
 .rp-row .rp-answers { align-self: center; }
+
+/* Custom worn sprite builder (Update 134). */
+.cw-body { display: grid; grid-template-columns: auto minmax(260px, 1fr); gap: 16px; align-items: start; }
+.cw-canvas { width: 320px; height: 320px; image-rendering: pixelated; border: 1px solid var(--line, #2a2f3c); border-radius: 6px; cursor: grab; touch-action: none; }
+.cw-side { display: flex; flex-direction: column; gap: 10px; }
+.cw-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cw-row > b { min-width: 44px; }
+.cw-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.cw-row input[type="range"] { flex: 1; }

@@ -120,7 +120,9 @@ export function applyLook(el: HTMLElement, look: TextLook | undefined, text: HTM
   el.classList.toggle('looked', !!look);
   el.classList.toggle('look-clear', !!l.transparent);
   if (l.bubble) el.style.setProperty('--look-bg', l.bubble); else el.style.removeProperty('--look-bg');
-  text.style.color = l.color ?? '';
+  el.classList.toggle('look-bg', !!look && !!l.bubble);
+  // !important: window themes colour every text in their frames (Update 129).
+  if (l.color) text.style.setProperty('color', l.color, 'important'); else text.style.removeProperty('color');
   text.style.fontSize = l.size ? `${Math.max(8, Math.min(96, l.size))}px` : '';
   text.style.fontWeight = l.bold ? '900' : '';
   text.style.fontStyle = l.italic ? 'italic' : '';

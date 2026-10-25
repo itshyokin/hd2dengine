@@ -931,6 +931,11 @@ export interface HeroChatter {
   camp?: { line: string; if?: Condition }[];
 }
 
+/** A custom worn picture (Update 134): a PNG path or "icon:<name>", its centre in a 64-pixel frame, scale and turn. */
+export interface CustomWornPic { src: string; x: number; y: number; scale: number; rot?: number }
+/** One body's custom worn pictures (Update 134). */
+export interface CustomWornBody { front?: CustomWornPic; back?: CustomWornPic; side?: CustomWornPic }
+
 /** One built-in clothing pick (Update 128): a part (world/wornParts.ts), its colour swatch or a tint. */
 export interface WornPick { part: string; swatch?: number; tint?: string }
 
@@ -1336,7 +1341,9 @@ export interface ItemDef {
     /** Update 128: the outfit from the built-in clothing (public/assets/worn/builtin), one pick per slot. */
     top?: WornPick; bottom?: WornPick; accessory?: WornPick;
     /** Update 128: use the custom sheets (masc / femme) instead of the built-in picks. */
-    custom?: boolean };
+    custom?: boolean;
+    /** Update 134: custom pictures placed over the hero (Front, Back, Side), per body. */
+    customPics?: { masc?: CustomWornBody; femme?: CustomWornBody } };
   /** Key items: carrying it lets the party swim in deep water (Update 109: without one, deep water stops them). */
   swim?: boolean;
   /** A fishing rod: with one in the bag, Talk / interact facing a fishing spot casts. `power` (0 … 100) brings bites sooner and rarer fish. */

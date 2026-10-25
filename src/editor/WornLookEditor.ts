@@ -8,16 +8,13 @@
  */
 import type { CharacterDef, ItemDef, WornPick } from '../world/types';
 import type { EditorStore } from './store';
-import { readBuilderMeta } from '../shared/pngText';
-import { canvasFromBlob } from '../shared/images';
-import { characterSheetImage, setCharacterSheet } from './editorArt';
-import { checkbox, h, toast } from './dom';
-import { LPC_BODY, TAB_NAMES, WORN_TABS, buildWornSheet, channelChoices, loadParts, partById, partSafe, partsIn, previewParts, type WornPart } from './lpcParts';
+import { characterSheetImage } from './editorArt';
+import { checkbox, h } from './dom';
+import { openCustomWorn, customPicImage } from './CustomWornEditor';
+import { drawPic } from '../world/wornCustom';
 import { WORN_SLOTS, WORN_SLOT_NAMES, loadWornParts, recolorCanvas, recolorPairs, standingCell, tintSheet, wornPart, wornParts, type WornSlot } from '../world/wornParts';
 
 type Body = 'masc' | 'femme';
-const toPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG encoding failed'))), 'image/png'));
-let steamSafe = true;
 let previewBody: Body = 'masc';
 
 /** Built-in part sheets for the editor's previews (path → image). */
@@ -64,35 +61,6 @@ export function wornLookForm(store: EditorStore, d: ItemDef, rerender: () => voi
   const animKey = (b: Body) => (b === 'masc' ? 'mascAnim' : 'femmeAnim') as 'mascAnim' | 'femmeAnim';
   const box = h('section', { class: 'db-section worn-look' }, h('h3', {}, 'Look when worn'), h('p', { class: 'note' }, 'Loading the clothing…'));
 
-  /** Save a custom sheet for this body and use it. */
-  const useSheet = async (body: Body, blob: Blob, canvas: HTMLCanvasElement, layout: NonNullable<typeof w.mascAnim>): Promise<boolean> => {
-    const path = `assets/worn/${d.id}_${body}.png`;
-    const p = store.project;
-    if (p.canSave && p.canStoreImages) {
-      try { await p.writeFile(path, blob); } catch (err) { toast(`Couldn’t save it: ${err instanceof Error ? err.message : String(err)}`, 'error'); return false; }
-    }
-    store.files.set(path, blob);
-    setCharacterSheet(path, canvas);
-    w[body] = path;
-    w[animKey(body)] = layout;
-    set();
-    return true;
-  };
-  const pickPng = (body: Body) => {
-    const input = h('input', { type: 'file', accept: 'image/png' });
-    input.addEventListener('change', async () => {
-      const f = input.files?.[0];
-      if (!f) return;
-      const meta = await readBuilderMeta(f);
-      if (!meta) { toast('That PNG has no animation layout: export it from the Character Builder (Export clothes only).', 'error'); return; }
-      let canvas: HTMLCanvasElement;
-      try { canvas = await canvasFromBlob(f); } catch { toast('That file isn’t an image the browser can read', 'error'); return; }
-      if (w.parts) delete w.parts[body];
-      if (await useSheet(body, f, canvas, { frame: meta.frame, dirs: meta.dirs, anims: meta.anims })) rerender();
-    });
-    input.click();
-  };
-
   /** The combined preview: the player's look with the outfit over it (or the custom sheets). */
   const preview = h('canvas', { class: 'worn-preview big', width: '128', height: '128' }) as HTMLCanvasElement;
   const drawPreview = async () => {
@@ -104,9 +72,17 @@ export function wornLookForm(store: EditorStore, d: ItemDef, rerender: () => voi
     for (const slot of WORN_SLOTS) await drawPick(store, g, w[slot], previewBody, 128, true);
     if (base && bc) g.drawImage(base, bc.x, bc.y, bc.size, bc.size, 0, 0, 128, 128);
     if (w.custom) {
-      const path = w[previewBody], c = standingCell(w[animKey(previewBody)]);
-      const img = path ? characterSheetImage(path) : undefined;
-      if (img && c) g.drawImage(w.tint ? tintSheet(img, w.tint) : img, c.x, c.y, c.size, c.size, 0, 0, 128, 128);
+      const pics = w.customPics?.[previewBody] ?? w.customPics?.[previewBody === 'femme' ? 'masc' : 'femme'], p = pics?.front;
+      const img = p ? await customPicImage(store, p.src) : null;
+      if (p && img) {
+        const big = document.createElement('canvas'); big.width = big.height = 64;
+        drawPic(big.getContext('2d')!, img, p, 0, 0, 64);
+        g.drawImage(w.tint ? tintSheet(big, w.tint) : big, 0, 0, 64, 64, 0, 0, 128, 128);
+      } else {
+        const path = w[previewBody], c = standingCell(w[animKey(previewBody)]);
+        const sheet = path ? characterSheetImage(path) : undefined;
+        if (sheet && c) g.drawImage(w.tint ? tintSheet(sheet, w.tint) : sheet, c.x, c.y, c.size, c.size, 0, 0, 128, 128);
+      }
       return;
     }
     for (const slot of WORN_SLOTS) await drawPick(store, g, w[slot], previewBody, 128);
@@ -142,74 +118,24 @@ export function wornLookForm(store: EditorStore, d: ItemDef, rerender: () => voi
       part ? h('label', { class: 'worn-tint' }, 'More colours / tint ', tint) : h('span'));
   };
 
-  /** The custom sheets panel: builder parts or PNGs, per body. */
+  /** The custom sprite panel (Update 134): pictures placed over the hero in a pop-up, per body and direction. */
   const customPanel = (): HTMLElement => {
-    const row = (body: Body, label: string) => h('div', { class: 'worn-row' },
-      h('span', { class: 'worn-label' }, label),
-      h('code', {}, w[body] ?? '(none)'),
-      h('button', { type: 'button', class: 'btn small', onclick: () => pickPng(body) }, w[body] ? 'Replace PNG…' : 'Choose a PNG…'),
-      w[body] ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete w[body]; delete w[animKey(body)]; if (w.parts) delete w.parts[body]; set(); rerender(); } }, 'Remove') : '');
+    const cp = w.customPics ?? {};
+    const sum = (b: Body) => { const x = cp[b]; return x ? (['front', 'back', 'side'] as const).filter((v) => x[v]).map((v) => v[0].toUpperCase() + v.slice(1)).join(', ') || 'nothing yet' : 'nothing yet'; };
     const tint = h('input', { type: 'color', value: w.tint ?? '#c0a080', disabled: !w.tint }) as HTMLInputElement;
     tint.addEventListener('change', () => { w.tint = tint.value; set(); rerender(); });
+    const legacy = w.masc || w.femme;
     return h('div', { class: `worn-panel custom${w.custom ? '' : ' dim'}` },
       h('b', { class: 'worn-slot' }, 'Custom sprite'),
       checkbox('Use custom clothes sprite', !!w.custom, (v) => { if (v) w.custom = true; else delete w.custom; set(); rerender(); }),
-      row('masc', 'Masc'), row('femme', 'Femme'),
+      h('button', { type: 'button', class: 'btn primary small', onclick: () => openCustomWorn(store, d, () => { set(); rerender(); }) }, 'Edit custom sprite…'),
+      h('div', { class: 'worn-row' }, h('span', { class: 'worn-label' }, 'Masc'), h('span', { class: 'note' }, sum('masc'))),
+      h('div', { class: 'worn-row' }, h('span', { class: 'worn-label' }, 'Femme'), h('span', { class: 'note' }, sum('femme'))),
       h('div', { class: 'worn-row' }, checkbox('Tint it', !!w.tint, (on) => { if (on) w.tint = tint.value; else delete w.tint; tint.disabled = !on; set(); rerender(); }), tint),
-      h('details', { class: 'worn-builder' }, h('summary', {}, 'Build from Character Builder parts'),
-        h('div', { class: 'worn-bodies' }, partsPanel('masc', 'Masc'), partsPanel('femme', 'Femme')),
-        checkbox('Steam-safe parts only (CC0 / OGA-BY)', steamSafe, (v) => { steamSafe = v; rerender(); })));
+      h('p', { class: 'note' }, 'Up to three pictures (Front, Back, Side) from your PNGs or the item icons, placed over the hero for each body. They bob with the walk.'),
+      legacy ? h('div', { class: 'worn-row' }, h('span', { class: 'note' }, `Older full sheet in use (${[w.masc ? 'masc' : '', w.femme ? 'femme' : ''].filter(Boolean).join(', ')}).`),
+        h('button', { type: 'button', class: 'btn small ghost', onclick: () => { delete w.masc; delete w.femme; delete w.mascAnim; delete w.femmeAnim; delete w.parts; set(); rerender(); } }, 'Remove it')) : h('span'));
   };
-
-  /** Character Builder parts for a custom sheet (Update 120), rebuilt and saved on each change. */
-  function partsPanel(body: Body, label: string): HTMLElement {
-    const lb = LPC_BODY[body];
-    const pbox = h('div', { class: 'worn-parts' }, h('p', { class: 'note' }, 'Loading the Character Builder’s parts…'));
-    const status = h('span', { class: 'note' });
-    let timer = 0;
-    const build = () => {
-      clearTimeout(timer);
-      timer = window.setTimeout(async () => {
-        const parts = w.parts?.[body] ?? [];
-        if (!parts.length) { status.textContent = ''; return; }
-        status.textContent = 'Building the sheet…';
-        const r = await buildWornSheet(parts, lb);
-        if (!r) { status.textContent = 'Nothing to draw for this body.'; return; }
-        status.textContent = (await useSheet(body, await toPng(r.canvas), r.canvas, r.layout)) ? `Built: ${Object.keys(r.layout.anims).length} animations` : 'Couldn’t save the sheet.';
-        void drawPreview();
-      }, 500);
-    };
-    const draw = async () => {
-      const cat = await loadParts();
-      if (!cat) { pbox.replaceChildren(h('p', { class: 'note' }, 'The Character Builder’s parts library isn’t available here (open the editor with “Start Map Editor.bat”). A PNG works too.')); return; }
-      const parts = (w.parts ??= {})[body] ??= [];
-      const changed = () => { if (!parts.length) delete w.parts![body]; if (w.parts && !w.parts.masc && !w.parts.femme) delete w.parts; set(); void draw(); build(); };
-      const rows = parts.map((p, k) => {
-        const it = partById(p.id);
-        if (!it) return h('div', { class: 'worn-part' }, h('b', {}, `${p.id} (missing)`), h('button', { type: 'button', class: 'btn small ghost', onclick: () => { parts.splice(k, 1); changed(); } }, 'Remove'));
-        const variant = it.variants ? h('select', { onchange: (e: Event) => { p.variant = (e.target as HTMLSelectElement).value; changed(); } }, ...it.variants.map((v) => h('option', { value: v, selected: (p.variant ?? it.variants![0]) === v }, v))) : null;
-        const colours = (it.colours ?? []).map((ch, ci) => {
-          if (!ch.source) return null;
-          const choices = channelChoices(ch), cur = p.colours?.[ci];
-          return h('select', { title: ch.label, onchange: (e: Event) => { const v = (e.target as HTMLSelectElement).value; p.colours ??= []; p.colours[ci] = v ? choices[Number(v)].ref : null; if (!p.colours.some(Boolean)) delete p.colours; changed(); } },
-            h('option', { value: '' }, `${ch.label}: as drawn`), ...choices.map((c, i) => h('option', { value: String(i), selected: !!cur && cur.mat === c.ref.mat && cur.ver === c.ref.ver && cur.name === c.ref.name }, `${ch.label}: ${c.ref.name}`)));
-        });
-        return h('div', { class: 'worn-part' }, h('b', {}, `${TAB_NAMES[it.tab] ?? it.tab}: ${it.name}`), variant, ...colours, h('button', { type: 'button', class: 'btn small ghost', onclick: () => { parts.splice(k, 1); changed(); } }, 'Remove'));
-      });
-      const add = h('select', { onchange: (e: Event) => {
-        const id = (e.target as HTMLSelectElement).value, it = id ? partById(id) : undefined;
-        if (!it) return;
-        const same = parts.findIndex((p) => partById(p.id)?.type === it.type), part: WornPart = { id };
-        if (same >= 0) parts[same] = part; else parts.push(part);
-        changed();
-      } }, h('option', { value: '' }, '+ Add a part…'), ...WORN_TABS.map((tab) => h('optgroup', { label: TAB_NAMES[tab] }, ...partsIn(tab, lb).filter((it) => !steamSafe || partSafe(it, lb)).map((it) => h('option', { value: it.id }, it.name)))));
-      const prev = await previewParts(parts, lb, 64);
-      prev.className = 'worn-preview';
-      pbox.replaceChildren(h('div', { class: 'worn-parts-head' }, h('b', {}, label), prev), ...rows, add, status);
-    };
-    void draw();
-    return pbox;
-  }
 
   void ensureParts(store).then(() => {
     const has = wornParts().length;

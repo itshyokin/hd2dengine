@@ -328,6 +328,9 @@ ${sel(SMALL)} {
 }
 ${sel(INNER)} { background: transparent !important; border: 0 !important; border-image: none !important; box-shadow: none !important; }
 ${T} .msg.tail .msg-box::after { display: none !important; }
+/* Text box styles (Database → Text boxes; Update 129): a style's own window colour shows through the theme. */
+${T} .msg.looked.look-bg .msg-box { background: var(--look-bg) !important; }
+${T} .msg.looked.look-clear .msg-box { background: none !important; border-image: none !important; box-shadow: none !important; }
 ${T} :is(.menu-title, .battle-result-title, .ps-tab, .bcmd-tile-label, .sk-tab, .tab, .mk-choice b, .dl-name, .hud-level-num, .eq-col-title, .cs-id b, .pc-name) { font-family: ${L.title} !important; letter-spacing: 0.03em; }
 ${T} :is(.menu-title, .battle-result-title) { color: ${L.accent} !important; font-size: 1.15em; }
 ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"] { background: ${L.sel} !important; color: ${L.selInk} !important; box-shadow: 0 1px 0 rgba(0,0,0,0.4) !important; }
@@ -361,7 +364,7 @@ ${T} .pc-card.sel { border-color: ${L.accent} !important; box-shadow: 0 0 0 2px 
 ${T} .pc-swap-title, ${T} .sk-title, ${T} .sk-points b { color: ${L.accent} !important; }
 ${L.light || style.text ? `
 /* Light paper or marble: dark ink everywhere inside the windows (coloured words keep their colour). */
-${[...FRAMES, ...SMALL].map((f) => textSel.map((t) => `${T} ${f} ${t}:not([style*="color"]):not(.bar):not([class*="bar"]):not(.rank-pill)`).join(',')).join(',\n')} { color: ${L.ink} !important; text-shadow: none !important; }
+${[...FRAMES, ...SMALL].map((f) => textSel.map((t) => `${T} ${f} ${t}:not([style*="color"]):not(.bar):not([class*="bar"]):not(.rank-pill):not(.msg.looked .msg-text *)`).join(',')).join(',\n')} { color: ${L.ink} !important; text-shadow: none !important; }
 ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.note, .menu-note, small, .muted, .item-sub) { color: ${L.muted} !important; }
 ${T} :is(${[...FRAMES, ...SMALL].join(',')}) :is(.menu-title, .battle-result-title) { color: ${L.accent} !important; }
 ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"], ${T} :is(.ps-tab, .sk-tab, .menu-item, .bcmd, .mk-btn, .mk-use, .tab)[aria-selected="true"] * { color: ${L.selInk} !important; }
@@ -397,7 +400,7 @@ function emberCss(st: WindowStyle): string {
     st.accent ? `${T} .pc-card.sel { box-shadow: 0 0 0 2px ${rgba(st.accent, 0.35)} !important; }` : '',
     st.color || op < 1 ? `${all} { background: ${rgba(st.color || '#0e111c', op * 0.95)} !important; ${op < 1 ? 'backdrop-filter: none !important;' : ''} }` : '',
     st.text ? `${T} .sk-name { fill: ${st.text} !important; }` : '',
-    st.text ? `${all} { color: ${st.text} !important; }\n${[...FRAMES, ...SMALL].map((f) => textSel.map((x) => `${T} ${f} ${x}:not([style*="color"]):not([class*="bar"]):not(.menu-title):not(.el-pill):not(:is(.ps-tab, .tab, .sk-tab, [aria-selected="true"]) *):not(.ps-tab, .tab, .sk-tab)`).join(',')).join(',\n')} { color: ${st.text} !important; }` : '',
+    st.text ? `${all} { color: ${st.text} !important; }\n${[...FRAMES, ...SMALL].map((f) => textSel.map((x) => `${T} ${f} ${x}:not([style*="color"]):not([class*="bar"]):not(.msg.looked .msg-text *):not(.menu-title):not(.el-pill):not(:is(.ps-tab, .tab, .sk-tab, [aria-selected="true"]) *):not(.ps-tab, .tab, .sk-tab)`).join(',')).join(',\n')} { color: ${st.text} !important; }` : '',
   ].filter(Boolean).join('\n');
 }
 export const uiTheme = (): UiThemeId => current;

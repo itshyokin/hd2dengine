@@ -152,7 +152,8 @@ import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
 import { rpFields, rpMatch, rpValue } from './roleplay';
 import { loadWornParts, recolorPairs, wornPart } from '../world/wornParts';
-import { REL_BATTLE_CAP, relAmount, relClamp, relKey, relLabel, relLove, relStart } from './relations';
+import { customSrcs } from '../world/wornCustom';
+import { relColor, REL_BATTLE_CAP, relAmount, relClamp, relKey, relLabel, relLove, relStart } from './relations';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
@@ -182,7 +183,7 @@ const WINDOW_COLORS: [string, string][] = [['', 'The theme’s'], ['#f8f8f0', 'W
 const TEXT_COLORS: [string, string][] = [['', 'The theme’s'], ['#181818', 'Black'], ['#404048', 'Dark grey'], ['#1c2a58', 'Navy'], ['#4a2e18', 'Brown'], ['#f4f4f0', 'White'], ['#f3ead8', 'Cream'], ['#ffd27a', 'Gold']];
 const FRAME_COLORS: [string, string][] = [['', 'The theme’s'], ['#d83828', 'Red'], ['#e8862a', 'Orange'], ['#e0b040', 'Gold'], ['#3aa850', 'Green'], ['#2aa8a0', 'Teal'], ['#3a70e0', 'Blue'], ['#8a50d8', 'Purple'], ['#e050a0', 'Pink']];
 /** The Journal's tabs. */
-const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'bonds' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['bonds', 'Relationships'], ['records', 'Records']];
+const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['records', 'Records']];
 const INTERACT_RANGE = 1.3;
 
 type Start = { x: number; z: number; dir?: Dir };
@@ -513,6 +514,8 @@ export class Game {
     // Built-in clothing (Update 128): the parts list, and the sheets items use.
     await loadWornParts(async (p) => { const r = await fetch(resolve(p)); if (!r.ok) throw new Error(String(r.status)); return r.text(); });
     const builtin = (this.db.items ?? []).flatMap((d) => (['top', 'bottom', 'accessory'] as const).flatMap((k) => { const p = wornPart(d.worn?.[k]?.part); return p ? [...Object.values(p.sheets), ...Object.values(p.under ?? {})] : []; })) as string[];
+    // Custom worn pictures (Update 134): the PNGs (icons are drawn by the engine).
+    for (const d of this.db.items ?? []) builtin.push(...customSrcs(d.worn?.customPics).filter((p) => !p.startsWith('icon:')));
     await this.sprites.preloadWorn(this.db.items ?? [], resolve, builtin);
     await this.sprites.preloadFlats((this.db.enemies ?? []).map((e) => e.look.image).filter((p): p is string => !!p), resolve);
     // LPC weapon sprites used by items and enemies (people default to a sword or a bow).
@@ -714,7 +717,7 @@ export class Game {
         // Update 127: gender, roleplay answers, and how they see the rest of the party (the hero you play rates no one).
         const roleplay = rpFields(this.db).map((f) => ({ title: f.title, value: def?.roleplay?.[f.id] ?? '' })).filter((r) => r.value);
         const lead = mainHero(this.db), party = [lead, ...this.members().map((m) => m.def)];
-        const bonds = !def || def === lead || this.db.relations?.off ? undefined : party.filter((o) => o.id !== def.id).map((o) => { const v = this.relGet(def.id, o.id), l = relLabel(v, relLove(this.db, def.id, o.id)); return { name: o.name, value: v, label: l.name, color: l.color }; });
+        const bonds = !def || def === lead || this.db.relations?.off ? undefined : party.filter((o) => o.id !== def.id).map((o) => { const v = this.relGet(def.id, o.id), l = relLabel(v, relLove(this.db, def.id, o.id)); return { name: o.name, value: v, label: l.name, color: relColor(v) }; });
         return { name: x?.name ?? '', level: x?.level ?? 1, portrait: x?.portrait ?? '', color: this.heroColor(h), about: def?.about, art: this.heroArt(h), elements: this.heroAffinity(h).elements, ailment: this.ailmentPill(h), gender: def?.gender, roleplay, bonds };
       },
       gauges: (h) => {
@@ -5327,19 +5330,6 @@ export class Game {
     if (a && b) this.relChange(a, b, relAmount(this.db, kind), true);
   }
 
-  /** Journal → Relationships: how everyone in the party now rates the others (the hero you play is rated, rates no one). */
-  private bondsHtml(): string {
-    const e = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-    if (this.db.relations?.off) return '<p class="tut-none">Relationships are turned off in this game.</p>';
-    const lead = mainHero(this.db), party = [{ id: lead.id, name: lead.name }, ...this.members().map((m) => ({ id: m.def.id, name: m.def.name }))];
-    const raters = party.slice(1);
-    if (!raters.length) return '<p class="tut-none">No one’s travelling with you yet.</p>';
-    return `<div class="rel-list">${raters.map((r) => `<section class="rel-who"><h3>${e(r.name)}</h3>${party.filter((o) => o.id !== r.id).map((o) => {
-      const v = this.relGet(r.id, o.id), l = relLabel(v, relLove(this.db, r.id, o.id));
-      return `<div class="rel-row"><span class="rel-name">${e(o.name)}</span><span class="rel-bar"><i style="width:${v}%;background:${l.color}"></i></span><b class="rel-label" style="color:${l.color}">${l.name}</b></div>`;
-    }).join('')}</section>`).join('')}</div>`;
-  }
-
   private tutorialsHtml(): string {
     const seen = (this.db.tutorials ?? []).filter((t) => this.state.record(`tut:${t.id}`) > 0).sort((a, b) => this.state.record(`tut:${b.id}`) - this.state.record(`tut:${a.id}`));
     const e = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -5361,7 +5351,6 @@ export class Game {
     else if (id === 'bestiary') this.bestiaryScreen.show(title, this.bestiary(), onClose, tabs);
     else if (id === 'types') this.recordsScreen.show(title, { html: typeChartHtml(this.combatCfg.essence) }, onClose, tabs);
     else if (id === 'tutorials') this.recordsScreen.show(title, { html: this.tutorialsHtml() }, onClose, tabs);
-    else if (id === 'bonds') this.recordsScreen.show(title, { html: this.bondsHtml() }, onClose, tabs);
     else this.recordsScreen.show(title, this.records(), onClose, tabs);
   }
 
@@ -6455,6 +6444,12 @@ export class Game {
     const layers = (['armor', 'accessory', 'shield'] as EquipSlot[]).flatMap((k) => {
       const w = equip[k] ? this.items.get(equip[k]!)?.worn : undefined;
       if (!w) return [];
+      // Update 134: custom pictures placed over the hero (the other body's when this one has none).
+      const pics = w.custom ? w.customPics?.[body] ?? w.customPics?.[body === 'femme' ? 'masc' : 'femme'] : undefined;
+      if (pics && look.sheet && look.anim) {
+        const key = this.sprites.customWorn(`custom:${equip[k]}:${look.sheet}:${JSON.stringify(pics)}`, look.sheet, look.anim, pics);
+        return key ? [{ sheet: key, anim: look.anim, tint: w.tint }] : [];
+      }
       // Update 128: the built-in outfit (bottom, top, accessory), unless the item uses its custom sheets.
       const picks = w.custom ? [] : (['bottom', 'top', 'accessory'] as const).map((s) => w[s]).filter((p): p is NonNullable<typeof p> => !!p);
       if (picks.length) return picks.flatMap((pk) => {

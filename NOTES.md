@@ -295,6 +295,45 @@ decide things; the tablet editor keeps working.
         worn.custom; Game lookFor builds layers (under + recolor), preloads builtin sheets, wornCredits; sprites.ts
         wornSheet draws under layers before the base. WornLookEditor rewritten (three panels + custom panel with the
         Update 120 builder parts inside a details box). items.ts addOutfits (6 starter items, once).
+- Oct 25 evening (owner's notes; clothing builder works great):
+  - [x] Update 129: fixes. Event text box style (Sign, etc.) ignored in game. Prop reflections: season colours and wind
+        sway like the prop (mirrored copy of its material). Prop collision grid starts at the prop's full size (1×2 →
+        2 blocks), each block toggled. Chatter bubbles get a speech tail. Relationship bars shade red (Hate) → yellow
+        (Neutral) → green (Best friends / Love). Relationships only on the Status page (Journal tab removed).
+        Done: themes.ts rules gave every frame and its text !important colours, so a text box style's window colour and
+        ink never showed: `.msg.looked.look-bg .msg-box` keeps --look-bg, text rules skip `.msg.looked .msg-text *`,
+        applyLook sets the ink !important. WorldBuilder reflections get patchAreaTint + patchSeason + patchSway.
+        PropImporter depth follows the height until set by hand (`depthSet`). Chatter tail: ::before outline +
+        ::after fill. relations.ts relColor (hsl 0 → 120). Journal 'bonds' tab and bondsHtml removed.
+  - [ ] Update 130: Journal and dates. Journal tabs get icons and a little more height. Database → Journal: reorder the
+        tabs, show / hide each; an event command shows / hides a tab (saved; e.g. unlock the Bestiary later). Roleplay
+        titles get a type: Text or Date; Date answers (Birthday: Oct 31) get conditions "today is X's [title]" and
+        "within N days of it", on the REAL date (the game's date is the real date; day / night doesn't change it).
+  - [ ] Update 131: global events. Database page of event scripts that run once at: a new game, loading a save,
+        sleeping at a camp or inn, entering a rest zone, and the real date rolling over; then sleep until the next.
+        Normal commands and conditions (full moon → Katrina leaves; otherwise she's back). Someone added back while
+        the party is in a rest zone walks in from off-screen to a rest spot.
+  - [ ] Update 132: key items and the overworld. Key items go on the d-pad quick slots like consumables (4 slots, one
+        per direction); no B-button key items. Field-use pop-ups: Change weather (a list), Change season (four),
+        Change time (4 digits moved up / down + AM/PM, controller friendly): a bubble appears round the hero and the
+        world fast-forwards around them (time passes: fires, rest effects) until the time is reached, then it pops.
+        Overworld sword / bow removed: the Cut key item (tap the slot: a swing, fixed damage; vines, crates) and the
+        Bow key item (hold to draw, release; lock-on aims at switches and targets, NOT enemies). The ambush mechanic is
+        removed: touching a map enemy (either way) starts a normal battle.
+  - [ ] Update 133: items. Database → Materials tab. "Cannot be sold" on any item (shops won't buy it). Icon effects
+        with colours: glow, outline, pattern overlay (stripes, dots, cracks, swirls, checker): a "corrupted" pumpkin.
+  - [x] Update 134: bedroll and custom worn sprites. Replace the bedroll: lying head-to-foot (pillow at the top), drawn
+        in two layers (mat + pillow under the character, blanket over); resting heroes stand facing down on it (head on
+        the pillow), not the knocked-out pose. Custom sprite (Look when worn) becomes a pop-up: up to three images
+        (Front, Back, Side mirrored) from PNGs or built-in icons; tabs Front / Back / Side over the player sprite to
+        drag and scale each (like the Prop editor), per body (masc / femme), "Duplicate from masc / femme"; in game
+        drawn on every frame of that direction, bobbing with the sprite (worked out from the sheet).
+        Done: placeholderArt bedroll (16×28, pillow top) + hidden bedroll_blanket; party.ts Ally.coverUp (blanket mesh at
+        z+0.08 over the standing ally on 'lie'). ItemDef worn.customPics {masc, femme: {front, back, side: {src, x, y,
+        scale, rot}}} (src a path or icon:<name>); world/wornCustom.ts buildCustomWorn (per-frame bob from each frame's
+        top edge vs the standing frame); sprites.ts customWorn(key…) caches it as a sheet; Game lookFor layers it and
+        preloads PNGs; editor/CustomWornEditor.ts pop-up (drag, wheel / slider scale, turn, duplicate); WornLookEditor
+        custom panel now opens it (the Update 120 builder-parts UI is gone from items; lpcParts.ts stays for reuse).
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.

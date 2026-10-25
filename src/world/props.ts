@@ -93,7 +93,8 @@ export const BUILTIN_PROPS: PropDef[] = [
   { id: 'tent_green', name: 'Tent (green)', builtin: 'tent_green', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
   { id: 'tent_tan', name: 'Tent (tan)', builtin: 'tent_tan', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
   { id: 'tent_purple', name: 'Tent (purple)', builtin: 'tent_purple', w: 30 / T, h: 22 / T, block: [0], foot: { w: 2, d: 1, solid: ['##'] } },
-  { id: 'bedroll', name: 'Bedroll', builtin: 'bedroll', w: 22 / T, h: 9 / T, block: [], castShadow: false },
+  { id: 'bedroll', name: 'Bedroll', builtin: 'bedroll', w: 16 / T, h: 28 / T, block: [], castShadow: false },
+  { id: 'bedroll_blanket', name: 'Bedroll blanket', builtin: 'bedroll_blanket', w: 16 / T, h: 28 / T, block: [], castShadow: false },
   { id: 'log_seat', name: 'Log seat', builtin: 'log_seat', w: 24 / T, h: 10 / T, block: [0] },
   { id: 'firewood', name: 'Firewood stack', builtin: 'firewood', w: 18 / T, h: 13 / T, block: [0] },
   {
@@ -107,7 +108,7 @@ export const BUILTIN_PROPS: PropDef[] = [
 
 const BUILTIN_IDS = new Set(BUILTIN_PROPS.map((p) => p.id));
 /** Built-ins hidden from the palette (superseded, kept for old maps). */
-export const HIDDEN_BUILTINS = new Set(['logs']);
+export const HIDDEN_BUILTINS = new Set(['logs', 'bedroll_blanket']);
 
 export const isBuiltinProp = (id: string): boolean => BUILTIN_IDS.has(id);
 /** The original definition of a built-in prop (before any customisation). */

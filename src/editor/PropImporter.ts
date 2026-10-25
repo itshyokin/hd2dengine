@@ -126,6 +126,12 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
     lightOn: !!existing?.light, light: existing?.light ? { ...existing.light } : defaultLight(existing?.h ?? 2), tool: 'move',
   };
   st.solid = [Array.from({ length: Math.round(st.w) }, (): Mark => '#')];
+  /**
+   * The footprint's depth follows the picture's height until it's set by hand (Update 129): a 1 × 2 prop gets a
+   * 1 × 2 grid of blocks to mark. Props with a footprint already keep theirs.
+   */
+  let depthSet = !!existing?.foot;
+
 
   if (existing) {
     // Imported (or already customised) props edit their saved image; untouched built-ins start from their art.
@@ -401,6 +407,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
   }
 
   function setSize(w: number, hh: number): void {
+    if (!depthSet && !st.model && Math.max(1, Math.round(hh)) !== st.d) queueMicrotask(() => { if (!depthSet) { setDepth(Math.max(1, Math.round(st.h))); renderForm(); draw(); } });
     // The picture stays standing on the ground marker: the frame grows upwards and to both sides.
     if (st.image) { st.ox -= ((w - st.w) * st.scale) / 2; st.oy -= (hh - st.h) * st.scale; }
     st.w = w; st.h = hh;
@@ -457,7 +464,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
       h('div', { class: 'section-label' }, 'Size on the map'),
       h('div', { class: 'field-row three' },
         field('Width (tiles)', numberInput(st.w, (v) => { setSize(clampTiles(v), st.h); renderForm(); }, { min: 1, max: MAX_TILES, step: 1 })),
-        field('Depth (tiles)', numberInput(st.d, (v) => { setDepth(clampTiles(v)); renderForm(); draw(); }, { min: 1, max: MAX_TILES, step: 1 })),
+        field('Depth (tiles)', numberInput(st.d, (v) => { depthSet = true; setDepth(clampTiles(v)); renderForm(); draw(); }, { min: 1, max: MAX_TILES, step: 1 })),
         field('Height (tiles)', numberInput(st.h, (v) => { setSize(st.w, clampTiles(v)); renderForm(); }, { min: 1, max: MAX_TILES, step: 1 }))),
       h('p', { class: 'hint' }, 'Width and depth: the tiles it covers on the ground (its footprint, each tile marked X, O or ★ in the grid under the picture). Height: how tall the picture stands. Placed on the map, it covers whole tiles, its picture rising from the footprint’s front edge: a 1 × 1 × 1 block fills its tile exactly.'),
       h('div', { class: 'section-label' }, 'Shape and collision'),
