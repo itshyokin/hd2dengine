@@ -229,7 +229,7 @@ decide things; the tablet editor keeps working.
         Game `keepsPrints` (tile setting, or winter grass / dirt outdoors), `printAt`, `updatePrints` (hero, allies,
         horse; snowfall fills prints 3× faster), `puddleSpots` (hash ~3.5% of flat walkable tiles, max 60).
         (Puddles are glossy rather than true mirror reflections.)
-  - [ ] Update 124: relationships. Each character rates each other party member 0 (hate) … 100 (best friends /
+  - [x] Update 124: relationships. Each character rates each other party member 0 (hate) … 100 (best friends /
         love), ONE-WAY (Katrina→Eleanor ≠ Eleanor→Katrina). The player's hero (Jordan) is rated by the others but
         has no ratings of his own. Labels: 0–14 Hate, 15–29 Dislike, 30–44 Distrust, 45–59 Neutral, 60–74 Like,
         75–89 Close, 90–100 Best friends / Love (per pair). Starting values per pair in the Database.
@@ -242,6 +242,12 @@ decide things; the tablet editor keeps working.
         "A's view of B is Like or better"; quest reward. Pause menu Relationships page shows ONLY the current party
         (each one's ratings of the others, Jordan included as a target); benched-out members keep their numbers.
         A notice when a label changes ("Eleanor now Likes Crowley").
+        Done: game/relations.ts (labels, kinds, defaults, cap 8 per pair per battle); GameState `rel` (saved) + condition
+        `relation`; command `relation`; QuestReward `relations`; Game `relGet` / `relChange` / `bond` / `bondsHtml`
+        (Journal tab "Relationships"); TurnBattle hooks `bond` (cover / coverSave on swap-in below half HP then taking
+        the next foe blow, benchHeal / revive via items, avenge via downedBy) and `begun`; camp points in finishRest;
+        editor: RelationsEditor (Party → Relationships), CommandEditor command + condition, QuestsEditor rewards.
+        Gifts liked / disliked and dialogue choices use the command for now (no gift system yet).
   - [ ] Later: downtime mini-games (all must play well on a controller: cards, boards, timing, not drawing):
         blackjack with Lynn, swordplay timing with Katrina, magic element sequences with Crowley, CHESS with
         Eleanor (real chess with an AI; not a priority, keep on the list). Each gives relationship points.

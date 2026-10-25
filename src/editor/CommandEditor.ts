@@ -39,7 +39,7 @@ export function lockFields(store: EditorStore, d: { level: LockLevel; key?: stri
 const COMMAND_TYPES: [Cmd, string][] = [
   ['text', 'Show text'], ['choice', 'Show choices'], ['if', 'Conditional branch'],
   ['setSwitch', 'Set switch'], ['selfSwitch', 'Set self switch'], ['setVar', 'Set variable'], ['wait', 'Wait'],
-  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'], ['lock', 'Lock (pick it, or a key)'], ['groupChatter', 'Group chatter at next camp'],
+  ['fadeOut', 'Fade out'], ['fadeIn', 'Fade in'], ['setTime', 'Set time of day'], ['sleep', 'Sleep (sky transition)'], ['ability', 'Change ability'], ['fieldWeapons', 'Enable / disable overworld weapons'], ['enemyLevels', 'Enemy levels (as set / near the party)'], ['achievement', 'Unlock achievement'], ['tutorial', 'Show tutorial'], ['console', 'Run console command'], ['gauge', 'Change health / magic / stamina'], ['ailment', 'Give / cure an ailment'], ['fullRest', 'Full rest (restore the party)'], ['rest', 'Rest point (pick hours, camping supplies)'], ['goodState', 'Give buff (Rested / Well Rested)'], ['heroWeather', 'Set weather state (wet, cold…)'], ['tendFire', 'Tend the fire (add fuel)'], ['transfer', 'Transfer player'], ['save', 'Open save screen'], ['lock', 'Lock (pick it, or a key)'], ['groupChatter', 'Group chatter at next camp'], ['relation', 'Change relationship'],
   ['giveItem', 'Give item'], ['takeItem', 'Take item'], ['gold', 'Change gold'], ['shop', 'Open shop'], ['stable', 'Stable (rent a horse)'], ['roost', 'Griffin roost (fly)'], ['horse', 'Horse: rent / send home / get on / off'],
   ['sound', 'Play sound effect'], ['music', 'Change music'], ['ambience', 'Change background sound'], ['weather', 'Change weather'], ['temperature', 'Change temperature'], ['skillPoints', 'Give skill points'], ['statRank', 'Change stat growth rank'], ['party', 'Change party'],
   ['quest', 'Quest'],
@@ -47,7 +47,7 @@ const COMMAND_TYPES: [Cmd, string][] = [
 ];
 
 const CATEGORY: Record<Cmd, string> = {
-  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen', lock: 'flow', groupChatter: 'msg',
+  text: 'msg', choice: 'msg', if: 'flow', setSwitch: 'state', selfSwitch: 'state', setVar: 'state', wait: 'flow', fadeOut: 'screen', fadeIn: 'screen', setTime: 'screen', sleep: 'screen', ability: 'state', fieldWeapons: 'state', enemyLevels: 'state', achievement: 'quest', tutorial: 'msg', console: 'flow', gauge: 'state', ailment: 'state', fullRest: 'state', rest: 'state', goodState: 'state', heroWeather: 'state', tendFire: 'item', transfer: 'screen', save: 'screen', lock: 'flow', groupChatter: 'msg', relation: 'state',
   giveItem: 'item', takeItem: 'item', gold: 'item', shop: 'item', stable: 'item', roost: 'item', horse: 'item',
   sound: 'screen', music: 'screen', ambience: 'screen', weather: 'screen', temperature: 'screen', party: 'state', skillPoints: 'state', statRank: 'state', quest: 'quest',
   battle: 'flow', learn: 'state', heroClass: 'state',
@@ -73,6 +73,7 @@ function defaultCommand(cmd: Cmd): Command {
     case 'rest': return { cmd };
     case 'lock': return { cmd, level: 'easy' };
     case 'groupChatter': return { cmd, id: '' };
+    case 'relation': return { cmd, a: dbNow?.().heroes?.[1]?.id ?? '', b: '', op: 'add', value: 5 };
     case 'goodState': return { cmd, hero: 'all', kind: 'wellRested' };
     case 'heroWeather': return { cmd, hero: 'all', state: 'wet' };
     case 'tendFire': return { cmd };
@@ -185,8 +186,14 @@ export function conditionText(c: Condition): string {
   if ('date' in c) return `it's ${datesLabel(c.date, c.until)} (real world)`;
   if ('heroHas' in c) return `${heroWhoName(c.hero)} ${c.is === false ? 'is not' : c.hero === 'any' ? 'is' : 'is'} ${(HERO_STATES.find(([k]) => k === c.heroHas)?.[1] ?? c.heroHas).toLowerCase()}`;
   if ('weekday' in c) return `it's ${c.weekday.length ? c.weekday.map((d) => WEEKDAYS[d]).join(' or ') : '(no day picked)'} (real world)`;
+  if ('relation' in c) return `${relHeroName(c.relation)} rates ${relHeroName(c.of)} ${c.op === '<=' ? 'at most' : 'at least'} ${c.value}`;
   return `variable ${c.var || '(unnamed)'} ${c.op} ${c.value}`;
 }
+
+/** Relationships (Update 124): hero names and choices. */
+const relHeroName = (id: string): string => (!id ? 'the hero you play' : dbNow?.().heroes?.find((x) => x.id === id)?.name ?? id);
+const relRaters = (): [string, string][] => (dbNow?.().heroes ?? []).slice(1).map((x) => [x.id, x.name] as [string, string]);
+const relTargets = (): [string, string][] => [['', 'The hero you play'], ...relRaters()];
 
 function summary(c: Command): string {
   switch (c.cmd) {
@@ -207,6 +214,7 @@ function summary(c: Command): string {
     case 'ability': return `${ABILITY_NAMES[c.ability]}: ${c.on ? 'learn (on)' : 'lose (off)'}`;
     case 'transfer': return transferSummary(c);
     case 'save': return 'Let the player save (a save point)';
+    case 'relation': return `${relHeroName(c.a)}’s view of ${relHeroName(c.b)}: ${c.op === 'set' ? `set to ${c.value}` : `${c.value >= 0 ? '+' : ''}${c.value}`}${c.both ? ' (both ways)' : ''}`;
     case 'groupChatter': return `Group chatter at the next camp: ${c.id || '(none picked)'}`;
     case 'lock': return `Lock: ${LOCK_NAMES[c.level]}${c.key ? ` · key: ${c.key}` : ''}`;
     case 'fullRest': return 'Health, magic and stamina to full; ailments cured';
@@ -594,6 +602,15 @@ export class CommandEditor {
         return [h('p', { class: 'hint' }, 'Opens the fuel menu of the fire nearest the hero (a fire prop with a burn time): how long it burns, and fuel from the bag to add. Use it as one of a campfire event’s choices. In text, \\fire shows how long the nearest fire burns, e.g. “The fire will burn for \\fire.”')];
       case 'lock':
         return lockFields(this.store, d);
+      case 'relation':
+        return [h('div', { class: 'field-row' },
+          field('Who', select(relRaters(), d.a, (v) => (d.a = v)), 'Whose rating changes (the hero you play has none of their own).'),
+          field('Of', select(relTargets(), d.b, (v) => (d.b = v)))),
+          h('div', { class: 'field-row' },
+            field('Change', select([['add', 'Add (negative takes away)'], ['set', 'Set to']], d.op, (v) => (d.op = v as 'add' | 'set'))),
+            field('Points', numberInput(d.value, (v) => (d.value = Math.round(v)), { step: 1, min: -100, max: 100 }))),
+          checkbox('Both ways (their rating of the first one changes too)', !!d.both, (v) => { if (v) d.both = true; else delete d.both; }),
+          h('p', { class: 'hint' }, 'Ratings run 0 (Hate) … 100 (Best friends / Love): Hate under 15, Dislike 15+, Distrust 30+, Neutral 45+, Like 60+, Close 75+, Best friends 90+. Each is one way: Katrina’s view of Eleanor is her own.')];
       case 'groupChatter': {
         const list = this.store.db.groupChatter ?? [];
         return [field('Conversation', select([['', list.length ? 'Choose…' : '(none yet: Database → Characters → Chatter → Group chatter)'], ...list.map((g) => [g.id, g.name || g.id] as [string, string])], d.id, (v) => (d.id = v))),
@@ -884,12 +901,12 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
   const wrap = h('div', { class: 'condition' });
   let cur: Condition | undefined = initial ? (JSON.parse(JSON.stringify(initial)) as Condition) : undefined;
   const render = () => {
-    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'date' in cur ? 'date' : 'var';
-    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['date', 'Date (real world: a holiday, a week of it)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)']];
+    const kind = !cur ? 'none' : 'quest' in cur ? ('objective' in cur ? 'objective' : 'quest') : 'switch' in cur ? 'switch' : 'self' in cur ? 'self' : 'item' in cur ? 'item' : 'gold' in cur ? 'gold' : 'weekday' in cur ? 'weekday' : 'moon' in cur ? 'moon' : 'temp' in cur ? 'temp' : 'weather' in cur ? 'weather' : 'heroHas' in cur ? 'heroHas' : 'date' in cur ? 'date' : 'relation' in cur ? 'relation' : 'var';
+    const kinds: [string, string][] = [...(allowNone ? [['none', 'Always'] as [string, string]] : []), ['switch', 'Switch'], ['self', 'Self switch (this event)'], ['var', 'Variable'], ['item', 'Has item'], ['gold', 'Has gold'], ['quest', 'Quest'], ['objective', 'Quest objective'], ['weekday', 'Day of the week (real world)'], ['date', 'Date (real world: a holiday, a week of it)'], ['moon', 'Moon phase (real world)'], ['temp', 'Temperature'], ['weather', 'Weather'], ['heroHas', 'A hero is (Freezing, Poisoned, Well Rested…)'], ['relation', 'Relationship (how one hero rates another)']];
     const firstQuest = questDefs()[0];
     const kindSel = select(kinds, kind, (v) => {
       cur = v === 'none' ? undefined : v === 'switch' ? { switch: '', is: true } : v === 'self' ? { self: 'A', is: true } : v === 'item' ? { item: conditionItems()[0]?.[0] ?? '', count: 1 }
-        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'date' ? { date: '10-31' } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
+        : v === 'gold' ? { gold: 100 } : v === 'weekday' ? { weekday: [6] } : v === 'moon' ? { moon: ['full'] } : v === 'temp' ? { temp: 90, op: '>=' } : v === 'weather' ? { weather: ['rain', 'storm'] } : v === 'heroHas' ? { heroHas: 'freezing', hero: 'any' } : v === 'date' ? { date: '10-31' } : v === 'relation' ? { relation: relRaters()[0]?.[0] ?? '', of: '', op: '>=', value: 60 } : v === 'quest' ? { quest: firstQuest?.id ?? '', is: 'started' }
         : v === 'objective' ? { quest: firstQuest?.id ?? '', objective: firstQuest?.objectives[0]?.id ?? '', done: true } : { var: '', op: '>=', value: 1 };
       if (cur) onchange(cur); else onNone?.();
       render();
@@ -948,6 +965,15 @@ export function conditionForm(initial: Condition | undefined, onchange: (c: Cond
         checkbox('A range of days (up to and including)', !!c.until, (on) => { if (on) c.until = c.date; else delete c.until; untilWrap.hidden = !on; onchange(c); }),
         untilWrap,
         h('p', { class: 'hint' }, 'The player’s own date, any year: a pumpkin on Halloween (Oct 31), decorations the week before (Oct 24 – Oct 31). A range can wrap past New Year (Dec 20 – Jan 5).'));
+    } else if (cur && 'relation' in cur) {
+      const c = cur;
+      parts.push(h('div', { class: 'field-row' },
+        field('Who', select(relRaters(), c.relation, (v) => { c.relation = v; onchange(c); })),
+        field('Rates', select(relTargets(), c.of, (v) => { c.of = v; onchange(c); }))),
+        h('div', { class: 'field-row' },
+          field('At', select([['>=', 'least'], ['<=', 'most']], c.op, (v) => { c.op = v as '>=' | '<='; onchange(c); })),
+          field('Points (0 … 100)', numberInput(c.value, (v) => { c.value = Math.max(0, Math.min(100, Math.round(v))); onchange(c); }, { step: 5, min: 0, max: 100 }))),
+        h('p', { class: 'hint' }, 'Their rating of the other one: Like is 60+, Close 75+, Best friends 90+; Dislike under 30, Hate under 15. Eleanor hating the hero (Eleanor rates the hero at most 14) can open her own dialogue or quest.'));
     } else if (cur && 'heroHas' in cur) {
       const c = cur;
       parts.push(h('div', { class: 'field-row' },

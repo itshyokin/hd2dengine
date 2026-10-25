@@ -906,3 +906,15 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .chat-tag { flex: 0 0 auto; min-width: 70px; font-size: 12px; opacity: 0.8; }
 .chat-group { border: 1px solid var(--line, #2a2f3c); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
 .chat-num { width: 20px; text-align: right; opacity: 0.6; font-size: 12px; }
+
+/* Database → Relationships (Update 124). */
+.rel-grid-wrap { overflow-x: auto; }
+.rel-grid { border-collapse: collapse; }
+.rel-grid th, .rel-grid td { padding: 4px 6px; border: 1px solid var(--line, #2a2f3c); text-align: center; vertical-align: top; }
+.rel-grid thead th { font-size: 12px; }
+.rel-cell { display: flex; gap: 2px; align-items: center; }
+.rel-cell .db-num { width: 56px; }
+.rel-heart { opacity: 0.35; }
+.rel-heart.on { opacity: 1; color: #ff6fa8; }
+.rel-tag { display: block; font-size: 11px; margin-top: 2px; }
+.rel-self { opacity: 0.4; }

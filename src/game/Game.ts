@@ -61,7 +61,7 @@ import {
   learnSpell, masterAddition, mergeStarting, rankName, spellAtRank, spellList, spellMaxRank, teachFromSkills, unlockClass,
 } from './abilities';
 import type { AbilityData, BattleWeather, Command, EventData } from '../world/types';
-import { WEATHER_KINDS, type FieldUseKind, type GroupChatter } from '../world/types';
+import { WEATHER_KINDS, type FieldUseKind, type GroupChatter, type RelationKind } from '../world/types';
 import { MONSTERS } from '../art/placeholderArt';
 import { enemyElement } from './combat/Combat';
 import { AudioManager, type Sfx, setUiSound, uiSound } from '../audio/sfx';
@@ -150,6 +150,7 @@ import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
+import { REL_BATTLE_CAP, relAmount, relClamp, relKey, relLabel, relLove, relStart } from './relations';
 import { inDates } from '../world/dates';
 import { FULL_REST_HOURS, GOOD_INFO, type GoodKind, type GoodState, goodFromPoints, goodHours, hoursLabel, nextGood, restShare } from './rest';
 import { RestScreen } from '../ui/RestScreen';
@@ -179,7 +180,7 @@ const WINDOW_COLORS: [string, string][] = [['', 'The theme’s'], ['#f8f8f0', 'W
 const TEXT_COLORS: [string, string][] = [['', 'The theme’s'], ['#181818', 'Black'], ['#404048', 'Dark grey'], ['#1c2a58', 'Navy'], ['#4a2e18', 'Brown'], ['#f4f4f0', 'White'], ['#f3ead8', 'Cream'], ['#ffd27a', 'Gold']];
 const FRAME_COLORS: [string, string][] = [['', 'The theme’s'], ['#d83828', 'Red'], ['#e8862a', 'Orange'], ['#e0b040', 'Gold'], ['#3aa850', 'Green'], ['#2aa8a0', 'Teal'], ['#3a70e0', 'Blue'], ['#8a50d8', 'Purple'], ['#e050a0', 'Pink']];
 /** The Journal's tabs. */
-const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['records', 'Records']];
+const JOURNAL_TABS: ['quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'bonds' | 'records', string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['bonds', 'Relationships'], ['records', 'Records']];
 const INTERACT_RANGE = 1.3;
 
 type Start = { x: number; z: number; dir?: Dir };
@@ -597,7 +598,7 @@ export class Game {
 
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
-    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what) };
+    this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what), relation: (a, b) => this.relGet(a, b) };
     // Skill tree nodes locked until a quest is done, a key item is carried or a switch is on (Update 113).
     Skills.locked = (n) => {
       const nd = n.needs;
@@ -877,6 +878,7 @@ export class Game {
       ailment: (op, a, secs, hero) => this.ailmentCommand(op, a, secs, false, hero),
       rest: (c) => this.startRest(c),
       lock: (c, key, done) => this.openLock(c, key, done),
+      relation: (c) => { const set = (a: string, b: string) => this.relChange(a, b, c.op === 'set' ? c.value - this.relGet(a, b) : c.value); set(c.a, c.b); if (c.both) set(c.b, c.a); },
       goodState: (c) => this.goodStateCommand(c),
       heroWeather: (c) => this.heroWeatherCommand(c),
       transfer: (t) => this.requestTransfer(t.map, { x: t.x + 0.5, z: t.z + 0.5, dir: t.dir }, t.fade ?? 'black', { autosave: true }),
@@ -1415,6 +1417,7 @@ export class Game {
 
   /** A completed quest's rewards: gold, EXP, skill points and items (what doesn't fit is put down by the hero's feet). */
   private questReward(r: NonNullable<import('../world/types').QuestDef['rewards']>): void {
+    for (const x of r.relations ?? []) { this.relChange(x.a, x.b, x.value); if (x.both) this.relChange(x.b, x.a, x.value); }
     if (r.gold) { this.inventory.gold += r.gold; this.audio.play('coin'); this.log.add(`Received ${r.gold} G`, 'loot'); }
     for (const it of r.items ?? []) {
       if (!this.items.has(it.item)) continue;
@@ -4475,6 +4478,9 @@ export class Game {
       }
     }
     if (hours >= 1) for (const p of this.bodyParty()) { const b = this.bodyOf(p.id); b.meter = 0; b.wet = 0; }
+    // Camping together (Update 124): everyone travelling warms a little to everyone else.
+    const camp = relAmount(this.db, 'camp'), ids = this.members().map((m) => m.def.id);
+    if (camp) for (const a of ids) for (const b of [mainHero(this.db).id, ...ids]) if (a !== b) this.relChange(a, b, camp);
     if (good) this.giveGood('all', good);
     this.log.add(hours >= FULL_REST_HOURS ? `Rested ${hours} hours: everyone fully restored` : `Rested ${hours} hour${hours === 1 ? '' : 's'}: health and magic +${Math.round(share * 100)}%`, 'info');
     this.audio.play('save');
@@ -5257,6 +5263,59 @@ export class Game {
     if (this.settings.tutorials !== false) this.tutorialPop.show(t.title, t.text);
   }
   /** Journal → Tutorials: the ones reached, newest first. */
+  /* ---------------------------------------------------------------- relationships (Update 124) */
+
+  /** A hero id ('' the hero you play) as an id. */
+  private relId(id: string): string { return id || mainHero(this.db).id; }
+  /** How `a` rates `b` (0 … 100). */
+  relGet(a: string, b: string): number {
+    a = this.relId(a); b = this.relId(b);
+    return this.state.rel.get(relKey(a, b)) ?? relStart(this.db, a, b);
+  }
+  /** Points moved per pair this battle (capped). */
+  private readonly relBattle = new Map<string, number>();
+  /** Move `a`'s rating of `b` by `delta` (the hero you play has no ratings of their own); a notice when the label changes. */
+  relChange(a: string, b: string, delta: number, battle = false): void {
+    a = this.relId(a); b = this.relId(b);
+    if (!delta || a === b || a === mainHero(this.db).id || this.db.relations?.off) return;
+    const k = relKey(a, b);
+    if (battle) {
+      const used = this.relBattle.get(k) ?? 0, room = REL_BATTLE_CAP - Math.abs(used);
+      if (room <= 0) return;
+      delta = Math.sign(delta) * Math.min(Math.abs(delta), room);
+      this.relBattle.set(k, used + delta);
+    }
+    const was = this.relGet(a, b), now = relClamp(was + delta);
+    if (now === was) return;
+    this.state.rel.set(k, now);
+    const love = relLove(this.db, a, b), l0 = relLabel(was, love), l1 = relLabel(now, love);
+    if (l0.name !== l1.name) {
+      const name = (id: string) => (id === mainHero(this.db).id ? mainHero(this.db).name : this.db.heroes?.find((x) => x.id === id)?.name ?? id);
+      const line = `${name(a)}’s view of ${name(b)}: ${l1.name}`;
+      this.log.add(line, 'info');
+      if (!this.battle.active) this.menu.notice(line);
+    }
+  }
+  /** A battle event for relationships: `rater` (party index: 0 the hero, 1… members) warms to `rated`. */
+  private bond(kind: RelationKind, rater: number, rated: number): void {
+    const id = (w: number) => (w === 0 ? mainHero(this.db).id : this.members()[w - 1]?.def.id);
+    const a = id(rater), b = id(rated);
+    if (a && b) this.relChange(a, b, relAmount(this.db, kind), true);
+  }
+
+  /** Journal → Relationships: how everyone in the party now rates the others (the hero you play is rated, rates no one). */
+  private bondsHtml(): string {
+    const e = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+    if (this.db.relations?.off) return '<p class="tut-none">Relationships are turned off in this game.</p>';
+    const lead = mainHero(this.db), party = [{ id: lead.id, name: lead.name }, ...this.members().map((m) => ({ id: m.def.id, name: m.def.name }))];
+    const raters = party.slice(1);
+    if (!raters.length) return '<p class="tut-none">No one’s travelling with you yet.</p>';
+    return `<div class="rel-list">${raters.map((r) => `<section class="rel-who"><h3>${e(r.name)}</h3>${party.filter((o) => o.id !== r.id).map((o) => {
+      const v = this.relGet(r.id, o.id), l = relLabel(v, relLove(this.db, r.id, o.id));
+      return `<div class="rel-row"><span class="rel-name">${e(o.name)}</span><span class="rel-bar"><i style="width:${v}%;background:${l.color}"></i></span><b class="rel-label" style="color:${l.color}">${l.name}</b></div>`;
+    }).join('')}</section>`).join('')}</div>`;
+  }
+
   private tutorialsHtml(): string {
     const seen = (this.db.tutorials ?? []).filter((t) => this.state.record(`tut:${t.id}`) > 0).sort((a, b) => this.state.record(`tut:${b.id}`) - this.state.record(`tut:${a.id}`));
     const e = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -5278,6 +5337,7 @@ export class Game {
     else if (id === 'bestiary') this.bestiaryScreen.show(title, this.bestiary(), onClose, tabs);
     else if (id === 'types') this.recordsScreen.show(title, { html: typeChartHtml(this.combatCfg.essence) }, onClose, tabs);
     else if (id === 'tutorials') this.recordsScreen.show(title, { html: this.tutorialsHtml() }, onClose, tabs);
+    else if (id === 'bonds') this.recordsScreen.show(title, { html: this.bondsHtml() }, onClose, tabs);
     else this.recordsScreen.show(title, this.records(), onClose, tabs);
   }
 
@@ -6039,6 +6099,8 @@ export class Game {
         const n = this.allyNumbers(m.data, m.def);
         return [{ who, name: m.def.name, icon: m.def.face ? this.resolveFile(m.def.face) : this.memberPortrait(m.def), hp: m.data.down ? 0 : m.data.hp, maxHp: n.max.hp, mp: m.data.mp, maxMp: n.max.mp, down: !!m.data.down }];
       }),
+      bond: (kind, rater, rated) => this.bond(kind, rater, rated),
+      begun: () => this.relBattle.clear(),
       swapIn: (outKey, outWho, inWho) => {
         const b = this.partyBattler(inWho);
         if (!b) return null;

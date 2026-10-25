@@ -90,6 +90,10 @@ export interface BattleHost {
   /** Party member `who` landed an Addition strike on `foe` (or `complete`d one): bonus EXP for it. */
   strikeExp?(who: number, foe: string, result: 'perfect' | 'good' | 'complete'): number;
   log(text: string): void;
+  /** Relationships (Update 124): `rater` warms to `rated` (party indexes: 0 the hero, 1… members). */
+  bond?(kind: import('../../world/types').RelationKind, rater: number, rated: number): void;
+  /** The battle began (relationship caps reset). */
+  begun?(): void;
 }
 
 type Phase = 'off' | 'intro' | 'next' | 'command' | 'busy' | 'over';
@@ -134,6 +138,8 @@ export class TurnBattle {
   start(entries: BattleEntry[], cfg: TurnBasedConfig, opening: Opening, rules: { canRun?: boolean; waiting?: BattleEntry[] } = {}): void {
     this.hurt = false;
     this.partyFell = false;
+    this.cover = null; this.hitter = null; this.downedBy.clear();
+    this.host.begun?.();
     this.announced = false; this.combo = null;
     this.rules = rules;
     for (const e of entries) e.battler.charging = null;
@@ -442,6 +448,8 @@ export class TurnBattle {
     const out = this.entry(b), e = this.host.swapIn?.(b.key, out.who ?? 0, who);
     if (!e) { this.commandMenu(b); return; }
     this.host.writeVitals(out.who ?? 0, b.hp, b.mp);
+    // Stepping in for someone hurt (Update 124): if the newcomer takes the next blow, the one saved warms to them.
+    this.cover = !forced && b.hp > 0 && b.hp < b.maxHp * 0.5 ? { saved: out.who ?? 0, by: e.who ?? 0, savedHp: b.hp } : null;
     this.all[this.all.indexOf(out)] = e;
     const n = e.battler;
     n.ct = b.ct; n.charging = null; n.guarding = false;
@@ -561,10 +569,15 @@ export class TurnBattle {
   /** An item on a party member waiting on the bench (Single mode): it works on them, and it's the turn. */
   private itemOnBench(b: Battler, it: BattleItem, who: number): void {
     if (this.defer(b, () => this.itemOnBench(b, it, who), true)) return;
-    const name = this.host.reserves?.().find((r) => r.who === who)?.name ?? 'them';
+    const res = this.host.reserves?.().find((r) => r.who === who), name = res?.name ?? 'them';
     this.screen.animate(b.key, 'toss');
     this.later(0.45, () => {
       const r = this.host.useItem(it.slot, who, []);
+      // Healing someone hurt on the bench, or bringing them back (Update 124): they warm to whoever did it.
+      if (r?.used && res && who !== (this.entry(b).who ?? 0)) {
+        if (res.down) this.host.bond?.('revive', who, this.entry(b).who ?? 0);
+        else if (res.hp < res.maxHp * 0.6) this.host.bond?.('benchHeal', who, this.entry(b).who ?? 0);
+      }
       if (!r?.used) { this.screen.message(r?.text || 'It wouldn’t do anything.'); this.phase = 'command'; this.later(1.1, () => this.itemMenu(b)); return; }
       this.host.sound('item');
       const msg = r.text || `${b.name} uses ${it.name} on ${name}.`;
@@ -839,6 +852,7 @@ export class TurnBattle {
       if (p.hp > before) this.screen.popup(p.key, `+${Math.round(p.hp - before)}`, 'heal');
       if (p.mp > mpBefore) this.screen.popup(p.key, `+${Math.round(p.mp - mpBefore)} MP`, 'mp');
       if (p === t) gained = { hp: Math.round(p.hp - before), mp: Math.round(p.mp - mpBefore), up: before <= 0 && p.hp > 0 };
+      if (p === t && t !== b && before <= 0 && p.hp > 0) this.host.bond?.('revive', e.who ?? 0, this.entry(b).who ?? 0);
       this.refresh(p);
     }
     // Pocket Handheld: the bars fill first (the text box holds), then the line saying what it did waits for OK.
@@ -1043,6 +1057,7 @@ export class TurnBattle {
 
   /** One fighter hits another: blindness, elements, criticals, guarding and the side's damage scale, then ailments. */
   private hit(by: Battler, t: Battler, power: number, element: Element, magic: boolean, inflicts?: Inflict[], color?: string, counter = false): void {
+    this.hitter = by;
     // Blind: half of their weapon attacks miss (spells still land).
     if (!magic && !this.aim.sure && by.status.blind && Math.random() < BLIND_MISS_CHANCE) {
       this.screen.popup(t.key, 'Miss', 'info');
@@ -1148,6 +1163,14 @@ export class TurnBattle {
 
   private damage(t: Battler, n: number, crit: boolean, color?: string, sound?: Sfx): void {
     if (t.side === 'party' && n > 0) this.hurt = true;
+    // A foe's blow on the party: the one who stepped in took it for someone (Update 124).
+    if (t.side === 'party' && n > 0 && this.hitter?.side === 'enemy' && this.cover) {
+      const c = this.cover;
+      this.cover = null;
+      if ((this.entry(t).who ?? 0) === c.by) { this.host.bond?.('cover', c.saved, c.by); if (n >= c.savedHp) this.host.bond?.('coverSave', c.saved, c.by); }
+    }
+    // Who knocked a hero out, for avenging them.
+    if (t.side === 'party' && t.hp - n <= this.floor(t) && t.hp > 0 && this.hitter?.side === 'enemy') this.downedBy.set(this.entry(t).who ?? 0, this.hitter.key);
     t.hp = Math.max(this.floor(t), t.hp - n);
     this.screen.popup(t.key, String(n), crit ? 'crit' : 'dmg', color);
     this.host.sound(t.side === 'party' ? 'hurt' : sound ?? (crit ? 'crit' : 'hit'));
@@ -1176,6 +1199,10 @@ export class TurnBattle {
   private aim: { spellAccuracy?: number; spellSure?: boolean; sure?: boolean } = {};
   /** Whose hit is landing right now (a foe falling to it earns them the finishing blow). */
   private striker: { by: Battler; weak: boolean } | null = null;
+  /** Relationships (Update 124): someone hurt swapped out for `by`; the last to strike; who knocked each hero out. */
+  private cover: { saved: number; by: number; savedHp: number } | null = null;
+  private hitter: Battler | null = null;
+  private readonly downedBy = new Map<number, string>();
   /** Someone in the party was knocked out this battle (no "no KOs" EXP bonus). */
   partyFell = false;
 
@@ -1196,6 +1223,8 @@ export class TurnBattle {
     const here = new Map([...this.all, ...this.waiting].filter((e) => e.battler.side === 'party').map((e) => [e.who ?? 0, e.battler.hp] as [number, number]));
     const up = (w: number) => (here.has(w) ? here.get(w)! > 0 : (this.host.readVitals?.(w)?.hp ?? 0) > 0);
     const k = this.striker, fighting = [...(this.fought.get(t.key) ?? [])].filter(up);
+    // Avenged (Update 124): whoever this foe knocked out warms to the one who beat it.
+    if (k) { const by = this.entry(k.by).who ?? 0; for (const [down, foe] of this.downedBy) if (foe === t.key && down !== by) this.host.bond?.('avenge', down, by); }
     const gains = this.host.foeDefeated?.(t.key, k ? this.entry(k.by).who ?? 0 : null, !!k?.weak, fighting) ?? [];
     for (const g of gains) {
       const p = this.party.find((x) => (this.entry(x).who ?? 0) === g.who);

@@ -289,7 +289,9 @@ export type Condition =
    */
   | { heroHas: string; hero?: string; is?: boolean }
   /** The real date is this day of the year ("MM-DD"), or between it and `until` (both included; may wrap past December). */
-  | { date: string; until?: string };
+  | { date: string; until?: string }
+  /** Relationships (Update 124): how `relation` (a hero id) rates `of` ('' the hero you play), at least / at most `value` (0 … 100). */
+  | { relation: string; of: string; op: '>=' | '<='; value: number };
 
 /** Event commands. Branches nest as lists, so no indent bookkeeping is needed. */
 export type Command =
@@ -307,6 +309,8 @@ export type Command =
   | { cmd: 'setTime'; hour: number; instant?: boolean }
   /** Group chatter (Update 122): play this conversation at the next camp visit. */
   | { cmd: 'groupChatter'; id: string }
+  /** Relationships (Update 124): `a`'s rating of `b` ('' the hero you play) up or down by `value`, or set to it; `both`: b's of a too. */
+  | { cmd: 'relation'; a: string; b: string; op: 'add' | 'set'; value: number; both?: boolean }
   /**
    * A lock (Update 119): until it's opened, the event stops here unless the player picks it (or carries its key or a
    * Skeleton Key). Opened once, it stays open (remembered per event, or in `switch`).
@@ -417,7 +421,7 @@ export interface QuestObjective {
   /** Not needed to finish the quest. */
   optional?: boolean;
 }
-export interface QuestReward { xp?: number; gold?: number; skillPoints?: number; items?: { item: string; count: number }[] }
+export interface QuestReward { xp?: number; gold?: number; skillPoints?: number; items?: { item: string; count: number }[]; /** Update 124: relationship points (a's rating of b; both: each way). */ relations?: { a: string; b: string; value: number; both?: boolean }[] }
 export interface QuestDef {
   id: string;
   name: string;

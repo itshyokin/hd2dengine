@@ -608,6 +608,28 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
 - On the way to their camp spots, party members walk through props and each other (no getting stuck walking on the
   spot); once seated they're solid again.
 
+### Relationships (Update 124)
+
+- Each party member rates each other one from **0 (Hate) to 100 (Best friends / Love)**, one way: Katrina's view of
+  Eleanor is her own, separate from Eleanor's view of Katrina. The hero you play is rated by everyone but has no
+  ratings of their own (the player decides how they feel). Labels: Hate 0+, Dislike 15+, Distrust 30+, Neutral 45+,
+  Like 60+, Close 75+, Best friends 90+ (Love for pairs marked ♥).
+- **Database → Party → Relationships**: where each rating starts (a grid: each row is how that hero sees the others;
+  unset 50), ♥ pairs, the points each thing is worth, and an on / off switch.
+- **What changes them** (battle points capped at 8 per pair per battle):
+  - **Stepping in**: you switch someone in while the hero they replace is below half health, and the newcomer takes
+    the foe's next blow. The one saved warms to them, more if that blow would have knocked them out.
+  - **Healing someone on the bench** while they're hurt, and **reviving** someone. The one helped warms to the one
+    who used the item.
+  - **Avenging**: whoever a foe knocked out warms to the hero who beats that foe.
+  - **Camping together**: each rest at a rest point, everyone travelling warms a little to everyone else.
+  - **Events**: the **Change relationship** command (one person's rating of another, + / − or set, optionally both
+    ways), **quest rewards** (Rewards → Relationships), and the **Relationship** condition ("Eleanor rates the hero at
+    most 14") for dialogue, event pages and quests that only open at a certain rating.
+- Crossing into a new label shows a notice and goes in the adventure log ("Eleanor's view of Crowley: Like").
+- **Journal → Relationships** shows only the current party: each member's view of the others (the hero included as
+  someone they rate). Members who leave keep their numbers for when they come back.
+
 ### Stats and growth ranks
 
 - **Seven stats**: **STR** Strength (melee damage), **DEX** Dexterity (bow damage, aim, critical hits, swing and draw

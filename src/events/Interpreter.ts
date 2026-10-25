@@ -83,6 +83,8 @@ export interface EventContext {
   console?(line: string): void;
   /** A lock: `done(true)` once it's open (picked, a key, or opened before); `done(false)` stops the event. */
   lock?(c: Extract<Command, { cmd: 'lock' }>, key: string, done: (ok: boolean) => void): void;
+  /** Change a relationship rating (Update 124). */
+  relation?(c: Extract<Command, { cmd: 'relation' }>): void;
 }
 
 interface Frame { list: Command[]; i: number }
@@ -205,6 +207,7 @@ export class Interpreter {
         this.ctx.ailment(c.op, c.ailment, c.seconds, c.hero);
         break;
       case 'rest': message.close(); this.ctx.rest?.(c); break;
+      case 'relation': this.ctx.relation?.(c); break;
       case 'groupChatter': if (c.id && !state.groupQueue.includes(c.id)) state.groupQueue.push(c.id); break;
       case 'lock': {
         message.close();

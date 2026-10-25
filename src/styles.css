@@ -2353,3 +2353,12 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .lp-pin { position: absolute; left: 50%; top: 50%; width: 30px; height: 120px; pointer-events: none; }
 .lp-pin::after { content: ''; position: absolute; left: 50%; bottom: 0; width: 6px; height: 54px; transform: translateX(-50%); background: #6a5030; border-radius: 3px; }
 .lp-status { text-align: center; min-height: 1.2em; margin: 8px 0 2px; font-weight: 700; }
+
+/* Journal → Relationships (Update 124). */
+.rel-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.rel-who h3 { margin: 0 0 6px; }
+.rel-row { display: grid; grid-template-columns: 90px 1fr 92px; align-items: center; gap: 8px; margin: 4px 0; }
+.rel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rel-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.rel-bar i { display: block; height: 100%; border-radius: 4px; }
+.rel-label { font-size: 12px; text-align: right; }

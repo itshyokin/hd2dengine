@@ -76,6 +76,18 @@ function questForm(store: EditorStore, quests: QuestDef[], q: QuestDef, look: Qu
     h('button', { type: 'button', class: 'mini-btn', title: 'Remove', 'aria-label': `Remove reward item ${k + 1}`, onclick: () => { r.items!.splice(k, 1); if (!r.items!.length) delete r.items; renderRewardItems(); } }, '✕'))),
   h('button', { type: 'button', class: 'btn', disabled: !look.items.length, onclick: () => { (r.items ??= []).push({ item: look.items[0]?.id ?? '', count: 1 }); renderRewardItems(); } }, '+ Add item'));
   renderRewardItems();
+  // Relationship points (Update 124): a's rating of b goes up (or down), optionally both ways.
+  const heroes = store.db.heroes ?? [], raters: [string, string][] = heroes.slice(1).map((x) => [x.id, x.name]), rated: [string, string][] = [['', 'The hero you play'], ...raters];
+  const rewardRel = h('div', { class: 'shop-goods' });
+  const renderRel = () => rewardRel.replaceChildren(...(r.relations ?? []).map((x, k) => h('div', { class: 'field-row shop-good' },
+    select(raters.length ? raters : [['', '(no party members yet)']], x.a, (v) => (x.a = v), { 'aria-label': 'Whose rating' }),
+    h('span', { class: 'note' }, 'of'),
+    select(rated, x.b, (v) => (x.b = v), { 'aria-label': 'Of whom' }),
+    numberInput(x.value, (v) => (x.value = Math.round(v)), { step: 1, min: -100, max: 100, 'aria-label': 'Points', class: 'db-num' }),
+    checkbox('both ways', !!x.both, (v) => { if (v) x.both = true; else delete x.both; }),
+    h('button', { type: 'button', class: 'mini-btn', title: 'Remove', 'aria-label': 'Remove', onclick: () => { r.relations!.splice(k, 1); if (!r.relations!.length) delete r.relations; renderRel(); } }, '✕'))),
+  h('button', { type: 'button', class: 'btn', disabled: !raters.length, onclick: () => { (r.relations ??= []).push({ a: raters[0]?.[0] ?? '', b: '', value: 5 }); renderRel(); } }, '+ Add relationship points'));
+  renderRel();
   const rewardNum = (key: 'gold' | 'xp' | 'skillPoints', label: string) =>
     field(label, numberInput(r[key] ?? 0, (v) => { const n = Math.max(0, Math.round(v)); if (n) r[key] = n; else delete r[key]; }, { step: 1, min: 0 }));
 
@@ -105,7 +117,8 @@ function questForm(store: EditorStore, quests: QuestDef[], q: QuestDef, look: Qu
       checkbox('Completing it takes the items its collect objectives ask for', !!q.takeItems, (v) => (q.takeItems = v || undefined))),
     h('section', { class: 'db-section' }, h('h3', {}, 'Rewards'),
       h('div', { class: 'field-row' }, rewardNum('gold', 'Gold'), rewardNum('xp', 'EXP'), rewardNum('skillPoints', 'Skill points')),
-      field('Items', rewardItems, 'Given on completion; what doesn’t fit in the bag is put down by the hero’s feet.')),
+      field('Items', rewardItems, 'Given on completion; what doesn’t fit in the bag is put down by the hero’s feet.'),
+      field('Relationships', rewardRel, 'How much one party member’s view of another changes (negative lowers it).')),
     h('div', { class: 'item-foot' }, h('button', { type: 'button', class: 'btn danger', onclick: () => {
       const used = questUses(store, q.id);
       if (used && !confirm(`${q.name} is used by ${used} event command${used === 1 ? '' : 's'} or condition${used === 1 ? '' : 's'}. Delete it anyway?`)) return;
