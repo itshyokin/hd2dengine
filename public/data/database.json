@@ -5234,7 +5234,7 @@
           "faces": "left"
         }
       },
-      "hp": 20,
+      "hp": 10,
       "damage": 6,
       "speed": 1.6,
       "behaviour": "melee",
@@ -5267,7 +5267,8 @@
           "kind": "buff",
           "buffs": [
             {
-              "buff": "def"
+              "buff": "def",
+              "amount": 15
             }
           ]
         }
@@ -5798,7 +5799,10 @@
           "size": "medium"
         }
       ]
-    }
+    },
+    "barFill": "flat",
+    "barShape": "rect",
+    "orbStyle": "flat"
   },
   "troops": [
     {
