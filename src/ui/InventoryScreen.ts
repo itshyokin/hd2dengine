@@ -138,6 +138,12 @@ export class InventoryScreen {
   /** Put away without closing the Inventory (another of its tabs is taking over). */
   hide(): void { this.open = false; this.root.hidden = true; }
 
+  /** The Backpack (Update 141): the bag as a compact window at the bottom right, opened with B. */
+  set compact(on: boolean) { this.root.classList.toggle('backpack', on); }
+  get compact(): boolean { return this.root.classList.contains('backpack'); }
+  /** Nothing picked (no item's actions or targets open): B closes the Backpack from here. */
+  get atTop(): boolean { return this.mode.kind === 'grid' && !this.hfocus; }
+
   /** The slots this tab shows: its pocket, empty slots included (All: every item, pocket by pocket). */
   private view(): number[] {
     const inv = this.inv();

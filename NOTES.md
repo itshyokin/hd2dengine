@@ -380,16 +380,27 @@ decide things; the tablet editor keeps working.
         material, renderOrder 20, drawn with no depth test where the stencil is 1); props mark the stencil (lean.ts
         `markProp`, WorldBuilder sprite and 3D props); PostFX rtScene has a stencil buffer. PropDef `ground` (Flat mode,
         PropImporter checkbox): WorldBuilder lays the picture flat (bottom edge at p.z, reaching back d.h).
-  - [ ] Update 140: party pages. Selected arrows on the Party menu (the outline is hard to follow). Stamina hidden on
+  - [x] Update 140: party pages. Selected arrows on the Party menu (the outline is hard to follow). Stamina hidden on
         stat pages (the HUD shows it); EXP bar under HP / MP like the other menus. Equip / unequip gear and shards from
         Status → Gear.
-  - [ ] Update 141: controls and menus. START: Settings (with Save, Load, Quit to Title; an icon beside each setting).
+        Done: PartyScreen `.pr-slot.sel::before / ::after` arrows; CharacterScreen Stats: no SP bar, EXP bar under HP / MP;
+        StatusScreen gauges: EXP instead of SP; CharacterScreen Gear page uses the EquipHost (`equip()` host hook):
+        ↑ ↓ `gearSel`, A opens `picking` (Take it off + choices), A equips, B backs out.
+  - [x] Update 141: controls and menus. START: Settings (with Save, Load, Quit to Title; an icon beside each setting).
         X: Party (the line-up only). B: the Backpack, a compact bag window bottom right (the game pauses; use items
         and key items, view and equip gear and shards). Y: the World Map (LB / RB pick markers; place, move and
         remove your own marker). Achievements become a Journal tab. Each button closes what it opened (B goes back a
         step first when an item is picked). Pause tabs Items, Map, Achievements and System removed.
         The X menu has two tabs, Party and Journal (LT / RT switch them; LB / RB the Journal's own tabs); View / Back
         stays free for later.
+        Done: Input actions settings / party / backpack / worldmap (pad 9 / 2 / 1 / 3; keys Esc / P / I,B / M), and in
+        menus the same buttons add those actions (MENU_TOGGLES) so the Game closes what each opened; BINDINGS_VERSION 4;
+        ring / magic / melee / bow unbound. tabs.ts `tabSwap` (Party menu: its tabs on LT / RT, inner on LB / RB).
+        Game openBackpack (InventoryScreen `compact` → .inv.backpack; `atTop`), openWorldMap, openSettingsMenu (Save /
+        Load / Quit at the top; GameMenu `fillIcon` / screen `icon`: a picture per page beside each setting),
+        pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
+        'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
+        removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.

@@ -2,8 +2,10 @@
  * Pause → Map: the world map (Pokémon Gold / Silver style), drawn from the maps themselves and laid out as in the
  * Map editor's World layout. The stick glides across it (faster the further it's pushed); the D-pad (arrow keys)
  * steps the crosshair one tile at a time, repeating while held, to fine-tune. Drag with the mouse; zoom with LT / RT
- * (Z / C, or the wheel). A (Enter / Space) jumps to the next marker and Y (R) to the previous one, starting at the hero. Places not visited yet are hidden, greyed or shown (Database → World map); inside visited maps
- * only the ground walked near shows, if exploring is on.
+ * (Z / C, or the wheel). Update 141: Y opens and closes it; LB / RB (Q / E) jump to the next / previous marker,
+ * starting at the hero; A (Enter / Space) puts your own marker under the crosshair (again elsewhere moves it, on it
+ * removes it). Places not visited yet are hidden, greyed or shown (Database → World map); inside visited maps only
+ * the ground walked near shows, if exploring is on.
  */
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
@@ -36,6 +38,9 @@ export interface WorldMapHost {
   hero(): { x: number; z: number; map: string } | null;
   /** Pixels per tile the art is drawn at. */
   artScale: number;
+  /** The player's own marker (Update 141), in world tiles, and setting it (null removes it). */
+  pin?(): { x: number; z: number } | null;
+  setPin?(p: { x: number; z: number } | null): void;
 }
 
 const ZOOMS = [1, 2, 3, 4, 6, 8, 12, 16, 24];
@@ -138,6 +143,19 @@ export class WorldMapScreen {
     p.done(k);
   }
 
+  /** Close it from outside (its button pressed again, Update 141). */
+  dismiss(): void { if (this.open) this.close(); }
+
+  /** A: your own marker under the crosshair: put there, moved there, or (on it) taken away. */
+  private togglePin(): void {
+    const h = this.host;
+    if (!h.setPin) return;
+    const p = h.pin?.() ?? null, s = this.scale();
+    if (p && Math.hypot((p.x - this.cx) * s, (p.z - this.cz) * s) < 14) { h.setPin(null); uiSound('menuBack'); }
+    else { h.setPin({ x: Math.floor(this.cx) + 0.5, z: Math.floor(this.cz) + 0.5 }); uiSound('menuOk'); }
+    this.draw();
+  }
+
   private close(): void {
     this.hide(); uiSound('menuBack');
     const p = this.picking;
@@ -164,6 +182,8 @@ export class WorldMapScreen {
   private stops(): { x: number; z: number }[] {
     if (this.picking) return this.picking.spots;
     const h = this.host.hero(), ms = this.host.markers().map((m) => ({ x: m.x + m.w / 2, z: m.z + m.h / 2 }));
+    const pin = this.host.pin?.();
+    if (pin) ms.push(pin);
     if (h) ms.sort((a, b) => Math.hypot(a.x - h.x, a.z - h.z) - Math.hypot(b.x - h.x, b.z - h.z));
     return h ? [{ x: h.x, z: h.z }, ...ms] : ms;
   }
@@ -184,14 +204,16 @@ export class WorldMapScreen {
     if (tabKeys(i, this.tabs)) return;
     if (i.consume('subPrev')) this.zoomBy(-1);
     if (i.consume('subNext')) this.zoomBy(1);
-    // A / Enter / Space: the next marker (the hero first); Y / R: the previous one.
-    // Picking: A chooses the selected spot; the arrows (and Y / R) step through them.
+    // Update 141: LB / RB (Q / E) the next / previous marker (the hero first); A your own marker.
+    // Picking: A chooses the selected spot; the arrows (and LB / RB) step through them.
     if (this.picking) {
       if (i.confirm()) { this.choose(); return; }
       if (i.consume('right') || i.consume('down')) this.step(1);
-      if (i.consume('left') || i.consume('up') || i.consume('switchWeapon')) this.step(-1);
-    } else if (i.confirm()) this.step(1);
-    if (i.consume('switchWeapon')) this.step(-1);
+      if (i.consume('left') || i.consume('up')) this.step(-1);
+    } else if (i.confirm()) this.togglePin();
+    if (i.consume('tabNext')) this.step(1);
+    if (i.consume('tabPrev')) this.step(-1);
+    i.consume('switchWeapon');
     let moved = false;
     // The stick glides, faster the further it's pushed (and faster zoomed out).
     const st = i.stick, amt = i.stickAmount;
@@ -286,6 +308,9 @@ export class WorldMapScreen {
       }
       drawMarker(g, m.symbol, sx(m.x + m.w / 2), sz(m.z + m.h / 2), mr, m.color);
     }
+    // Your own marker (Update 141): a red flag.
+    const pin = this.host.pin?.() ?? null;
+    if (pin) drawMarker(g, 'flag', sx(pin.x), sz(pin.z), mr * 1.25, '#ff5a5a');
     // Picking: the spots (the selected one bigger, in gold).
     if (this.picking) this.picking.spots.forEach((p, k) => drawMarker(g, 'flag', sx(p.x), sz(p.z), k === this.pick ? mr * 1.5 : mr, p.disabled ? '#8a8a8a' : k === this.pick ? '#ffd27a' : '#e8e0c8'));
     // Names: towns and landmarks (in places shown), and the hero's pin.
@@ -302,6 +327,7 @@ export class WorldMapScreen {
     const spot = this.picking ? (this.hover ? this.picking.spots.find((p) => near(p.x, p.z)) : undefined) ?? this.picking.spots[this.pick] : undefined;
     if (spot) tip = `${spot.label} · ${spot.detail}`;
     else if (hero && near(hero.x, hero.z)) tip = `${this.host.heroName()} · ${pieces.find((p) => p.name === hero.map)?.title ?? ''}`;
+    else if (pin && near(pin.x, pin.z)) tip = `Your marker · ${this.input.lastDevice === 'pad' ? 'A' : 'Space'} to take it away`;
     else {
       const point = markers.find((m) => near(m.x + m.w / 2, m.z + m.h / 2));
       const area = point ? null : markers.find((m) => (m.w > 1 || m.h > 1) && wx >= m.x && wx < m.x + m.w && wz >= m.z && wz < m.z + m.h);
@@ -316,6 +342,6 @@ export class WorldMapScreen {
     const here = pieces.find((p) => p.name === hero?.map);
     const pad = this.input.lastDevice === 'pad';
     if (this.picking) { this.info.textContent = `${this.picking.title} · ${pad ? 'D-pad' : 'Arrows'}: next roost · ${pad ? 'A' : 'Space / Enter'}: fly there · a click selects, a second click flies · ${pad ? 'B' : 'Esc'}: cancel`; return; }
-    this.info.textContent = `${here ? here.title : ''}${here ? ' · ' : ''}${pad ? 'Stick: glide · D-pad: one tile' : 'Arrows: one tile · drag: scroll'} · ${this.input.label('subPrev')} / ${this.input.label('subNext')}: zoom · ${pad ? 'A / Y' : 'Space / R'}: next / previous marker · ${pad ? 'B' : 'Esc'}: close`;
+    this.info.textContent = `${here ? here.title : ''}${here ? ' · ' : ''}${pad ? 'Stick: glide · D-pad: one tile' : 'Arrows: one tile · drag: scroll'} · ${this.input.label('subPrev')} / ${this.input.label('subNext')}: zoom · ${this.input.label('tabPrev')} / ${this.input.label('tabNext')}: previous / next marker · ${pad ? 'A' : 'Space'}: ${pin ? 'move / remove' : 'place'} your marker · ${pad ? 'Y / B' : 'M / Esc'}: close`;
   }
 }

@@ -25,6 +25,8 @@ export interface MenuItem {
 }
 
 interface Screen { title: string; items: MenuItem[]; note?: string; canBack: boolean; index: number; style: 'panel' | 'title'; subtitle?: string;
+  /** The picture beside items that have none of their own (a Settings page's, Update 141). */
+  icon?: string;
   /** A pause menu tab's screen: LB / RB go to the other tabs. */
   tabs?: TabGroup;
   /** Called when this screen is left with Back (not when the whole menu is closed). */
@@ -55,11 +57,13 @@ export class GameMenu {
   }
 
   get isOpen(): boolean { return this.stack.length > 0; }
+  /** While set, screens pushed get this picture beside items without one (Update 141). */
+  fillIcon: string | null = null;
 
   /** Show a screen on top of the current one (or as the first). */
-  push(title: string, items: MenuItem[], opts: { note?: string; canBack?: boolean; style?: 'panel' | 'title'; subtitle?: string; tabs?: TabGroup; onBack?: () => void; /** Start on this item (if it can be picked). */ start?: number } = {}): void {
+  push(title: string, items: MenuItem[], opts: { note?: string; canBack?: boolean; style?: 'panel' | 'title'; subtitle?: string; tabs?: TabGroup; onBack?: () => void; /** Start on this item (if it can be picked). */ start?: number; icon?: string } = {}): void {
     const first = opts.start !== undefined && items[opts.start] && !items[opts.start].disabled ? opts.start : Math.max(0, items.findIndex((i) => !i.disabled));
-    this.stack.push({ title, items, note: opts.note, canBack: opts.canBack ?? true, index: first, style: opts.style ?? 'panel', subtitle: opts.subtitle, tabs: opts.tabs, onBack: opts.onBack });
+    this.stack.push({ title, items, note: opts.note, canBack: opts.canBack ?? true, index: first, style: opts.style ?? 'panel', subtitle: opts.subtitle, tabs: opts.tabs, onBack: opts.onBack, icon: opts.icon ?? this.fillIcon ?? undefined });
     this.render();
   }
 
@@ -157,7 +161,8 @@ export class GameMenu {
       b.setAttribute('aria-selected', String(i === s.index));
       const value = settingText(it);
       b.classList.toggle('setting', value !== null);
-      b.innerHTML = `${it.icon ? `<span class="menu-icon" aria-hidden="true">${it.icon}</span>` : ''}<span class="menu-label"></span>${value !== null ? '<span class="menu-value"></span>' : ''}${it.detail ? '<span class="menu-detail"></span>' : ''}`;
+      const ic = it.icon ?? s.icon;
+      b.innerHTML = `${ic ? `<span class="menu-icon" aria-hidden="true">${ic}</span>` : ''}<span class="menu-label"></span>${value !== null ? '<span class="menu-value"></span>' : ''}${it.detail ? '<span class="menu-detail"></span>' : ''}`;
       b.querySelector('.menu-label')!.textContent = it.label;
       if (it.color) b.querySelector<HTMLElement>('.menu-label')!.style.color = it.color;
       if (value !== null) {

@@ -11,7 +11,7 @@ import { ATTRS, ATTR_INFO, type Attr } from '../game/attributes';
 import { rankPill, type Rank } from '../game/statRanks';
 import { esc } from './InventoryScreen';
 import { elementPill } from './elementPill';
-import type { EquipChoice, EquipView } from './EquipScreen';
+import type { EquipChoice, EquipHost, EquipSlotId, EquipView } from './EquipScreen';
 import { genderBadge, genderName } from '../game/roleplay';
 
 export interface CharacterHost {
@@ -28,6 +28,8 @@ export interface CharacterHost {
   good?(h: number): { name: string; stat: number; exp: number; left: string } | null;
   /** Everyone, in lineup order (LT / RT step through them). */
   order?(): number[];
+  /** Equipping from the Gear page (Update 140): the Equipment screen's host (the same hero numbers). */
+  equip?(): EquipHost;
 }
 
 export class CharacterScreen {
@@ -37,6 +39,10 @@ export class CharacterScreen {
   private page = 0;
   private onClose: () => void = () => {};
   private static readonly PAGES = ['Profile', 'Stats', 'Gear'];
+  /** The Gear page (Update 140): the slot picked, the choices open for it (and which), and a word after a change. */
+  private gearSel = 0;
+  private picking: { slot: EquipSlotId; list: (EquipChoice | null)[]; index: number } | null = null;
+  private gearNote = '';
 
   constructor(parent: HTMLElement, private readonly input: Input, private readonly host: CharacterHost) {
     this.root.className = 'inv char-screen';
@@ -55,7 +61,47 @@ export class CharacterScreen {
     this.onClose = onClose;
     this.open = true;
     this.page = 0;
+    this.gearSel = 0; this.picking = null; this.gearNote = '';
     this.root.hidden = false;
+    this.render();
+  }
+
+  /** The Gear page's keys (Update 140): ↑ ↓ a slot, A its choices (pick one, or take it off), B back out of them. */
+  private gearKeys(): boolean {
+    const eh = this.host.equip?.(), i = this.input;
+    if (!eh || this.page !== 2) return false;
+    const slots = eh.slots(this.hero), p = this.picking;
+    if (p) {
+      if (i.consume('cancel')) { this.picking = null; uiSound('menuBack'); this.render(); return true; }
+      if (i.consume('up')) { p.index = (p.index + p.list.length - 1) % p.list.length; uiSound('menuMove'); this.render(); return true; }
+      if (i.consume('down')) { p.index = (p.index + 1) % p.list.length; uiSound('menuMove'); this.render(); return true; }
+      if (i.confirm()) { this.choose(p.index); return true; }
+      i.consume('left'); i.consume('right');
+      return true;
+    }
+    if (i.consume('up')) { this.gearSel = (this.gearSel + slots.length - 1) % slots.length; uiSound('menuMove'); this.render(); return true; }
+    if (i.consume('down')) { this.gearSel = (this.gearSel + 1) % slots.length; uiSound('menuMove'); this.render(); return true; }
+    if (i.confirm()) { this.openChoices(); return true; }
+    return false;
+  }
+  private openChoices(): void {
+    const eh = this.host.equip?.();
+    const s = eh?.slots(this.hero)[this.gearSel];
+    if (!eh || !s) return;
+    const list: (EquipChoice | null)[] = [...(s.item ? [null] : []), ...eh.choices(this.hero, s.slot)];
+    if (!list.length) { this.gearNote = `Nothing in the bag fits: ${s.label}.`; uiSound('menuBack'); this.render(); return; }
+    this.picking = { slot: s.slot, list, index: 0 };
+    uiSound('menuOk');
+    this.render();
+  }
+  private choose(k: number): void {
+    const eh = this.host.equip?.(), p = this.picking;
+    if (!eh || !p) return;
+    const c = p.list[k];
+    const msg = eh.equip(this.hero, p.slot, c ? c.id : null);
+    this.gearNote = msg ?? (c ? `Equipped ${c.name}.` : 'Taken off.');
+    this.picking = null;
+    uiSound('menuOk');
     this.render();
   }
 
@@ -82,9 +128,11 @@ export class CharacterScreen {
   update(): void {
     if (!this.open) return;
     const i = this.input;
+    // The Gear page's slots and choices first (B backs out of the choices before it closes the page).
+    if (this.gearKeys()) return;
     if (i.consume('cancel')) { this.close(); return; }
     // LT / RT: the previous / next party member (in lineup order).
-    { const d = i.consume('subPrev') ? -1 : i.consume('subNext') ? 1 : 0; if (d) { this.otherHero(d); return; } }
+    { const d = i.consume('subPrev') ? -1 : i.consume('subNext') ? 1 : 0; if (d) { this.picking = null; this.gearNote = ''; this.otherHero(d); return; } }
     if (i.consume('left') || i.consume('up')) { this.turn(-1); return; }
     if (i.consume('right') || i.consume('down')) { this.turn(1); return; }
     i.confirm();
@@ -110,19 +158,24 @@ export class CharacterScreen {
       const plus = gd ? `<span class="good-bonus" title="${esc(gd.name)}: ${esc(gd.left)} left">+${gd.stat}</span>` : '';
       const cell = (label: string, val: number | string, pill = '') => `<div class="cs-cell"><span>${label}</span>${pill}<b>${val}</b></div>`;
       body = `<div class="cs-sec">Health and magic</div>
-        ${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}${bar('SP', g.sp, 'sp')}
+        ${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}
+        <div class="cs-bar xp"><span>EXP</span><div><i style="width:${g.xp.next === null ? 100 : pct(g.xp.have, g.xp.next)}%"></i></div><b>${g.xp.next === null ? 'MAX' : `${g.xp.have} / ${g.xp.next}`}</b></div>
         <div class="cs-cols">
           <div><div class="cs-sec">Stats${gd ? ` <span class="good-bonus">${esc(gd.name)}<small>${esc(gd.left)} left</small></span>` : ''}</div><div class="cs-list">${ATTRS.map((a) => cell(ATTR_INFO[a].name, `${String(Math.round(v.attrs[a])).padStart(2, '0')}${plus}`, rk ? rankPill(rk[a]) : '')).join('')}</div></div>
           <div><div class="cs-sec">In battle</div><div class="cs-list">${cell('Melee damage', Math.round(v.melee))}${cell('Bow damage', Math.round(v.bow))}${cell('Spell damage', Math.round(v.spell))}
             ${cell('Critical hits', `${Math.round(v.crit)}%`)}${cell('Defence', Math.round(v.armour))}${cell('Magic defence', Math.round(v.magicArmour))}</div></div>
         </div>
         <div class="cs-sec">EXP</div>
-        <div class="cs-grid">${cell('EXP points', g.xp.have)}${cell('Next level', g.xp.next === null ? '—' : Math.max(0, g.xp.next - g.xp.have))}${gd ? cell('Bonus', `<span class="good-bonus">EXP +${gd.exp}% (${esc(gd.name)})</span>`) : ''}</div>
-        <div class="cs-bar xp"><span>EXP</span><div><i style="width:${g.xp.next === null ? 100 : pct(g.xp.have, g.xp.next)}%"></i></div><b>${g.xp.next === null ? 'MAX' : `${g.xp.have} / ${g.xp.next}`}</b></div>`;
+        <div class="cs-grid">${cell('EXP points', g.xp.have)}${cell('Next level', g.xp.next === null ? '—' : Math.max(0, g.xp.next - g.xp.have))}${gd ? cell('Bonus', `<span class="good-bonus">EXP +${gd.exp}% (${esc(gd.name)})</span>`) : ''}</div>`;
     } else {
-      const slots = h.slots(k).map((s) => `<div class="cs-slot"><span class="eq-label">${esc(s.label)}</span>${s.item ? `<img src="${s.item.icon}" alt="">` : '<span class="eq-empty"></span>'}
-        <span class="eq-name${s.item ? '' : ' none'}"${s.item?.color ? ` style="color:${s.item.color}"` : ''}>${s.item ? esc(s.item.name) : '(nothing)'}</span>${s.item?.shard ? `<img class="eq-shard" src="${s.item.shard.icon}" alt="${esc(s.item.shard.name)}" title="Set with ${esc(s.item.shard.name)}">` : '<span></span>'}</div>`).join('');
-      body = `<div class="cs-sec">Equipped</div>${slots}<p class="cs-hint">Equip and take things off in the bag (Inventory → Gear, Shards).</p>`;
+      // Update 140: equip and take off from here (↑ ↓ a slot, A its choices).
+      const eh = h.equip?.(), list = eh ? eh.slots(k).map((s) => ({ label: s.label, item: s.item, none: s.none })) : h.slots(k).map((s) => ({ ...s, none: undefined as string | undefined }));
+      this.gearSel = Math.min(this.gearSel, Math.max(0, list.length - 1));
+      const slots = list.map((s, j) => `<div class="cs-slot${eh && j === this.gearSel ? ' sel' : ''}" data-gear="${j}"><span class="eq-label">${esc(s.label)}</span>${s.item ? `<img src="${s.item.icon}" alt="">` : '<span class="eq-empty"></span>'}
+        <span class="eq-name${s.item ? '' : ' none'}"${s.item?.color ? ` style="color:${s.item.color}"` : ''}>${s.item ? esc(s.item.name) : esc(s.none ?? '(nothing)')}</span>${s.item?.shard ? `<img class="eq-shard" src="${s.item.shard.icon}" alt="${esc(s.item.shard.name)}" title="Set with ${esc(s.item.shard.name)}">` : '<span></span>'}</div>`).join('');
+      const p = this.picking;
+      const pick = p ? `<div class="cs-pick"><div class="cs-sec">Put on…</div>${p.list.map((c, j) => `<button type="button" class="cs-choice${j === p.index ? ' sel' : ''}" data-choice="${j}">${c ? `<img src="${c.icon}" alt=""><span${c.color ? ` style="color:${c.color}"` : ''}>${esc(c.name)}</span>${c.detail ? `<small>${esc(c.detail)}</small>` : ''}` : '<span class="eq-empty"></span><span>Take it off</span>'}</button>`).join('')}</div>` : '';
+      body = `<div class="cs-sec">Equipped</div><div class="cs-gear">${slots}</div>${pick}${this.gearNote ? `<p class="cs-note">${esc(this.gearNote)}</p>` : ''}<p class="cs-hint">${eh ? `↑ ↓ choose · ${esc(this.input.label('ok'))}: equip or take off${p ? ' · B: back' : ''}` : 'Equip and take things off in the bag (Inventory → Gear, Shards).'}</p>`;
     }
     this.root.innerHTML = `<div class="inv-box cs-box cs-summary" style="--hero:${who.color}">
       <div class="cs-body">
@@ -139,6 +192,8 @@ export class CharacterScreen {
       </div>
       <div class="menu-note">← → pages${(this.host.order?.().length ?? 1) > 1 ? ` · ${esc(this.input.label('subPrev'))} / ${esc(this.input.label('subNext'))}: another hero` : ''} · Esc: back</div>
     </div>`;
-    this.root.querySelectorAll<HTMLElement>('[data-page]').forEach((b) => b.addEventListener('click', () => { this.page = Number(b.dataset.page); uiSound('menuMove'); this.render(); }));
+    this.root.querySelectorAll<HTMLElement>('[data-page]').forEach((b) => b.addEventListener('click', () => { this.page = Number(b.dataset.page); this.picking = null; uiSound('menuMove'); this.render(); }));
+    this.root.querySelectorAll<HTMLElement>('[data-gear]').forEach((b) => b.addEventListener('click', () => { const j = Number(b.dataset.gear); if (j === this.gearSel && !this.picking) this.openChoices(); else { this.gearSel = j; this.picking = null; uiSound('menuMove'); this.render(); } }));
+    this.root.querySelectorAll<HTMLElement>('[data-choice]').forEach((b) => b.addEventListener('click', () => this.choose(Number(b.dataset.choice))));
   }
 }

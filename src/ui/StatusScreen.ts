@@ -148,7 +148,7 @@ export class StatusScreen {
     this.root.innerHTML = `<div class="inv-box st-box">
       <div class="inv-head"><span class="menu-title">${many ? '<button type="button" class="st-swap" data-d="-1" aria-label="Previous hero">◀</button> ' : ''}${esc(h.name(k0))}${many ? ' <button type="button" class="st-swap" data-d="1" aria-label="Next hero">▶</button>' : ''}</span><span class="sk-points">Level ${h.level(k0)}${xp.next !== null ? ` · EXP ${xp.have} / ${xp.next}` : ' · max level'}</span></div>
       ${tabStrip(this.tabs)}
-      <div class="st-gauges">${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}${bar('SP', g.sp, 'sp')}</div>
+      <div class="st-gauges">${bar('HP', g.hp, 'hp')}${bar('MP', g.mp, 'mp')}${xp.next !== null ? bar('EXP', [xp.have, xp.next], 'xp') : ''}</div>
       <div class="st-head"><span></span><span></span><span>Own</span><span>Gear</span><span>Total</span><span></span></div>
       <div class="mk-stats st-stats" role="listbox">${rows}</div>
       <div class="st-derived">

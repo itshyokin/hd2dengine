@@ -38,15 +38,22 @@ export function wireTabs(root: HTMLElement, t: TabGroup | undefined): void {
   }));
 }
 
+/**
+ * The Party menu (Update 141): its own tabs (Party, Journal) on the triggers (LT / RT), the Journal's tabs on the
+ * bumpers (LB / RB), the other way round from other menus.
+ */
+export const tabSwap = { on: false };
+
 /** LB / RB: true when it moved to another tab (the screen should stop handling keys this frame). */
 export function tabKeys(input: Input, t: TabGroup | undefined): boolean {
   if (!t) return false;
   if (t.main) {
-    if (input.consume('tabPrev')) { t.main.go(-1); return true; }
-    if (input.consume('tabNext')) { t.main.go(1); return true; }
+    const [mp, mn, ip, inn] = tabSwap.on ? ['subPrev', 'subNext', 'tabPrev', 'tabNext'] as const : ['tabPrev', 'tabNext', 'subPrev', 'subNext'] as const;
+    if (input.consume(mp)) { t.main.go(-1); return true; }
+    if (input.consume(mn)) { t.main.go(1); return true; }
     if (t.labels.length < 2) return false;
-    if (input.consume('subPrev')) { t.go(-1); return true; }
-    if (input.consume('subNext')) { t.go(1); return true; }
+    if (input.consume(ip)) { t.go(-1); return true; }
+    if (input.consume(inn)) { t.go(1); return true; }
     return false;
   }
   if (t.labels.length < 2) return false;

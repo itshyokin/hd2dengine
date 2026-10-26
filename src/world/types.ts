@@ -946,7 +946,7 @@ export interface CustomWornBody { front?: CustomWornPic; back?: CustomWornPic; s
 export interface WornPick { part: string; swatch?: number; tint?: string }
 
 /** The Journal's tabs (Update 130). */
-export type JournalTabId = 'quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'records';
+export type JournalTabId = 'quests' | 'log' | 'bestiary' | 'types' | 'tutorials' | 'records' | 'achievements';
 
 /** A hero's gender (Update 127; game/roleplay.ts). */
 export type Gender = 'male' | 'female' | 'transman' | 'transwoman' | 'transgender' | 'nonbinary' | 'other';

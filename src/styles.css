@@ -1997,6 +1997,12 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .pr-left { min-height: 0; display: flex; }
 .pr-slot { position: relative; border: 2px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); border-radius: 12px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s; }
 .pr-slot.sel { border-color: var(--ember); box-shadow: 0 0 0 2px rgba(255, 176, 74, 0.35); }
+/* Update 140: arrows either side of the selected hero (the outline alone was hard to follow). */
+.pr-slot.sel::before, .pr-slot.sel::after { position: absolute; top: 50%; z-index: 3; font-size: 20px; line-height: 1; color: var(--ember); text-shadow: 0 1px 0 #000, 0 0 6px rgba(0,0,0,0.6); pointer-events: none; }
+.pr-slot.sel::before { content: '▶'; left: 3px; translate: 0 -50%; animation: pr-arrow-l 0.9s ease-in-out infinite; }
+.pr-slot.sel::after { content: '◀'; right: 3px; translate: 0 -50%; animation: pr-arrow-r 0.9s ease-in-out infinite; }
+@keyframes pr-arrow-l { 50% { translate: 4px -50%; } }
+@keyframes pr-arrow-r { 50% { translate: -4px -50%; } }
 .pr-slot.target { border-color: #7ad8ff; box-shadow: 0 0 0 2px rgba(122, 216, 255, 0.45); }
 .pr-slot.dim { opacity: 0.45; }
 .pr-slot.down img { filter: grayscale(1) brightness(0.7); }
@@ -2454,3 +2460,25 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 .tp-btns { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
 .tp-btn { font: 700 12px var(--f-body); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: #e8ecf4; cursor: pointer; }
 .tp-btn.primary { background: #ffd27a; color: #1a1408; border-color: #ffd27a; }
+
+/* Status → Gear (Update 140): pick a slot, then what goes in it. */
+.cs-slot { cursor: pointer; border-radius: 8px; border: 2px solid transparent; }
+.cs-slot.sel { border-color: var(--ember); background: rgba(255, 176, 74, 0.08); }
+.cs-slot.sel .eq-label::before { content: '▶ '; color: var(--ember); }
+.cs-pick { margin-top: 8px; display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.cs-choice { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; text-align: left; padding: 4px 8px; border-radius: 8px; border: 2px solid transparent; background: rgba(255,255,255,0.04); color: inherit; font: inherit; cursor: pointer; }
+.cs-choice img { width: 24px; height: 24px; image-rendering: pixelated; }
+.cs-choice small { opacity: 0.7; }
+.cs-choice.sel { border-color: var(--ember); background: rgba(255, 176, 74, 0.1); }
+.cs-note { margin: 6px 0 0; color: #9be08a; font-size: 0.92em; }
+
+/* ---------------- Update 141: the Backpack (B): the bag as a compact window at the bottom right ---------------- */
+.inv.backpack { place-items: end end; background: rgba(6, 8, 14, 0.22); padding: 16px 18px 120px; }
+.inv.backpack .inv-box { width: min(520px, 96vw); max-height: min(560px, calc(100% - 140px)); padding: 12px; gap: 8px; transform-origin: bottom right; }
+.inv.backpack .inv-main { grid-template-columns: auto minmax(160px, 1fr); gap: 10px; }
+.inv.backpack .inv-main > .inv-grid { grid-template-columns: repeat(var(--cols), 40px); grid-auto-rows: 40px; gap: 4px; }
+.inv.backpack .tab-strip { font-size: 0.86em; }
+/* The Party menu's buttons for the other menus (mouse and touch). */
+.ps-extras { display: inline-flex; gap: 6px; margin-left: 10px; }
+.ps-extra { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: inherit; cursor: pointer; padding: 0; }
+.ps-extra svg { width: 20px; height: 20px; }

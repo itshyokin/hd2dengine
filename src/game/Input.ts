@@ -10,19 +10,20 @@ export type Action = 'up' | 'down' | 'left' | 'right' | 'ok' | 'cancel' | 'run' 
   /** Quick items and key items (assigned in the bag): left, up, right, down. */
   | 'quick1' | 'quick2' | 'quick3' | 'quick4'
   /** Menus only: switch tabs (the pause menu's: LB / RB, Q / E), and the tabs inside one (LT / RT, Z / C). */
-  | 'tabPrev' | 'tabNext' | 'subPrev' | 'subNext';
+  | 'tabPrev' | 'tabNext' | 'subPrev' | 'subNext'
+  /** Update 141: START Settings, X the Party menu (with the Journal), B the Backpack, Y the World Map. */
+  | 'settings' | 'party' | 'backpack' | 'worldmap';
 
 /** Actions the player can rebind, in the order the Controls screen lists them. */
 export const BINDABLE: [Action, string][] = [
   ['up', 'Move up'], ['down', 'Move down'], ['left', 'Move left'], ['right', 'Move right'],
   ['run', 'Run'], ['jump', 'Jump'], ['ok', 'Talk / interact'],
-  // (No sword or bow on the map since Update 132: the Cut and Bow key items go on the quick slots.)
-  ['magic', 'Cast spell (bolt)'],
-  ['ring', 'Spell (cast the readied shard)'],
+  // (No sword or bow on the map since Update 132, and no spells cast on it: key items go on the quick slots.)
   ['target', 'Lock on / next target'], ['targetPrev', 'Previous target'], ['lock', 'Release target'],
   ['sneak', 'Sneak / crouch'],
   ['quick1', 'Quick slot ← (left)'], ['quick2', 'Quick slot ↑ (up)'], ['quick3', 'Quick slot → (right)'], ['quick4', 'Quick slot ↓ (down)'],
-  ['cancel', 'Menu / back'],
+  ['settings', 'Settings (save, load, quit)'], ['party', 'Party and Journal'], ['backpack', 'Backpack (items)'], ['worldmap', 'World map'],
+  ['cancel', 'Back (in menus)'],
 ];
 
 export interface Bindings {
@@ -35,8 +36,9 @@ export interface Bindings {
 export const DEFAULT_BINDINGS: Bindings = {
   keys: {
     up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
-    ok: ['Enter', 'NumpadEnter'], jump: ['Space'], cancel: ['Escape', 'KeyX'], run: ['ShiftLeft', 'ShiftRight'],
-    melee: ['Digit1', 'Numpad1'], bow: ['Digit2', 'Numpad2'], magic: ['Digit3', 'Numpad3'], ring: ['Digit4', 'KeyF'],
+    ok: ['Enter', 'NumpadEnter'], jump: ['Space'], cancel: ['KeyX'], run: ['ShiftLeft', 'ShiftRight'],
+    melee: [], bow: [], magic: [], ring: [],
+    settings: ['Escape'], party: ['KeyP'], backpack: ['KeyI', 'KeyB'], worldmap: ['KeyM'],
     attack: [], switchWeapon: ['KeyR'],
     target: ['Tab'], lock: ['KeyQ'], targetPrev: [],
     // Sneak is on C (Ctrl would make Ctrl+W close the browser tab).
@@ -44,11 +46,12 @@ export const DEFAULT_BINDINGS: Bindings = {
     quick1: ['Digit5', 'Numpad5'], quick2: ['Digit6', 'Numpad6'], quick3: ['Digit7', 'Numpad7'], quick4: ['Digit8', 'Numpad8'],
   },
   pad: {
-    // A talks (when facing someone) or jumps; B casts the readied spell; X sprints; Y swaps sword and bow.
-    // RB / LB lock on and cycle targets either way, the left stick (pressed) lets go; the right stick crouches.
-    ok: [0], jump: [0], ring: [1], run: [2], switchWeapon: [3],
-    targetPrev: [4], target: [5], attack: [6],
-    cancel: [9], sneak: [11], lock: [10],
+    // Update 141: A talks (when facing someone) or jumps; B the Backpack; X the Party menu; Y the World Map;
+    // START Settings. RB / LB lock on and cycle targets either way, the left stick (pressed) lets go; the right
+    // stick crouches.
+    ok: [0], jump: [0], backpack: [1], party: [2], worldmap: [3], settings: [9],
+    targetPrev: [4], target: [5],
+    sneak: [11], lock: [10],
     // The D-pad: the four quick slots (items and key items: left, up, right, down).
     quick1: [14], quick2: [12], quick3: [15], quick4: [13],
   },
@@ -64,8 +67,13 @@ const MENU_KEYS: Record<string, Action> = {
 /** Controller buttons menus always understand. */
 // X and Y give menus their extra buttons (Y deletes a save, swaps lists, rerolls; X cycles options).
 const MENU_PAD: Record<number, Action> = { 0: 'ok', 1: 'cancel', 2: 'run', 3: 'switchWeapon', 9: 'cancel', 8: 'cancel', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 4: 'tabPrev', 5: 'tabNext', 6: 'subPrev', 7: 'subNext' };
+/**
+ * Update 141: in menus the same buttons also say which menu they open, so each one closes what it opened (B the
+ * Backpack, X the Party menu, Y the World Map, START Settings).
+ */
+const MENU_TOGGLES: Record<number, Action> = { 1: 'backpack', 2: 'party', 3: 'worldmap', 9: 'settings' };
 /** Bumped when the default controller layout changes, so old saved layouts are replaced. */
-export const BINDINGS_VERSION = 3;
+export const BINDINGS_VERSION = 4;
 
 export const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'Left stick', 'Right stick', 'D-pad ↑', 'D-pad ↓', 'D-pad ←', 'D-pad →', 'Xbox'];
 
@@ -200,7 +208,7 @@ export class Input {
     }
     const actions = (b: number): Action[] => {
       const out: Action[] = [];
-      if (this.mode === 'menu') { const m = MENU_PAD[b]; if (m) out.push(m); return out; }
+      if (this.mode === 'menu') { const m = MENU_PAD[b]; if (m) out.push(m); const t = MENU_TOGGLES[b]; if (t) out.push(t); return out; }
       for (const [a, list] of Object.entries(this.bindings.pad) as [Action, number[]][]) if (list?.includes(b)) out.push(a);
       return out;
     };

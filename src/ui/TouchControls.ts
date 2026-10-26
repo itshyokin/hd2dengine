@@ -18,7 +18,8 @@ export class TouchControls {
     // Stop taps here reaching the map underneath (which would walk there).
     const menu = this.root.querySelector<HTMLButtonElement>('.menu-btn')!;
     for (const b of [this.run, this.jump, this.ring, menu]) b.addEventListener('pointerdown', (e) => e.stopPropagation());
-    menu.addEventListener('click', () => input.press('cancel'));
+    // Update 141: the Party menu (its corner buttons open the Backpack, World Map and Settings).
+    menu.addEventListener('click', () => input.press('party'));
     // Sprint: Hold runs while the button is pressed; Toggle switches running on and off.
     this.run.addEventListener('pointerdown', () => {
       if (input.sprintToggle) { input.runLatched = !input.runLatched; this.run.setAttribute('aria-pressed', String(input.runLatched)); }
@@ -42,7 +43,8 @@ export class TouchControls {
   setHidden(hidden: boolean): void { this.hiddenByGame = hidden; this.show(); }
 
   /** Show the Spell button while a field spell (Light, Water Walk) is equipped. */
-  setRing(worn: boolean): void { this.ring.hidden = !worn; }
+  /** (Update 141: no spells cast on the map, so the Spell button stays hidden.) */
+  setRing(_worn: boolean): void { this.ring.hidden = true; }
 
   /** Hide the buttons for abilities the player doesn't have (yet). */
   update(has: (a: Ability) => boolean): void {

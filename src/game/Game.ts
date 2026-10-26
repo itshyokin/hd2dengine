@@ -129,7 +129,7 @@ import { AchievementBook, platformUnlock, progress as achProgress, type Achievem
 import { Explored, type Neighbour, neighbourAt, neighbours, seamlessSides } from '../world/worldLayout';
 import { averageColor, builtinTileColor, drawMapArt, propMark } from '../render/worldMapArt';
 import { CharacterScreen } from '../ui/CharacterScreen';
-import type { TabGroup } from '../ui/tabs';
+import { tabSwap, type TabGroup } from '../ui/tabs';
 import { ShopScreen, shopGoods } from '../ui/ShopScreen';
 import { waitForPlaytest } from '../shared/playtest';
 import { CharacterSprite, DIR_VECTOR } from './CharacterSprite';
@@ -186,7 +186,7 @@ const WINDOW_COLORS: [string, string][] = [['', 'The theme’s'], ['#f8f8f0', 'W
 const TEXT_COLORS: [string, string][] = [['', 'The theme’s'], ['#181818', 'Black'], ['#404048', 'Dark grey'], ['#1c2a58', 'Navy'], ['#4a2e18', 'Brown'], ['#f4f4f0', 'White'], ['#f3ead8', 'Cream'], ['#ffd27a', 'Gold']];
 const FRAME_COLORS: [string, string][] = [['', 'The theme’s'], ['#d83828', 'Red'], ['#e8862a', 'Orange'], ['#e0b040', 'Gold'], ['#3aa850', 'Green'], ['#2aa8a0', 'Teal'], ['#3a70e0', 'Blue'], ['#8a50d8', 'Purple'], ['#e050a0', 'Pink']];
 /** The Journal's tabs. */
-const JOURNAL_TABS: [JournalTabId, string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['records', 'Records']];
+const JOURNAL_TABS: [JournalTabId, string][] = [['quests', 'Quests'], ['log', 'Adventure Log'], ['bestiary', 'Bestiary'], ['types', 'Type Chart'], ['tutorials', 'Tutorials'], ['records', 'Records'], ['achievements', 'Achievements']];
 /** The Journal tabs' little pictures (Update 130). */
 const JOURNAL_ICONS: Record<JournalTabId, string> = {
   quests: '<svg viewBox="0 0 16 16"><path d="M4 2.5h7.5a1.5 1.5 0 0 1 1.5 1.5v9.5H5.5A1.5 1.5 0 0 1 4 12V2.5zM4 12a1.5 1.5 0 0 0-1.5 1.5"/><path d="M6.5 6h4M6.5 8.5h4"/></svg>',
@@ -195,6 +195,22 @@ const JOURNAL_ICONS: Record<JournalTabId, string> = {
   types: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M2.5 6.2h11M2.5 9.8h11M6.2 2.5v11M9.8 2.5v11"/></svg>',
   tutorials: '<svg viewBox="0 0 16 16"><path d="M5.5 10.5a4 4 0 1 1 5 0V12h-5z"/><path d="M6 14h4"/></svg>',
   records: '<svg viewBox="0 0 16 16"><path d="M4.5 2.5h7v3a3.5 3.5 0 0 1-7 0z"/><path d="M4.5 3.5H2.5a2 2 0 0 0 2 2.5M11.5 3.5h2a2 2 0 0 1-2 2.5M8 9v2.5M5.5 13.5h5"/></svg>',
+  achievements: '<svg viewBox="0 0 16 16"><circle cx="8" cy="6" r="3.5"/><path d="M5.8 8.8L4.5 14l3.5-1.8 3.5 1.8-1.3-5.2"/></svg>',
+};
+/** Settings' pictures (Update 141): one per page, beside each setting. */
+const SET_ICONS = {
+  picture: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>',
+  hud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M6 8h6M15 8h3M6 16h3"/></svg>',
+  sound: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+  controls: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h10a4 4 0 0 1 4 4v2a3 3 0 0 1-5.4 1.8L14.5 14h-5l-1.1 1.8A3 3 0 0 1 3 14v-2a4 4 0 0 1 4-4z"/><path d="M8 11v3M6.5 12.5h3M16 12h.01M18 13.5h.01"/></svg>',
+  gameplay: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
+  file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/></svg>',
+  restore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/></svg>',
+  save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></svg>',
+  load: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>',
+  quit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4M18 12H9"/></svg>',
+  backpack: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
 };
 const INTERACT_RANGE = 1.3;
 
@@ -727,6 +743,7 @@ export class Game {
     });
     // A hero's Status page: who they are, ailments, their numbers and what they wear.
     this.charScreen = new CharacterScreen(this.ui, this.input, {
+      equip: () => this.equipHost(),
       hero: (h) => {
         const host = this.equipHost(), x = host.heroes()[h], def = h ? this.members()[h - 1]?.def : mainHero(this.db);
         // Update 127: gender, roleplay answers, and how they see the rest of the party (the hero you play rates no one).
@@ -771,6 +788,8 @@ export class Game {
       heroName: () => mainHero(this.db).name,
       markers: () => this.worldMarkers(),
       artScale: 4,
+      pin: () => this.state.pin,
+      setPin: (p) => { this.state.pin = p; },
     });
     this.bubbles = new BubbleLayer(this.ui);
     this.achBook = new AchievementBook(`hd2d:${this.db.title || 'game'}${this.isPlaytest ? ':playtest' : ''}:achievements`);
@@ -1953,6 +1972,13 @@ export class Game {
     // Arrived after respawning: fade back in (the player can already move).
     if (this.transferFadeIn && !this.transfer) { this.transferFadeIn = false; this.fade = { from: 1, to: 0, t: 0, duration: 0.8 }; }
     if (paused) {
+      // Update 141: each button closes what it opened (B the Backpack once nothing's picked, X the Party menu, Y the
+      // World Map, START Settings).
+      const inp = this.input;
+      if (this.pauseShell.isOpen && !this.menu.isOpen && inp.consume('party')) { this.closePause(); uiSound('menuBack'); }
+      else if (this.bag.isOpen && this.bag.compact && this.bag.atTop && inp.consume('backpack')) { this.bag.close(); uiSound('menuBack'); inp.consume('cancel'); }
+      else if (this.worldMap.isOpen && inp.consume('worldmap')) { this.worldMap.dismiss(); inp.consume('cancel'); }
+      else if (this.settingsOpen && this.menu.isOpen && !this.controls.isOpen && inp.consume('settings')) { this.menu.close(); this.settingsOpen = false; uiSound('menuBack'); inp.consume('cancel'); }
       // The topmost screen takes the keys: shop, then bag, then the menu under them. The console freezes everything.
       if (this.devConsole.isOpen) { /* typing */ }
       else if (this.evolve.isOpen) this.evolve.update(dt);
@@ -2140,17 +2166,17 @@ export class Game {
     }
     // Fishing: the hero stands still with the rod out (moving, jumping or attacking reels in).
     if (this.fishing) this.updateFishing(dt);
-    if (i.consume('cancel') && !this.motion.airborne && !this.motion.climbing) { this.openPauseMenu(); return; }
-    // B / F / 3: cast the readied shard — a field spell (Light, Water Walk) switches on or off; the rest fire a bolt.
-    // (Key items are on the quick slots since Update 132.) Riding, B gets off the horse instead.
-    if (this.state.horse?.mounted && !this.motion.airborne && i.consume('ring')) this.dismount();
-    if (i.consume('ring') && !this.motion.climbing) {
-      // A learned spell readied in Menu → Abilities comes first; otherwise the shard in the magic slot.
-      if (this.readiedSpell()) this.combat.castShard();
-      else if (this.rings.power) this.useRing();
-      else if (this.inventory.equip.magic) this.combat.castShard();
-      else this.menu.notice('No spell readied: equip a shard in Menu → Bag → Shards');
+    // Update 141: START Settings, X Party (and the Journal), B the Backpack, Y the World Map.
+    if (!this.motion.airborne && !this.motion.climbing) {
+      if (i.consume('settings') || i.consume('cancel')) { this.openSettingsMenu(); return; }
+      if (i.consume('party')) { this.openPauseMenu(); return; }
+      if (i.consume('backpack')) { this.openBackpack(); return; }
+      if (i.consume('worldmap')) { this.openWorldMap(); return; }
     }
+    // Riding: the Spell key (F, if still bound) gets off the horse (the Ride horse key item does too).
+    if (this.state.horse?.mounted && !this.motion.airborne && i.consume('ring')) this.dismount();
+    // (Update 141: no spells cast on the map; shards are for battles. Light and Water Walk are key items.)
+    i.consume('ring'); i.consume('magic');
 
     let dx = (i.isHeld('right') ? 1 : 0) - (i.isHeld('left') ? 1 : 0);
     let dz = (i.isHeld('down') ? 1 : 0) - (i.isHeld('up') ? 1 : 0);
@@ -3291,7 +3317,9 @@ export class Game {
     this.rings.wear(keep ?? (d?.spell?.power ? d : null), this.settings.lightShadows);
     // The HUD shows what the spell button does: the readied spell (a learned spell, or the shard's bolt or field spell).
     const learned = this.readiedSpell();
-    this.hud.setRing(learned ? { name: learned.name, icon: elementIconUrl(learned.element ?? 'neutral') } : d ? { name: d.name, icon: this.itemIcon(d.id) } : null);
+    // (Update 141: nothing is cast on the map any more, so the HUD's spell box stays empty.)
+    void learned;
+    this.hud.setRing(null);
     this.touch.setRing(!!(learned || d));
   }
 
@@ -4602,10 +4630,8 @@ export class Game {
   /** The pause menu's tabs shown (built and not hidden in Database → Title & menus). */
   private pauseTabs(): PauseOption[] {
     const m = this.db.menus;
-    return PAUSE_OPTIONS.filter(([o, , works]) => works && !m?.pauseHidden?.[o]
-      // The Map needs a World layout; Achievements need some achievements.
-      && (o !== 'map' || Object.keys(this.db.world?.maps ?? {}).length > 0)
-      && (o !== 'achievements' || (this.db.achievements?.length ?? 0) > 0)).map(([o]) => o);
+    // Update 141: the Party menu (X) has the Party and the Journal; the rest have buttons of their own.
+    return PAUSE_OPTIONS.filter(([o, , works]) => works && (o === 'status' || o === 'journal') && !m?.pauseHidden?.[o]).map(([o]) => o);
   }
 
   /** Open the pause menu: it covers most of the screen, its tabs across the top (LB / RB). */
@@ -4613,8 +4639,14 @@ export class Game {
     const tabs = this.pauseTabs(), m = this.db.menus;
     if (!tabs.length) return;
     const k = tab ? Math.max(0, tabs.indexOf(tab)) : 0;
+    // Its tabs on the triggers, the Journal's on the bumpers (Update 141).
+    tabSwap.on = true;
+    const other = (open: () => void) => () => { this.closePause(); open(); };
     this.pauseShell.show(tabs.map((o) => ({ id: o, label: pauseLabel(m, o), icon: PAUSE_ICONS[o] })), k,
-      [this.input.label('tabPrev'), this.input.label('tabNext')], (to) => { uiSound('menuMove'); this.showPauseTab(to); });
+      [this.input.label('subPrev'), this.input.label('subNext')], (to) => { uiSound('menuMove'); this.showPauseTab(to); },
+      [{ label: `Backpack (${this.input.label('backpack')})`, icon: SET_ICONS.backpack, run: other(() => this.openBackpack()) },
+        ...(Object.keys(this.db.world?.maps ?? {}).length ? [{ label: `World map (${this.input.label('worldmap')})`, icon: SET_ICONS.map, run: other(() => this.openWorldMap()) }] : []),
+        { label: `Settings (${this.input.label('settings')})`, icon: SET_ICONS.gameplay, run: other(() => this.openSettingsMenu()) }]);
     this.showPauseTab(k);
   }
 
@@ -4630,6 +4662,25 @@ export class Game {
   private closePause(): void {
     this.hidePauseScreens();
     this.pauseShell.close();
+    tabSwap.on = false;
+  }
+
+  /** B (Update 141): the Backpack, a compact bag at the bottom right; the game waits while it's open. */
+  private openBackpack(): void {
+    this.bag.compact = true;
+    this.openInventory(this.invTab, () => { this.bag.compact = false; });
+  }
+  /** Y (Update 141): the World Map, if the game has a World layout. */
+  private openWorldMap(): void {
+    if (!Object.keys(this.db.world?.maps ?? {}).length) { this.menu.notice('No world map yet'); return; }
+    this.worldMap.show(() => {});
+    this.drawWorldArt();
+  }
+  /** START (Update 141): Settings, with saving, loading and quitting. */
+  private settingsOpen = false;
+  private openSettingsMenu(): void {
+    this.settingsOpen = true;
+    this.openSettings({ onBack: () => { this.settingsOpen = false; } });
   }
 
   /** Inner tabs remembered while the game runs (the bag's pocket, the Journal's page). */
@@ -5353,13 +5404,14 @@ export class Game {
   private journalList(): [JournalTabId, string][] {
     const cfg = this.db.menus?.journal, order = cfg?.order ?? [];
     const sorted = [...JOURNAL_TABS].sort((a, b) => { const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
-    const list = sorted.filter(([id]) => this.state.journalTabs.get(id) ?? !cfg?.hidden?.includes(id));
+    // Achievements (Update 141: a Journal tab) only when the game has some.
+    const list = sorted.filter(([id]) => (id !== 'achievements' || (this.db.achievements?.length ?? 0) > 0) && (this.state.journalTabs.get(id) ?? !cfg?.hidden?.includes(id)));
     return list.length ? list : [JOURNAL_TABS[0]];
   }
 
   /** The Journal: quests, the adventure log and records, as tabs. */
   private openJournal(k: number, onClose: () => void = () => {}): void {
-    this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide(); this.bestiaryScreen.hide();
+    this.questScreen.hide(); this.logScreen.hide(); this.recordsScreen.hide(); this.bestiaryScreen.hide(); this.achScreen.hide();
     // The tabs in the Database's order, without the hidden ones (events can show or hide them: Update 130).
     const list = this.journalList(), m = this.db.menus, n = list.length;
     k = ((k % n) + n) % n;
@@ -5372,13 +5424,14 @@ export class Game {
     else if (id === 'bestiary') this.bestiaryScreen.show(title, this.bestiary(), onClose, tabs);
     else if (id === 'types') this.recordsScreen.show(title, { html: typeChartHtml(this.combatCfg.essence) }, onClose, tabs);
     else if (id === 'tutorials') this.recordsScreen.show(title, { html: this.tutorialsHtml() }, onClose, tabs);
+    else if (id === 'achievements') this.achScreen.show(onClose, tabs);
     else this.recordsScreen.show(title, this.records(), onClose, tabs);
   }
 
   private tabGroup(labels: string[], index: number, open: (k: number) => void): TabGroup {
     const go = (step: number, to?: number) => { uiSound('menuMove'); open(to ?? index + step); };
     // Inside the pause menu: these are inner tabs (LT / RT), LB / RB being the menu's own.
-    if (this.pauseShell.isOpen) return this.pauseShell.group({ labels, index, keys: [this.input.label('subPrev'), this.input.label('subNext')], go });
+    if (this.pauseShell.isOpen) return this.pauseShell.group({ labels, index, keys: tabSwap.on ? [this.input.label('tabPrev'), this.input.label('tabNext')] : [this.input.label('subPrev'), this.input.label('subNext')], go });
     return { labels, index, keys: [this.input.label('tabPrev'), this.input.label('tabNext')], go };
   }
 
@@ -6705,7 +6758,7 @@ export class Game {
       { label: 'Always run', detail: 'Hold Run to walk instead.', toggle: { value: st.alwaysRun, set: set('alwaysRun') } },
       { label: 'Tutorial pop-ups', detail: 'Tips the first time something new comes up. Off: they’re still kept in Journal → Tutorials.', toggle: { value: st.tutorials !== false, set: set('tutorials') } },
       { label: 'Sneak / crouch', detail: 'Hold: sneak while the button is held. Toggle: press once to start, again to stop.', choice: { value: st.crouch, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('crouch')(v as Settings['crouch']) } },
-      { label: 'Sprint', detail: 'Hold: run while the run button is held (X on a controller, Shift on a keyboard). Toggle: press once to start running, again to stop (controller and touch button).', choice: { value: st.sprint, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('sprint')(v as Settings['sprint']) } },
+      { label: 'Sprint', detail: 'Hold: run while Shift is held (keyboard). Toggle: press once to start running, again to stop (touch button). On a controller, the Sprint key item (a quick slot) switches running on and off.', choice: { value: st.sprint, options: [['hold', 'Hold'], ['toggle', 'Toggle']], set: (v) => set('sprint')(v as Settings['sprint']) } },
       { label: 'Run with a full stick push', detail: 'Controller: push the stick all the way to run.', toggle: { value: st.stickRun, set: set('stickRun') } },
       { label: 'Tap to walk', detail: 'Tap or click the ground to walk there, or a person to go and talk to them.', toggle: { value: !!st.tapToWalk, set: (v) => { set('tapToWalk')(v || undefined); if (!v) { this.cursor.visible = false; this.moveTarget = null; } } } },
       { label: 'Temperature', choice: { value: st.tempUnit ?? 'F', options: [['F', '°F'], ['C', '°C']], set: (v) => set('tempUnit')(v === 'C' ? 'C' : undefined) } },
@@ -6736,17 +6789,26 @@ export class Game {
       if (!Object.keys(hud).length) delete st.hud;
       this.applySettings(); this.settingsStore.save(st);
     };
+    // Update 141: a picture beside each setting (each page's own), and Save / Load / Quit to Title at the top.
+    const page = (icon: string, open: () => void) => () => { this.menu.fillIcon = icon; try { open(); } finally { this.menu.fillIcon = null; } };
+    const mm = this.db.menus, anywhere = this.db.saving?.anywhere !== false;
+    const system: MenuItem[] = this.onTitle ? [] : [
+      { label: 'Save', icon: SET_ICONS.save, detail: anywhere ? undefined : 'Only at save points', disabled: !anywhere || !!mm?.pauseHidden?.saveLoad, pick: () => this.openSaveScreen(false) },
+      { label: 'Load', icon: SET_ICONS.load, disabled: !this.saves.latest() || !!mm?.pauseHidden?.saveLoad, pick: () => this.openLoadScreen() },
+      ...(mm?.pauseHidden?.quitToTitle ? [] : [{ label: pauseLabel(mm, 'quitToTitle'), icon: SET_ICONS.quit, pick: () => this.confirmQuit() }]),
+    ];
     this.menu.push(title, [
-      { label: 'Picture', pick: picture },
-      { label: 'HUD', detail: 'Arrange and resize', pick: hudMenu },
-      { label: 'Sound', pick: sound },
-      { label: 'Controls', detail: 'Keyboard and controller', pick: controls },
-      { label: 'Gameplay', pick: gameplay },
-      { label: 'Save settings to a file', detail: 'HUD layout, controls and everything else, to bring to another copy of the game.', pick: () => {
+      ...system,
+      { label: 'Picture', icon: SET_ICONS.picture, pick: page(SET_ICONS.picture, picture) },
+      { label: 'HUD', icon: SET_ICONS.hud, detail: 'Arrange and resize', pick: page(SET_ICONS.hud, hudMenu) },
+      { label: 'Sound', icon: SET_ICONS.sound, pick: page(SET_ICONS.sound, sound) },
+      { label: 'Controls', icon: SET_ICONS.controls, detail: 'Keyboard and controller', pick: controls },
+      { label: 'Gameplay', icon: SET_ICONS.gameplay, pick: page(SET_ICONS.gameplay, gameplay) },
+      { label: 'Save settings to a file', icon: SET_ICONS.file, detail: 'HUD layout, controls and everything else, to bring to another copy of the game.', pick: () => {
         exportSettings(st, this.db.title || 'game');
         this.menu.notice('Settings file downloaded');
       } },
-      { label: 'Load settings from a file…', detail: 'A file saved with the option above.', pick: () => {
+      { label: 'Load settings from a file…', icon: SET_ICONS.file, detail: 'A file saved with the option above.', pick: () => {
         const r = importSettings();
         if ('needsClick' in r) { this.menu.notice('Click this option, or press Enter on it, to choose a file'); return; }
         r.then((loaded) => {
@@ -6757,7 +6819,7 @@ export class Game {
           this.menu.notice('Settings loaded');
         }, (e: Error) => this.menu.notice(e.message));
       } },
-      { label: 'Restore defaults', detail: 'Everything, controls and HUD too', pick: () => this.menu.push('Are you sure?', [
+      { label: 'Restore defaults', icon: SET_ICONS.restore, detail: 'Everything, controls and HUD too', pick: () => this.menu.push('Are you sure?', [
         { label: 'No, keep my settings', pick: () => this.menu.back() },
         { label: 'Yes, restore the defaults', pick: () => { delete st.bindings; delete st.bindingsVersion; delete st.hud; Object.assign(st, this.settingsStore.defaults()); this.applySettings(); this.settingsStore.save(st); this.menu.back(); this.menu.notice('Settings restored'); } },
       ], { note: 'Every setting goes back to the game’s defaults: graphics, sound, gameplay, your controls and the HUD layout. This can’t be undone.' }) },

@@ -15,6 +15,8 @@ export class PauseShell {
   private go: (k: number) => void = () => {};
   private keys: [string, string] = ['Q', 'E'];
   private open = false;
+  /** Buttons for the menus with their own buttons now (Backpack, World Map, Settings), for mouse and touch. */
+  private extras: { label: string; icon: string; run: () => void }[] = [];
 
   constructor(parent: HTMLElement, private readonly info: () => string) {
     this.root.className = 'pause-shell';
@@ -22,6 +24,8 @@ export class PauseShell {
     this.root.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]');
       if (b) { e.stopPropagation(); const k = Number(b.dataset.tab); if (k !== this.index) this.go(k); }
+      const x = (e.target as HTMLElement).closest<HTMLElement>('[data-extra]');
+      if (x) { e.stopPropagation(); this.extras[Number(x.dataset.extra)]?.run(); }
     });
     parent.appendChild(this.root);
   }
@@ -29,8 +33,8 @@ export class PauseShell {
   get isOpen(): boolean { return this.open; }
   get tab(): string | undefined { return this.tabs[this.index]?.id; }
 
-  show(tabs: ShellTab[], index: number, keys: [string, string], go: (k: number) => void): void {
-    this.tabs = tabs; this.index = index; this.keys = keys; this.go = go;
+  show(tabs: ShellTab[], index: number, keys: [string, string], go: (k: number) => void, extras: { label: string; icon: string; run: () => void }[] = []): void {
+    this.tabs = tabs; this.index = index; this.keys = keys; this.go = go; this.extras = extras;
     this.open = true;
     this.root.hidden = false;
     document.body.classList.add('pause-open');
@@ -61,6 +65,6 @@ export class PauseShell {
   private render(): void {
     this.root.innerHTML = `<div class="ps-bar" role="tablist"><span class="tab-key" aria-hidden="true">${esc(this.keys[0])}</span>${
       this.tabs.map((t, k) => `<button type="button" class="ps-tab" role="tab" data-tab="${k}" aria-selected="${k === this.index}">${t.icon ? `<span class="menu-icon" aria-hidden="true">${t.icon}</span>` : ''}<span>${esc(t.label)}</span></button>`).join('')
-    }<span class="tab-key" aria-hidden="true">${esc(this.keys[1])}</span></div><div class="ps-foot">${esc(this.info())}</div>`;
+    }<span class="tab-key" aria-hidden="true">${esc(this.keys[1])}</span>${this.extras.length ? `<span class="ps-extras">${this.extras.map((x, k) => `<button type="button" class="ps-extra" data-extra="${k}" title="${esc(x.label)}" aria-label="${esc(x.label)}">${x.icon}</button>`).join('')}</span>` : ''}</div><div class="ps-foot">${esc(this.info())}</div>`;
   }
 }

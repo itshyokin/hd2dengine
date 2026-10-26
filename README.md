@@ -835,6 +835,14 @@ them: Freezing before a fight, still Freezing after.
   **Continue** (the latest save; greyed out without one), **New Game**, **Load Game**, **Options**, **Exit**.
 - **Database → Title & menus**: the game title, the title shown on screen and a subtitle; rename or hide each title
   option and each pause menu entry; *Skip the title screen in playtests* for quick testing.
+- **Menus on their own buttons** (Update 141): **START** (Esc) opens **Settings**, now with **Save**, **Load** and
+  **Quit to Title** at the top and a picture beside every setting. **X** (P) opens the **Party menu**: two tabs,
+  **Party** and **Journal**, switched with **LT / RT** (Z / C), the Journal's own tabs with **LB / RB** (Q / E);
+  small buttons in its top corner open the Backpack, World Map and Settings (mouse and touch; the touch Menu button
+  opens it). **B** (I or B) opens the **Backpack**: the bag as a compact window at the bottom right (the game waits;
+  use items and key items, equip gear and shards). **Y** (M) opens the **World Map**. Each button closes what it
+  opened; in the Backpack, B first backs out of an item's choices. **Achievements** are a Journal tab now.
+  *(Before Update 141, below:)*
 - **Pause menu** (Esc / Start): one frame from the top of the screen to the bottom (the same size for every tab),
   with its tabs (all the same size) across the top: **Party · Items · Map ·
   Journal · Achievements · Settings · System**. **LB / RB** (Q / E) move between the tabs; tabs inside a tab (the
@@ -853,8 +861,10 @@ them: Freezing before a fight, still Freezing after.
   shows a **LEVEL UP** badge.
 - **Status** (Party → someone → Status), like the handheld games' summary: the hero on the left (picture, name, level
   pill, ailment, elements) and three pages on the right, ← → between them: **Profile** (About and ailments),
-  **Stats** (HP, MP, SP; the seven stats with their growth ranks on the left, damage and defence on the right; EXP
-  and how much to the next level) and **Gear** (what they're wearing).
+  **Stats** (HP, MP and the EXP bar under them; Update 140: stamina isn't shown, the HUD ring covers it; the seven
+  stats with their growth ranks on the left, damage and defence on the right; EXP and how much to the next level)
+  and **Gear** (what they're wearing; Update 140: ↑ ↓ pick a slot, A shows what fits from the bag, pick one or *Take
+  it off*). The Party menu marks the selected hero with arrows either side.
 - **Map**: the world map (Pokémon Gold / Silver style), drawn from your maps themselves and laid out as in the
   **World layout** (Map editor toolbar → **World**). The **stick glides** across it (faster the further it's pushed);
   the **D-pad** (arrow keys) moves the crosshair **one tile** a press, repeating while held, to fine-tune; or drag it.
@@ -2023,21 +2033,21 @@ Every key and button can be changed in **Settings → Controls** (per player, ke
 | Action | Keyboard | Xbox controller |
 | --- | --- | --- |
 | Move | WASD / arrows | Left stick (push all the way to run) |
-| Run / sprint (hold by default; toggle in Settings → Gameplay) | Shift | X, or a full stick push |
+| Run / sprint (hold by default; toggle in Settings → Gameplay) | Shift | A full stick push, or the Sprint key item on a quick slot |
 | Talk / interact | Enter | A (when facing someone or something) |
 | Jump | Space | A |
-| Cast the readied spell shard (a bolt, or switch Light / Water Walk on and off) | F, 3 or 4 | B |
 | Lock on / next target (switches and targets for the Bow key item) | Tab | RB (LB cycles the other way) |
 | Release target | Q | Left stick click |
 | Quick slots: items and key items (left / up / right / down) | 5 / 6 / 7 / 8 | D-pad ← / ↑ / → / ↓ |
 | Sneak / crouch (toggle by default; hold in Settings → Gameplay) | C | Right stick click |
-| Menu / back | Esc, Backspace or X | Start |
+| Settings (with Save, Load, Quit to Title) | Esc | START |
+| Party menu (Party and Journal) | P | X |
+| Backpack (items, gear, shards) | I or B | B |
+| World map (LB / RB: markers; A: place, move or remove your marker) | M | Y |
+| Back (in menus) | Esc, Backspace or X | B |
 
-The selected weapon shows top left, with the other under it (greyed out when there's no bow equipped). Spells
-aren't on the weapon wheel: ready a shard in Bag → **Shards** and cast it with its own button, so a sword swing
-can be followed straight away by a spell (pressed mid-swing, it goes off as the swing ends). The readied shard
-shows under the bars, and a small gem charm in its colour hangs on the hero's chest while one is readied. A layout you've already changed in Settings → Controls is kept; *Reset to defaults* there
-switches to the table above.
+Update 141: nothing is cast on the map any more (shards are for battles; Light and Water Walk are key items on
+the quick slots). Saved keyboard layouts are kept; the controller layout switches to the table above.
 
 In menus the arrows, Enter and Esc always work, and on a controller the D-pad / left stick, A (confirm), B (back)
 and LB / RB (switch tabs). Touch screens get Menu, Run (hold, or toggle), Jump and Spell buttons, and the quick

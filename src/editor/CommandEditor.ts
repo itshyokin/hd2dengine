@@ -196,7 +196,7 @@ export function conditionText(c: Condition): string {
 
 /** Relationships (Update 124): hero names and choices. */
 /** The Journal's tabs by name (Update 130). */
-export const JOURNAL_TAB_NAMES: Record<string, string> = { quests: 'Quests', log: 'Adventure Log', bestiary: 'Bestiary', types: 'Type Chart', tutorials: 'Tutorials', records: 'Records' };
+export const JOURNAL_TAB_NAMES: Record<string, string> = { quests: 'Quests', log: 'Adventure Log', bestiary: 'Bestiary', types: 'Type Chart', tutorials: 'Tutorials', records: 'Records', achievements: 'Achievements' };
 const relHeroName = (id: string): string => (!id ? 'the hero you play' : dbNow?.().heroes?.find((x) => x.id === id)?.name ?? id);
 const relRaters = (): [string, string][] => (dbNow?.().heroes ?? []).slice(1).map((x) => [x.id, x.name] as [string, string]);
 const relTargets = (): [string, string][] => [['', 'The hero you play'], ...relRaters()];

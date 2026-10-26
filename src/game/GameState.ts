@@ -57,6 +57,8 @@ export class GameState {
   realDay = '';
   /** Sprint switched on (the Sprint key item, Update 137). */
   sprint = false;
+  /** The player's own marker on the World Map (Update 141), in world tiles. */
+  pin: { x: number; z: number } | null = null;
   /** Props cut down with a cutting ring, per map (keys from propKey). */
   readonly cut = new Map<string, Set<string>>();
   /** Game hours passed since the game began (the clock running; fires burn by it). */
@@ -171,7 +173,7 @@ export class GameState {
   }
 
   /** Restore from a save (replaces everything). */
-  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number>; journalTabs?: Record<string, boolean>; realDay?: string; sprint?: boolean }): void {
+  load(d: { roosts?: Record<string, RoostState>; horse?: HorseState | null; expAllOff?: string[]; enemyLevels?: { spread: number } | null; switches?: Record<string, boolean>; variables?: Record<string, number>; abilities?: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number>; journalTabs?: Record<string, boolean>; realDay?: string; sprint?: boolean; pin?: { x: number; z: number } | null }): void {
     this.weaponsOff = !!d.weaponsOff;
     this.body.clear();
     this.good.clear();
@@ -192,6 +194,7 @@ export class GameState {
     this.groupQueue = [...(d.groupQueue ?? [])];
     this.realDay = d.realDay ?? '';
     this.sprint = !!d.sprint;
+    this.pin = d.pin && Number.isFinite(d.pin.x) && Number.isFinite(d.pin.z) ? { x: d.pin.x, z: d.pin.z } : null;
     this.journalTabs.clear();
     for (const [k, v] of Object.entries(d.journalTabs ?? {})) this.journalTabs.set(k, v);
     this.rel.clear();
@@ -217,7 +220,7 @@ export class GameState {
   }
 
   /** Plain-object snapshot, the starting point for save files. */
-  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number>; journalTabs?: Record<string, boolean>; realDay?: string; sprint?: boolean } {
+  toJSON(): { roosts?: Record<string, RoostState>; horse?: HorseState; expAllOff?: string[]; enemyLevels?: { spread: number }; switches: Record<string, boolean>; variables: Record<string, number>; abilities: Record<string, boolean>; cut?: Record<string, string[]>; clock?: number; fires?: Record<string, Record<string, number>>; weather?: Record<string, MapWeather>; records?: Record<string, number>; forge?: Record<string, ForgeEntry>; weaponsOff?: boolean; cheated?: boolean; allowAchievements?: boolean; forms?: Record<string, number>; body?: Record<string, { meter: number; wet: number }>; good?: Record<string, { kind: 'rested' | 'wellRested'; until: number }>; seasonPick?: string; groupQueue?: string[]; rel?: Record<string, number>; journalTabs?: Record<string, boolean>; realDay?: string; sprint?: boolean; pin?: { x: number; z: number } | null } {
     const out: ReturnType<GameState['toJSON']> = { switches: Object.fromEntries(this.switches), variables: Object.fromEntries(this.variables), abilities: Object.fromEntries(this.abilities) };
     if (this.weaponsOff) out.weaponsOff = true;
     const body = [...this.body].filter(([, b]) => Math.abs(b.meter) > 0.5 || b.wet > 0.01);
@@ -236,6 +239,7 @@ export class GameState {
     if (this.rel.size) out.rel = Object.fromEntries(this.rel);
     if (this.realDay) out.realDay = this.realDay;
     if (this.sprint) out.sprint = true;
+    if (this.pin) out.pin = { ...this.pin };
     if (this.journalTabs.size) out.journalTabs = Object.fromEntries(this.journalTabs);
     if (this.cut.size) out.cut = Object.fromEntries([...this.cut].map(([m, s]) => [m, [...s]]));
     if (this.clock) out.clock = this.clock;
