@@ -29,6 +29,8 @@ import { JOURNAL_TAB_NAMES } from './CommandEditor';
 import { roleplayTab } from './RoleplayEditor';
 import { relationsTab } from './RelationsEditor';
 import { globalEventsTab, cleanGlobals } from './GlobalEventsEditor';
+import { gendersTab, cleanGenders } from './GendersEditor';
+import { setGenderLooks } from '../game/roleplay';
 import { checkbox, confirmModal, field, h, numberInput, openModal, select, textInput } from './dom';
 import type { EditorStore } from './store';
 import { ITEM_CATS, type ItemCat, cleanInventory, inventoryTab, itemCategory, itemsTab, type ItemsWork } from './ItemsEditor';
@@ -76,11 +78,11 @@ const COSTS: [keyof PlayerConfig['cost'], string, string][] = [
   ['run', 'Run', 'per second'], ['jump', 'Jump', 'per jump'], ['climb', 'Climb', 'per second'], ['swim', 'Swim', 'per second'],
 ];
 
-export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'materials' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera' | 'stats' | 'tutorials' | 'relations' | 'roleplay' | 'globals';
+export type DbTab = 'player' | 'heroes' | 'characters' | 'items' | 'materials' | 'weapons' | 'gear' | 'shards' | 'keyItems' | 'inventory' | 'quests' | 'combat' | 'enemies' | 'troops' | 'skills' | 'spells' | 'additions' | 'classes' | 'audio' | 'time' | 'saving' | 'menus' | 'credits' | 'achievements' | 'markers' | 'textColors' | 'messageStyles' | 'climate' | 'mapThemes' | 'horses' | 'camera' | 'stats' | 'tutorials' | 'relations' | 'roleplay' | 'globals' | 'genders';
 
 /** The tabs, in groups, each with an icon (its name shows as a tooltip and beside the icons). */
 const DB_GROUPS: [string, [DbTab, string, string][]][] = [
-  ['Party', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['classes', 'Classes', 'badge'], ['characters', 'Characters', 'sprite'], ['relations', 'Relationships', 'heart'], ['roleplay', 'Roleplay', 'scroll']]],
+  ['Party', [['player', 'Player', 'person'], ['heroes', 'Heroes', 'shield'], ['classes', 'Classes', 'badge'], ['characters', 'Characters', 'sprite'], ['relations', 'Relationships', 'heart'], ['roleplay', 'Roleplay', 'scroll'], ['genders', 'Genders', 'gender']]],
   ['Battle', [['combat', 'Combat', 'swords'], ['enemies', 'Enemies', 'skull'], ['troops', 'Troops', 'group']]],
   ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Items', [['items', 'Items', 'potion'], ['materials', 'Materials', 'ore'], ['weapons', 'Weapons', 'sword'], ['gear', 'Gear: armor, shields, accessories', 'armor'], ['shards', 'Shards: spells and element stones', 'gem'], ['keyItems', 'Key items', 'key'], ['inventory', 'Starting inventory', 'bag']]],
@@ -119,6 +121,7 @@ const ICON_PATHS: Record<string, string> = {
   bubble: '<path d="M4 5h16v11H10l-4 4v-4H4z"/><path d="M8 9h8M8 12h5"/>',
   mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M7.5 10.5l1.5 1.5 1.5-1.5"/>',
   cloud: '<path d="M7 18a4 4 0 0 1-.5-8 5.5 5.5 0 0 1 10.6 1.4A3.4 3.4 0 0 1 17 18z"/><path d="M12 2v2M5 5l1.4 1.4M19 5l-1.4 1.4"/>',
+  gender: '<circle cx="10" cy="14" r="5"/><path d="M14 10l6-6M15 4h5v5"/>',
   ore: '<path d="M4 17l4-9 5 2 4-4 3 6-2 7H6z"/><path d="M8 8l2 6 3-4M17 6l-1 7"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
   heart: '<path d="M12 20s-8-4.7-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6.3-8 11-8 11z"/>',
@@ -157,6 +160,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const groupChatter: GroupChatter[] = JSON.parse(JSON.stringify(store.db.groupChatter ?? []));
   const relations: RelationSettings = JSON.parse(JSON.stringify(store.db.relations ?? {}));
   const roleplay: RoleplayField[] = JSON.parse(JSON.stringify(store.db.roleplay ?? []));
+  const genders: NonNullable<typeof store.db.genders> = JSON.parse(JSON.stringify(store.db.genders ?? {}));
+  setGenderLooks(store.db.genders);
   const globals: GlobalEvent[] = JSON.parse(JSON.stringify(store.db.globalEvents ?? [])), globalState = { sel: 0 };
   heroes.rp = roleplay;
   let activeParty: 3 | 4 = store.db.activeParty === 4 ? 4 : 3;
@@ -388,6 +393,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'climate') { content.replaceChildren(...climateTab(climate, render), bodySection(bodyWork, render)); return; }
     if (tab === 'messageStyles') { content.replaceChildren(...messageStylesTab(msgStyles, textCols, msgState, render)); return; }
     if (tab === 'tutorials') { content.replaceChildren(...tutorialsTab(tutorials, render)); return; }
+    if (tab === 'genders') { content.replaceChildren(...gendersTab(genders, render)); return; }
     if (tab === 'globals') { content.replaceChildren(...globalEventsTab(store, globals, globalState, render)); return; }
     if (tab === 'roleplay') { content.replaceChildren(...roleplayTab(roleplay, heroes.heroes, render)); return; }
     if (tab === 'relations') { content.replaceChildren(...relationsTab(relations, heroes.heroes, render)); return; }
@@ -744,7 +750,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
         JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) &&
-        (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? []) && JSON.stringify(cleanGlobals(globals)) === JSON.stringify(db.globalEvents ?? [])) return 'same';
+        (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? []) && JSON.stringify(cleanGlobals(globals)) === JSON.stringify(db.globalEvents ?? []) && JSON.stringify(cleanGenders(genders) ?? null) === JSON.stringify(db.genders ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -783,6 +789,9 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (rpOut.length) db.roleplay = C(rpOut); else delete db.roleplay;
       const glOut = cleanGlobals(globals);
       if (glOut.length) db.globalEvents = C(glOut); else delete db.globalEvents;
+      const gnOut = cleanGenders(genders);
+      if (gnOut) db.genders = C(gnOut); else delete db.genders;
+      setGenderLooks(db.genders);
       if (dcOut) db.devConsole = dcOut; else delete db.devConsole;
       if (markersOut) db.markers = C(markersOut); else delete db.markers;
       if (themesOut) db.mapThemes = C(themesOut); else delete db.mapThemes;

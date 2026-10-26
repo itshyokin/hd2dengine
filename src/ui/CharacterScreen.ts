@@ -12,7 +12,7 @@ import { rankPill, type Rank } from '../game/statRanks';
 import { esc } from './InventoryScreen';
 import { elementPill } from './elementPill';
 import type { EquipChoice, EquipView } from './EquipScreen';
-import { GENDER_INFO, genderBadge } from '../game/roleplay';
+import { genderBadge, genderName } from '../game/roleplay';
 
 export interface CharacterHost {
   hero(h: number): { name: string; level: number; portrait: string; color: string; about?: string; art?: string; elements?: import('../world/types').Element[]; ailment?: { tag: string; color: string; ink: string; name: string };
@@ -101,7 +101,7 @@ export class CharacterScreen {
       const ail = h.ailments(k);
       body = `<div class="cs-sec">About</div>
         <p class="cs-about">${who.about ? esc(who.about).replace(/\n/g, '<br>') : '<span class="cs-none">Nothing written about them yet.</span>'}</p>
-        ${who.gender || who.roleplay?.length ? `<div class="cs-sec">Roleplay</div><div class="cs-rp">${who.gender ? `<span class="cs-rp-t">Gender</span><span class="cs-rp-v">${genderBadge(who.gender)} ${esc(GENDER_INFO[who.gender].name)}</span>` : ''}${(who.roleplay ?? []).map((r) => `<span class="cs-rp-t">${esc(r.title)}</span><span class="cs-rp-v">${esc(r.value)}</span>`).join('')}</div>` : ''}
+        ${who.gender || who.roleplay?.length ? `<div class="cs-sec">Roleplay</div><div class="cs-rp">${who.gender ? `<span class="cs-rp-t">Gender</span><span class="cs-rp-v">${genderBadge(who.gender)} ${esc(genderName(who.gender))}</span>` : ''}${(who.roleplay ?? []).map((r) => `<span class="cs-rp-t">${esc(r.title)}</span><span class="cs-rp-v">${esc(r.value)}</span>`).join('')}</div>` : ''}
         <div class="cs-sec">Ailments</div>
         ${ail.length || who.ailment ? `<div class="cs-ail">${who.ailment && !ail.length ? `<span><span class="st-pill" style="background:${who.ailment.color};color:${who.ailment.ink}">${esc(who.ailment.tag)}</span> ${esc(who.ailment.name)} <small>until cured or rested</small></span>` : ''}${ail.map((a) => `<span><img src="${a.icon}" alt=""> ${esc(a.name)}${a.left ? ` <small>${esc(a.left)}</small>` : ''}</span>`).join('')}</div>` : '<p class="cs-none">None.</p>'}
 `;

@@ -358,14 +358,22 @@ decide things; the tablet editor keeps working.
         --look-bg (and look-clear), as Update 129 did for the other themes.
   Oct 25 night list (owner's notes; answers: "always on top" = characters drawn over props; Sprint becomes a key
   item with a Sprint field power on a quick slot or switched on in the bag; overworld shard casting is gone for good):
-  - [ ] Update 137: fixes. Genders read Male (Cis), Female (Cis), Male (Trans), Female (Trans) (…); Database → Genders:
+  - [x] Update 137: fixes. Genders read Male (Cis), Female (Cis), Male (Trans), Female (Trans) (…); Database → Genders:
         rename each, pick its symbol or a custom image, recolour. Enemies drop only the loot set in the Database (no
         built-in fragment / item drops). Look when worn: the "Use custom clothes sprite" box can't be ticked, and a
         custom sprite isn't kept after Save. No sword / bow drawn on the hero's back. Items show Warmth as a coloured
         number (blue cold … orange hot). Sprint: a key item field power (on a quick slot, or on / off in the bag).
-  - [ ] Update 138: pickers by category. Database → Enemies → Loot: a section per category (Items, Key items,
+        Done: roleplay.ts names + `setGenderLooks` / `genderInfo` (Database `genders`, GendersEditor.ts; picture as a
+        32 px data URL). Game `fragmentDrops` removed (and its Combat editor fields). WornLookEditor `set()` kept the
+        look only for builder parts / sheets: custom / customPics / tint now count, and the pop-up writes into the same
+        object. Combat.updateBack hides the back always (keySwing / keyDraw set the weapon shown). InventoryScreen
+        `warmthHtml` (bag kind line, shop). Field use 'dash' = Sprint toggle (GameState `sprint`, saved).
+  - [x] Update 138: pickers by category. Database → Enemies → Loot: a section per category (Items, Key items,
         Materials, Weapons, Armor / accessories), each dropdown listing only that category. Shop setup (Open shop
         command): Add item → pick a category → that category's list.
+        Done: editor/itemSections.ts `itemSections` (a <details> per ItemCat, + Add per kind, missing items listed);
+        used by CombatEditor (Loot) and CommandEditor (shop goods). Sections: Items, Key items, Materials, Weapons,
+        Armor / accessories, Shards and stones.
   - [ ] Update 139: drawing. Database option "Characters always on top": the hero and party drawn over props they
         overlap (on / off). Props get "Flat mode": painted flat on the terrain like a 2D game (bedrolls, rugs).
   - [ ] Update 140: party pages. Selected arrows on the Party menu (the outline is hard to follow). Stamina hidden on
@@ -376,6 +384,8 @@ decide things; the tablet editor keeps working.
         and key items, view and equip gear and shards). Y: the World Map (LB / RB pick markers; place, move and
         remove your own marker). Achievements become a Journal tab. Each button closes what it opened (B goes back a
         step first when an item is picked). Pause tabs Items, Map, Achievements and System removed.
+        The X menu has two tabs, Party and Journal (LT / RT switch them; LB / RB the Journal's own tabs); View / Back
+        stays free for later.
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.

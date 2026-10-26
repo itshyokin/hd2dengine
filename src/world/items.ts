@@ -193,12 +193,12 @@ export const POWER_NAMES: Record<FieldPower, string> = {
 
 /** Key item field uses (Update 118), for menus and the editor. */
 export const FIELD_USE_NAMES: Record<FieldUseKind, string> = {
-  dash: 'Dash', swim: 'Swim', climb: 'Climb', cut: 'Cut', bow: 'Bow', fireBow: 'Fire Bow', smash: 'Smash Stone', weather: 'Change weather', time: 'Change time',
+  dash: 'Sprint', swim: 'Swim', climb: 'Climb', cut: 'Cut', bow: 'Bow', fireBow: 'Fire Bow', smash: 'Smash Stone', weather: 'Change weather', time: 'Change time',
   season: 'Change season', fish: 'Start fishing', horse: 'Ride horse', skeletonKey: 'Skeleton Key',
 };
 /** What each does (the editor's note and a new item's description). */
 export const FIELD_USE_TEXT: Record<FieldUseKind, string> = {
-  dash: 'Carrying it, the hero can run (dash), even before learning to.',
+  dash: 'Switch it on (bag or a quick slot): the hero runs while it’s on, even before learning to; switch it off to walk.',
   swim: 'Carrying it, the party can swim in deep water (without one, deep water stops them).',
   climb: 'Carrying it, the hero can climb climbable walls, even before learning to.',
   cut: 'Put it on a quick slot: each press swings it, cutting vines and thin trees and breaking crates (a fixed amount of damage). A foe it reaches starts a battle.',
@@ -213,7 +213,7 @@ export const FIELD_USE_TEXT: Record<FieldUseKind, string> = {
   skeletonKey: 'Carrying it opens any lock, even ones that can’t be picked.',
 };
 /** Field uses that work just by being carried (no Use, no quick slot). */
-export const carriedUse = (k: FieldUseKind | undefined): boolean => k === 'dash' || k === 'swim' || k === 'climb' || k === 'skeletonKey';
+export const carriedUse = (k: FieldUseKind | undefined): boolean => k === 'swim' || k === 'climb' || k === 'skeletonKey';
 
 /** Field spells stay on until switched off. */
 export const isToggle = (p: string): boolean => p === 'light' || p === 'waterWalk';

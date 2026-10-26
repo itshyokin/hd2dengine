@@ -2,6 +2,7 @@
  * Database → Combat (battles, weapon damage, the sword, bow and spells on the map, forges, levels)
  * and Database → Enemies (the list of enemy types with a form for the selected one).
  */
+import { itemSections } from './itemSections';
 import { ailmentChips, buffsField, inflictsField, weatherField } from './statusFields';
 import type { Ailment } from '../world/types';
 import { DEFAULT_STATUS_PILLS, type StatusPill } from '../game/battle/statusPills';
@@ -394,12 +395,14 @@ function enemyForm(store: EditorStore, list: EnemyDef[], d: EnemyDef, rerender: 
         field('EXP', n(d.xp, (v) => (d.xp = Math.round(v)))),
         field('Gold from', n(d.gold?.[0] ?? 0, (v) => (d.gold = [Math.round(v), Math.max(Math.round(v), d.gold?.[1] ?? 0)]))),
         field('Gold to', n(d.gold?.[1] ?? 0, (v) => (d.gold = [Math.min(d.gold?.[0] ?? 0, Math.round(v)), Math.round(v)])))),
-      ...drops.map((dr, k) => h('div', { class: 'field-row drop-row' },
-        select(items.length ? items : [['', '(no items)']], dr.item, (v) => (dr.item = v), { 'aria-label': `Drop ${k + 1} item` }),
-        field('Chance %', n(Math.round(dr.chance * 100), (v) => (dr.chance = Math.min(100, v) / 100), 5, 0)),
-        field('How many', n(dr.count ?? 1, (v) => (dr.count = Math.max(1, Math.round(v)) === 1 ? undefined : Math.max(1, Math.round(v))), 1, 1)),
-        h('button', { type: 'button', class: 'mini-btn', 'aria-label': `Remove drop ${k + 1}`, onclick: () => { drops.splice(k, 1); rerender(); } }, '✕'))),
-      items.length ? h('button', { type: 'button', class: 'btn', onclick: () => { drops.push({ item: items[0][0], chance: 0.25 }); rerender(); } }, '+ Add drop') : h('span'),
+      h('h4', { class: 'drops-title' }, 'Loot'),
+      // Update 138: a section per kind of item, each listing only that kind.
+      items.length ? itemSections(store.db.items ?? [], drops, {
+        noun: 'Drop', rerender, make: (id): (typeof drops)[number] => ({ item: id, chance: 0.25 }),
+        extras: (dr) => [
+          field('Chance %', n(Math.round(dr.chance * 100), (v) => (dr.chance = Math.min(100, v) / 100), 5, 0)),
+          field('How many', n(dr.count ?? 1, (v) => (dr.count = Math.max(1, Math.round(v)) === 1 ? undefined : Math.max(1, Math.round(v))), 1, 1))],
+      }) : h('p', { class: 'note' }, 'No items yet: add some in Database → Items.'),
       h('p', { class: 'note' }, 'Loot goes straight into the bag (shown bottom left). Beaten enemies come back when the player returns to the map.')),
     h('div', { class: 'item-foot' }, h('button', { type: 'button', class: 'btn danger', onclick: remove }, 'Delete enemy')),
   ];
@@ -491,10 +494,8 @@ function elementStones(c: ReturnType<typeof combatConfig>, data: CombatData): HT
       field('Spell of your own element: +%', num(e.sameType, (v) => put('sameType', Math.max(0, Math.round(v))), 1, 0, 'Same type bonus'))),
     h('div', { class: 'field-row' },
       field('Fragments to a Shard', num(e.fuseFragments, (v) => put('fuseFragments', Math.max(2, Math.round(v))), 1, 2, 'Fuse fragments')),
-      field('Shards to a Heart Stone', num(e.fuseShards, (v) => put('fuseShards', Math.max(2, Math.round(v))), 1, 2, 'Fuse shards')),
-      field('Fragment drop chance %', num(e.dropChance, (v) => put('dropChance', Math.max(0, Math.min(100, Math.round(v)))), 5, 0, 'Fragment drop chance')),
-      field('Fragments dropped', num(e.dropCount, (v) => put('dropCount', Math.max(0, Math.round(v))), 1, 0, 'Fragments dropped'))),
-    h('p', { class: 'note' }, 'Each hero has two Element slots (Equipment, or Bag → Shards): Primary and Secondary. A Fragment, Shard or Heart Stone there gives them its element, so its weaknesses too, and makes their hits of it stronger. The Primary slot’s element is what their basic attacks hit with; with none, they’re Normal. Enemies with elements drop Fragments of them; the bag fuses Fragments into a Shard and Shards of one element into a Heart Stone. The stones are items (Database → Items, “ess_…”): rename them or change their icons and prices there.'));
+      field('Shards to a Heart Stone', num(e.fuseShards, (v) => put('fuseShards', Math.max(2, Math.round(v))), 1, 2, 'Fuse shards'))),
+    h('p', { class: 'note' }, 'Each hero has two Element slots (Equipment, or Bag → Shards): Primary and Secondary. A Fragment, Shard or Heart Stone there gives them its element, so its weaknesses too, and makes their hits of it stronger. The Primary slot’s element is what their basic attacks hit with; with none, they’re Normal. Enemies drop only the loot set on them (Database → Enemies → Loot: add Fragments there); the bag fuses Fragments into a Shard and Shards of one element into a Heart Stone. The stones are items (Database → Items, “ess_…”): rename them or change their icons and prices there.'));
 }
 
 /**

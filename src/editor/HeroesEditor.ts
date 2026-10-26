@@ -10,7 +10,7 @@ import { ailmentChips } from './statusFields';
 import type { Ailment } from '../world/types';
 import { defenceSection } from './elementFields';
 import { ATTRS, ATTR_BASE, ATTR_INFO, ATTR_MAX, ATTR_MIN, CREATION_METHODS, CREATION_NAMES, attrEffect, attrsFrom } from '../game/attributes';
-import { GENDERS, GENDER_INFO } from '../game/roleplay';
+import { GENDERS, genderInfo } from '../game/roleplay';
 import { monthDayInput } from './dateFields';
 import type { Gender, RoleplayField } from '../world/types';
 import type { AdditionDef, AllyStyle, ClassDef, CombatData, CreationSettings, HeroDef, HeroForm, ItemDef, SpellEntry } from '../world/types';
@@ -129,7 +129,7 @@ export function heroesTab(w: HeroesWork, people: CharactersWork, combat: CombatD
       field('Colour', (() => { const c = h('input', { type: 'color', value: x.color ?? ['#e8b04a', '#5aa8ff', '#7cd66a', '#e87ad0', '#ff8a5a'][Math.max(0, state.sel) % 5] }); c.addEventListener('change', () => { x.color = c.value; }); return c; })(),
         'Shown behind "equipped" on what they wear, and on their card in the menus.'),
       h('div', { class: 'field-row' },
-        field('Gender', select([['', '(not set)'], ...GENDERS.map((g) => [g, `${GENDER_INFO[g].symbol} ${GENDER_INFO[g].name}`] as [string, string])], x.gender ?? '', (v) => { if (v) x.gender = v as Gender; else delete x.gender; }),
+        field('Gender', select([['', '(not set)'], ...GENDERS.map((g) => [g, `${genderInfo(g).image ? '' : genderInfo(g).symbol + ' '}${genderInfo(g).name}`] as [string, string])], x.gender ?? '', (v) => { if (v) x.gender = v as Gender; else delete x.gender; }),
           'Shown as a coloured symbol on their stat blocks and on their Status page.'),
         field('Outfit gender', select([['', 'From their look (Characters → Body)'], ['masc', 'Masc'], ['femme', 'Femme']], x.outfit ?? '', (v) => { if (v) x.outfit = v as 'masc' | 'femme'; else delete x.outfit; }),
           'Which version of worn armor and clothes they wear.')),

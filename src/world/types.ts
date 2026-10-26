@@ -948,6 +948,8 @@ export type JournalTabId = 'quests' | 'log' | 'bestiary' | 'types' | 'tutorials'
 
 /** A hero's gender (Update 127; game/roleplay.ts). */
 export type Gender = 'male' | 'female' | 'transman' | 'transwoman' | 'transgender' | 'nonbinary' | 'other';
+/** Database → Party → Genders (Update 137): a gender's own name, symbol (text or a small picture) and colour. */
+export interface GenderLook { name?: string; symbol?: string; image?: string; color?: string }
 /** A roleplay title every hero shares (Update 127): its id stays put when it's renamed. */
 export interface RoleplayField { id: string; title: string; /** Update 130: a date answer ("MM-DD": a birthday) rather than text. */ type?: 'text' | 'date' }
 
@@ -1111,6 +1113,8 @@ export interface Database {
   relations?: RelationSettings;
   /** Roleplay titles (Update 127). */
   roleplay?: RoleplayField[];
+  /** Genders renamed, given other symbols or colours (Update 137; unset: the built-in ones). */
+  genders?: Partial<Record<Gender, GenderLook>>;
   /** The developer console (the ` key): in playtests only (default), always, or never. */
   devConsole?: 'playtest' | 'always' | 'off';
   /** How many heroes fight and walk on the map at once, the hero you play included (3 unset, or 4). */

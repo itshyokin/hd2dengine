@@ -632,10 +632,12 @@ come in Update 102). The model file is saved as `assets/props/<id>.glb` (or `.fb
 
 ### Gender and roleplay (Update 127)
 
-- **Database → Heroes**: **Gender** (Male ♂ blue, Female ♀ pink, Transman ⚧ dark blue, Transwoman ⚧ dark pink,
+- **Database → Heroes**: **Gender** (Male (Cis) ♂ blue, Female (Cis) ♀ pink, Male (Trans) ⚧ dark blue, Female (Trans) ⚧ dark pink,
   Transgender ⚧ in the trans flag's blue, white and pink, Nonbinary ⚲ purple, Other ✱ white) shows as a symbol beside
   their name on the HUD cards, the pause menu's party panels and their Status page. **Outfit gender** (masc / femme)
   picks which version of worn armor and clothes they wear (unset: their look's Body from Characters).
+- **Database → Party → Genders** (Update 137): rename each gender, pick another symbol (or type your own), use a
+  small picture instead of a symbol, and give it a colour of your own. Empty boxes keep the built-in ones.
 - **Database → Party → Roleplay**: titles every hero shares (Eye colour, Favourite food, Favourite gift…); each hero
   writes their own answers on the Heroes tab (**Roleplay**). They show on the Status page under About.
 - **Using them**: the **Roleplay** condition ("Eleanor's Favourite food is Ramen", upper and lower case aside), the
@@ -756,7 +758,7 @@ them: Freezing before a fight, still Freezing after.
 - **Warming up and drying off**: lit fires (campfires, torches, braziers: anything with a flame) warm and dry everyone
   within about two and a half tiles; indoors keeps the rain off; the sun dries you on a warm, clear day. Items with
   **Warms / cools** (Database → Items: + a Hot Cocoa, − a Chilled Tea; 100 takes them all the way back) work from the
-  bag, and items have a **Camp value** for camping (Update 106).
+  bag (Update 137: the bag and shops show it as **Warmth**, a number coloured orange for warming, blue for cooling), and items have a **Camp value** for camping (Update 106).
   While a fire dries someone, their panel shows **Drying** with a bar of the water left (HUD cards, the hero's own
   bars and the pause menu's party panels).
 - **Maps** (Map Properties → Weather): *Temperature: its own* for caves and houses (a cool cave 50°F, an ice cave 20,
@@ -1184,6 +1186,9 @@ them: Freezing before a fight, still Freezing after.
   **Unequip (take it off …)**, so it can be worn by no one.
 - **Shops**: the **Open shop** command lists what's for sale (prices come from the item unless you set one) and
   whether the player can sell (for half the price). In the sample map, talk to Mira twice and ask to trade.
+- **Picking items by kind** (Update 138): the Open shop command's goods and an enemy's **Loot** (Database → Enemies →
+  Rewards) are split into sections (Items, Key items, Materials, Weapons, Armor / accessories, Shards and stones), each
+  with its own *+ Add* and dropdowns listing only that kind.
 - Built-in sprites for events: **Chest**, **Chest (open)** and **Item sparkle** (which glows in the dark).
 - The sample map starts with 60 gold, 2 potions and some bread; a potion sparkle lies by the path.
 
@@ -1261,7 +1266,8 @@ past foes, or catch one unaware to strike first.
 
 **Enemies** (Database → Enemies): health, damage, defence, speed, a behaviour (**melee**, **ranged**: keeps its
 distance and shoots, **charger**: winds up then rushes in a straight line), attack range (how close it gets before it reaches the hero), wind-up (the glow before
-it lunges), time between attacks, sight, field of view, hearing, EXP, gold and item drops, a
+it lunges), time between attacks, sight, field of view, hearing, EXP, gold and item drops (Update 137: only the drops set
+here; enemies with elements no longer drop Fragments of their own accord), a
 size, and a boss flag. They look like a character from the database or a built-in monster (green, blue and ember
 slimes). They walk around cliffs and up ramps to reach the hero. Place one with **Create enemy here** in the Events
 layer, or set an event page's Appearance to **Enemy**. The page's commands run when it's defeated (open a gate,
@@ -1756,7 +1762,7 @@ they cost no magic. Set them up in **Database → Items**: Kind *Key / quest ite
 | --- | --- |
 | **Light** | A glow all around the hero: a **lantern**, a flickering **torch** or an **orb** floating by them. Colour, brightness, reach and shadows are set per item. |
 | **Water Walk** | Water of any depth is solid ground: no swimming, no stamina. Switches off by itself when the hero steps back on land. |
-| **Dash** | Carried: the hero can run, even before learning to (Change ability → Run off). |
+| **Sprint** | Update 137: switch it on and off (bag or a quick slot); while it's on the hero runs, even before learning to. Saved with the game. |
 | **Swim** | Carried: the party can swim in deep water (same as *Lets the party swim*). |
 | **Climb** | Carried: the hero can climb climbable walls, even before learning to. |
 | **Cut** | On a quick slot: each press swings it, cutting vines and thin trees and breaking crates for a fixed **Damage** (set on the item, 10 by default). A foe it reaches starts a normal battle. Built in: the **Machete**. |

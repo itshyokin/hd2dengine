@@ -950,3 +950,20 @@ textarea.code { font-family: var(--f-mono); font-size: 11px; white-space: pre; }
 .cw-row > b { min-width: 44px; }
 .cw-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .cw-row input[type="range"] { flex: 1; }
+
+/* Database → Party → Genders (Update 137) */
+.gender-row { display: grid; grid-template-columns: 34px minmax(140px, 260px) 150px 70px auto auto; justify-content: start; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.gender-preview { font-size: 22px; text-align: center; }
+.gender-preview .g-badge { margin: 0; }
+.gender-color, .gender-pic { display: inline-flex; gap: 6px; align-items: center; }
+.gender-own { width: 60px; }
+
+/* Item lists by category (Update 138): enemy loot, shop goods */
+.item-sections { display: grid; gap: 6px; }
+.item-section { border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 10px; }
+.item-section > summary { cursor: pointer; font-weight: 700; padding: 2px 0; }
+.item-section .drop-row { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.item-section .drop-row > select { min-width: 200px; }
+.item-section .drop-row .mini-btn { margin-bottom: 6px; }
+.item-section.missing b { display: block; margin-bottom: 4px; color: #ff9a8a; }
+.drops-title { margin: 10px 0 4px; }

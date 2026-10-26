@@ -571,8 +571,20 @@ export class InventoryScreen {
   }
 }
 
+/**
+ * Warmth (Update 137): how much an item warms (+, orange) or cools (−, blue) whoever uses it, as a coloured number;
+ * the further from 0, the stronger the colour.
+ */
+export function warmthHtml(d: ItemDef): string {
+  const w = d.warms ?? 0;
+  if (!w) return '';
+  const k = Math.min(1, Math.abs(w) / 100), c = w > 0 ? [255, 138, 58] : [74, 168, 255], base = [210, 210, 210];
+  const col = `rgb(${base.map((b, i) => Math.round(b + (c[i] - b) * (0.45 + 0.55 * k))).join(',')})`;
+  return ` · <span class="warmth" title="${w > 0 ? 'Warms' : 'Cools'} whoever uses it">Warmth <b style="color:${col}">${w > 0 ? '+' : '−'}${Math.abs(w)}</b></span>`;
+}
+
 function kindLine(d: ItemDef): string {
-  if (d.kind === 'key') return `Key item${d.tool ? ` · ${POWER_NAMES[d.tool]} (switch on and off here, or assign it to B)` : d.exp?.all ? ` · EXP All: those sitting a battle out get ${d.exp.share}% (switch on and off here)` : d.saddle ? ' · Saddle: sends your rented horse home' : d.field ? ` · ${FIELD_USE_NAMES[d.field.use]}${carriedUse(d.field.use) ? ' (works while carried)' : ' (use it here, or assign it to B)'}` : ''}`;
+  if (d.kind === 'key') return `Key item${d.tool ? ` · ${POWER_NAMES[d.tool]} (switch on and off here, or put it on a quick slot)` : d.exp?.all ? ` · EXP All: those sitting a battle out get ${d.exp.share}% (switch on and off here)` : d.saddle ? ' · Saddle: sends your rented horse home' : d.field ? ` · ${FIELD_USE_NAMES[d.field.use]}${carriedUse(d.field.use) ? ' (works while carried)' : ' (use it here, or put it on a quick slot)'}` : ''}`;
   if (d.kind === 'material') return `Loot${d.fuel ? ` · fire fuel +${d.fuel} h` : ''}${d.smelt ? ' · smelt it at a forge' : ''}`;
   if (d.kind === 'ammo') return `Arrows${d.element && d.element !== 'neutral' ? ` · ${ELEMENT_NAMES[d.element]}` : ''} · +${d.ammo?.damage ?? 0} damage${d.ammo?.infinite ? ' · never run out' : ''}`;
   if (d.kind === 'equipment') {
@@ -595,7 +607,7 @@ function kindLine(d: ItemDef): string {
   const parts = restoreBits(d);
   if (d.cures?.length) parts.push(`cures ${d.cures.map((c) => (c === 'all' ? 'all ailments' : AILMENT_INFO[c].name)).join(', ')}`);
   for (const b of d.buffs ?? []) parts.push(`${BUFF_INFO[b.buff].name} +${b.amount ?? BUFF_INFO[b.buff].amount}${BUFF_INFO[b.buff].unit} for ${b.seconds ?? BUFF_INFO[b.buff].seconds}s`);
-  return `Consumable${parts.length ? ' · ' + parts.join(', ') : ''}`;
+  return `Consumable${parts.length ? ' · ' + parts.join(', ') : ''}${warmthHtml(d)}`;
 }
 
 export function esc(s: string): string {

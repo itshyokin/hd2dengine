@@ -317,6 +317,7 @@ export class Combat {
     if (m.airborne || m.climbing || m.swimming || m.dashing || m.crawling) return null;
     if (this.swing) { this.queued = false; return null; }
     if (this.draw) return null;
+    this.weapon = 'melee';
     this.startSwing(damage);
     return null;
   }
@@ -325,6 +326,7 @@ export class Combat {
     const m = this.host.motion;
     if (this.toolsOff) return 'You can’t use that here.';
     if (m.airborne || m.climbing || m.swimming || m.dashing || m.crawling || this.swing || this.draw) return null;
+    this.weapon = 'bow';
     this.draw = { t: 0, fixed: damage, held };
     this.host.sound('draw');
     return null;
@@ -925,19 +927,8 @@ export class Combat {
       else if (bowHands && this.available('bow')) add('ranged');
     }
     h.player.setWeapons(carry);
-    const shown = h.player.weaponIds;
-    const has = (slot: EquipSlot) => { const id = itemWeaponSprite(this.equipped(slot)); return !!id && shown.includes(id); };
-    const sword = this.weapon === 'melee' && this.equipped('weapon') && !this.swing && !has('weapon');
-    const bow = this.weapon === 'bow' && this.equipped('ranged')?.weapon?.class === 'bow' && !this.draw && !has('ranged');
-    const shield = this.equipped('shield') && !has('shield');
-    hd.back(
-      sword ? h.iconCanvas(h.inventory.equip.weapon, 'sword') : null,
-      bow ? h.iconCanvas(h.inventory.equip.ranged, 'bow') : null,
-      h.player.position, h.player.dir,
-      shield ? h.iconCanvas(h.inventory.equip.shield, 'shield') : null,
-      // The quiver goes with the bow (readied), and stays on while shooting.
-      this.weapon === 'bow' && this.equipped('ranged')?.weapon?.class === 'bow',
-    );
+    // Update 137: nothing slung on the back any more (the Cut and Bow key items only show while they're used).
+    hd.hideBack();
   }
 
   /** How visible the hero is: light where they stand, halved while sneaking. */

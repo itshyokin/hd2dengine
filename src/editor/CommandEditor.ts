@@ -2,6 +2,7 @@
  * Event command list: a readable outline of an event's commands (with nested branches)
  * and a form dialog for each command type.
  */
+import { itemSections } from './itemSections';
 import { findHorse, horseList, stars } from '../game/horses';
 import type { EncounterPick } from '../world/types';
 import { SELF_SWITCHES, type SelfSwitch, type LockLevel } from '../world/types';
@@ -846,19 +847,13 @@ export class CommandEditor {
       }
       case 'shop': {
         const goods = h('div', { class: 'shop-goods' });
+        // Update 138: a section per kind of item (Items, Materials, Weapons…), each listing only that kind.
         const renderGoods = () => {
-          goods.replaceChildren(...d.goods.map((g, k) => {
-            const def = (this.store.db.items ?? []).find((i) => i.id === g.item);
-            return h('div', { class: 'field-row shop-good' },
-              select(itemChoices(this.store, g.item), g.item, (v) => { g.item = v; renderGoods(); }, { 'aria-label': `Item ${k + 1}` }),
-              priceInput(g.price, def?.price ?? 0, (v) => (g.price = v), `Price ${k + 1}`),
-              h('button', { type: 'button', class: 'mini-btn', title: 'Remove', 'aria-label': `Remove item ${k + 1}`, onclick: () => { d.goods.splice(k, 1); renderGoods(); } }, '✕'));
-          }), h('button', { type: 'button', class: 'btn', onclick: () => {
-            const items = this.store.db.items ?? [];
-            const next = items.find((i) => !d.goods.some((g) => g.item === i.id) && i.kind !== 'key') ?? items[0];
-            d.goods.push({ item: next?.id ?? '' });
-            renderGoods();
-          } }, '+ Add item'));
+          const all = this.store.db.items ?? [];
+          goods.replaceChildren(all.length ? itemSections(all, d.goods, {
+            noun: 'Item for sale', rerender: renderGoods, make: (id): (typeof d.goods)[number] => ({ item: id }),
+            extras: (g, k) => [priceInput(g.price, all.find((i) => i.id === g.item)?.price ?? 0, (v) => (g.price = v), `Price ${k + 1}`)],
+          }) : h('p', { class: 'note' }, 'No items yet: add some in Database → Items.'));
         };
         renderGoods();
         return [field('Shop name', textInput(d.name ?? '', (v) => (d.name = v.trim() || undefined), { placeholder: 'Shop' })),

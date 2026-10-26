@@ -150,7 +150,7 @@ import { toonWaterTime } from '../render/waterEdge';
 import type { EventBubble } from '../ui/BubbleLayer';
 import { type Talker, chatterSeconds, linesFor, pickChatter } from './chatter';
 import { campLine, nextGroup } from './campTalk';
-import { daysUntil, realDayKey, rpFields, rpMatch, rpValue } from './roleplay';
+import { daysUntil, realDayKey, setGenderLooks, rpFields, rpMatch, rpValue } from './roleplay';
 import { datesLabel } from '../world/dates';
 import { loadWornParts, recolorPairs, wornPart } from '../world/wornParts';
 import { customSrcs } from '../world/wornCustom';
@@ -619,6 +619,7 @@ export class Game {
 
     this.message = new MessageWindow(this.ui, this.input);
     this.message.setStyles(this.db.messageStyles);
+    setGenderLooks(this.db.genders);
     this.state.env = { temp: () => this.temperature(), weather: () => this.weather.kind, heroHas: (hero, what) => this.heroHas(hero, what), relation: (a, b) => this.relGet(a, b), rp: (hero, field) => rpValue(this.db, this.heroByIdOrName(hero), field), rpDays: (hero, field) => daysUntil(rpValue(this.db, this.heroByIdOrName(hero), field)) };
     // Skill tree nodes locked until a quest is done, a key item is carried or a switch is on (Update 113).
     Skills.locked = (n) => {
@@ -1073,7 +1074,7 @@ export class Game {
       solidEvent: (x, z) => this.events.some((e) => e.solid && e.covers(x, z)),
       // Out of stamina: only walking (and crawling, so nobody gets stuck in a tunnel) until it refills.
       // Riding: no climbing or crawling; galloping while the horse has stamina.
-      has: (a) => (this.riding ? a === 'jump' || (a === 'run' && !this.horseTired) : (this.state.has(a) || (a === 'run' && this.carries('dash')) || (a === 'climb' && this.carries('climb'))) && (a === 'crawl' || !this.stats.exhausted)),
+      has: (a) => (this.riding ? a === 'jump' || (a === 'run' && !this.horseTired) : (this.state.has(a) || (a === 'run' && this.carries('dash') && this.state.sprint) || (a === 'climb' && this.carries('climb'))) && (a === 'crawl' || !this.stats.exhausted)),
       get speed() { const h = game.riding; return h ? { ...game.stats.cfg.speed, walk: h.speed * 0.5, run: h.speed, wade: h.speed * 0.35 } : game.stats.cfg.speed; },
       // A horse doesn't swim; on foot, swimming takes a key item marked Lets the party swim (Update 109).
       noSwim: () => !!this.riding || !this.canSwim(),
@@ -1371,18 +1372,6 @@ export class Game {
     return Math.max(ambient, this.lights.lightAt(x, z));
   }
 
-  /** An enemy with elements drops Fragments of them (Database → Combat → Elements: the chance and how many). */
-  private fragmentDrops(d: EnemyDef): [string, number][] {
-    const r = this.combatCfg.essence, out: [string, number][] = [];
-    if (!r.dropCount) return out;
-    for (const e of (d.elements ?? []).slice(0, 2)) {
-      if (e === 'neutral' || Math.random() * 100 >= r.dropChance) continue;
-      const it = essenceItem(this.items.values(), e, 'fragment');
-      if (it) out.push([it.id, r.dropCount]);
-    }
-    return out;
-  }
-
   /** Experience, gold and loot for a beaten enemy, then its page's commands (if any). */
   private enemyDefeated(e: Enemy): void {
     const d = e.def;
@@ -1396,7 +1385,6 @@ export class Game {
       if (Math.random() >= drop.chance || !this.items.has(drop.item)) continue;
       items.push({ id: drop.item, count: Math.max(1, drop.count ?? 1) });
     }
-    for (const [id, n] of this.fragmentDrops(d)) items.push({ id, count: n });
     this.pickups?.drop(e.x, e.y, e.z, Math.max(0, d.xp), gold, items);
     // Party members standing when it fell get its EXP once the fight is over (the orbs are the hero's to collect).
     for (const a of this.fighters) if (!a.down && d.xp > 0) a.data.pendingXp = (a.data.pendingXp ?? 0) + d.xp;
@@ -2193,7 +2181,8 @@ export class Game {
     const stickRun = this.settings.stickRun && i.stickAmount > 0.92;
     i.sprintToggle = this.settings.sprint === 'toggle';
     if (!i.sprintToggle) i.runLatched = false;
-    const run = this.settings.alwaysRun ? !i.isHeld('run') : i.isHeld('run') || i.runLatched || i.touchRun || stickRun;
+    const sprint = this.state.sprint && this.carries('dash');
+    const run = sprint || (this.settings.alwaysRun ? !i.isHeld('run') : i.isHeld('run') || i.runLatched || i.touchRun || stickRun);
     const res = m.update(dt, { dx, dz, run, jump: space, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed * (this.riding ? 1 : 1 - slowOf(this.weatherStates.get(mainHero(this.db).id) ?? null, this.bodyCfg)) });
     if (!m.airborne && !m.climbing && this.trySeamless(dx, dz)) return;
     // Locked on, the hero keeps facing the target (strafing); otherwise they face where they walk, unless attacking.
@@ -3346,7 +3335,12 @@ export class Game {
   private fieldUse(d: ItemDef): string | null {
     const f = d.field!, outdoor = this.time.environment === 'outdoor';
     switch (f.use) {
-      case 'dash': case 'swim': case 'climb': case 'skeletonKey':
+      case 'dash':
+        // Sprint (Update 137): switched on and off (bag or quick slot); while on, the hero runs.
+        this.state.sprint = !this.state.sprint;
+        this.audio.play(this.state.sprint ? 'ringOn' : 'ringOff');
+        return `${d.name}: ${this.state.sprint ? 'sprinting' : 'walking'}.`;
+      case 'swim': case 'climb': case 'skeletonKey':
         return `${d.name} works just by being carried.`;
       case 'cut':
         return this.combat.keySwing(Math.max(1, f.damage ?? 10));
@@ -6266,7 +6260,6 @@ export class Game {
       xp += Math.max(0, d.xp);
       gold += d.gold ? Math.round(d.gold[0] + Math.random() * Math.max(0, d.gold[1] - d.gold[0])) : 0;
       for (const drop of d.drops ?? []) if (Math.random() < drop.chance && this.items.has(drop.item)) got.set(drop.item, (got.get(drop.item) ?? 0) + Math.max(1, drop.count ?? 1));
-      for (const [id, n] of this.fragmentDrops(d)) got.set(id, (got.get(id) ?? 0) + n);
       if (b.enemy) {
         this.combat.beatenInBattle(b.enemy);
         const ev = b.enemy.key as GameEvent;

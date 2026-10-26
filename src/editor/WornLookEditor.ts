@@ -55,7 +55,10 @@ async function drawPick(store: EditorStore, g: CanvasRenderingContext2D, pick: W
 export function wornLookForm(store: EditorStore, d: ItemDef, rerender: () => void): HTMLElement {
   const w = d.worn ?? {};
   const set = () => {
-    const keep = w.masc || w.femme || w.parts?.masc?.length || w.parts?.femme?.length || w.top || w.bottom || w.accessory;
+    // Update 137: the custom sprite (its tick box and pictures) counts too; without it, ticking the box or saving the
+    // pictures from the pop-up was thrown away when nothing else was picked.
+    const pics = w.customPics && (['masc', 'femme'] as const).some((b) => { const p = w.customPics?.[b]; return !!(p?.front || p?.back || p?.side); });
+    const keep = w.masc || w.femme || w.parts?.masc?.length || w.parts?.femme?.length || w.top || w.bottom || w.accessory || w.custom || pics || w.tint;
     if (keep) d.worn = w; else delete d.worn;
   };
   const animKey = (b: Body) => (b === 'masc' ? 'mascAnim' : 'femmeAnim') as 'mascAnim' | 'femmeAnim';
@@ -128,7 +131,7 @@ export function wornLookForm(store: EditorStore, d: ItemDef, rerender: () => voi
     return h('div', { class: `worn-panel custom${w.custom ? '' : ' dim'}` },
       h('b', { class: 'worn-slot' }, 'Custom sprite'),
       checkbox('Use custom clothes sprite', !!w.custom, (v) => { if (v) w.custom = true; else delete w.custom; set(); rerender(); }),
-      h('button', { type: 'button', class: 'btn primary small', onclick: () => openCustomWorn(store, d, () => { set(); rerender(); }) }, 'Edit custom sprite…'),
+      h('button', { type: 'button', class: 'btn primary small', onclick: () => { d.worn = w; openCustomWorn(store, d, () => { set(); rerender(); }); } }, 'Edit custom sprite…'),
       h('div', { class: 'worn-row' }, h('span', { class: 'worn-label' }, 'Masc'), h('span', { class: 'note' }, sum('masc'))),
       h('div', { class: 'worn-row' }, h('span', { class: 'worn-label' }, 'Femme'), h('span', { class: 'note' }, sum('femme'))),
       h('div', { class: 'worn-row' }, checkbox('Tint it', !!w.tint, (on) => { if (on) w.tint = tint.value; else delete w.tint; tint.disabled = !on; set(); rerender(); }), tint),

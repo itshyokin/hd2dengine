@@ -5,7 +5,7 @@
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
 import { type Inventory, stackSize } from '../game/inventory';
-import { esc } from './InventoryScreen';
+import { esc, warmthHtml } from './InventoryScreen';
 import { itemColor } from '../world/items';
 
 export interface ShopGood { item: string; price: number }
@@ -156,7 +156,7 @@ export class ShopScreen {
     this.root.innerHTML = `<div class="inv-box">
       <div class="inv-head"><span class="menu-title">${esc(this.name)}</span><span class="inv-gold">${inv.gold.toLocaleString()} G</span></div>
       ${tabs}<div class="shop-list" role="listbox">${list}</div>
-      <div class="inv-info">${d ? `<div class="inv-desc">${esc(d.description ?? '')}</div>` : ''}${sel?.why ? `<div class="inv-desc warn">${esc(sel.why)}</div>` : ''}</div>
+      <div class="inv-info">${d ? `<div class="inv-desc">${esc(d.description ?? '')}${d.warms ? `<span class="inv-kind">${warmthHtml(d).replace(/^ · /, ' ')}</span>` : ''}</div>` : ''}${sel?.why ? `<div class="inv-desc warn">${esc(sel.why)}</div>` : ''}</div>
       ${qtyBox}<div class="inv-msg">${esc(this.message)}</div>
       <div class="menu-note">${this.canSell ? 'Left / right: Buy or Sell · ' : ''}Space: choose · Esc: leave</div></div>`;
     this.root.querySelectorAll<HTMLButtonElement>('[data-t]').forEach((b) => b.addEventListener('click', () => { this.tab = b.dataset.t as 'buy' | 'sell'; this.sel = 0; this.qty = null; this.render(); }));
