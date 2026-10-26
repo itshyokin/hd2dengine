@@ -75,7 +75,7 @@ export class PostFX {
   constructor(private readonly renderer: THREE.WebGLRenderer) {
     const gl2 = renderer.capabilities.isWebGL2;
     const type = gl2 ? THREE.HalfFloatType : THREE.UnsignedByteType;
-    this.rtScene = new THREE.WebGLRenderTarget(1, 1, { type, samples: gl2 ? 4 : 0 });
+    this.rtScene = new THREE.WebGLRenderTarget(1, 1, { type, samples: gl2 ? 4 : 0, stencilBuffer: true });
     this.rtA = new THREE.WebGLRenderTarget(1, 1, { type, depthBuffer: false });
     this.rtB = new THREE.WebGLRenderTarget(1, 1, { type, depthBuffer: false });
     const mk = (fs: string, uniforms: Record<string, THREE.IUniform>) =>

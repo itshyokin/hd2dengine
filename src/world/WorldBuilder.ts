@@ -2,6 +2,7 @@
  * Turns map data into scene geometry: the ground with its heights, cliff walls and stairs,
  * imported tiles, animated water, and instanced prop sprites.
  */
+import { markProp } from '../render/lean';
 import { patchSway } from '../render/wind';
 import { patchLip } from '../render/lipFade';
 import { patchGroundYield, patchLean } from '../render/lean';
@@ -670,6 +671,24 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     const ys = tiles.map(([x, z]) => map.deckAt(x, z)).filter((y): y is number => y !== null);
     return ys.length ? Math.max(...ys) : null;
   };
+  // Flat mode (Update 139): the picture painted flat on the ground like a 2D game, its bottom edge at the prop's
+  // front (p.z), reaching back as far as the picture is tall (a bedroll, a rug).
+  for (const [type, list] of [...groups]) {
+    const d = sprites.def(type);
+    if (!d?.ground || sprites.model(type)) continue;
+    groups.delete(type);
+    const a = sprites.get(type), tex = (a.material as THREE.MeshStandardMaterial).map;
+    const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, roughness: 0.92, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }), false);
+    const geo = new THREE.PlaneGeometry(d.w, d.h).rotateX(-Math.PI / 2);
+    for (const p of list) {
+      const s = p.s ?? 1, y = propBase(map, p, d).y;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(p.x, y + 0.012, p.z - (d.h * s) / 2);
+      mesh.scale.set(s, 1, s);
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+    }
+  }
   for (const [type, list] of [...groups]) {
     const d = sprites.def(type);
     if (!d?.deck?.art || d.deck.stand) continue;
@@ -694,6 +713,7 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (!model || !pdef) continue;
     groups.delete(type);
     for (const mt of model.materials) patchAreaTint(mt);
+    markProp(model.materials);
     const mesh = new THREE.InstancedMesh(model.geometry, model.materials, list.length);
     mesh.castShadow = pdef.castShadow !== false;
     mesh.receiveShadow = true;
@@ -714,6 +734,8 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (ps !== 'off') patchSeason(a.material, ps === 'bare' ? 'bare' : 'leaves');
     const mesh = withSpriteShadows(new THREE.InstancedMesh(a.geometry, a.material, list.length), a);
     mesh.frustumCulled = false;
+    // Characters set always on top draw over it (Update 139).
+    markProp(a.material);
     // Flat against a wall, a shadow would only draw a dark copy beside it.
     if (onWall) mesh.castShadow = false;
     list.forEach((p, i) => {

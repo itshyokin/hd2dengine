@@ -460,7 +460,9 @@ In the Props layer, click **+ Image…** (or drop an image on the preview).
    It fades in at dusk and out at dawn, in the colour you choose.
 7. **Emits light** (optional): choose *Place light* under the preview and click where the light comes from.
    Set its colour, brightness, reach, flicker, when it's on, and shadows.
-8. **Wall props** (*Sits flat against the wall*) stand upright against it, and *Stretches to the height of the wall*
+8. **Flat mode** (Update 139): the picture is painted flat on the ground like a 2D game draws it (bedrolls, rugs,
+   puddles), its top edge the far end, instead of standing up. Characters walk and stand over it.
+   **Wall props** (*Sits flat against the wall*) stand upright against it, and *Stretches to the height of the wall*
    makes one (a ladder, hanging vines) fill whatever wall it's placed on. **Rustles when walked through**: tall
    grass shakes and swishes as the hero or the party step in (on by default for the tall-grass shapes that don't
    block). Built-in **Tall grass**, **Really tall grass** (taller than the hero) and **Wheat** are in the Props layer.
@@ -1350,6 +1352,8 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   sprites (trees, people, signs, props) leaning back to face it, so they keep their height and fill out their tile.
   Angle, distance, field of view and *Sprite lean* (0 upright … 100% facing the camera) can be changed; *Classic* puts
   back the original lower camera with upright sprites. Battle maps keep their own cameras (sprites upright there).
+  **Characters always on top** (Update 139, off by default): the hero and party are drawn over props they overlap, so
+  a tree or fence in front of them never hides them; the ground and buildings still do.
 - **Settings → Picture → Quality → Potato**: the lightest the map can be drawn, for slower tablets: a lower
   resolution, and no shadows, glow, depth of field, ambient occlusion, detailed lighting, swaying plants, drifting
   cloud shadows, mist, sun rays or neighbouring maps. Battles on battle maps keep their normal resolution. *Moving

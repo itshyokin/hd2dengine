@@ -93,3 +93,10 @@ export function patchGroundYield<T extends THREE.Material>(mat: T): T {
   mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|yield';
   return mat;
 }
+
+/** The stencil value props write (Update 139). */
+export const PROP_STENCIL = 1;
+/** Mark a prop material so characters set always on top draw over it. */
+export function markProp(m: THREE.Material | THREE.Material[]): void {
+  for (const x of Array.isArray(m) ? m : [m]) { x.stencilWrite = true; x.stencilRef = PROP_STENCIL; x.stencilFunc = THREE.AlwaysStencilFunc; x.stencilZPass = THREE.ReplaceStencilOp; }
+}

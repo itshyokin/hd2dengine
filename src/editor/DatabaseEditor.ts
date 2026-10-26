@@ -147,6 +147,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   let gameTitle = store.db.title;
   const menus: MenuConfig = JSON.parse(JSON.stringify(store.db.menus ?? {})) as MenuConfig;
   const cam: OverworldCamera = JSON.parse(JSON.stringify(store.db.overworldCamera ?? {})) as OverworldCamera;
+  let onTop = !!store.db.charactersOnTop;
   const saving = { anywhere: store.db.saving?.anywhere !== false, autosave: store.db.saving?.autosave !== false };
   const abilities = Object.fromEntries(ABILITIES.map((a) => [a, store.db.abilities?.[a] ?? true])) as Record<string, boolean>;
   const body = h('div', { class: 'db-editor' });
@@ -508,7 +509,9 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         field('Distance (tiles)', numberInput(val('distance'), (v) => set('distance', Math.max(6, Math.min(40, Math.round(v * 10) / 10))), { step: 0.5, min: 6, max: 40 }), 'Further back shows more of the map.'),
         field('Field of view (°)', numberInput(val('fov'), (v) => set('fov', Math.max(15, Math.min(70, Math.round(v)))), { step: 1, min: 15, max: 70 }), 'Wider: more perspective.'),
         field('Sprite lean (%)', numberInput(val('lean'), (v) => set('lean', Math.max(0, Math.min(100, Math.round(v)))), { step: 5, min: 0, max: 100 }), 'Of the camera’s angle: 0 upright, 100 facing it fully.')),
-      h('p', { class: 'note' }, 'Playtest to see it. Tall sprites right in front of walls may tuck into them when they lean a lot; lower the lean if so.'))];
+      h('p', { class: 'note' }, 'Playtest to see it. Tall sprites right in front of walls may tuck into them when they lean a lot; lower the lean if so.'),
+      checkbox('Characters always on top: the hero and party are drawn over props they overlap (a tree or fence in front of them never hides them)', onTop, (v) => (onTop = v)),
+      h('p', { class: 'note' }, 'Off: props in front of a character hide them, as they really stand. The ground and buildings still hide characters either way.'))];
   };
 
   const timeTab = () => {
@@ -749,7 +752,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) &&
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) && onTop === !!db.charactersOnTop &&
         (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? []) && JSON.stringify(cleanGlobals(globals)) === JSON.stringify(db.globalEvents ?? []) && JSON.stringify(cleanGenders(genders) ?? null) === JSON.stringify(db.genders ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
@@ -761,6 +764,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       db.title = gameTitle;
       if (tFinal) db.time = C(tFinal); else delete db.time;
       if (camOut) db.overworldCamera = C(camOut); else delete db.overworldCamera;
+      if (onTop) db.charactersOnTop = true; else delete db.charactersOnTop;
       if (statOut) db.statOrder = statOut; else delete db.statOrder;
       if (activeParty === 4) db.activeParty = 4; else delete db.activeParty;
       if (armorOut) db.armorTypes = C(armorOut); else delete db.armorTypes;

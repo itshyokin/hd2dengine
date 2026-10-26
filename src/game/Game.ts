@@ -2034,6 +2034,8 @@ export class Game {
     }
     this.updateSleep(dt);
     this.updateTimeWarp(dt);
+    // Characters always on top (Update 139): the hero and party drawn over props they overlap.
+    { const top = !!this.db.charactersOnTop; this.player.setOnTop(top); for (const a of this.allies) a.sprite.setOnTop(top); }
     document.body.classList.toggle('sleeping', this.sleepLook > 0.05);
     this.updateCamera(dt);
     this.updateBubbles();

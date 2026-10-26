@@ -374,8 +374,12 @@ decide things; the tablet editor keeps working.
         Done: editor/itemSections.ts `itemSections` (a <details> per ItemCat, + Add per kind, missing items listed);
         used by CombatEditor (Loot) and CommandEditor (shop goods). Sections: Items, Key items, Materials, Weapons,
         Armor / accessories, Shards and stones.
-  - [ ] Update 139: drawing. Database option "Characters always on top": the hero and party drawn over props they
+  - [x] Update 139: drawing. Database option "Characters always on top": the hero and party drawn over props they
         overlap (on / off). Props get "Flat mode": painted flat on the terrain like a 2D game (bedrolls, rugs).
+        Done: Database `charactersOnTop` (Camera tab). CharacterSprite `onTopCopy` (a child mesh sharing geometry and
+        material, renderOrder 20, drawn with no depth test where the stencil is 1); props mark the stencil (lean.ts
+        `markProp`, WorldBuilder sprite and 3D props); PostFX rtScene has a stencil buffer. PropDef `ground` (Flat mode,
+        PropImporter checkbox): WorldBuilder lays the picture flat (bottom edge at p.z, reaching back d.h).
   - [ ] Update 140: party pages. Selected arrows on the Party menu (the outline is hard to follow). Stamina hidden on
         stat pages (the HUD shows it); EXP bar under HP / MP like the other menus. Equip / unequip gear and shards from
         Status → Gear.

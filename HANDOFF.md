@@ -16,7 +16,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
 - **Oct 25 night list (137–141, NOTES):** 137 done (genders + Database → Party → Genders, no built-in drops,
-  custom worn sprite fix, nothing on the back, Warmth numbers, Sprint key item); 138 done (loot and shop goods by category). Owner asleep; 139–141 to follow.
+  custom worn sprite fix, nothing on the back, Warmth numbers, Sprint key item); 138 done (loot and shop goods by category); 139 done (Characters always on top in Database → Camera, prop Flat mode; on / off look not screenshot-checked yet). Owner asleep; 140–141 to follow.
 - **Update 133 done:** Database → Items → Materials tab; Cannot be sold on any item; icon effects (glow, outline,
   pattern: stripes / dots / cracks / swirls / checker, each with a colour).
 - **Update 132 done:** four quick slots (D-pad ↓ = slot 4, Release target on the left stick) taking key items; no

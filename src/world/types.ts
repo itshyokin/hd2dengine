@@ -154,6 +154,8 @@ export interface PropDef {
    * default; turn off for props that must sort with the ground as they stand (tall platforms whose legs show through).
    */
   frontOfTiles?: boolean;
+  /** Flat mode (Update 139): painted flat on the ground like a 2D game draws it (bedrolls, rugs), not standing up. */
+  ground?: boolean;
   /**
    * The hero's footsteps on it: a ground sound ('wood', 'stone', 'metal', 'carpet', 'grass', 'dirt', 'sand', 'snow',
    * 'water') or a sound of its own (an imported file or a built-in effect). Unset: the ground's (bridges: their wood
@@ -1088,6 +1090,8 @@ export interface Database {
   statOrder?: ('str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf')[];
   /** The camera over the maps (Database → Camera). Unset: the handheld-style camera. */
   overworldCamera?: OverworldCamera;
+  /** Characters always on top (Update 139): the hero and party are drawn over props they overlap. */
+  charactersOnTop?: boolean;
   title: string;
   /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
   world?: import('./worldLayout').WorldData;

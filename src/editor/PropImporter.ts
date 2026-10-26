@@ -67,6 +67,8 @@ interface State {
   stretch: boolean;
   rustle: '' | 'yes' | 'no';
   front: boolean;
+  /** Flat mode: painted flat on the ground (Update 139). */
+  ground: boolean;
   /** Walked on (a bridge or platform): '' no; the way it runs. */
   deck: '' | 'h' | 'v' | 'any';
   /** How a bridge or platform is drawn: its own picture, or built 3D pieces. */
@@ -116,6 +118,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
     stretch: !!existing?.stretch,
     rustle: existing?.rustle === undefined ? '' : existing.rustle ? 'yes' : 'no',
     front: existing?.frontOfTiles !== false,
+    ground: !!existing?.ground,
     deck: existing?.deck ? existing.deck.dir ?? 'any' : '',
     deckLook: existing?.deck ? (existing.deck.art ? (existing.deck.stand ? 'artStand' : 'art') : existing.deck.style) : 'art',
     tilt: !existing?.noTilt,
@@ -513,6 +516,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
           rows,
           h('p', { class: 'note' }, 'The player’s own date, any year: Oct 31 to Oct 31 for Halloween only, Oct 24 to Oct 31 for the week before. To use the same picture all year somewhere else too, Duplicate the prop and give only the copy dates.'));
       })(),
+      checkbox('Flat mode: painted flat on the ground like a 2D game draws it (bedrolls, rugs, puddles): the picture’s top is the far end', st.ground, (v) => (st.ground = v)),
       checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => { st.wall = v; renderTools(); }),
       checkbox('Stretches to the height of the wall it’s placed against (ladders, hanging vines)', st.stretch, (v) => (st.stretch = v)),
       checkbox('Always drawn in front of tiles (a ledge or cliff in front never hides it; turn off for tall platforms or bridges whose legs show through the ground)', st.front, (v) => (st.front = v)),
@@ -677,6 +681,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
       if (st.wall && st.stretch) def.stretch = true;
       if (st.rustle) def.rustle = st.rustle === 'yes';
       if (!st.front) def.frontOfTiles = false;
+      if (st.ground) def.ground = true;
       if (!st.tilt) def.noTilt = true;
       if (st.walkSound) def.walkSound = st.walkSound;
       if (st.deck) {

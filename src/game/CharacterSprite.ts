@@ -8,6 +8,7 @@
  */
 import { patchLean } from '../render/lean';
 import * as THREE from 'three';
+import { PROP_STENCIL } from '../render/lean';
 import { ANIM_PIXELS_PER_TILE, SpriteLibrary, withSpriteShadows } from '../render/sprites';
 import type { SpriteAsset } from '../render/sprites';
 import { patchAreaTint } from '../render/areaTint';
@@ -88,6 +89,7 @@ export class CharacterSprite {
     }
     this.anim = asset.anim ?? null;
     this.mesh = withSpriteShadows(new THREE.Mesh(asset.geometry, asset.material), asset);
+    this.onTopCopy = onTopCopy(this.mesh);
     if (this.anim) this.uv = asset.geometry.getAttribute('uv') as THREE.BufferAttribute;
     this.dir = dir;
     this.refresh();
@@ -96,6 +98,11 @@ export class CharacterSprite {
   get position(): THREE.Vector3 {
     return this.mesh.position;
   }
+
+  /** The copy drawn again over props (Characters always on top, Update 139). */
+  private readonly onTopCopy: THREE.Mesh | null = null;
+  /** Draw this character over props it overlaps (the hero and party when Database → Camera says so). */
+  setOnTop(on: boolean): void { if (this.onTopCopy) this.onTopCopy.visible = on; }
 
   /** Has animations beyond walking (an animated sheet)? */
   get animated(): boolean { return !!this.anim || !!this.rig; }
@@ -420,3 +427,31 @@ export class CharacterSprite {
 }
 
 export const DIR_VECTOR: Record<Dir, [number, number]> = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
+
+/**
+ * Characters always on top (Update 139): a copy of the sprite sharing its geometry and material, drawn after the
+ * props with no depth test, only where a prop was drawn (props mark the stencil buffer with 1). So a character shows
+ * over a tree or fence in front of it, while the ground and buildings still hide them as usual.
+ */
+function onTopCopy(mesh: THREE.Mesh): THREE.Mesh {
+  const copy = new THREE.Mesh(mesh.geometry, mesh.material);
+  copy.visible = false;
+  copy.castShadow = false;
+  copy.receiveShadow = false;
+  copy.renderOrder = 20;
+  copy.frustumCulled = false;
+  copy.raycast = () => {};
+  copy.onBeforeRender = () => {
+    const m = copy.material as THREE.Material;
+    m.depthTest = false; m.depthWrite = false;
+    m.stencilWrite = true; m.stencilFunc = THREE.EqualStencilFunc; m.stencilRef = PROP_STENCIL;
+    m.stencilZPass = THREE.KeepStencilOp; m.stencilFail = THREE.KeepStencilOp; m.stencilZFail = THREE.KeepStencilOp;
+  };
+  copy.onAfterRender = () => {
+    const m = copy.material as THREE.Material;
+    m.depthTest = true; m.depthWrite = true;
+    m.stencilWrite = false; m.stencilFunc = THREE.AlwaysStencilFunc;
+  };
+  mesh.add(copy);
+  return copy;
+}
