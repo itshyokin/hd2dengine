@@ -127,10 +127,11 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
   };
   st.solid = [Array.from({ length: Math.round(st.w) }, (): Mark => '#')];
   /**
-   * The footprint's depth follows the picture's height until it's set by hand (Update 129): a 1 × 2 prop gets a
-   * 1 × 2 grid of blocks to mark. Props with a footprint already keep theirs.
+   * The collision grid is Width × Height (Update 135): a 2 × 3 pine gets 2 × 3 blocks to mark, its rows from the top
+   * of the picture (the back) to its base (the front). Only 3D models set a Depth of their own. Rows added to a prop
+   * that had fewer start as ★ (walk behind), so it keeps working as before until they're marked.
    */
-  let depthSet = !!existing?.foot;
+  const addFill: Mark = existing ? '*' : '#';
 
 
   if (existing) {
@@ -166,6 +167,10 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
     st.ox = (img.width - nw * st.scale) / 2;
     st.oy = img.height - nh * st.scale;
     st.w = nw; st.h = nh;
+    // Update 135: as many rows as the picture is tall (new rows at the back start as ★, walk behind).
+    if (!st.model && st.solid.length < nh) st.solid = [...Array.from({ length: nh - st.solid.length }, () => Array.from({ length: nw }, (): Mark => '*')), ...st.solid];
+    if (!st.model) st.solid = st.solid.slice(-nh).map((row) => Array.from({ length: nw }, (_, c): Mark => row[c] ?? '#'));
+    st.d = st.model ? st.d : nh;
   }
 
   /* ---------------------------------------------------------------- cropper */
@@ -407,11 +412,10 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
   }
 
   function setSize(w: number, hh: number): void {
-    if (!depthSet && !st.model && Math.max(1, Math.round(hh)) !== st.d) queueMicrotask(() => { if (!depthSet) { setDepth(Math.max(1, Math.round(st.h))); renderForm(); draw(); } });
     // The picture stays standing on the ground marker: the frame grows upwards and to both sides.
     if (st.image) { st.ox -= ((w - st.w) * st.scale) / 2; st.oy -= (hh - st.h) * st.scale; }
     st.w = w; st.h = hh;
-    setDepth(st.d);
+    setDepth(st.model ? st.d : Math.max(1, Math.round(hh)));
     layout();
     if (st.model) remodel();
   }
@@ -421,7 +425,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
     const old = st.solid, was = st.d;
     st.d = d;
     // Rows are kept from the front: the front row stays the front row.
-    st.solid = Array.from({ length: d }, (_, r) => Array.from({ length: st.w }, (_, c): Mark => old[old.length - d + r]?.[c] ?? '#'));
+    st.solid = Array.from({ length: d }, (_, r) => Array.from({ length: st.w }, (_, c): Mark => old[old.length - d + r]?.[c] ?? (r < d - old.length ? addFill : '#')));
     renderTools();
     if (st.model && was !== d) remodel();
   }
@@ -464,9 +468,9 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
       h('div', { class: 'section-label' }, 'Size on the map'),
       h('div', { class: 'field-row three' },
         field('Width (tiles)', numberInput(st.w, (v) => { setSize(clampTiles(v), st.h); renderForm(); }, { min: 1, max: MAX_TILES, step: 1 })),
-        field('Depth (tiles)', numberInput(st.d, (v) => { depthSet = true; setDepth(clampTiles(v)); renderForm(); draw(); }, { min: 1, max: MAX_TILES, step: 1 })),
+        st.model ? field('Depth (tiles)', numberInput(st.d, (v) => { setDepth(clampTiles(v)); renderForm(); draw(); }, { min: 1, max: MAX_TILES, step: 1 })) : h('span'),
         field('Height (tiles)', numberInput(st.h, (v) => { setSize(st.w, clampTiles(v)); renderForm(); }, { min: 1, max: MAX_TILES, step: 1 }))),
-      h('p', { class: 'hint' }, 'Width and depth: the tiles it covers on the ground (its footprint, each tile marked X, O or ★ in the grid under the picture). Height: how tall the picture stands. Placed on the map, it covers whole tiles, its picture rising from the footprint’s front edge: a 1 × 1 × 1 block fills its tile exactly.'),
+      h('p', { class: 'hint' }, (st.model ? 'Width and depth: the tiles it covers on the ground (its footprint, each tile marked X, O or ★ in the grid under the picture).' : 'Width and height: the picture’s size, and its collision grid under the picture (Width × Height tiles, each marked X, O or ★).') + ' Height: how tall the picture stands. Placed on the map, it covers whole tiles, its picture rising from the footprint’s front edge: a 1 × 1 × 1 block fills its tile exactly.'),
       h('div', { class: 'section-label' }, 'Shape and collision'),
       h('div', { class: 'field-row' },
         st.model ? field('Shape', h('span', { class: 'hint' }, '3D model')) : field('Shape', select([['flat', 'Flat (one picture)'], ['solid', 'Solid block (pushed back)'], ['crossX', 'Cross × (two at 45°)'], ['crossPlus', 'Cross + (one side-on)'], ['crossStar', 'Star ✳ (cross × plus one facing front)'], ['rows', 'Rows ≡ (three staggered rows)'], ['thicket', 'Thicket (rows of crossing pairs)']], st.shape,
@@ -620,7 +624,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
     grid.addEventListener('pointerup', stop); grid.addEventListener('pointerleave', stop);
     const all = (m: Mark, label: string) => h('button', { type: 'button', class: 'btn small', onclick: () => { st.solid = st.solid.map((row) => row.map(() => m)); renderTools(); } }, label);
     footGrid.replaceChildren(
-      h('div', { class: 'foot-head' }, h('span', { class: 'block-label' }, `Footprint ${st.w} × ${st.d}, seen from above`)),
+      h('div', { class: 'foot-head' }, h('span', { class: 'block-label' }, st.model ? `Footprint ${st.w} × ${st.d}, seen from above` : `Collision ${st.w} × ${st.d} (top row: the back)`)),
       h('div', { class: 'foot-legend hint' }, h('b', { 'data-mark': '#' }, 'X'), ' blocks · ', h('b', { 'data-mark': '.' }, 'O'), ' walkable · ', h('b', { 'data-mark': '*' }, '★'), ' walk behind it'),
       grid,
       h('div', { class: 'foot-front' }, '▲ front edge: the picture stands here'),

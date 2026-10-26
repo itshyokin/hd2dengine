@@ -349,6 +349,10 @@ decide things; the tablet editor keeps working.
         top edge vs the standing frame); sprites.ts customWorn(key…) caches it as a sheet; Game lookFor layers it and
         preloads PNGs; editor/CustomWornEditor.ts pop-up (drag, wheel / slider scale, turn, duplicate); WornLookEditor
         custom panel now opens it (the Update 120 builder-parts UI is gone from items; lpcParts.ts stays for reuse).
+  - [x] Update 135: prop collision grid is Width × Height (Oct 25 report: a customised 2 × 3 pine only offered a
+        2 × 1 row). Done: PropImporter's grid rows follow the height for picture props (the saved footprint of a
+        built-in kept depth 1, so Update 129's depth-follows-height never applied); Depth only for 3D models; rows
+        added to an existing prop start as ★ (walk behind).
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.
