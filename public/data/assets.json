@@ -950,6 +950,25 @@
       "glow": "assets/props/jack_glow.png"
     },
     {
+      "id": "bedroll",
+      "name": "Bedroll",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 2,
+        "solid": [
+          ".",
+          "*"
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "ground": true,
+      "image": "assets/props/bedroll.png"
+    },
+    {
       "id": "pine",
       "name": "Pine tree",
       "w": 3,
@@ -971,6 +990,7 @@
       "sway": 1,
       "rustle": false,
       "frontOfTiles": false,
+      "ground": true,
       "season": "leaves",
       "image": "assets/props/pine.png"
     },
@@ -996,25 +1016,8 @@
       ],
       "filter": "point",
       "sway": 1,
+      "ground": true,
       "image": "assets/props/oak.png"
-    },
-    {
-      "id": "bedroll",
-      "name": "Bedroll",
-      "w": 1,
-      "h": 2,
-      "foot": {
-        "w": 1,
-        "d": 2,
-        "solid": [
-          ".",
-          "*"
-        ]
-      },
-      "block": [],
-      "filter": "point",
-      "castShadow": false,
-      "image": "assets/props/bedroll.png"
     }
   ],
   "tiles": [
