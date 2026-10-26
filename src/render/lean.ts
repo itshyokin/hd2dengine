@@ -5,14 +5,22 @@
  */
 import * as THREE from 'three';
 
-const uniforms = { uHdLean: { value: 0 }, uHdYield: { value: 0 } };
+/** How far the ground gives way with Characters always on top off (Update 142): low ledges only. */
+const GROUND_YIELD_OFF = 1.0;
+const uniforms = { uHdLean: { value: 0 }, uHdYield: { value: GROUND_YIELD_OFF }, uHdBack: { value: 0 } };
 
 /**
  * Characters always on top (Update 142): how far the ground (and props not drawn in front of tiles) are pushed back
  * in depth, so characters show over them. 0 (off): everything sorts as it really stands (a tree or a ledge in front
  * of a character hides them); the upright depth still keeps leaned sprites from tucking into a wall behind them.
  */
-export function setGroundYield(on: boolean): void { uniforms.uHdYield.value = on ? GROUND_YIELD : 0; }
+export function setGroundYield(on: boolean): void {
+  // The ground always gives way a little (a leaned sprite's lower half over a low ledge behind it would sort behind
+  // it otherwise); all the way only with the option on. Props not drawn in front of tiles only with it on.
+  uniforms.uHdYield.value = on ? GROUND_YIELD : GROUND_YIELD_OFF;
+  uniforms.uHdBack.value = on ? GROUND_YIELD : 0;
+}
+
 
 /** The lean now, in radians (0: upright). */
 export function setLean(radians: number): void { uniforms.uHdLean.value = radians; }
@@ -42,19 +50,19 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
     // Flat on a wall (ladders, wall torches, windows): stays upright against it.
     if (mat.userData.noLean) {
       // Not drawn in front of tiles: pushed back like the ground, so it sorts with it as it really stands.
-      if (mat.userData.hdBack) { Object.assign(shader.uniforms, uniforms); shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      if (mat.userData.hdBack) { Object.assign(shader.uniforms, uniforms); shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
   if (uHdLean > 0.0) {
-    vec4 hdBack = projectionMatrix * vec4(mvPosition.xyz * (1.0 + uHdYield / max(0.001, length(mvPosition.xyz))), 1.0);
+    vec4 hdBack = projectionMatrix * vec4(mvPosition.xyz * (1.0 + uHdBack / max(0.001, length(mvPosition.xyz))), 1.0);
     gl_Position.z = hdBack.z / hdBack.w * gl_Position.w;
   }`); }
       return;
     }
     Object.assign(shader.uniforms, uniforms);
     // A prop set not to be drawn in front of tiles (PropDef.frontOfTiles false) is pushed back as far as the ground is.
-    const back = mat.userData.hdBack ? `hdUp.xyz *= 1.0 + uHdYield / max(0.001, length(hdUp.xyz));` : '';
+    const back = mat.userData.hdBack ? `hdUp.xyz *= 1.0 + uHdBack / max(0.001, length(hdUp.xyz));` : '';
     // Drawn leaning, but at the depth it would have standing up: terrain behind a sprite (a cliff wall, a bevel)
     // never cuts through its leaned-back top, while anything really in front of it still hides it.
-    shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
   vec3 hdUpright = transformed;
   { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }`).replace('#include <project_vertex>', `#include <project_vertex>
   if (uHdLean > 0.0) {
