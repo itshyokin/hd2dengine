@@ -1,4 +1,6 @@
 import { partyLayoutSection } from './PartyLayoutEditor';
+import { FIELD_USE_NAMES, POWER_NAMES } from '../world/items';
+import { FIELD_POWERS, FIELD_USES } from '../world/types';
 import { organizeForm } from './formLayout';
 import { compactForm } from './dom';
 
@@ -166,6 +168,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const globals: GlobalEvent[] = JSON.parse(JSON.stringify(store.db.globalEvents ?? [])), globalState = { sel: 0 };
   heroes.rp = roleplay;
   let activeParty: 3 | 4 = store.db.activeParty === 4 ? 4 : 3;
+  let aButton = store.db.aButton ?? 'jump';
   const chatState = { sel: 0 };
   const spells: SpellEntry[] = JSON.parse(JSON.stringify(spellList(store.db)));
   const additions: AdditionDef[] = JSON.parse(JSON.stringify(additionList(store.db)));
@@ -416,6 +419,11 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     if (tab === 'time') { content.replaceChildren(...timeTab()); return; }
     if (tab === 'camera') { content.replaceChildren(...cameraTab()); return; }
     content.replaceChildren(
+      // Update 142: the A button on the map.
+      h('section', { class: 'db-section' },
+        h('h3', {}, 'A button (on the map)'),
+        field('A does', select([['jump', 'Jump'], ...FIELD_USES.filter((u) => !['swim', 'climb', 'skeletonKey'].includes(u)).map((u) => [u, u === 'dash' ? 'Sprint (hold A to run)' : FIELD_USE_NAMES[u]] as [string, string]), ...FIELD_POWERS.map((p) => [p, `${POWER_NAMES[p]} (switch on / off)`] as [string, string])], aButton, (v) => { aButton = v as typeof aButton; }),
+          'Talking to someone in front still comes first. Any field power can go on A instead of Jump (Sprint: run while A is held; Cut swings; Bow: hold to draw). Without Jump on A there is no jumping (Space on a keyboard does the same as A).')),
       h('section', { class: 'db-section' },
         h('h3', {}, 'Party size'),
         field('Active characters', select([['3', '3 active (the hero + 2)'], ['4', '4 active (the hero + 3)']], String(activeParty), (v) => { activeParty = v === '4' ? 4 : 3; }),
@@ -510,8 +518,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         field('Field of view (°)', numberInput(val('fov'), (v) => set('fov', Math.max(15, Math.min(70, Math.round(v)))), { step: 1, min: 15, max: 70 }), 'Wider: more perspective.'),
         field('Sprite lean (%)', numberInput(val('lean'), (v) => set('lean', Math.max(0, Math.min(100, Math.round(v)))), { step: 5, min: 0, max: 100 }), 'Of the camera’s angle: 0 upright, 100 facing it fully.')),
       h('p', { class: 'note' }, 'Playtest to see it. Tall sprites right in front of walls may tuck into them when they lean a lot; lower the lean if so.'),
-      checkbox('Characters always on top: the hero and party are drawn over props they overlap (a tree or fence in front of them never hides them)', onTop, (v) => (onTop = v)),
-      h('p', { class: 'note' }, 'Off: props in front of a character hide them, as they really stand. The ground and buildings still hide characters either way.'))];
+      checkbox('Characters always on top: the hero and party are drawn over props they overlap and over ledges and cliff tops in front of them (nothing hides them)', onTop, (v) => (onTop = v)),
+      h('p', { class: 'note' }, 'Off: trees, props, ledges and cliffs in front of a character hide them, as they really stand. Either way, a sprite standing in front of a wall never tucks into it.'))];
   };
 
   const timeTab = () => {
@@ -753,7 +761,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
         JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) && onTop === !!db.charactersOnTop &&
-        (activeParty === 4) === (db.activeParty === 4) && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? []) && JSON.stringify(cleanGlobals(globals)) === JSON.stringify(db.globalEvents ?? []) && JSON.stringify(cleanGenders(genders) ?? null) === JSON.stringify(db.genders ?? null)) return 'same';
+        (activeParty === 4) === (db.activeParty === 4) && aButton === (db.aButton ?? 'jump') && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? []) && JSON.stringify(cleanGlobals(globals)) === JSON.stringify(db.globalEvents ?? []) && JSON.stringify(cleanGenders(genders) ?? null) === JSON.stringify(db.genders ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
       const C = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -767,6 +775,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (onTop) db.charactersOnTop = true; else delete db.charactersOnTop;
       if (statOut) db.statOrder = statOut; else delete db.statOrder;
       if (activeParty === 4) db.activeParty = 4; else delete db.activeParty;
+      if (aButton !== 'jump') db.aButton = aButton; else delete db.aButton;
       if (armorOut) db.armorTypes = C(armorOut); else delete db.armorTypes;
       if (weaponOut) db.weaponTypes = C(weaponOut); else delete db.weaponTypes;
       if (itemsOut) db.items = C(itemsOut); else delete db.items;

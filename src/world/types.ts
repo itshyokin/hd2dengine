@@ -1090,6 +1090,11 @@ export interface Database {
   statOrder?: ('str' | 'dex' | 'agi' | 'end' | 'def' | 'mag' | 'mdf')[];
   /** The camera over the maps (Database → Camera). Unset: the handheld-style camera. */
   overworldCamera?: OverworldCamera;
+  /**
+   * The A button on the map (Update 142): 'jump' (unset) or a field power: a key item field use (Sprint is held to
+   * run; Cut swings; Bow is held to draw) or a key item power (light, waterWalk). Talking still comes first.
+   */
+  aButton?: 'jump' | FieldUseKind | FieldPower;
   /** Characters always on top (Update 139): the hero and party are drawn over props they overlap. */
   charactersOnTop?: boolean;
   title: string;

@@ -6,7 +6,7 @@
 import type { Input } from '../game/Input';
 import { uiSound } from '../audio/sfx';
 import { esc } from './InventoryScreen';
-import { tabKeys, type TabGroup } from './tabs';
+import { tabKeys, tabStrip, wireTabs, type TabGroup } from './tabs';
 
 export interface AchievementView {
   id: string; name: string; description: string; icon: string; points: number;
@@ -76,11 +76,13 @@ export class AchievementsScreen {
       </div>`;
     }).join('');
     this.root.innerHTML = `<div class="inv-box ach-box">
-      <div class="inv-head"><span class="menu-title">Achievements</span><span class="ach-total">${got.length} / ${list.length} · <b>${pts}</b> / ${all}G</span></div>
+      <div class="inv-head"><span class="menu-title">${this.tabs ? 'Journal' : 'Achievements'}</span><span class="ach-total">${got.length} / ${list.length} · <b>${pts}</b> / ${all}G</span></div>
+      ${tabStrip(this.tabs)}
       ${list.length ? `<div class="ach-prog ach-total-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${all}" aria-valuenow="${pts}" aria-label="Achievement points"><i style="width:${all ? Math.min(100, (pts / all) * 100) : 0}%"></i><span>${pts.toLocaleString()} / ${all.toLocaleString()} pts</span></div>` : ''}
       <div class="ach-list">${rows || '<p class="pc-empty">No achievements in this game yet.</p>'}</div>
       <div class="menu-note">${esc(this.note())}</div>
     </div>`;
+    wireTabs(this.root, this.tabs);
     this.root.querySelector('.ach-row.sel')?.scrollIntoView({ block: 'nearest' });
   }
 }

@@ -15,6 +15,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 142 (Oct 26):** Characters always on top now also controls the ground yield (off by default: trees and
+  ledges in front hide characters), hold B to dismount, Backpack layout (icons, 8 columns, details at the bottom), no
+  Party menu corner buttons, Achievements tab strip, Database → Player → A button.
 - **Oct 25 night list (137–141, NOTES):** 137 done (genders + Database → Party → Genders, no built-in drops,
   custom worn sprite fix, nothing on the back, Warmth numbers, Sprint key item); 138 done (loot and shop goods by category); 139 done (Characters always on top in Database → Camera, prop Flat mode; browser-checked: on draws the hero over a pine); 140 done (Party arrows, no stamina on stat pages, EXP under HP / MP, equip from Status → Gear; checked); 141 done (START Settings + Save / Load / Quit and icons, X Party + Journal with LT / RT and LB / RB, B Backpack, Y World Map with your own marker, Achievements in the Journal, toggles). Owner to try 141 on a controller.
 - **Update 133 done:** Database → Items → Materials tab; Cannot be sold on any item; icon effects (glow, outline,

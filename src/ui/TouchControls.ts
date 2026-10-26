@@ -10,16 +10,16 @@ export class TouchControls {
 
   constructor(parent: HTMLElement, input: Input) {
     this.root.className = 'touch-controls';
-    this.root.innerHTML = `<button type="button" class="touch-btn menu-btn">Menu</button><button type="button" class="touch-btn run" aria-pressed="false">Run</button><button type="button" class="touch-btn jump">Jump</button><button type="button" class="touch-btn ring" hidden>Spell</button>`;
+    // Update 142: Party, Bag, Map and Settings buttons (a controller's X, B, Y and START).
+    this.root.innerHTML = `<button type="button" class="touch-btn menu-btn" data-act="settings" aria-label="Settings">⚙</button><button type="button" class="touch-btn menu-btn" data-act="worldmap">Map</button><button type="button" class="touch-btn menu-btn" data-act="backpack">Bag</button><button type="button" class="touch-btn menu-btn" data-act="party">Party</button><button type="button" class="touch-btn run" aria-pressed="false">Run</button><button type="button" class="touch-btn jump">Jump</button><button type="button" class="touch-btn ring" hidden>Spell</button>`;
     parent.appendChild(this.root);
     this.run = this.root.querySelector('.run')!;
     this.jump = this.root.querySelector('.jump')!;
     this.ring = this.root.querySelector('.ring')!;
     // Stop taps here reaching the map underneath (which would walk there).
-    const menu = this.root.querySelector<HTMLButtonElement>('.menu-btn')!;
-    for (const b of [this.run, this.jump, this.ring, menu]) b.addEventListener('pointerdown', (e) => e.stopPropagation());
-    // Update 141: the Party menu (its corner buttons open the Backpack, World Map and Settings).
-    menu.addEventListener('click', () => input.press('party'));
+    const menus = [...this.root.querySelectorAll<HTMLButtonElement>('.menu-btn')];
+    for (const b of [this.run, this.jump, this.ring, ...menus]) b.addEventListener('pointerdown', (e) => e.stopPropagation());
+    for (const b of menus) b.addEventListener('click', () => input.press(b.dataset.act as 'party' | 'backpack' | 'worldmap' | 'settings'));
     // Sprint: Hold runs while the button is pressed; Toggle switches running on and off.
     this.run.addEventListener('pointerdown', () => {
       if (input.sprintToggle) { input.runLatched = !input.runLatched; this.run.setAttribute('aria-pressed', String(input.runLatched)); }

@@ -88,7 +88,7 @@ import { forgeRules, forgedDef, upgradable, upgradeCost } from './forge';
 import { typeChartHtml } from '../ui/typeChart';
 import { affinity, affinityText, essenceItem, fuseCount, nextTier, type Affinity } from './essence';
 import { ACTIVE_MEMBERS, Ally, MAX_PARTY, PartyState, fightingStyle, memberGainXp, spendMember, type AllyHost, type AllyNumbers, type MemberData } from './party';
-import { POWER_NAMES, carriedUse, itemColor, migrateItems, rarityOf } from '../world/items';
+import { FIELD_USE_NAMES, POWER_NAMES, carriedUse, itemColor, migrateItems, rarityOf } from '../world/items';
 import { ATTRS, ATTR_INFO, ATTR_MAX, type Attr, type Attrs, type HeroTotals, accuracyOf, ailmentResist, enduranceHp, evasionOf, heroTotals, type StatGear, powerMultiplier, setAttrOrder, speedMultiplier } from './attributes';
 import { classStatGear, gearKindName, gearSkill } from './classes';
 import { type Rank, levelGains, ranksOf } from './statRanks';
@@ -105,7 +105,7 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { EvolveScreen } from '../ui/EvolveScreen';
-import { leanNow, patchLean, setLean } from '../render/lean';
+import { leanNow, patchLean, setLean, setGroundYield } from '../render/lean';
 import { DEFAULT_OVERWORLD_CAMERA } from './cameraDefaults';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
@@ -213,6 +213,8 @@ const SET_ICONS = {
   map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
 };
 const INTERACT_RANGE = 1.3;
+/** Seconds B (or Esc) is held while riding to get off the horse (Update 142). */
+const DISMOUNT_HOLD = 0.45;
 
 type Start = { x: number; z: number; dir?: Dir };
 
@@ -2061,7 +2063,8 @@ export class Game {
     this.updateSleep(dt);
     this.updateTimeWarp(dt);
     // Characters always on top (Update 139): the hero and party drawn over props they overlap.
-    { const top = !!this.db.charactersOnTop; this.player.setOnTop(top); for (const a of this.allies) a.sprite.setOnTop(top); }
+    // Update 142: off, the ground and props aren't pushed back either, so trees and ledges in front hide characters.
+    { const top = !!this.db.charactersOnTop; setGroundYield(top); this.player.setOnTop(top); for (const a of this.allies) a.sprite.setOnTop(top); }
     document.body.classList.toggle('sleeping', this.sleepLook > 0.05);
     this.updateCamera(dt);
     this.updateBubbles();
@@ -2167,10 +2170,25 @@ export class Game {
     // Fishing: the hero stands still with the rod out (moving, jumping or attacking reels in).
     if (this.fishing) this.updateFishing(dt);
     // Update 141: START Settings, X Party (and the Journal), B the Backpack, Y the World Map.
+    // Update 142: riding, holding B (or Esc) gets off the horse; a quick press still opens the menu on letting go.
+    const riding = !!this.state.horse?.mounted;
+    const held = this.dismountHold;
+    if (held) {
+      if (i.isHeld(held.action)) {
+        held.t += dt;
+        if (held.t >= DISMOUNT_HOLD) { this.dismountHold = null; if (riding && !this.motion.airborne) this.dismount(); }
+      } else {
+        this.dismountHold = null;
+        if (held.action === 'backpack') this.openBackpack(); else this.openSettingsMenu();
+        return;
+      }
+    }
     if (!this.motion.airborne && !this.motion.climbing) {
-      if (i.consume('settings') || i.consume('cancel')) { this.openSettingsMenu(); return; }
+      const wantSettings = i.consume('settings') || i.consume('cancel'), wantBag = i.consume('backpack');
+      if (riding && (wantSettings || wantBag)) this.dismountHold = { action: wantBag ? 'backpack' : 'settings', t: 0 };
+      else if (wantSettings) { this.openSettingsMenu(); return; }
+      else if (wantBag) { this.openBackpack(); return; }
       if (i.consume('party')) { this.openPauseMenu(); return; }
-      if (i.consume('backpack')) { this.openBackpack(); return; }
       if (i.consume('worldmap')) { this.openWorldMap(); return; }
     }
     // Riding: the Spell key (F, if still bound) gets off the horse (the Ride horse key item does too).
@@ -2202,14 +2220,17 @@ export class Game {
     if (stunned) { dx = dz = 0; for (const a of ['jump', 'melee', 'bow', 'magic', 'attack', 'switchWeapon', 'ring'] as Action[]) i.consume(a); }
     const m = this.motion;
     // Space jumps; 1–3 use the sword, bow and spells, Q / Tab lock on, C sneaks.
-    const space = i.consume('jump');
+    // Update 142: A can be a field power instead of Jump (Database → Player → A button).
+    const aPower = this.db.aButton && this.db.aButton !== 'jump' ? this.db.aButton : null;
+    const space = !aPower && i.consume('jump');
+    if (aPower && i.consume('jump') && !stunned) this.aButtonPower(aPower);
     if (!stunned) this.combat.handleInput(i);
     // With "Always run" on, Shift walks instead.
     // On a controller, pushing the stick all the way runs (Settings → Gameplay).
     const stickRun = this.settings.stickRun && i.stickAmount > 0.92;
     i.sprintToggle = this.settings.sprint === 'toggle';
     if (!i.sprintToggle) i.runLatched = false;
-    const sprint = this.state.sprint && this.carries('dash');
+    const sprint = (this.state.sprint && this.carries('dash')) || (this.db.aButton === 'dash' && i.isHeld('jump'));
     const run = sprint || (this.settings.alwaysRun ? !i.isHeld('run') : i.isHeld('run') || i.runLatched || i.touchRun || stickRun);
     const res = m.update(dt, { dx, dz, run, jump: space, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed * (this.riding ? 1 : 1 - slowOf(this.weatherStates.get(mainHero(this.db).id) ?? null, this.bodyCfg)) });
     if (!m.airborne && !m.climbing && this.trySeamless(dx, dz)) return;
@@ -4641,12 +4662,8 @@ export class Game {
     const k = tab ? Math.max(0, tabs.indexOf(tab)) : 0;
     // Its tabs on the triggers, the Journal's on the bumpers (Update 141).
     tabSwap.on = true;
-    const other = (open: () => void) => () => { this.closePause(); open(); };
     this.pauseShell.show(tabs.map((o) => ({ id: o, label: pauseLabel(m, o), icon: PAUSE_ICONS[o] })), k,
-      [this.input.label('subPrev'), this.input.label('subNext')], (to) => { uiSound('menuMove'); this.showPauseTab(to); },
-      [{ label: `Backpack (${this.input.label('backpack')})`, icon: SET_ICONS.backpack, run: other(() => this.openBackpack()) },
-        ...(Object.keys(this.db.world?.maps ?? {}).length ? [{ label: `World map (${this.input.label('worldmap')})`, icon: SET_ICONS.map, run: other(() => this.openWorldMap()) }] : []),
-        { label: `Settings (${this.input.label('settings')})`, icon: SET_ICONS.gameplay, run: other(() => this.openSettingsMenu()) }]);
+      [this.input.label('subPrev'), this.input.label('subNext')], (to) => { uiSound('menuMove'); this.showPauseTab(to); });
     this.showPauseTab(k);
   }
 
@@ -4670,12 +4687,44 @@ export class Game {
     this.bag.compact = true;
     this.openInventory(this.invTab, () => { this.bag.compact = false; });
   }
+  /** The Backpack's pocket tabs as pictures (Update 142: their names didn't fit). */
+  private static readonly POCKET_ICONS: Record<string, string> = {
+    all: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></svg>',
+    consumable: '<svg viewBox="0 0 16 16"><path d="M6.5 2h3M7 2v3.5L4 10a2.6 2.6 0 0 0 2.3 4h3.4A2.6 2.6 0 0 0 12 10L9 5.5V2"/><path d="M5 10h6"/></svg>',
+    gear: '<svg viewBox="0 0 16 16"><path d="M8 2l5 2v4c0 3-2.3 5-5 6-2.7-1-5-3-5-6V4z"/></svg>',
+    shard: '<svg viewBox="0 0 16 16"><path d="M4 3h8l2 3.5L8 14 2 6.5z"/><path d="M2 6.5h12M6 3l2 11M10 3L8 14"/></svg>',
+    material: '<svg viewBox="0 0 16 16"><path d="M2.5 11l3-6 3.5 1.5L11.5 4l2 4.5-1.5 4H3.5z"/></svg>',
+    key: '<svg viewBox="0 0 16 16"><circle cx="5" cy="8" r="2.6"/><path d="M7.6 8H14M12 8v2.5M10 8v1.8"/></svg>',
+  };
   /** Y (Update 141): the World Map, if the game has a World layout. */
   private openWorldMap(): void {
     if (!Object.keys(this.db.world?.maps ?? {}).length) { this.menu.notice('No world map yet'); return; }
     this.worldMap.show(() => {});
     this.drawWorldArt();
   }
+  /**
+   * A as a field power (Update 142). Sprint is handled while A is held (in the run check); the rest act like the key
+   * item with that use, from the bag if one's carried (its name and numbers), otherwise a plain one.
+   */
+  private aButtonPower(p: NonNullable<Database['aButton']>): void {
+    if (p === 'dash' || p === 'jump') return;
+    if (p === 'light' || p === 'waterWalk') {
+      const it = [...this.items.values()].find((d) => d.tool === p && this.inventory.count(d.id) > 0);
+      if (!it) { this.menu.notice(`No ${POWER_NAMES[p]} key item in the bag`); return; }
+      const msg = this.toggleTool(it.id);
+      if (msg) this.menu.notice(msg);
+      return;
+    }
+    const d: ItemDef = this.carried(p) ?? { id: `a:${p}`, name: FIELD_USE_NAMES[p], kind: 'key', icon: 'builtin:key', field: { use: p } };
+    const dmg = Math.max(1, d.field?.damage ?? 10);
+    let msg: string | null;
+    if (p === 'cut') msg = this.combat.keySwing(dmg);
+    else if (p === 'bow') msg = this.combat.keyDraw(dmg, () => this.input.isHeld('jump'));
+    else msg = this.fieldUse(d);
+    if (msg) this.menu.notice(msg);
+  }
+  /** Riding: B or Esc being held to get off the horse (Update 142), and for how long. */
+  private dismountHold: { action: 'backpack' | 'settings'; t: number } | null = null;
   /** START (Update 141): Settings, with saving, loading and quitting. */
   private settingsOpen = false;
   private openSettingsMenu(): void {
@@ -5325,7 +5374,7 @@ export class Game {
     const n = INVENTORY_TABS.length;
     k = ((k % n) + n) % n;
     this.invTab = k;
-    const tabs = this.tabGroup(INVENTORY_TABS.map((t) => t.label), k, (to) => this.openInventory(to, onClose));
+    const tabs = { ...this.tabGroup(INVENTORY_TABS.map((t) => t.label), k, (to) => this.openInventory(to, onClose)), ...(this.bag.compact ? { icons: INVENTORY_TABS.map((t) => Game.POCKET_ICONS[t.id] ?? '') } : {}) };
     this.bag.show(onClose, tabs, INVENTORY_TABS[k].id);
   }
 

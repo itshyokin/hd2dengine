@@ -401,6 +401,14 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 142: Oct 26 morning notes. "Characters always on top" off still drew the hero over a tree and cliff
+        tops: the ground yield (Update 91b) and props with frontOfTiles false (pushed back like the ground) did it.
+        Done: lean.ts uniform `uHdYield` (`setGroundYield`), GROUND_YIELD only with the option on; off, everything
+        sorts by its upright depth. Achievements page draws the Journal's tab strip. Riding: hold B / Esc
+        (DISMOUNT_HOLD 0.45 s) gets off; a tap opens the Backpack / Settings on release. Party menu's corner buttons
+        removed (touch: Party, Bag, Map, ⚙ buttons instead). Backpack: icon pocket tabs (Game.POCKET_ICONS, tab titles
+        as tooltips), 8 columns of 40 px (gear 4 + 4), details below the grid at a fixed 132 px above the controls.
+        Database `aButton` (Player tab): Jump or a field use / power; Game `aButtonPower` (Sprint while A held).
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.

@@ -840,8 +840,14 @@ them: Freezing before a fight, still Freezing after.
   **Party** and **Journal**, switched with **LT / RT** (Z / C), the Journal's own tabs with **LB / RB** (Q / E);
   small buttons in its top corner open the Backpack, World Map and Settings (mouse and touch; the touch Menu button
   opens it). **B** (I or B) opens the **Backpack**: the bag as a compact window at the bottom right (the game waits;
-  use items and key items, equip gear and shards). **Y** (M) opens the **World Map**. Each button closes what it
-  opened; in the Backpack, B first backs out of an item's choices. **Achievements** are a Journal tab now.
+  use items and key items, equip gear and shards; Update 142: pocket tabs are pictures, 8 columns on every pocket,
+  gear as 4 weapons + 4 armor, and the item's details at the bottom above the controls). **Riding, hold B** (or Esc)
+  to get off the horse; a quick press still opens the Backpack (or Settings). **Y** (M) opens the **World Map**. Each button closes what it
+  opened; in the Backpack, B first backs out of an item's choices. **Achievements** are a Journal tab now (with the
+  Journal's tabs across the top). Touch screens get Party, Bag, Map and ⚙ buttons.
+- **A button** (Update 142, Database → Player → *A button (on the map)*): Jump (the default) or any field power:
+  Sprint (run while A is held), Cut, Bow (hold to draw), Fire Bow, Smash Stone, the weather / time / season, fishing,
+  the horse, Light, Water Walk. Talking to someone in front still comes first.
   *(Before Update 141, below:)*
 - **Pause menu** (Esc / Start): one frame from the top of the screen to the bottom (the same size for every tab),
   with its tabs (all the same size) across the top: **Party · Items · Map ·
@@ -1362,8 +1368,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   sprites (trees, people, signs, props) leaning back to face it, so they keep their height and fill out their tile.
   Angle, distance, field of view and *Sprite lean* (0 upright … 100% facing the camera) can be changed; *Classic* puts
   back the original lower camera with upright sprites. Battle maps keep their own cameras (sprites upright there).
-  **Characters always on top** (Update 139, off by default): the hero and party are drawn over props they overlap, so
-  a tree or fence in front of them never hides them; the ground and buildings still do.
+  **Characters always on top** (Update 139; Update 142: off by default, and now it covers the ground too): on, the
+  hero and party are drawn over props they overlap and over ledges and cliff tops in front of them; off, trees,
+  props, ledges and cliffs in front of a character hide them, as they really stand. Either way a leaned sprite
+  standing in front of a wall never tucks into it.
 - **Settings → Picture → Quality → Potato**: the lightest the map can be drawn, for slower tablets: a lower
   resolution, and no shadows, glow, depth of field, ambient occlusion, detailed lighting, swaying plants, drifting
   cloud shadows, mist, sun rays or neighbouring maps. Battles on battle maps keep their normal resolution. *Moving
