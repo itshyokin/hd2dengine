@@ -2485,7 +2485,7 @@ body:has(.controls-screen:not([hidden])) .menu { visibility: hidden; }
 
 /* Update 142: the Backpack fits 8 columns on every pocket (gear: 4 weapons + 4 armor), its pocket tabs are pictures,
    and the item's details sit below the grid at a fixed height, above the controls line. */
-.inv.backpack .inv-box { width: auto; max-width: 96vw; }
+.inv.backpack .inv-box { width: 384px; max-width: 96vw; }
 .inv.backpack .tab-strip { justify-content: space-between; gap: 4px; flex-wrap: nowrap; }
 .inv.backpack .tab-strip.with-icons .tab-btn { font-size: 0; gap: 0; padding: 7px 10px; min-height: 0; }
 .inv.backpack .tab-strip.with-icons .tab-ico, .inv.backpack .tab-strip.with-icons .tab-ico svg { width: 18px; height: 18px; }
