@@ -14,7 +14,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `NOTES.md`: the to-do list and roadmap, with ticked items. **This is the master plan.**
 - `HANDOFF.md`: this file.
 
-## Pick up here (state as of Oct 25 evening: Updates 115–134 done (Oct 25 list finished); next: the older Future list, planned with the owner)
+## Pick up here (state as of Oct 25 evening: Updates 115–135 done (Oct 25 list finished; 135: prop collision grid Width × Height); next: the older Future list, planned with the owner)
 - **Update 133 done:** Database → Items → Materials tab; Cannot be sold on any item; icon effects (glow, outline,
   pattern: stripes / dots / cracks / swirls / checker, each with a colour).
 - **Update 132 done:** four quick slots (D-pad ↓ = slot 4, Release target on the left stick) taking key items; no

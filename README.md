@@ -443,8 +443,9 @@ In the Props layer, click **+ Image…** (or drop an image on the preview).
 2. **Size on the map**: width × height in tiles. The preview shows the image cut into that grid.
    Drag to move the image, scroll or use the slider to zoom. **Fit** frames the visible part of the image
    (transparent margins are ignored), standing on the bottom edge. The blue marker is where the prop touches the ground.
-3. **Footprint** (seen from above, like RPG Maker's passability): one square per tile it covers, the front row at the
-   bottom, where the picture stands (the blue line). Click a tile to cycle **X** (blocks), **O** (walkable) and **★**
+3. **Collision** (seen from above, like RPG Maker's passability): **Width × Height** squares (Update 135: a 2 × 3
+   pine gets 2 × 3; 3D models use their Width × Depth instead), the front row at the bottom, where the picture stands
+   (the blue line), the top row the back. Rows added to an older prop start as ★, so it works as before until marked. Click a tile to cycle **X** (blocks), **O** (walkable) and **★**
    (walkable, behind the prop); drag to paint the same mark over more tiles, or use *All X / All O / All ★*. The picture
    is always at the front of what it blocks, so the player stops in front of it. Wall props (vines, doors, cave
    mouths) count their front edge from the foot of the wall they hang on, so their tiles reach back into the wall and
