@@ -952,13 +952,16 @@
     {
       "id": "pine",
       "name": "Pine tree",
-      "w": 1,
-      "h": 2,
+      "w": 3,
+      "h": 4,
       "foot": {
-        "w": 1,
-        "d": 1,
+        "w": 3,
+        "d": 4,
         "solid": [
-          "#"
+          "***",
+          "*#*",
+          "*#*",
+          "*#*"
         ]
       },
       "block": [
@@ -974,23 +977,44 @@
     {
       "id": "oak",
       "name": "Oak tree",
-      "w": 5,
-      "h": 8,
+      "w": 4,
+      "h": 5,
       "foot": {
-        "w": 5,
-        "d": 1,
+        "w": 4,
+        "d": 5,
         "solid": [
-          ".#.##"
+          "****",
+          "****",
+          "****",
+          "*##*",
+          "*##*"
         ]
       },
       "block": [
-        -1,
-        1,
-        2
+        -0.5,
+        0.5
       ],
       "filter": "point",
       "sway": 1,
       "image": "assets/props/oak.png"
+    },
+    {
+      "id": "bedroll",
+      "name": "Bedroll",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 2,
+        "solid": [
+          ".",
+          "*"
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "image": "assets/props/bedroll.png"
     }
   ],
   "tiles": [
@@ -1326,9 +1350,5 @@
   },
   "tileSteps": {
     "▲": "stone"
-  },
-  "tilePrints": {
-    "▒": true,
-    ".": true
   }
 }

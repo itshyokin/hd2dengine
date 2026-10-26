@@ -4944,7 +4944,8 @@
       "rarity": "rare",
       "magicDefense": 5,
       "warmth": 3,
-      "material": "gold_ingot"
+      "material": "gold_ingot",
+      "worn": {}
     },
     {
       "id": "key_cut",
@@ -7009,14 +7010,14 @@
     {
       "id": "quest",
       "name": "Quest location",
-      "symbol": "star",
+      "symbol": "question",
       "color": "#ffd23f"
     },
     {
       "id": "landmark",
       "name": "Landmark",
-      "symbol": "circle",
-      "color": "#6ab8ff"
+      "symbol": "square",
+      "color": "#ffffff"
     },
     {
       "id": "town",
@@ -7041,6 +7042,18 @@
       "name": "Monolith",
       "symbol": "square",
       "color": "#000000"
+    },
+    {
+      "id": "marker_3",
+      "name": "Monster",
+      "symbol": "circle",
+      "color": "#ff3333"
+    },
+    {
+      "id": "marker_4",
+      "name": "Ally",
+      "symbol": "circle",
+      "color": "#97ff8a"
     }
   ],
   "combat": {
@@ -7096,9 +7109,9 @@
     "agi"
   ],
   "overworldCamera": {
-    "pitch": 42.4,
-    "lean": 0,
-    "distance": 15.6
+    "pitch": 80,
+    "distance": 15.6,
+    "lean": 84
   },
   "armorTypes": [
     {
