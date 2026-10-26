@@ -353,6 +353,9 @@ decide things; the tablet editor keeps working.
         2 × 1 row). Done: PropImporter's grid rows follow the height for picture props (the saved footprint of a
         built-in kept depth 1, so Update 129's depth-follows-height never applied); Depth only for 3D models; rows
         added to an existing prop start as ★ (walk behind).
+  - [x] Update 136: a Sign-style text box showed the default window (Oct 25 report). Done: with the Ember theme plus a
+        window colour / see-through setting, emberCss forced every .msg-box background; it now keeps a style's own
+        --look-bg (and look-clear), as Update 129 did for the other themes.
   - [ ] Later: gifting and character rooms. A tower with a room per character; "Give a gift to Crowley?" → "Who's it
         from?" (party list) → the item goes on a decoration spot in Crowley's room (markers like rest spots) and
         Crowley's view of the giver rises by X. "Favorite gift" as a roleplay title.

@@ -399,6 +399,9 @@ function emberCss(st: WindowStyle): string {
     st.accent ? `${all} { --ember: ${st.accent}; }` : '',
     st.accent ? `${T} .pc-card.sel { box-shadow: 0 0 0 2px ${rgba(st.accent, 0.35)} !important; }` : '',
     st.color || op < 1 ? `${all} { background: ${rgba(st.color || '#0e111c', op * 0.95)} !important; ${op < 1 ? 'backdrop-filter: none !important;' : ''} }` : '',
+    // Text box styles (Update 136): a style's own window colour (a Sign's brown) still shows through the window colour.
+    `${T} .msg.looked.look-bg .msg-box { background: var(--look-bg) !important; }`,
+    `${T} .msg.looked.look-clear .msg-box { background: none !important; box-shadow: none !important; }`,
     st.text ? `${T} .sk-name { fill: ${st.text} !important; }` : '',
     st.text ? `${all} { color: ${st.text} !important; }\n${[...FRAMES, ...SMALL].map((f) => textSel.map((x) => `${T} ${f} ${x}:not([style*="color"]):not([class*="bar"]):not(.msg.looked .msg-text *):not(.menu-title):not(.el-pill):not(:is(.ps-tab, .tab, .sk-tab, [aria-selected="true"]) *):not(.ps-tab, .tab, .sk-tab)`).join(',')).join(',\n')} { color: ${st.text} !important; }` : '',
   ].filter(Boolean).join('\n');
