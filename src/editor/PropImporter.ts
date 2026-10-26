@@ -516,7 +516,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
           rows,
           h('p', { class: 'note' }, 'The player’s own date, any year: Oct 31 to Oct 31 for Halloween only, Oct 24 to Oct 31 for the week before. To use the same picture all year somewhere else too, Duplicate the prop and give only the copy dates.'));
       })(),
-      checkbox('Flat mode: painted flat on the ground like a 2D game draws it (bedrolls, rugs, puddles): the picture’s top is the far end', st.ground, (v) => (st.ground = v)),
+      checkbox('Lie flat on the ground (Flat mode: painted onto the ground like a 2D game, for bedrolls, rugs and puddles; NOT for trees or anything standing up: characters walk over it)', st.ground, (v) => (st.ground = v)),
       checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => { st.wall = v; renderTools(); }),
       checkbox('Stretches to the height of the wall it’s placed against (ladders, hanging vines)', st.stretch, (v) => (st.stretch = v)),
       checkbox('Always drawn in front of tiles (a ledge or cliff in front never hides it; turn off for tall platforms or bridges whose legs show through the ground)', st.front, (v) => (st.front = v)),
