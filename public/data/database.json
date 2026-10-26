@@ -4943,7 +4943,30 @@
       "description": "A gift from The Great Pumpkin for completing his quest. (Halloween 2026 Event)",
       "rarity": "rare",
       "magicDefense": 5,
-      "warmth": 3
+      "warmth": 3,
+      "material": "gold_ingot"
+    },
+    {
+      "id": "key_cut",
+      "name": "Machete",
+      "kind": "key",
+      "icon": "builtin:sword",
+      "description": "A broad blade for vines, thin trees and crates.",
+      "field": {
+        "use": "cut",
+        "damage": 10
+      }
+    },
+    {
+      "id": "key_bow",
+      "name": "Hunting Bow",
+      "kind": "key",
+      "icon": "builtin:bow",
+      "description": "For switches and targets out of reach.",
+      "field": {
+        "use": "bow",
+        "damage": 10
+      }
     }
   ],
   "enemies": [
@@ -7133,5 +7156,17 @@
       "id": "rp5",
       "title": "Career:"
     }
-  ]
+  ],
+  "inventory": {
+    "startItems": [
+      {
+        "item": "key_cut",
+        "count": 1
+      },
+      {
+        "item": "key_bow",
+        "count": 1
+      }
+    ]
+  }
 }
