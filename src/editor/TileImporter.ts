@@ -194,7 +194,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     const parts: Node[] = [
       skinOf ? h('p', { class: 'hint' }, `This picture replaces the built-in “${skinOf.name}” everywhere it’s painted, on every map. Its sounds, edge blending, cliffs and everything else stay as they are; switch back to Built-in any time.`)
         : field('Name', textInput(st.name, (v) => (st.name = v.trim()), { placeholder: 'e.g. Cobblestone', oninput: (e: Event) => (st.name = (e.target as HTMLInputElement).value.trim()) })),
-      skinOf ? h('span') : field('Kind', select([['plain', 'Plain (a repeating texture)'], ['animated', 'Animated (frames side by side or stacked)'], ['autotile', 'Autotile (RPG Maker A2: 2 × 3 tiles, edges drawn for you)'], ['wall', 'Wall (RPG Maker A3 / A4 wall: 2 × 2 tiles, sides and ends drawn for you)']], st.kind,
+      field('Kind', select([['plain', 'Plain (a repeating texture)'], ['animated', 'Animated (frames side by side or stacked)'], ['autotile', 'Autotile (RPG Maker A2: 2 × 3 tiles, edges drawn for you)'], ['wall', 'Wall (RPG Maker A3 / A4 wall: 2 × 2 tiles, sides and ends drawn for you)']], st.kind,
         (v) => { st.kind = v as typeof st.kind; if (pixel()) { st.flat = true; st.filter = 'point'; } renderForm(); rebuild(); })),
       slot('image', pixel() ? 'Picture' : 'Texture', st.kind === 'wall' ? 'RPG Maker’s wall layout (A3, or the wall part of A4): 2 tiles wide, 2 tall (64 × 64 at 32 px). The top of a cliff is an Autotile; its face is a Wall.' : st.kind === 'autotile' ? 'RPG Maker’s A2 layout: 2 tiles wide, 3 tall (64 × 96 at 32 px). Animated (like A1 water): the frames’ blocks side by side.'
         : st.kind === 'animated' ? 'All the frames in one picture, side by side or stacked (3 frames of 32 px: 96 × 32 or 32 × 96), or add them one at a time below.'
@@ -221,7 +221,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
         field('Resolution', select([['keep', 'Keep texture detail'], ['16', '16 px per tile'], ['24', '24 px per tile'], ['32', '32 px per tile'], ['48', '48 px per tile'], ['64', '64 px per tile']], st.res, (v) => { st.res = v as Res; rebuild(); })),
         field('Filtering', select([['point', 'Point (crisp pixels)'], ['smooth', 'Smooth']], st.filter, (v) => { st.filter = v as 'point' | 'smooth'; rebuild(); }))),
       h('p', { class: 'hint' }, 'Characters are drawn at 32 px per tile: draw tiles at 32 × 32 (or a seamless 64 × 64 or 128 × 128 covering 2 × 2 or 4 × 4 tiles) and keep Point filtering for crisp pixels.'),
-      skinOf ? h('span') : passageField(),
+      passageField(),
       skinOf ? h('span') : field('Cliff walls under this tile', select([['', `Map default (${mapCliffName(store)})`], ['self', 'This tile'],
         ...cliffChoices(store).filter(([k]) => k !== existing?.key)], st.cliff, (v) => (st.cliff = v)),
         'When this tile is on top of a cliff, the wall below shows this. “This tile” uses the same texture for the wall.'),

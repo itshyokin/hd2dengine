@@ -154,7 +154,6 @@ function buildUI(): void {
       void playtest(stamp);
     } }, '▶ Playtest');
   const toggleLeft = h('button', { type: 'button', class: 'btn ghost panel-toggle', 'aria-expanded': 'false', onclick: () => togglePanel('left') }, 'Tools');
-  const toggleRight = h('button', { type: 'button', class: 'btn ghost panel-toggle', 'aria-expanded': 'false', onclick: () => togglePanel('right') }, 'Details');
 
   const toolbar = h('header', { class: 'toolbar' },
     h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, 'Map Editor')),
@@ -168,7 +167,7 @@ function buildUI(): void {
     h('div', { class: 'tb-group' }, undoBtn, redoBtn),
     h('div', { class: 'tb-group zoom' }, zoomOut, fitBtn, zoomIn),
     h('div', { class: 'tb-spacer' }),
-    h('div', { class: 'tb-group' }, toggleLeft, toggleRight),
+    h('div', { class: 'tb-group' }, toggleLeft),
     h('div', { class: 'tb-group' }, saveState, saveBtn, playBtn));
   // Opened by "Start Map Editor.bat": the Character Builder (characters and weapons) is served alongside.
   if (store.project.kind === 'dev') {
@@ -218,19 +217,39 @@ function buildUI(): void {
   store.on('meta', updateMeta);
   store.on('map', () => { undoBtn.disabled = !store.canUndo; redoBtn.disabled = !store.canRedo; });
 
-  const layout = h('div', { class: 'layout' }, palette.el, h('main', { class: 'stage' }, view.el), inspector.el);
+  // Update 150: one bar on the left (tools, lists and what's selected); drag its edge to make it wider.
+  palette.setInspector(inspector.el);
+  const grip = h('div', { class: 'side-grip', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Drag to resize the panel', title: 'Drag to resize (double-click: back to normal)' });
+  palette.el.append(grip);
+  const layout = h('div', { class: 'layout' }, palette.el, h('main', { class: 'stage' }, view.el));
+  const LEFT_KEY = 'hd2d.editorLeftWidth';
+  const setLeft = (px: number | null) => {
+    if (px === null) { layout.style.removeProperty('--left-w'); try { localStorage.removeItem(LEFT_KEY); } catch { /* storage off */ } return; }
+    const w = Math.round(Math.max(220, Math.min(px, Math.max(320, window.innerWidth * 0.7))));
+    layout.style.setProperty('--left-w', `${w}px`);
+    try { localStorage.setItem(LEFT_KEY, String(w)); } catch { /* storage off */ }
+  };
+  try { const w = Number(localStorage.getItem(LEFT_KEY)); if (w) setLeft(w); } catch { /* storage off */ }
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing-side');
+    const left = layout.getBoundingClientRect().left;
+    const move = (ev: PointerEvent) => setLeft(ev.clientX - left);
+    const up = () => { document.body.classList.remove('resizing-side'); grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); window.dispatchEvent(new Event('resize')); };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+  });
+  grip.addEventListener('dblclick', () => { setLeft(null); window.dispatchEvent(new Event('resize')); });
   root.replaceChildren(toolbar, layout, status);
 
-  function togglePanel(side: 'left' | 'right'): void {
-    const el = side === 'left' ? palette.el : inspector.el, other = side === 'left' ? inspector.el : palette.el;
-    const open = !el.classList.contains('open');
-    el.classList.toggle('open', open);
-    other.classList.remove('open');
-    toggleLeft.setAttribute('aria-expanded', String(side === 'left' && open));
-    toggleRight.setAttribute('aria-expanded', String(side === 'right' && open));
+  function togglePanel(_side: 'left'): void {
+    const open = !palette.el.classList.contains('open');
+    palette.el.classList.toggle('open', open);
+    toggleLeft.setAttribute('aria-expanded', String(open));
   }
-  // On narrow screens, selecting something opens the details sheet.
-  store.on('selection', () => { if (store.selection && window.innerWidth <= 900 && !inspector.el.classList.contains('open')) togglePanel('right'); });
+  // On narrow screens, selecting something opens the panel (what's selected shows in it).
+  store.on('selection', () => { if (store.selection && window.innerWidth <= 900 && !palette.el.classList.contains('open')) togglePanel('left'); });
 
   updateMeta();
   updateStatus();

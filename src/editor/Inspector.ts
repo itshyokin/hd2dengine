@@ -48,7 +48,8 @@ export class Inspector {
   private readonly commands: CommandEditor;
 
   constructor(private readonly store: EditorStore) {
-    this.el = h('aside', { class: 'side right', 'aria-label': 'Inspector' });
+    // Update 150: a panel inside the left bar, shown while something is selected.
+    this.el = h('section', { class: 'inspector-panel', 'aria-label': 'Selected' });
     this.commands = new CommandEditor(store);
     store.on('selection', () => this.render());
     store.on('structure', () => this.render());
@@ -76,16 +77,20 @@ export class Inspector {
     else if (sel?.kind === 'start') content = this.start();
     else if (sel?.kind === 'tile') content = this.tile(sel.x, sel.z, sel.w ?? 1, sel.h ?? 1);
     else if (sel?.kind === 'ramp' && s.rampAt(sel.x, sel.z)) content = this.ramp(sel.x, sel.z);
-    else content = this.mapSummary();
+    else content = this.lastSummary = this.mapSummary();
     const body = h('div', { class: 'side-body' }, ...content);
     this.el.replaceChildren(body);
     body.scrollTop = scroll;
+    this.el.hidden = !sel || content === this.lastSummary;
     this.drawMapWindow();
     if (this.eventWin) {
       if (sel?.kind === 'event' && sel.id === this.eventWin.id) this.drawEventWindow();
       else this.eventWin.close();
     }
   }
+
+  /** The map summary shown when nothing is selected (kept hidden: Map Properties has it). */
+  private lastSummary: HTMLElement[] | null = null;
 
   /** Apply a change as one undo step. */
   private edit(fn: () => void, rebuild = false): void {
