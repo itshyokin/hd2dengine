@@ -230,6 +230,8 @@ export interface TileDef {
   frames?: number;
   /** Frames per second (default 4). */
   fps?: number;
+  /** ☆ passage (Update 147): drawn above characters (tree tops, roof edges) and walked under. */
+  above?: boolean;
   /**
    * A built-in tile with a picture of your own (kept in the asset list under the built-in tile's key): the picture
    * replaces the painted art everywhere, the tile keeps everything else. False: back to the built-in art (the picture
@@ -702,6 +704,11 @@ export interface MapData {
   width: number;
   height: number;
   terrain: string[];
+  /**
+   * Upper terrain layer (Update 147): one row per line, one tile key per cell (a space: nothing), painted over the
+   * ground like RPG Maker's upper layers (flowers, path edges, overhangs). Omitted when empty.
+   */
+  upper?: string[];
   /** Height layer: one row per line, space-separated steps from -10 to 10 (a step is half a tile). Omitted when flat. */
   heights?: string[];
   /**

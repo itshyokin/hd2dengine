@@ -33,6 +33,8 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     res: 'keep' as Res,
     filter: existing?.filter ?? ('point' as 'point' | 'smooth'),
     blocks: !!existing?.blocks,
+    /** ☆: drawn over the characters (Update 147). */
+    above: !!existing?.above,
     /** Cliff walls under this tile: '' map default, 'self' this tile, or a look key. */
     cliff: existing ? (store.tiles.cliffChoice(existing.key) === existing.key ? 'self' : store.tiles.cliffChoice(existing.key) ?? '') : '',
     flipGreen: false,
@@ -185,6 +187,9 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       h('p', { class: 'hint' }, hint));
   };
 
+  /** Passage, like RPG Maker's O / X / ☆ (Update 147). */
+  const passageField = () => field('Passage', select([['o', 'O: walkable'], ['x', 'X: blocks movement (water, walls…)'], ['star', '☆: drawn over the characters, walked under (tree tops, roof edges)']],
+    st.above ? 'star' : st.blocks ? 'x' : 'o', (v) => { st.blocks = v === 'x'; st.above = v === 'star'; }), '☆ tiles go on the upper terrain layer.');
   function renderForm(): void {
     const parts: Node[] = [
       skinOf ? h('p', { class: 'hint' }, `This picture replaces the built-in “${skinOf.name}” everywhere it’s painted, on every map. Its sounds, edge blending, cliffs and everything else stay as they are; switch back to Built-in any time.`)
@@ -203,7 +208,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
           field('Speed (frames per second)', numberInput(st.fps, (v) => { st.fps = Math.max(0.5, Math.min(30, v)); }, { step: 0.5, min: 0.5, max: 30 }))),
         h('button', { type: 'button', class: 'btn small', onclick: () => inputs.frame.click() }, st.image ? '+ Add frames (separate pictures)…' : 'Choose frames (separate pictures)…'),
         h('p', { class: 'hint' }, 'Drawn crisp, flat on the ground, with no blended edges (the picture draws its own).'),
-        checkbox('Blocks movement (water, walls…)', st.blocks, (v) => (st.blocks = v)));
+        passageField());
       form.replaceChildren(...parts);
       return;
     }
@@ -216,7 +221,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
         field('Resolution', select([['keep', 'Keep texture detail'], ['16', '16 px per tile'], ['24', '24 px per tile'], ['32', '32 px per tile'], ['48', '48 px per tile'], ['64', '64 px per tile']], st.res, (v) => { st.res = v as Res; rebuild(); })),
         field('Filtering', select([['point', 'Point (crisp pixels)'], ['smooth', 'Smooth']], st.filter, (v) => { st.filter = v as 'point' | 'smooth'; rebuild(); }))),
       h('p', { class: 'hint' }, 'Characters are drawn at 32 px per tile: draw tiles at 32 × 32 (or a seamless 64 × 64 or 128 × 128 covering 2 × 2 or 4 × 4 tiles) and keep Point filtering for crisp pixels.'),
-      skinOf ? h('span') : checkbox('Blocks movement (water, walls…)', st.blocks, (v) => (st.blocks = v)),
+      skinOf ? h('span') : passageField(),
       skinOf ? h('span') : field('Cliff walls under this tile', select([['', `Map default (${mapCliffName(store)})`], ['self', 'This tile'],
         ...cliffChoices(store).filter(([k]) => k !== existing?.key)], st.cliff, (v) => (st.cliff = v)),
         'When this tile is on top of a cliff, the wall below shows this. “This tile” uses the same texture for the wall.'),
@@ -250,6 +255,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       if (skinOf) def.skin = true;
       if (existing?.credits) def.credits = existing.credits;
       if (st.blocks) def.blocks = true;
+      if (st.above) def.above = true;
       if (st.flat && !st.normal) def.flat = true;
       if (await commitTile(store, def, images, processed)) {
         const look = st.cliff === 'self' ? key : st.cliff || undefined;

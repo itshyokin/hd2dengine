@@ -1372,6 +1372,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Upper terrain layer** (Update 147, Terrain → *Lower / Upper*): paint any imported tile over the ground (see-through
+  where its picture is: flowers, path edges, tree tops), with an Eraser. Each tile has a **Passage** like RPG Maker:
+  O walkable, X blocks, ☆ drawn over the characters and walked under.
 - **RPG Maker-style tiles** (Update 146, tile editor → *Kind*): *Animated* (a strip of frames side by side or
   stacked, or added one picture at a time; set the frame count and speed) and *Autotile* (RPG Maker's A2 block,
   2 × 3 tiles, e.g. 64 × 96 at 32 px: painting picks the edges and corners from the neighbours; animated autotiles

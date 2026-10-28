@@ -53,16 +53,19 @@ export function tickPixelTiles(seconds: number): void { pixelClock = seconds; }
 
 /**
  * RPG Maker-style tiles (Update 146): each cell a flat picture on the ground, crisp pixels, no blended edges.
- * Autotiles are four quarters picked from the neighbours; animated ones step through their frames.
+ * Autotiles are four quarters picked from the neighbours; animated ones step through their frames. Update 147: also
+ * the upper terrain layer (any imported tile, see-through where its picture is), ☆ tiles drawn over the characters.
  */
 function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<string, TileTexture>): void {
-  for (const [key, tt] of tileTextures) {
+  const layers: [(x: number, z: number) => string, boolean][] = [[(x, z) => map.terrain(x, z), false], [(x, z) => map.upper(x, z), true]];
+  for (const [at, upper] of layers) for (const [key, tt] of tileTextures) {
     const def = tt.def;
-    if (!isPixelTile(def)) continue;
+    if (!upper && !isPixelTile(def)) continue;
     const img = tt.map.image as { width: number; height: number };
-    const l = frameLayout(def, img.width, img.height), auto = def.kind === 'autotile';
+    const l = isPixelTile(def) ? frameLayout(def, img.width, img.height) : { frames: 1, horiz: true };
+    const auto = def.kind === 'autotile', span = isPixelTile(def) ? 1 : Math.max(1, Math.round(def.span || 1));
     const fw = l.horiz ? 1 / l.frames : 1, fh = l.horiz ? 1 : 1 / l.frames;
-    const q = new QuadList(), lift = 0.006;
+    const q = new QuadList(), lift = upper ? 0.014 : 0.006;
     const y = (x: number, z: number) => map.surfaceY(x, z) + lift;
     // UVs pulled in half a pixel so crisp sampling never picks up the next piece of the picture at an edge.
     const eu = 0.5 / img.width, ev = 0.5 / img.height;
@@ -70,9 +73,14 @@ function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<
       [u0, u1, v0, v1] = [u0 + eu, u1 - eu, v0 - ev, v1 + ev],
       q.add([[x0, y(x0, z0), z0], [x1, y(x1, z0), z0], [x1, y(x1, z1), z1], [x0, y(x0, z1), z1]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], [0, 1, 0]));
     for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) {
-      if (map.terrain(x, z) !== key) continue;
-      if (!auto) { quad(x, z, x + 1, z + 1, 0, 1, fw, 1 - fh); continue; }
-      const same = (dx: number, dz: number) => { const nx = x + dx, nz = z + dz; return !map.inMap(nx, nz) || map.terrain(nx, nz) === key; };
+      if (at(x, z) !== key) continue;
+      if (!auto) {
+        // A plain tile on the upper layer: its piece of the repeating picture.
+        const ix = ((x % span) + span) % span, iz = ((z % span) + span) % span;
+        quad(x, z, x + 1, z + 1, (ix / span) * fw, 1 - iz / span, ((ix + 1) / span) * fw, 1 - ((iz + 1) / span) * fh);
+        continue;
+      }
+      const same = (dx: number, dz: number) => { const nx = x + dx, nz = z + dz; return !map.inMap(nx, nz) || at(nx, nz) === key; };
       autotileQuarters(same).forEach(([c, r], k) => {
         const qx = x + (k % 2) * 0.5, qz = z + Math.floor(k / 2) * 0.5;
         const u0 = (c / 4) * fw, v0 = 1 - r / 6;
@@ -84,9 +92,11 @@ function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<
     tex.encoding = THREE.sRGBEncoding;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-    const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+    const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, alphaTest: upper ? 0.5 : 0, polygonOffset: true, polygonOffsetFactor: upper ? -3 : -2, polygonOffsetUnits: upper ? -6 : -4 }));
     const m = mesh(q, mat);
-    m.renderOrder = 1;
+    m.renderOrder = upper ? 2 : 1;
+    // ☆: drawn over the characters (and everything else), like RPG Maker's star tiles.
+    if (def.above) { mat.depthTest = false; mat.depthWrite = false; mat.transparent = true; m.renderOrder = 20; m.receiveShadow = false; }
     scene.add(m);
     if (l.frames > 1) m.onBeforeRender = () => {
       const f = frameAt(def, l.frames, pixelClock);

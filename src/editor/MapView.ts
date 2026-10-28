@@ -434,7 +434,7 @@ export class MapView {
       let any = false;
       const [x0, x1] = [Math.min(st.from.x, st.to.x), Math.max(st.from.x, st.to.x)];
       const [z0, z1] = [Math.min(st.from.z, st.to.z), Math.max(st.from.z, st.to.z)];
-      for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) if (s.setTerrain(x, z, s.terrain)) any = true;
+      for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) if (s.paintLayer(x, z)) any = true;
       if (any) s.changed(); else s.dropCheckpoint();
     }
     if (st.kind === 'area') {
@@ -740,7 +740,7 @@ export class MapView {
   private paint(t: Pt): boolean {
     const s = this.store, n = s.brushSize, o = Math.floor((n - 1) / 2);
     let any = false;
-    for (let dz = 0; dz < n; dz++) for (let dx = 0; dx < n; dx++) if (s.setTerrain(t.x - o + dx, t.z - o + dz, s.terrain)) any = true;
+    for (let dz = 0; dz < n; dz++) for (let dx = 0; dx < n; dx++) if (s.paintLayer(t.x - o + dx, t.z - o + dz)) any = true;
     if (any) s.changed();
     return any;
   }
@@ -748,13 +748,13 @@ export class MapView {
   private flood(t: Pt): boolean {
     const s = this.store;
     if (!s.inMap(t.x, t.z)) return false;
-    const from = s.terrainAt(t.x, t.z), to = s.terrain;
+    const from = s.layerAt(t.x, t.z), to = s.terrainLayer === 'upper' ? s.upperTile : s.terrain;
     if (from === to) return false;
     const stack: Pt[] = [t];
     while (stack.length) {
       const p = stack.pop()!;
-      if (!s.inMap(p.x, p.z) || s.terrainAt(p.x, p.z) !== from) continue;
-      s.setTerrain(p.x, p.z, to);
+      if (!s.inMap(p.x, p.z) || s.layerAt(p.x, p.z) !== from) continue;
+      s.paintLayer(p.x, p.z);
       stack.push({ x: p.x + 1, z: p.z }, { x: p.x - 1, z: p.z }, { x: p.x, z: p.z + 1 }, { x: p.x, z: p.z - 1 });
     }
     return true;
@@ -910,6 +910,11 @@ export class MapView {
     const ctx = c.getContext('2d')!;
     const at = (x: number, z: number): string => s.terrainAt(Math.max(0, Math.min(m.width - 1, x)), Math.max(0, Math.min(m.height - 1, z)));
     for (let z = 0; z < m.height; z++) for (let x = 0; x < m.width; x++) drawTile(ctx, s.terrainAt(x, z), x, z, x * TS, z * TS, at);
+    // The upper terrain layer (Update 147) over it.
+    if (m.upper) {
+      const up = (x: number, z: number): string => (s.inMap(x, z) ? s.upperAt(x, z) : s.upperAt(Math.max(0, Math.min(m.width - 1, x)), Math.max(0, Math.min(m.height - 1, z))));
+      for (let z = 0; z < m.height; z++) for (let x = 0; x < m.width; x++) { const k = s.upperAt(x, z); if (k !== ' ') drawTile(ctx, k, x, z, x * TS, z * TS, up); }
+    }
     this.drawHeights(ctx);
   }
 

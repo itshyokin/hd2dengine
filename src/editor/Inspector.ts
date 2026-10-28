@@ -243,6 +243,10 @@ export class Inspector {
         }
         m.ramps = m.ramps?.filter((r) => r.x < w && r.z < hgt);
         m.terrain = Array.from({ length: hgt }, (_, z) => (m.terrain[z] ?? '').padEnd(w, '.').slice(0, w));
+        if (m.upper) {
+          const rows = Array.from({ length: hgt }, (_, z) => (m.upper![z] ?? '').padEnd(w, ' ').slice(0, w));
+          m.upper = rows.some((r) => r.trim()) ? rows : undefined;
+        }
         if (m.heightStyles) {
           const rows = Array.from({ length: hgt }, (_, z) => (m.heightStyles![z] ?? '').padEnd(w, '.').slice(0, w));
           m.heightStyles = rows.some((r) => /[^.]/.test(r)) ? rows : undefined;

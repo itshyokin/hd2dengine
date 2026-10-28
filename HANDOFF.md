@@ -15,6 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 147 (Oct 28):** Upper terrain layer and O / X / ☆ passage; ☆ over the hero checked in the browser.
 - **Update 146 (Oct 28):** Animated tiles and RPG Maker A2 autotiles (tile editor → Kind); checked in the browser.
 - **Update 145 (Oct 28):** 2D / 3D mode and the Player layer (Database → View & camera); checked all four sort cases
   in the browser. Next (agreed with the owner): RPG Maker-style tiles, see NOTES Update 145.

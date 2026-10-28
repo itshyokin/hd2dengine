@@ -37,6 +37,7 @@ export class TileMap {
     for (let z = 0; z < this.h; z++) {
       this.rows.push((data.terrain[z] ?? '').padEnd(this.w, '.').slice(0, this.w));
     }
+    this.upperRows = Array.from({ length: this.h }, (_, z) => (data.upper?.[z] ?? '').padEnd(this.w, ' ').slice(0, this.w));
     this.heights = parseHeights(data.heights, this.w, this.h);
     const stepAt = (x: number, z: number) => (this.inMap(x, z) ? this.heights[z * this.w + x] : null);
     for (const r of data.ramps ?? []) {
@@ -60,8 +61,15 @@ export class TileMap {
     this.passage = parsePassage(data.passage, this.w, this.h);
     this.blocked = new Uint8Array(this.w * this.h);
     for (let z = 0; z < this.h; z++)
-      for (let x = 0; x < this.w; x++) if (tiles.blocks(this.terrain(x, z))) this.blocked[z * this.w + x] = 1;
+      for (let x = 0; x < this.w; x++) {
+        // Update 147: an upper-layer tile set to block (not ☆) blocks too.
+        const u = this.upper(x, z);
+        if (tiles.blocks(this.terrain(x, z)) || (u !== ' ' && tiles.blocks(u) && !tiles.get(u)?.above)) this.blocked[z * this.w + x] = 1;
+      }
   }
+  private readonly upperRows: string[];
+  /** The upper layer's tile at a cell (Update 147); a space for none (and outside the map). */
+  upper(x: number, z: number): string { return this.inMap(x, z) ? this.upperRows[z][x] : ' '; }
 
   /** Tile key at a tile; coordinates outside the map are clamped to the edge. */
   terrain(x: number, z: number): string {
