@@ -1372,6 +1372,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **3D model maps** (Update 153, Map Properties → *3D model ground*): a GLB or FBX of a whole place as the map's
+  ground and scenery instead of painted tiles. It's fitted over the map (or scaled, turned and raised as you set), and
+  the game walks on it as it's shaped: slopes, floors and stairs; steep places, walls and holes block. Events, props,
+  lights and passage go on the map's tiles over it as on any map; the editor shows the model from above.
 - **Update 152**: **Grid movement** in 2D mode (the hero steps tile by tile like RPG Maker; Database → View &
   camera to walk freely instead). **Map folders** (Map Properties → Folder; the map list groups them). **RPG Maker MV
   sheets** (Terrain → *+ RPG Maker MV sheet…*: A1 water, A2 ground, A3 / A4 walls, A5 and B–E tiles, cut and ticked

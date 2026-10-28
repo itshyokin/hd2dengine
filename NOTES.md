@@ -401,6 +401,13 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 153 (phase 1 of 3D model maps): MapData.groundModel {src, scale, rot, x, y, z}; world/groundModel.ts
+        fitGround (fit footprint, raycast down at corners → hill field, centres + steepness → blocked), loadGround,
+        groundTopView (ortho render for the editor). TileMap: __ground → all cells hills on the field, blocked OR.
+        WorldBuilder hides terrain + border (water stays), adds the model. Game.loadMapData / boot attach __ground;
+        playtest hands the file over. Editor: Map Properties fields (file → assets/maps/<map>.glb), MapView backdrop.
+        Phase 2 (planned): a 3D editor viewport (orbit / fly camera, gizmos to move / turn / scale things, volumes for
+        triggers) like Unity or Sapien; separate collision meshes; free 3D camera for these maps.
   - [x] Update 152: PlayerMotion.grid / gridMove (centre to centre, held: chained steps; Game sets it in 2D unless
         db.freeMove2D). Flat props one InstancedMesh per type (slots → rustle with a Y twist, cutting), patchSway,
         patchFlat2D (+0.5 z in 2D). db.mapFolders (optgroups in the map select; Map Properties → Folder).

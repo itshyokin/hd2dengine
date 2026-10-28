@@ -1,4 +1,5 @@
 import { switchInput } from './switchPicker';
+import { modelExt } from '../render/models';
 import type { EncounterPick } from '../world/types';
 import { levelRangeField } from './levelFields';
 import { TRANSITIONS, TRANSITION_NAMES } from '../ui/BattleTransition';
@@ -87,6 +88,44 @@ export class Inspector {
       if (sel?.kind === 'event' && sel.id === this.eventWin.id) this.drawEventWindow();
       else this.eventWin.close();
     }
+  }
+
+  /**
+   * Update 153: a 3D model (GLB / FBX) as the map's ground and scenery. Its file is kept in assets/maps/; it's fitted
+   * over the map unless a scale is set; the map's tiles still hold events, props, lights and passage on top of it.
+   */
+  private groundModelFields(): HTMLElement[] {
+    const s = this.store, m = s.map, g = m.groundModel;
+    const choose = () => {
+      const inp = h('input', { type: 'file', accept: '.glb,.fbx' });
+      inp.addEventListener('change', () => void (async () => {
+        const f = inp.files?.[0]; if (!f) return;
+        const ext = modelExt(f.name);
+        if (!ext) { toast('Choose a .glb or .fbx model.', 'error'); return; }
+        const path = `assets/maps/${s.mapName}.${ext}`;
+        if (s.project.canSave && s.project.canStoreImages) {
+          try { await s.project.writeFile(path, f); } catch (err) { toast(`Couldn’t save the model: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+        }
+        s.files.set(path, f);
+        this.edit(() => { m.groundModel = { ...(m.groundModel ?? {}), src: path }; }, true);
+        toast('The model is the ground now: the game walks on it; the map shows it from above.');
+      })());
+      inp.click();
+    };
+    const num = (k: 'scale' | 'rot' | 'y', v: number) => this.edit(() => { const n = { ...m.groundModel! }; if (!v && k !== 'scale') delete n[k]; else if (k === 'scale' && !(v > 0)) delete n.scale; else n[k] = v; m.groundModel = n; }, true);
+    return [
+      h('div', { class: 'section-label' }, '3D model ground'),
+      h('div', { class: 'slot' },
+        h('div', { class: 'slot-head' }, h('span', { class: 'slot-label' }, 'Model (GLB or FBX)'), g ? h('span', { class: 'slot-file', title: g.src }, g.src.split('/').pop()!) : h('span', { class: 'slot-none' }, 'None: painted tiles')),
+        h('div', { class: 'slot-actions' },
+          h('button', { type: 'button', class: 'btn small', onclick: choose }, g ? 'Replace…' : 'Choose…'),
+          g ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => this.edit(() => { delete m.groundModel; }, true) }, 'Remove') : null),
+        h('p', { class: 'hint' }, 'A model of the whole place instead of painted tiles: walked on as it’s shaped (slopes, stairs, floors); steep places, walls and holes block. Events, props, lights and passage go on the map’s tiles over it as usual. Make the map’s size match the model’s footprint in tiles.')),
+      ...(g ? [h('div', { class: 'field-row' },
+        field('Scale', numberInput(g.scale ?? 0, (v) => num('scale', v), { step: 0.1, min: 0 }), 'Tiles per model unit; 0: fitted over the map.'),
+        field('Turn', select([['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']], String(g.rot ?? 0), (v) => num('rot', Number(v)))),
+        field('Raise', numberInput(g.y ?? 0, (v) => num('y', v), { step: 0.5 }), 'Up or down, in tiles.'))] : []),
+    ];
   }
 
   /** The map summary shown when nothing is selected (kept hidden: Map Properties has it). */
@@ -300,6 +339,7 @@ export class Inspector {
       field('Height', select([['', `Follow the view mode (now ${s.db.viewMode === '2d' ? 'flat: 2D mode' : 'real 3D heights: 3D mode'})`], ['flat', 'Implied by the tiles (flat, like RPG Maker)'], ['3d', 'Real 3D heights (the Heights layer)']],
         m.heightMode ?? '', (v) => this.edit(() => { if (v) m.heightMode = v as 'flat' | '3d'; else delete m.heightMode; })),
         'Flat: cliffs and stairs are drawn by the tiles (autotiles, walls) and everything stays at one height; the Heights layer is kept but not used, so you can switch back any time.'),
+      ...this.groundModelFields(),
       field('Cliff walls', this.themed(cliffChoices(s), m.cliffTile && s.tiles.isCliffLook(m.cliffTile) ? m.cliffTile : m.cliffTile === undefined ? undefined : BRICKS, 'cliffTile', BRICKS,
         (v) => this.edit(() => { if (v === undefined) delete m.cliffTile; else m.cliffTile = v; })),
         'What cliff walls on this map look like. A tile can choose its own in the Terrain palette.'),

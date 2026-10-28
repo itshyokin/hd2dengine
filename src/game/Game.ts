@@ -2,6 +2,7 @@
  * The game: loads data, builds the scene, and runs the frame loop.
  * Systems are kept in their own modules; this file wires them together.
  */
+import { type WithGround, loadGround } from '../world/groundModel';
 import { restoreAmount, restoreBits, restoreParts, restoresAny } from './restore';
 import { partyLayout } from '../ui/partyLayout';
 import { UI_THEMES, applyUiTheme } from '../ui/themes';
@@ -539,6 +540,11 @@ export class Game {
     this.sprites = new SpriteLibrary(new PropCatalog(assets));
     alignFootProps(mapData, (t) => this.sprites.def(t));
     this.tiles = new TileCatalog(assets);
+    // Update 153: the first map's 3D model ground.
+    if (mapData.groundModel?.src) {
+      try { (mapData as WithGround).__ground = await loadGround(mapData, resolve(mapData.groundModel.src)); }
+      catch (e) { console.warn(`Its 3D model “${mapData.groundModel.src}” couldn’t be read`, e); }
+    }
     await this.sprites.preload(resolve);
     this.sprites.modelStyle = modelStyle(this.db);
     await this.sprites.preloadCharacters(this.db.characters, resolve);
@@ -1321,6 +1327,11 @@ export class Game {
     migrateMap(data);
     applyTheme(data, this.db.mapThemes);
     alignFootProps(data, (t) => this.sprites.def(t));
+    // Update 153: a 3D model as the ground, loaded and fitted before the map is built.
+    if (data.groundModel?.src) {
+      try { (data as WithGround).__ground = await loadGround(data, this.resolveFile(data.groundModel.src)); }
+      catch (e) { console.warn(`Map ${name}: its 3D model “${data.groundModel.src}” couldn’t be read`, e); }
+    }
     return data;
   }
 

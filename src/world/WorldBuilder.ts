@@ -2,6 +2,7 @@
  * Turns map data into scene geometry: the ground with its heights, cliff walls and stairs,
  * imported tiles, animated water, and instanced prop sprites.
  */
+import type { WithGround } from './groundModel';
 import { markProp } from '../render/lean';
 import { patchSway } from '../render/wind';
 import { patchLip } from '../render/lipFade';
@@ -287,8 +288,17 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
 
   // Water reaching the map edge carries on out, like roads (a stream running off into the woods).
   const edgeWater = edgeWaters(map.w, map.h, (x, z) => map.waterAt(x, z), (x, z) => Math.min(...map.cornersAt(x, z)), borderSides(data.border));
+  const waterFrom = scene.children.length;
   const { ripple: waterNormals, flows: waterFlows } = buildWater(scene, map, data, edgeWater);
+  const borderFrom = scene.children.length;
   buildBorder(scene, map, data, waterNormals, tileTextures, edgeWater);
+  // Update 153: a 3D model as the ground: the painted terrain and the scenery round the edge stay hidden (the ground
+  // mesh is still there for pointing at tiles), the model is drawn instead; painted water still shows.
+  const gm = (data as WithGround).__ground;
+  if (gm) {
+    for (const o of [...scene.children.slice(terrainFrom, waterFrom), ...scene.children.slice(borderFrom)]) o.visible = false;
+    scene.add(gm.object.clone(true));
+  }
   // Terrain gives way to characters and props in depth (render/lean.ts).
   for (const obj of scene.children.slice(terrainFrom)) obj.traverse((o: THREE.Object3D) => {
     const mats = (o as THREE.Mesh).material;

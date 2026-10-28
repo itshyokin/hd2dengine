@@ -275,7 +275,10 @@ async function playtest(stamp: string, battle?: { enemies: string[]; map?: strin
   try {
     const used = new Set<string>();
     for (const d of store.assets.props) for (const p of [d.image, d.normal, d.glow, d.model]) if (p) used.add(p);
-    for (const t of store.assets.tiles) for (const p of [t.image, t.normal]) if (p) used.add(p);
+    for (const t of store.assets.tiles) for (const p of [t.image, t.normal, t.edges, t.corners]) if (p) used.add(p);
+    // Update 153: this map's 3D model ground.
+    { const f = store.map.groundModel?.src;
+      if (f) { used.add(f); if (!store.files.has(f)) { try { store.files.set(f, await store.project.readFile(f)); } catch { /* the game tries the project */ } } } }
     for (const d of store.db.items ?? []) if (d.icon && !d.icon.startsWith('builtin:') && d.icon !== 'sprite') used.add(d.icon);
     // Imported sounds: read now the ones the game can't fetch itself (a project folder, or kept on this device).
     const kept = store.project.kind === 'browser' ? new Set(await changedFiles()) : null;
