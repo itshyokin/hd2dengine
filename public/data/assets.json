@@ -204,34 +204,6 @@
       "image": "assets/props/wall_torch.png"
     },
     {
-      "id": "sapling",
-      "name": "Sapling (cuttable)",
-      "w": 1,
-      "h": 2,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "collide": "flat",
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "sway": 1.1,
-      "cuttable": true,
-      "stump": "stump",
-      "drops": [
-        {
-          "item": "firewood",
-          "count": 2
-        }
-      ],
-      "image": "assets/props/sapling.png"
-    },
-    {
       "id": "stump",
       "name": "Tree stump",
       "w": 1,
@@ -437,25 +409,6 @@
         "flicker": "fire"
       },
       "image": "assets/props/torch.png"
-    },
-    {
-      "id": "rock",
-      "name": "Rock",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "#"
-        ]
-      },
-      "collide": "flat",
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "image": "assets/props/rock.png"
     },
     {
       "id": "snowy_pine",
@@ -789,23 +742,6 @@
       "image": "assets/props/firewood.png"
     },
     {
-      "id": "flowers",
-      "name": "Flowers",
-      "w": 1,
-      "h": 1,
-      "foot": {
-        "w": 1,
-        "d": 1,
-        "solid": [
-          "."
-        ]
-      },
-      "block": [],
-      "filter": "point",
-      "sway": 1.2,
-      "image": "assets/props/flowers.png"
-    },
-    {
       "id": "lantern_post",
       "name": "Lantern post",
       "w": 1,
@@ -950,31 +886,6 @@
       "image": "assets/props/bedroll.png"
     },
     {
-      "id": "oak",
-      "name": "Oak tree",
-      "w": 4,
-      "h": 5,
-      "foot": {
-        "w": 4,
-        "d": 5,
-        "solid": [
-          "****",
-          "****",
-          "****",
-          "*##*",
-          "*##*"
-        ]
-      },
-      "block": [
-        -0.5,
-        0.5
-      ],
-      "filter": "point",
-      "sway": 1,
-      "ground": true,
-      "image": "assets/props/oak.png"
-    },
-    {
       "id": "tree1",
       "name": "tree1",
       "w": 2,
@@ -1018,6 +929,140 @@
       "ground": true,
       "season": "leaves",
       "image": "assets/props/pine.png"
+    },
+    {
+      "id": "sapling",
+      "name": "Sapling (cuttable)",
+      "w": 1,
+      "h": 2,
+      "foot": {
+        "w": 1,
+        "d": 2,
+        "solid": [
+          "*",
+          "#"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "sway": 1.1,
+      "frontOfTiles": false,
+      "ground": true,
+      "cuttable": true,
+      "stump": "stump",
+      "drops": [
+        {
+          "item": "firewood",
+          "count": 2
+        }
+      ],
+      "image": "assets/props/sapling.png"
+    },
+    {
+      "id": "oak",
+      "name": "Oak tree",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 2,
+        "solid": [
+          "##",
+          "##"
+        ]
+      },
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "sway": 1,
+      "ground": true,
+      "image": "assets/props/oak.png"
+    },
+    {
+      "id": "tall_grass",
+      "name": "Tall grass",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "*"
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "castShadow": false,
+      "sway": 1.3,
+      "rustle": true,
+      "frontOfTiles": false,
+      "image": "assets/props/tall_grass.png"
+    },
+    {
+      "id": "pebble",
+      "name": "Pebble",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "#"
+        ]
+      },
+      "block": [
+        0
+      ],
+      "filter": "point",
+      "ground": true,
+      "image": "assets/props/pebble.png"
+    },
+    {
+      "id": "flowers",
+      "name": "Flowers",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "sway": 1.2,
+      "frontOfTiles": false,
+      "season": "bare",
+      "image": "assets/props/flowers.png"
+    },
+    {
+      "id": "rock",
+      "name": "Rock",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 2,
+        "solid": [
+          "##",
+          "##"
+        ]
+      },
+      "collide": "flat",
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "frontOfTiles": false,
+      "ground": true,
+      "image": "assets/props/rock.png"
     }
   ],
   "tiles": [
@@ -1242,34 +1287,6 @@
       "image": "assets/tiles/ground037.png"
     },
     {
-      "key": ".",
-      "id": "grass",
-      "name": "Grass",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "flat": true,
-      "image": "assets/tiles/grass.png"
-    },
-    {
-      "key": ":",
-      "id": "sand",
-      "name": "Sand",
-      "span": 1,
-      "filter": "point",
-      "skin": false,
-      "image": "assets/tiles/sand.png"
-    },
-    {
-      "key": "▒",
-      "id": "dirt",
-      "name": "Dirt",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "image": "assets/tiles/dirt.png"
-    },
-    {
       "key": "k",
       "id": "lpcr_grass_summer",
       "name": "Grass (summer)",
@@ -1294,16 +1311,6 @@
       "image": "assets/tiles/lpcr_grass_summer.png"
     },
     {
-      "key": "=",
-      "id": "path",
-      "name": "Path",
-      "span": 1,
-      "filter": "point",
-      "skin": true,
-      "flat": true,
-      "image": "assets/tiles/path.png"
-    },
-    {
       "key": "▲",
       "id": "rock",
       "name": "Rock (cliffs, mountains)",
@@ -1320,6 +1327,53 @@
       "filter": "point",
       "skin": true,
       "image": "assets/tiles/snow.png"
+    },
+    {
+      "key": ".",
+      "id": "grass",
+      "name": "Grass",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "flat": true,
+      "image": "assets/tiles/grass.png"
+    },
+    {
+      "key": ":",
+      "id": "sand",
+      "name": "Sand",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "image": "assets/tiles/sand.png"
+    },
+    {
+      "key": "▦",
+      "id": "stone",
+      "name": "Stone paving",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "image": "assets/tiles/stone.png"
+    },
+    {
+      "key": "▒",
+      "id": "dirt",
+      "name": "Dirt",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "image": "assets/tiles/dirt.png"
+    },
+    {
+      "key": "=",
+      "id": "path",
+      "name": "Path",
+      "span": 1,
+      "filter": "point",
+      "skin": true,
+      "flat": true,
+      "image": "assets/tiles/path.png"
     }
   ],
   "tileCliffs": {
