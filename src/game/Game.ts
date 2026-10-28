@@ -7199,12 +7199,13 @@ export class Game {
   /** Database → Camera, with the defaults filled in. */
   private get overworldCam(): Required<OverworldCamera> {
     const c = this.db.overworldCamera ?? {}, d = DEFAULT_OVERWORLD_CAMERA;
-    return { pitch: clamp(c.pitch ?? d.pitch, 20, 80), distance: clamp(c.distance ?? d.distance, 6, 40), fov: clamp(c.fov ?? d.fov, 15, 70), lean: clamp(c.lean ?? d.lean, 0, 100) };
+    return { pitch: clamp(c.pitch ?? d.pitch, 20, 90), distance: clamp(c.distance ?? d.distance, 6, 40), fov: clamp(c.fov ?? d.fov, 15, 70), lean: clamp(c.lean ?? d.lean, 0, 100) };
   }
   private readonly camOffset = new THREE.Vector3();
   /** Where the map camera sits from what it looks at (its angle and distance). */
   private cameraOffset(): THREE.Vector3 {
-    const c = this.overworldCam, p = THREE.MathUtils.degToRad(c.pitch);
+    // Just short of straight down (Update 143): exactly 90° leaves the camera no way to tell which way is up.
+    const c = this.overworldCam, p = THREE.MathUtils.degToRad(Math.min(c.pitch, 89.5));
     return this.camOffset.set(0, Math.sin(p) * c.distance, Math.cos(p) * c.distance);
   }
 
@@ -7256,7 +7257,8 @@ export class Game {
     this.projected.project(this.camera);
     this.post.focus = clamp(this.projected.y * 0.5 + 0.5, 0.25, 0.75);
     this.post.focusBand = 1;
-    this.post.tiltFade = this.sleepLook;
+    // Looking (nearly) straight down, everything is the same distance away: no tilt-shift blur (Update 143).
+    this.post.tiltFade = Math.max(this.sleepLook, clamp((this.overworldCam.pitch - 70) / 15, 0, 1));
     // The sun's shadow camera follows the view so shadows stay sharp.
     this.sun.target.position.copy(t);
     this.sun.position.copy(t).addScaledVector(this.time.sunDir, 30);
@@ -7320,8 +7322,10 @@ export class Game {
     // A battle stage is small and seen from close by: the fog starts further out so the sky and the scenery around
     // it show (it read as a grey wall before update 93).
     const reach = this.stage ? 1.8 : 1;
-    this.fog.near = (22 - 16 * thick) * reach;
-    this.fog.far = (50 - 30 * thick) * reach;
+    // A camera set further back than the default pushes the fog back with it (Update 143: the top-down camera).
+    const back = this.stage ? 0 : Math.max(0, this.overworldCam.distance - DEFAULT_OVERWORLD_CAMERA.distance);
+    this.fog.near = (22 - 16 * thick) * reach + back;
+    this.fog.far = (50 - 30 * thick) * reach + back;
     // Mist (perhaps only around dawn or after dark) and sun rays (only while the sun is out).
     const hour = this.time.hour, night = this.time.night;
     const when = air?.mistWhen ?? 'always';

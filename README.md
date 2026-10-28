@@ -1368,6 +1368,9 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   sprites (trees, people, signs, props) leaning back to face it, so they keep their height and fill out their tile.
   Angle, distance, field of view and *Sprite lean* (0 upright … 100% facing the camera) can be changed; *Classic* puts
   back the original lower camera with upright sprites. Battle maps keep their own cameras (sprites upright there).
+  *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
+  Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
+  above 70°.
   **Characters always on top** (Update 139; Update 142: off by default, and now it covers the ground too): on, the
   hero and party are drawn over props they overlap and over ledges and cliff tops in front of them; off, trees,
   props, ledges and cliffs in front of a character hide them, as they really stand. Either way a leaned sprite
