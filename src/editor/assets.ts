@@ -134,7 +134,7 @@ export async function resetProp(store: EditorStore, id: string): Promise<void> {
 export interface TileImages { image: Blob; normal?: Blob; /** Update 151: canvases are kept for the editor's drawing. */ edges?: { blob: Blob; canvas: HTMLCanvasElement }; corners?: { blob: Blob; canvas: HTMLCanvasElement } }
 
 /** Save a new or edited tile: its textures, then the updated asset list. Returns false if saving failed. */
-export async function commitTile(store: EditorStore, def: TileDef, images: TileImages, preview: HTMLCanvasElement): Promise<boolean> {
+export async function commitTile(store: EditorStore, def: TileDef, images: TileImages, preview: HTMLCanvasElement, opts: { quiet?: boolean } = {}): Promise<boolean> {
   const p = store.project;
   const base = `assets/tiles/${def.id}`;
   const files: [string, Blob][] = [[`${base}.png`, images.image]];
@@ -161,7 +161,7 @@ export async function commitTile(store: EditorStore, def: TileDef, images: TileI
   setCustomTileImage(`${def.key}#edges`, images.edges?.canvas ?? null);
   setCustomTileImage(`${def.key}#corners`, images.corners?.canvas ?? null);
   store.setAssets(next);
-  toast(persistent ? `Saved “${def.name}” to assets/tiles/` : 'Imported for this session only. Open the editor from your project to keep imported tiles.');
+  if (!opts.quiet) toast(persistent ? `Saved “${def.name}” to assets/tiles/` : 'Imported for this session only. Open the editor from your project to keep imported tiles.');
   return true;
 }
 

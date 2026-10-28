@@ -1,4 +1,5 @@
 import { clamp } from '../core/math';
+import type { WithGround } from './groundModel';
 import { type HeightStyle, STEP, cornerHeights, cornerMask, parseHeightStyles, parseHeights, parseWater, rampDirection, resolveWater, surfaceInCell } from './heights';
 import { type PassageFlag, parsePassage } from './passage';
 import { TileCatalog } from './tiles';
@@ -34,7 +35,8 @@ export class TileMap {
   static flatByDefault = false;
   constructor(data: MapData, readonly tiles: TileCatalog = new TileCatalog(), frozen?: (style: number) => boolean) {
     // Height implied by the tiles (RPG Maker): the Heights layer, ramps and hills are kept in the map but not used.
-    if (data.heightMode === 'flat' || (!data.heightMode && TileMap.flatByDefault)) data = { ...data, heights: undefined, ramps: undefined, heightStyles: undefined };
+    const ground = (data as WithGround).__ground;
+    if (!ground && (data.heightMode === 'flat' || (!data.heightMode && TileMap.flatByDefault))) data = { ...data, heights: undefined, ramps: undefined, heightStyles: undefined };
     this.w = data.width;
     this.h = data.height;
     this.rows = [];
@@ -58,6 +60,16 @@ export class TileMap {
     // Smooth hills: their corners are shared with every neighbour, so the heights run into slopes.
     this.styles = parseHeightStyles(data.heightStyles, this.w, this.h);
     this.hillGrid = this.styles.includes('h') ? this.buildHills() : null;
+    // Update 153: a 3D model's ground: every tile a hill on the heights sampled from the model.
+    if (ground) {
+      this.styles.fill('h');
+      this.hillGrid = ground.field;
+      const W = this.w;
+      for (let z = 0; z < this.h; z++) for (let x = 0; x < W; x++) {
+        const at = (i: number, j: number) => ground.field[j * (W + 1) + i];
+        this.corners[z * W + x] = [at(x, z), at(x + 1, z), at(x + 1, z + 1), at(x, z + 1)];
+      }
+    }
     const rawWater = parseWater(data.water, this.w, this.h);
     this.water = rawWater.map((c, i) => resolveWater(c, this.heights[i] * STEP));
     this.ice = this.water.map((w) => (w && frozen?.(w.style) ? w.surface : null));
@@ -71,7 +83,7 @@ export class TileMap {
         const u = this.upper(x, z), ud = u !== ' ' ? tiles.get(u) : undefined;
         if (ud && !ud.above) { if (ud.blocks) this.blocked[z * this.w + x] = 1; continue; }
         const k = this.terrain(x, z), d = tiles.get(k);
-        if (tiles.blocks(k)) this.blocked[z * this.w + x] = 1;
+        if (tiles.blocks(k) || ground?.blocked[z * this.w + x]) this.blocked[z * this.w + x] = 1;
         else if (d?.edgeBlocks && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => this.inMap(x + dx, z + dz) && this.terrain(x + dx, z + dz) !== k)) this.blocked[z * this.w + x] = 1;
       }
   }

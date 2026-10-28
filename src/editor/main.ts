@@ -201,10 +201,14 @@ function buildUI(): void {
     const names = store.maps.includes(store.mapName) ? store.maps : [...store.maps, store.mapName];
     const opt = (n: string) => h('option', { value: n }, n + (n === store.mapName && (store.dirty || store.dbDirty) ? ' •' : ''));
     // Battle maps are listed apart, like a folder of their own.
-    const fieldMaps = names.filter((n) => !store.isBattleMap(n)), battleMaps = names.filter((n) => store.isBattleMap(n));
-    mapSelect.replaceChildren(...(battleMaps.length
-      ? [h('optgroup', { label: 'Maps' }, ...fieldMaps.map(opt)), h('optgroup', { label: 'Battle maps' }, ...battleMaps.map(opt))]
-      : names.map(opt)));
+    // Update 152: maps in folders (Map Properties → Folder), each folder a group of the list.
+    const folders = store.db.mapFolders ?? {};
+    const fieldMaps = names.filter((n) => !store.isBattleMap(n) && !folders[n]), battleMaps = names.filter((n) => store.isBattleMap(n) && !folders[n]);
+    const named = [...new Set(names.map((n) => folders[n]).filter((f): f is string => !!f))].sort((a, b) => a.localeCompare(b));
+    const groups = [...named.map((f) => h('optgroup', { label: `📁 ${f}` }, ...names.filter((n) => folders[n] === f).map(opt))),
+      ...(fieldMaps.length ? [h('optgroup', { label: 'Maps' }, ...fieldMaps.map(opt))] : []),
+      ...(battleMaps.length ? [h('optgroup', { label: 'Battle maps' }, ...battleMaps.map(opt))] : [])];
+    mapSelect.replaceChildren(...(named.length || battleMaps.length ? groups : names.map(opt)));
     mapSelect.value = store.mapName;
     const unsaved = store.dirty || store.dbDirty;
     saveState.textContent = !store.project.canSave ? 'Save exports JSON' : unsaved ? 'Unsaved changes' : 'All changes saved';

@@ -15,6 +15,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 152 (Oct 28):** Grid movement (2D), map folders, MV sheet import, flat props sway / rustle. Checked in the
+  browser (grid steps, flat instancing, MV A2 import).
 - **Update 151 (Oct 28):** Frame autotiles, edge trims, inside corners, Edges-block passage, upper tiles decide
   passage, 2D feet / body alignment. Checked in the browser.
 - **Update 150 (Oct 28):** Editor: right bar gone (selection in the left bar), left bar resizable, tile ✎ settings,

@@ -219,7 +219,6 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
   };
   /** Update 151: frame layout and size, edge trim and inside corners. */
   const edgesSection = (): Node[] => {
-    const frameUsed = (st.kind === 'autotile' && st.layout === 'frame') || !!st.edges;
     const extraSlot = (k: 'edges' | 'corners', label: string, hint: string) => h('div', { class: 'slot' },
       h('div', { class: 'slot-head' }, h('span', { class: 'slot-label' }, label), st[k] ? h('span', { class: 'slot-file', title: st[k]!.name }, st[k]!.name) : h('span', { class: 'slot-none' }, 'Optional')),
       h('div', { class: 'slot-actions' }, h('button', { type: 'button', class: 'btn small', onclick: () => pickExtra(k) }, st[k] ? 'Replace…' : 'Choose…'),
@@ -230,9 +229,9 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       st.kind === 'autotile' ? field('Autotile layout', select([['a2', 'RPG Maker A2 (2 × 3 tiles)'], ['frame', 'Frame: one patch’s outline (2 × 2 or 3 × 3 tiles, any tile size)']], st.layout,
         (v) => { st.layout = v as 'a2' | 'frame'; renderForm(); rebuild(); })) : h('span'),
       st.kind === 'autotile' && st.layout === 'frame' ? null : extraSlot('edges', 'Edge trim', 'A frame drawn over this tile along the edges of each patch of it (grass edging round sand, a rim round water). Transparent in the middle.'),
-      frameUsed ? field('Frame size', select([['2', '2 × 2 tiles'], ['3', '3 × 3 tiles']], String(st.frameTiles), (v) => { st.frameTiles = Number(v); draw(); }), 'How many tiles the frame picture is across (16 px tiles in a 32 × 32 frame: 2 × 2).') : null,
-      frameUsed ? extraSlot('corners', 'Inside corners', 'One tile of corner pieces for where a patch turns inwards (the little dots beside your frames).') : null,
-      frameUsed && st.corners ? field('Corner pieces', select([['middle', 'Meet in the middle (a dot)'], ['edge', 'In the outer corners (RPG Maker style)']], st.cornersAt, (v) => { st.cornersAt = v as 'middle' | 'edge'; draw(); })) : null,
+      field('Frame size', select([['2', '2 × 2 tiles'], ['3', '3 × 3 tiles']], String(st.frameTiles), (v) => { st.frameTiles = Number(v); draw(); }), 'How many tiles the frame picture is across (16 px tiles in a 32 × 32 frame: 2 × 2).'),
+      extraSlot('corners', 'Inside corners', 'One tile of corner pieces for where a patch turns inwards (the little dots beside your frames). Used by a Frame autotile or an Edge trim.'),
+      st.corners ? field('Corner pieces', select([['middle', 'Meet in the middle (a dot)'], ['edge', 'In the outer corners (RPG Maker style)']], st.cornersAt, (v) => { st.cornersAt = v as 'middle' | 'edge'; draw(); })) : null,
     ].filter((x): x is HTMLElement => !!x);
   };
   function renderForm(): void {
@@ -305,10 +304,10 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       if (st.above) def.above = true;
       if (st.edgeBlocks) def.edgeBlocks = true;
       if (st.kind === 'autotile' && st.layout === 'frame') def.layout = 'frame';
-      if ((def.layout === 'frame' || st.edges) && st.frameTiles !== 2) def.frameTiles = st.frameTiles;
+      if (st.frameTiles !== 2) def.frameTiles = st.frameTiles;
       if (st.corners && st.cornersAt !== 'middle') def.cornersAt = st.cornersAt;
       if (st.edges) images.edges = { blob: await toPng(st.edges.canvas), canvas: st.edges.canvas };
-      if (st.corners && (def.layout === 'frame' || st.edges)) images.corners = { blob: await toPng(st.corners.canvas), canvas: st.corners.canvas };
+      if (st.corners) images.corners = { blob: await toPng(st.corners.canvas), canvas: st.corners.canvas };
       if (st.flat && !st.normal) def.flat = true;
       if (await commitTile(store, def, images, processed)) {
         const look = st.cliff === 'self' ? key : st.cliff || undefined;

@@ -108,6 +108,9 @@ export class PlayerMotion {
   private time = 0;
   /** Sliding on ice: velocity (tiles per second, x and z). */
   private slide: [number, number] = [0, 0];
+  /** Update 152: grid movement (2D mode): the hero steps from tile centre to tile centre, like RPG Maker. */
+  grid = false;
+  private gridStep: { tx: number; tz: number } | null = null;
 
   constructor(private readonly w: MotionWorld) {}
 
@@ -147,6 +150,7 @@ export class PlayerMotion {
   place(x: number, z: number): void {
     this.x = x; this.z = z;
     this.safe = null;
+    this.gridStep = null;
     this.state = { kind: 'ground' };
     // Put down on a bridge: on top of it.
     this.y = this.map.standY(x, z);
@@ -218,6 +222,7 @@ export class PlayerMotion {
       return res;
     }
     this.slide = [0, 0];
+    if (this.grid) return this.gridMove(dt, inp, res, here);
     if (inp.dx || inp.dz) {
       const sp = this.sp;
       let speed = here?.kind === 'swim' ? sp.swim : here?.kind === 'shallow' ? sp.wade : this.crawling ? sp.crawl : this.running ? sp.run : sp.walk;
@@ -248,6 +253,55 @@ export class PlayerMotion {
         if (c[1] && this.groundFree(this.x, nz, fromY)) this.z = nz;
       }
     }
+    this.crawling = this.inLow(this.x, this.z);
+    if (this.state.kind === 'ground') this.y = this.groundY();
+    return res;
+  }
+
+  /**
+   * Grid movement (Update 152): one tile at a time, centre to centre, in the four directions. Holding a direction
+   * walks on without stopping; a blocked tile only turns the hero to face it.
+   */
+  private gridMove(dt: number, inp: MotionInput, res: MotionResult, here: ReturnType<PlayerMotion['waterHere']>): MotionResult {
+    const sp = this.sp;
+    let speed = here?.kind === 'swim' ? sp.swim : here?.kind === 'shallow' ? sp.wade : this.crawling ? sp.crawl : this.running ? sp.run : sp.walk;
+    if (inp.sneak) speed = Math.min(speed, sp.walk * SNEAK_SPEED);
+    let left = speed * (inp.speedScale ?? 1) * dt;
+    const startStep = (): boolean => {
+      if (!inp.dx && !inp.dz) return false;
+      const horiz = Math.abs(inp.dx) >= Math.abs(inp.dz);
+      const dx = horiz ? Math.sign(inp.dx) : 0, dz = horiz ? 0 : Math.sign(inp.dz);
+      res.face = faceOf(dx, dz);
+      const cx = Math.floor(this.x) + 0.5, cz = Math.floor(this.z) + 0.5, tx = cx + dx, tz = cz + dz;
+      if (!this.groundFree(tx, tz, this.stand(cx, cz))) { res.blocked = true; return false; }
+      this.gridStep = { tx, tz };
+      return true;
+    };
+    // Not stepping and off-centre (just arrived, or the grid was switched on): settle onto the tile's centre.
+    if (!this.gridStep) {
+      const cx = Math.floor(this.x) + 0.5, cz = Math.floor(this.z) + 0.5;
+      if (Math.hypot(cx - this.x, cz - this.z) > 0.001 && !inp.dx && !inp.dz) this.gridStep = { tx: cx, tz: cz };
+      else if (Math.hypot(cx - this.x, cz - this.z) > 0.001) { this.x = cx; this.z = cz; }
+    }
+    if (!this.gridStep && !startStep()) {
+      if (res.blocked && this.tryClimb(dt, inp)) { res.blocked = false; res.moving = true; res.face = (this.state as { face: Dir }).face; this.gridStep = null; }
+      if (this.state.kind === 'ground') this.y = this.groundY();
+      return res;
+    }
+    while (this.gridStep && left > 0) {
+      const g = this.gridStep, d = Math.hypot(g.tx - this.x, g.tz - this.z);
+      if (d <= left) {
+        this.x = g.tx; this.z = g.tz; left -= d; this.gridStep = null;
+        res.moving = true;
+        // Held on: the next tile straight away, so walking never stutters.
+        if (!startStep()) break;
+      } else {
+        this.x += ((g.tx - this.x) / d) * left; this.z += ((g.tz - this.z) / d) * left; left = 0;
+        res.moving = true;
+        res.face ??= faceOf(g.tx - this.x, g.tz - this.z);
+      }
+    }
+    if (res.moving) res.blocked = false;
     this.crawling = this.inLow(this.x, this.z);
     if (this.state.kind === 'ground') this.y = this.groundY();
     return res;

@@ -733,6 +733,11 @@ export interface MapData {
    * used), '3d' real heights. Unset: follows the view mode (2D flat, 3D real heights).
    */
   heightMode?: 'flat' | '3d';
+  /**
+   * Update 153: a 3D model (GLB / FBX) as the map's ground and scenery instead of painted tiles: walked on as it's
+   * shaped. Fitted over the map unless `scale` is set (tiles per model unit); turned `rot` degrees; moved by x / y / z.
+   */
+  groundModel?: { src: string; scale?: number; rot?: number; x?: number; y?: number; z?: number };
   /** Height layer: one row per line, space-separated steps from -10 to 10 (a step is half a tile). Omitted when flat. */
   heights?: string[];
   /**
@@ -1152,6 +1157,8 @@ export interface Database {
   viewMode?: '2d';
   /** 2D mode: the layer characters are on (0 on top … 25 the ground; default 10). */
   playerLayer?: number;
+  /** 2D mode (Update 152): walk freely instead of tile by tile. */
+  freeMove2D?: boolean;
   title: string;
   /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
   world?: import('./worldLayout').WorldData;
@@ -1184,6 +1191,8 @@ export interface Database {
   /** How many heroes fight and walk on the map at once, the hero you play included (3 unset, or 4). */
   activeParty?: 3 | 4;
   startMap: string;
+  /** Update 152: the editor's map folders, map name → folder name (maps not listed: no folder). */
+  mapFolders?: Record<string, string>;
   start: { x: number; z: number; dir?: Dir };
   startHour: number;
   /** The shared outdoor weather when a new game starts (outdoor maps without their own weather all share it). */

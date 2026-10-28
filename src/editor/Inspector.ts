@@ -277,6 +277,18 @@ export class Inspector {
     return [
       this.header('Map', `${s.mapName}.json`),
       field('Display name', textInput(m.name, (v) => this.edit(() => (m.name = v)))),
+      // Update 152: a folder for the map list (kept in the Database, so it travels with the project).
+      (() => {
+        const folders = s.db.mapFolders ?? {}, names = [...new Set(Object.values(folders))].sort();
+        const list = h('datalist', { id: 'map-folder-names' }, ...names.map((n) => h('option', { value: n })));
+        return field('Folder', h('div', {}, textInput(folders[s.mapName] ?? '', (v) => {
+          s.checkpoint();
+          const f = { ...(s.db.mapFolders ?? {}) }, name = v.trim();
+          if (name) f[s.mapName] = name; else delete f[s.mapName];
+          if (Object.keys(f).length) s.db.mapFolders = f; else delete s.db.mapFolders;
+          s.changedDb();
+        }, { list: 'map-folder-names', placeholder: 'No folder' }), list), 'Groups this map with others in the map list (Town, Dungeons, Battle maps…). Empty: no folder.');
+      })(),
       h('div', { class: 'field-row' },
         field('Width', numberInput(m.width, (v) => (w = Math.round(Math.min(128, Math.max(8, v)))), { min: 8, max: 128, step: 1 })),
         field('Height', numberInput(m.height, (v) => (hgt = Math.round(Math.min(128, Math.max(8, v)))), { min: 8, max: 128, step: 1 }))),

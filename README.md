@@ -1372,6 +1372,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Update 152**: **Grid movement** in 2D mode (the hero steps tile by tile like RPG Maker; Database → View &
+  camera to walk freely instead). **Map folders** (Map Properties → Folder; the map list groups them). **RPG Maker MV
+  sheets** (Terrain → *+ RPG Maker MV sheet…*: A1 water, A2 ground, A3 / A4 walls, A5 and B–E tiles, cut and ticked
+  for you). Flat props sway in the wind and rustle when walked through. The tile editor shows Edge trim, Inside
+  corners and Frame size together.
 - **Frames, edge trims and inside corners** (Update 151, tile editor → *Edges and corners*): an Autotile can use the
   *Frame* layout (a picture of one patch's outline, 2 × 2 or 3 × 3 tiles, any tile size, e.g. 32 × 32 for 16 px
   tiles); any tile can have an *Edge trim* (a frame, see-through in the middle, drawn along the edges of each patch:

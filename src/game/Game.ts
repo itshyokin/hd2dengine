@@ -6884,8 +6884,8 @@ export class Game {
 
   // ---------------------------------------------------------------- tall grass rustling
   /** Props that rustle, by tile; each with its upright matrix and how long it's still shaking. */
-  private rustlers = new Map<number, { slot: { mesh: THREE.InstancedMesh; index: number }; pos: THREE.Vector3; scale: THREE.Vector3; t: number }[]>();
-  private shaking = new Set<{ slot: { mesh: THREE.InstancedMesh; index: number }; pos: THREE.Vector3; scale: THREE.Vector3; t: number }>();
+  private rustlers = new Map<number, { slot: { mesh: THREE.InstancedMesh; index: number }; pos: THREE.Vector3; scale: THREE.Vector3; t: number; flat?: boolean }[]>();
+  private shaking = new Set<{ slot: { mesh: THREE.InstancedMesh; index: number }; pos: THREE.Vector3; scale: THREE.Vector3; t: number; flat?: boolean }>();
   private rustleTiles = new Map<string, number>();
   private rustleCool = 0;
 
@@ -6900,7 +6900,8 @@ export class Game {
       const m = new THREE.Matrix4(), pos = new THREE.Vector3(), q = new THREE.Quaternion(), scale = new THREE.Vector3();
       slot.mesh.getMatrixAt(slot.index, m); m.decompose(pos, q, scale);
       const k = Math.floor(p.z) * this.map.w + Math.floor(p.x), list = this.rustlers.get(k) ?? [];
-      list.push({ slot, pos, scale, t: 0 }); this.rustlers.set(k, list);
+      // Flat-mode props (Update 152) twist where they lie instead of tipping over.
+      list.push({ slot, pos, scale, t: 0, flat: !!d.ground }); this.rustlers.set(k, list);
     }
   }
 
@@ -6922,11 +6923,11 @@ export class Game {
       }
     }
     if (!this.shaking.size) return;
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), Z = new THREE.Vector3(0, 0, 1);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), Z = new THREE.Vector3(0, 0, 1), Y = new THREE.Vector3(0, 1, 0);
     for (const r of this.shaking) {
       r.t = Math.max(0, r.t - dt);
       const a = Math.sin((0.55 - r.t) * 28) * 0.16 * (r.t / 0.55);
-      m.compose(r.pos, q.setFromAxisAngle(Z, a), r.scale);
+      m.compose(r.pos, q.setFromAxisAngle(r.flat ? Y : Z, r.flat ? a * 0.6 : a), r.scale);
       r.slot.mesh.setMatrixAt(r.slot.index, m);
       r.slot.mesh.instanceMatrix.needsUpdate = true;
       if (r.t <= 0) this.shaking.delete(r);
@@ -7222,6 +7223,8 @@ export class Game {
     const twoD = !this.stage && this.db.viewMode === '2d';
     setView2D(twoD, this.db.playerLayer ?? 10);
     setBody2D(twoD);
+    // Update 152: tile-by-tile steps in 2D mode, like RPG Maker (unless the game walks freely).
+    this.motion.grid = twoD && !this.db.freeMove2D;
     // 2D: nothing comes near the camera, so its near plane moves close to the ground for finer depth (layers, sorting).
     const near = twoD ? Math.max(0.5, this.overworldCam.distance * 0.4) : 0.5;
     if (this.camera.near !== near) { this.camera.near = near; this.camera.updateProjectionMatrix(); }

@@ -10,6 +10,7 @@ import { isBuiltinProp } from '../world/props';
 import { canvasCopy, checkbox, confirmModal, h, numberInput, openModal, select, textInput, toast } from './dom';
 import { characterImage, paletteProps, propImage, tileNote, tileThumb } from './editorArt';
 import { openTileImporter } from './TileImporter';
+import { openMvImporter } from './MvImporter';
 import { openBlendSettings } from './BlendSettings';
 import type { TileDef } from '../world/types';
 import { BUILTIN_TILES } from '../world/tiles';
@@ -252,6 +253,7 @@ export class Palette {
       body.push(...[
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openTileImporter(s) }, '+ Import tile from texture…'),
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openLpcLibrary(s, 'tile') }, '+ Add from the LPC library…'),
+        h('button', { type: 'button', class: 'btn import-btn', onclick: () => openMvImporter(s) }, '+ RPG Maker MV sheet…'),
         upper ? h('div', { class: 'swatches' }, h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(s.upperTile === ' '), onclick: () => { s.upperTile = ' '; s.emit('ui'); } },
           h('span', { class: 'swatch-name' }, '✕ Eraser'), h('span', { class: 'swatch-note' }, 'Clears the upper layer'))) : null,
         // Update 150: groups first (each opens and closes), then the rest.

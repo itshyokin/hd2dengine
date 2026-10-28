@@ -989,3 +989,9 @@ body.resizing-side { user-select: none; cursor: col-resize; }
 .inspector-panel { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-2, rgba(255,255,255,0.03)); }
 .inspector-panel > .side-body { overflow: visible; padding: 12px; flex: none; }
 @media (max-width: 900px) { .side-grip { display: none; } }
+
+/* Update 152: RPG Maker MV sheet import. */
+.mv-grid { display: grid; grid-template-columns: repeat(auto-fill, 48px); gap: 4px; max-height: 52vh; overflow: auto; padding: 2px; }
+.mv-piece { width: 48px; height: 48px; padding: 3px; border-radius: 6px; border: 1px solid var(--line); background: #141826; opacity: 0.45; cursor: pointer; }
+.mv-piece.on { opacity: 1; outline: 2px solid var(--ember); outline-offset: -2px; }
+.mv-piece canvas { width: 40px; height: 40px; image-rendering: pixelated; }

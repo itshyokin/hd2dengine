@@ -164,3 +164,20 @@ export const PROP_STENCIL = 1;
 export function markProp(m: THREE.Material | THREE.Material[]): void {
   for (const x of Array.isArray(m) ? m : [m]) { x.stencilWrite = true; x.stencilRef = PROP_STENCIL; x.stencilFunc = THREE.AlwaysStencilFunc; x.stencilZPass = THREE.ReplaceStencilOp; }
 }
+
+/**
+ * Flat-mode props (Update 152): in 2D mode drawn half a tile further south like the standing ones, so their bottom
+ * edge sits on the bottom edge of their cell.
+ */
+export function patchFlat2D<T extends THREE.Material>(mat: T): T {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    prev?.call(mat, shader, renderer);
+    shader.uniforms.uHd2D = uniforms.uHd2D;
+    shader.vertexShader = 'uniform float uHd2D;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+  if (uHd2D > 0.5) { mvPosition.xyz += (viewMatrix * vec4(0.0, 0.0, 0.5, 0.0)).xyz; gl_Position = projectionMatrix * mvPosition; }`);
+  };
+  const prevKey = mat.customProgramCacheKey?.bind(mat);
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|flat2d';
+  return mat;
+}

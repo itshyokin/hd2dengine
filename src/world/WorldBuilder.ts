@@ -5,7 +5,7 @@
 import { markProp } from '../render/lean';
 import { patchSway } from '../render/wind';
 import { patchLip } from '../render/lipFade';
-import { GROUND_LAYER, clampLayer, layerNudge, layerTie, patchGroundYield, patchLean } from '../render/lean';
+import { GROUND_LAYER, clampLayer, layerNudge, layerTie, patchFlat2D, patchGroundYield, patchLean } from '../render/lean';
 import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
@@ -772,17 +772,22 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (!d?.ground || sprites.model(type)) continue;
     groups.delete(type);
     const a = sprites.get(type), tex = (a.material as THREE.MeshStandardMaterial).map;
-    const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, roughness: 0.92, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }), false);
+    const mat = patchFlat2D(patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, roughness: 0.92, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }), false));
+    // Update 152: they sway in the wind too, and are copies of one mesh so they can rustle and be cut like the others.
+    if (d.sway) patchSway(mat, d.sway);
     const geo = new THREE.PlaneGeometry(d.w, d.h).rotateX(-Math.PI / 2);
-    for (const p of list) {
+    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    const fm = new THREE.Matrix4();
+    list.forEach((p, i) => {
       const s = p.s ?? 1, y = propBase(map, p, d).y;
-      const mesh = new THREE.Mesh(geo, mat);
       // Its layer (Update 144): raised a hair off the ground per layer, so overlapping flat props never flicker.
-      mesh.position.set(p.x, y + 0.012 + layerNudge(p.layer ?? d.layer ?? GROUND_LAYER, p.x, p.z) * 0.4, p.z - (d.h * s) / 2);
-      mesh.scale.set(s, 1, s);
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-    }
+      fm.makeScale(s, 1, s).setPosition(p.x, y + 0.012 + layerNudge(p.layer ?? d.layer ?? GROUND_LAYER, p.x, p.z) * 0.4, p.z - (d.h * s) / 2);
+      mesh.setMatrixAt(i, fm);
+      if (placed.has(p)) slots.set(p, { mesh, index: i });
+    });
+    scene.add(mesh);
   }
   for (const [type, list] of [...groups]) {
     const d = sprites.def(type);
