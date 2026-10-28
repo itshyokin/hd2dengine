@@ -401,6 +401,9 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 143: camera angle up to 90° (runtime caps at 89.5° so lookAt keeps its up), Top-down 2D preset
+        (TOPDOWN_OVERWORLD_CAMERA 90 / 38 / 15 / 100); fog near / far pushed back by distance − 14.5; tiltFade
+        ramps in from 70° to 85°.
   - [x] Update 142: Oct 26 morning notes. "Characters always on top" off still drew the hero over a tree and cliff
         tops: the ground yield (Update 91b) and props with frontOfTiles false (pushed back like the ground) did it.
         Done: lean.ts uniforms `uHdYield` (ground: 3.5 on, 1.0 off; with none, leaned trees sank behind low ledges

@@ -21,7 +21,7 @@ import { SEASONS, SEASON_NAMES, type Season, type SeasonSettings } from '../worl
 import { DEFAULT_PLAYER, type PlayerConfig, playerConfig } from '../game/stats';
 import { ABILITIES, type Gauge, type MenuConfig, type PlayerConfigData } from '../world/types';
 import { PAUSE_OPTIONS, TITLE_OPTIONS } from '../game/menus';
-import { CLASSIC_OVERWORLD_CAMERA, DEFAULT_OVERWORLD_CAMERA } from '../game/cameraDefaults';
+import { CLASSIC_OVERWORLD_CAMERA, TOPDOWN_OVERWORLD_CAMERA, DEFAULT_OVERWORLD_CAMERA } from '../game/cameraDefaults';
 import type { OverworldCamera } from '../world/types';
 import { ABILITY_NAMES, GAUGE_NAMES } from './CommandEditor';
 import { battleLayoutSection } from './BattleLayoutEditor';
@@ -511,12 +511,13 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       h('p', { class: 'note' }, 'How the camera looks at the maps while exploring (battle maps have their own cameras). Standing sprites (trees, people, signs) lean back to face it, so a steep camera still shows their full height and they fill out their tile.'),
       h('div', { class: 'stack row' },
         h('button', { type: 'button', class: 'btn', onclick: () => preset(DEFAULT_OVERWORLD_CAMERA) }, 'Handheld 3D (default)'),
-        h('button', { type: 'button', class: 'btn ghost', onclick: () => preset(CLASSIC_OVERWORLD_CAMERA) }, 'Classic (low, upright sprites)')),
+        h('button', { type: 'button', class: 'btn ghost', onclick: () => preset(CLASSIC_OVERWORLD_CAMERA) }, 'Classic (low, upright sprites)'),
+        h('button', { type: 'button', class: 'btn ghost', onclick: () => { preset(TOPDOWN_OVERWORLD_CAMERA); } }, 'Top-down 2D (straight down, flat sprites)')),
       h('div', { class: 'db-grid' },
-        field('Angle (°)', numberInput(val('pitch'), (v) => set('pitch', Math.max(20, Math.min(80, Math.round(v * 10) / 10))), { step: 1, min: 20, max: 80 }), 'How steeply it looks down: 56 handheld, 42 classic.'),
+        field('Angle (°)', numberInput(val('pitch'), (v) => set('pitch', Math.max(20, Math.min(90, Math.round(v * 10) / 10))), { step: 1, min: 20, max: 90 }), 'How steeply it looks down: 56 handheld, 42 classic, 90 straight down.'),
         field('Distance (tiles)', numberInput(val('distance'), (v) => set('distance', Math.max(6, Math.min(40, Math.round(v * 10) / 10))), { step: 0.5, min: 6, max: 40 }), 'Further back shows more of the map.'),
         field('Field of view (°)', numberInput(val('fov'), (v) => set('fov', Math.max(15, Math.min(70, Math.round(v)))), { step: 1, min: 15, max: 70 }), 'Wider: more perspective.'),
-        field('Sprite lean (%)', numberInput(val('lean'), (v) => set('lean', Math.max(0, Math.min(100, Math.round(v)))), { step: 5, min: 0, max: 100 }), 'Of the camera’s angle: 0 upright, 100 facing it fully.')),
+        field('Sprite lean (%)', numberInput(val('lean'), (v) => set('lean', Math.max(0, Math.min(100, Math.round(v)))), { step: 5, min: 0, max: 100 }), 'Of the camera’s angle: 0 upright, 100 facing it fully (at 90° that lays them flat, like a 2D game).')),
       h('p', { class: 'note' }, 'Playtest to see it. Tall sprites right in front of walls may tuck into them when they lean a lot; lower the lean if so.'),
       checkbox('Characters always on top: the hero and party are drawn over props they overlap and over ledges and cliff tops in front of them (nothing hides them)', onTop, (v) => (onTop = v)),
       h('p', { class: 'note' }, 'Off: trees, props, ledges and cliffs in front of a character hide them, as they really stand. Either way, a sprite standing in front of a wall never tucks into it.'))];
