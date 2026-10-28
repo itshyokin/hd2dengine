@@ -401,6 +401,8 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 149: editor/SheetPicker.ts pickFromSheet (grid, drag a box of cells, tile size 16–64) → PropImporter
+        sets the picture, size in tiles, scale = tile px, offset 0. RPG Maker plan (145–149) done.
   - [x] Update 148: TileDef kind 'wall' (wallQuarters: outer / inner half-tile per side, 4 rows; quartersFor /
         blockRows shared). MapData.heightMode 'flat' | '3d'; TileMap.flatByDefault (Game sets it from viewMode before
         building maps, false for battle stages) drops heights / ramps / heightStyles. Next: box-select a sheet into a prop.

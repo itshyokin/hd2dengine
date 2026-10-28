@@ -3,6 +3,7 @@
  * frame it on a grid of X × Y tiles like cropping a profile picture, mark which tiles block
  * movement, optionally give it a light, and save. The saved image is exactly the framed area.
  */
+import { pickFromSheet } from './SheetPicker';
 import { propSeason } from '../world/seasons';
 import { monthDayInput } from './dateFields';
 import { canvasFromBlob, canvasFromImage, loadImage } from '../shared/images';
@@ -438,6 +439,27 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
 
   /* ---------------------------------------------------------------- form */
   const form = h('div', { class: 'importer-form' });
+  // Tiles from a tileset sheet (Update 149): picked on the sheet's grid, framed exactly (one sheet tile, one map tile).
+  const sheetInput = h('input', { type: 'file', accept: 'image/*', hidden: true });
+  sheetInput.addEventListener('change', () => {
+    const file = sheetInput.files?.[0];
+    sheetInput.value = '';
+    if (!file) return;
+    void (async () => {
+      const url = URL.createObjectURL(file);
+      let sheet: HTMLCanvasElement;
+      try { sheet = canvasFromImage(await loadImage(url)); } catch { toast(`Couldn’t read ${file.name} as an image.`, 'error'); return; } finally { URL.revokeObjectURL(url); }
+      const pick = await pickFromSheet(sheet, file.name);
+      if (!pick) return;
+      st.image = { canvas: pick.canvas, name: `${file.name} (${pick.w} × ${pick.h} tiles)` };
+      if (!st.name) st.name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      setSize(clampTiles(pick.w), clampTiles(pick.h));
+      st.scale = pick.tilePx; st.ox = 0; st.oy = 0;
+      renderForm();
+      draw();
+    })();
+  });
+  form.append(sheetInput);
   let lightX: HTMLInputElement | null = null, lightY: HTMLInputElement | null = null;
   let flameX: HTMLInputElement | null = null, flameY: HTMLInputElement | null = null;
   const slotRow = (slot: 'image' | 'normal' | 'glow', label: string, hint: string) => {
@@ -464,7 +486,10 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
         field('Faces', select([['0', 'As modelled (front toward the camera)'], ['90', 'Turned right 90°'], ['180', 'Turned round'], ['270', 'Turned left 90°']], String(st.modelRot), (v) => { st.modelRot = Number(v); remodel(); })),
         h('p', { class: 'hint' }, 'Drawn in 3D, fitted evenly into its footprint (Width × Depth); its height follows from its shape. The picture is its icon in the palette.'))
         : slotRow('image', 'Image', 'The sprite itself. Transparent background recommended.'),
-      st.model ? h('span') : h('div', { class: 'toolrow small' }, h('button', { type: 'button', class: 'btn small ghost', onclick: () => modelInput.click() }, 'Use a 3D model instead (.glb, .fbx)…')),
+      st.model ? h('span') : h('div', { class: 'toolrow small' },
+        // Update 149: a box of tiles from a tileset sheet (RPG Maker B–E sheets) as the picture.
+        h('button', { type: 'button', class: 'btn small', onclick: () => sheetInput.click() }, 'From a tileset sheet…'),
+        h('button', { type: 'button', class: 'btn small ghost', onclick: () => modelInput.click() }, 'Use a 3D model instead (.glb, .fbx)…')),
     ];
     if (existing && isBuiltinProp(existing.id)) {
       parts.unshift(h('p', { class: 'note' }, 'Saving makes a customised copy of this built-in prop, used everywhere it’s placed. “Reset to original” in the Props palette brings the built-in back.'));
