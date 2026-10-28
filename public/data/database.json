@@ -7108,11 +7108,6 @@
     "mdf",
     "agi"
   ],
-  "overworldCamera": {
-    "pitch": 80,
-    "distance": 15.6,
-    "lean": 84
-  },
   "armorTypes": [
     {
       "id": "light",
@@ -7185,5 +7180,9 @@
         "count": 1
       }
     ]
+  },
+  "overworldCamera": {
+    "pitch": 80,
+    "lean": 89
   }
 }

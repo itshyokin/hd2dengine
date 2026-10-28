@@ -729,25 +729,6 @@
       "image": "assets/props/log_seat.png"
     },
     {
-      "id": "tree1",
-      "name": "tree1",
-      "w": 2,
-      "h": 2,
-      "foot": {
-        "w": 2,
-        "d": 1,
-        "solid": [
-          "##"
-        ]
-      },
-      "block": [
-        -0.5,
-        0.5
-      ],
-      "filter": "point",
-      "image": "assets/props/tree1.png"
-    },
-    {
       "id": "tallgrass",
       "name": "tallgrass",
       "w": 1,
@@ -969,32 +950,6 @@
       "image": "assets/props/bedroll.png"
     },
     {
-      "id": "pine",
-      "name": "Pine tree",
-      "w": 3,
-      "h": 4,
-      "foot": {
-        "w": 3,
-        "d": 4,
-        "solid": [
-          "***",
-          "*#*",
-          "*#*",
-          "*#*"
-        ]
-      },
-      "block": [
-        0
-      ],
-      "filter": "point",
-      "sway": 1,
-      "rustle": false,
-      "frontOfTiles": false,
-      "ground": true,
-      "season": "leaves",
-      "image": "assets/props/pine.png"
-    },
-    {
       "id": "oak",
       "name": "Oak tree",
       "w": 4,
@@ -1018,6 +973,54 @@
       "sway": 1,
       "ground": true,
       "image": "assets/props/oak.png"
+    },
+    {
+      "id": "pine",
+      "name": "Pine tree",
+      "w": 3,
+      "h": 4,
+      "foot": {
+        "w": 3,
+        "d": 4,
+        "solid": [
+          "***",
+          "***",
+          "###",
+          "###"
+        ]
+      },
+      "block": [
+        -1,
+        0,
+        1
+      ],
+      "filter": "point",
+      "sway": 1,
+      "rustle": false,
+      "frontOfTiles": false,
+      "ground": true,
+      "season": "leaves",
+      "image": "assets/props/pine.png"
+    },
+    {
+      "id": "tree1",
+      "name": "tree1",
+      "w": 2,
+      "h": 2,
+      "foot": {
+        "w": 2,
+        "d": 2,
+        "solid": [
+          "##",
+          "##"
+        ]
+      },
+      "block": [
+        -0.5,
+        0.5
+      ],
+      "filter": "point",
+      "image": "assets/props/tree1.png"
     }
   ],
   "tiles": [
