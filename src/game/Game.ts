@@ -1038,6 +1038,8 @@ export class Game {
     this.season = this.seasonNow();
     setSeason(this.season);
     this.mapWinter = this.season === 'winter';
+    // Update 148: maps that don't choose are flat in 2D view mode (height implied by the tiles).
+    TileMap.flatByDefault = this.db.viewMode === '2d';
     this.map = pre?.map ?? new TileMap(data, this.tiles, (style) => this.frozen(style));
     const built = pre?.built ?? buildWorld(worldGroup, this.map, data, this.sprites, this.tileTextures, origin);
     this.world = { group: worldGroup, built, origin };
@@ -1160,6 +1162,7 @@ export class Game {
           const group = new THREE.Group(), origin = new THREE.Vector2(n.dx, n.dz);
           group.name = `next:${n.map}`;
           group.position.set(n.dx, 0, n.dz);
+          TileMap.flatByDefault = this.db.viewMode === '2d';
           const map = new TileMap(data, this.tiles, (st) => this.season === 'winter' && !(waterStyle(data, st).flow ?? 0) && !(waterStyle(data, st).glow ?? 0));
           const built = buildWorld(group, map, data, this.sprites, this.tileTextures, origin);
           tagAOMeshes(group);
@@ -6107,7 +6110,10 @@ export class Game {
   /** Build a battle map as the stage for the battle about to start, and switch the view to it. */
   private openStage(data: MapData, specs: StageFighterSpec[]): void {
     this.endStage();
+    // Battle maps keep their heights unless they choose flat.
+    TileMap.flatByDefault = false;
     const map = new TileMap(data, this.tiles);
+    TileMap.flatByDefault = this.db.viewMode === '2d';
     const stage = new BattleStage(data, (x, z) => map.standY(x, z));
     // Pocket Handheld: the camera starts behind the hero, the foe up and across from them.
     stage.pocket = this.combatCfg.turnBased.layout === 'pocket';

@@ -5,7 +5,7 @@
  */
 import type { TileDef } from './types';
 
-export const isPixelTile = (def: TileDef | undefined): boolean => !!def && (def.kind === 'animated' || def.kind === 'autotile');
+export const isPixelTile = (def: TileDef | undefined): boolean => !!def && (def.kind === 'animated' || def.kind === 'autotile' || def.kind === 'wall');
 
 export interface FrameLayout {
   frames: number;
@@ -15,6 +15,10 @@ export interface FrameLayout {
 
 /** How a picture W × H splits into frames. */
 export function frameLayout(def: TileDef, w: number, h: number): FrameLayout {
+  if (def.kind === 'wall') {
+    const tile = h / 2;
+    return { frames: Math.max(1, Math.round(def.frames ?? w / (2 * tile))), horiz: true };
+  }
   if (def.kind === 'autotile') {
     const tile = h / 3;
     return { frames: Math.max(1, Math.round(def.frames ?? w / (2 * tile))), horiz: true };
@@ -49,9 +53,25 @@ export function autotileQuarters(same: (dx: number, dz: number) => boolean): [nu
   return out;
 }
 
+/**
+ * A wall's four quarters (Update 148, RPG Maker's A3 / A4 walls, a 2 × 2 block): outer half-tiles where the wall ends
+ * (no wall beside it that way), inner ones where it carries on. [column 0–3, row 0–3].
+ */
+export function wallQuarters(same: (dx: number, dz: number) => boolean): [number, number][] {
+  return [[0, 0], [1, 0], [0, 1], [1, 1]].map(([sx, sy]) => {
+    const hz = same(sx ? 1 : -1, 0), v = same(0, sy ? 1 : -1);
+    return [hz ? (sx ? 1 : 2) : (sx ? 3 : 0), v ? (sy ? 1 : 2) : (sy ? 3 : 0)] as [number, number];
+  });
+}
+
+/** The quarters for an autotile or a wall. */
+export const quartersFor = (def: TileDef, same: (dx: number, dz: number) => boolean): [number, number][] => (def.kind === 'wall' ? wallQuarters(same) : autotileQuarters(same));
+/** Half-tile rows in the block: 6 for an autotile, 4 for a wall. */
+export const blockRows = (def: TileDef): number => (def.kind === 'wall' ? 4 : 6);
+
 /** Pixel rectangle [x, y, w, h] in the picture of an autotile's half-tile (col, row), in frame `f`. */
-export function autotileRect(w: number, h: number, frames: number, f: number, col: number, row: number): [number, number, number, number] {
-  const bw = w / frames, hw = bw / 4, hh = h / 6;
+export function autotileRect(w: number, h: number, frames: number, f: number, col: number, row: number, rows = 6): [number, number, number, number] {
+  const bw = w / frames, hw = bw / 4, hh = h / rows;
   return [f * bw + col * hw, row * hh, hw, hh];
 }
 
@@ -65,10 +85,10 @@ export function drawPixelTile(ctx: CanvasRenderingContext2D, img: CanvasImageSou
   px: number, py: number, size: number, f: number, same: (dx: number, dz: number) => boolean): void {
   const l = frameLayout(def, img.width, img.height), fr = Math.min(f, l.frames - 1);
   ctx.imageSmoothingEnabled = false;
-  if (def.kind === 'autotile') {
-    const q = autotileQuarters(same), half = size / 2;
+  if (def.kind === 'autotile' || def.kind === 'wall') {
+    const q = quartersFor(def, same), half = size / 2;
     q.forEach(([c, r], k) => {
-      const [sx, sy, sw, sh] = autotileRect(img.width, img.height, l.frames, fr, c, r);
+      const [sx, sy, sw, sh] = autotileRect(img.width, img.height, l.frames, fr, c, r, blockRows(def));
       ctx.drawImage(img, sx, sy, sw, sh, px + (k % 2) * half, py + Math.floor(k / 2) * half, half, half);
     });
     return;

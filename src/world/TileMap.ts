@@ -30,7 +30,11 @@ export class TileMap {
   private readonly ice: (number | null)[];
 
   /** `frozen(style)`: water of this style is frozen over (still water in winter). */
+  /** Height for maps that don't choose (Update 148): flat in 2D view mode (set by the game). */
+  static flatByDefault = false;
   constructor(data: MapData, readonly tiles: TileCatalog = new TileCatalog(), frozen?: (style: number) => boolean) {
+    // Height implied by the tiles (RPG Maker): the Heights layer, ramps and hills are kept in the map but not used.
+    if (data.heightMode === 'flat' || (!data.heightMode && TileMap.flatByDefault)) data = { ...data, heights: undefined, ramps: undefined, heightStyles: undefined };
     this.w = data.width;
     this.h = data.height;
     this.rows = [];

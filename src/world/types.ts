@@ -223,9 +223,10 @@ export interface TileDef {
   /**
    * RPG Maker-style tiles (Update 146): 'animated' a strip of frames (side by side or stacked); 'autotile' RPG
    * Maker's A2 block (2 × 3 tiles) whose edges and corners follow the neighbours, its frames side by side (A1
-   * water). Unset: a plain repeating texture.
+   * water). Update 148: 'wall' RPG Maker's A3 / A4 wall block (2 × 2 tiles): its sides and ends follow the neighbours.
+   * Unset: a plain repeating texture.
    */
-  kind?: 'animated' | 'autotile';
+  kind?: 'animated' | 'autotile' | 'wall';
   /** How many frames (unset: worked out from the picture's shape). */
   frames?: number;
   /** Frames per second (default 4). */
@@ -709,6 +710,11 @@ export interface MapData {
    * ground like RPG Maker's upper layers (flowers, path edges, overhangs). Omitted when empty.
    */
   upper?: string[];
+  /**
+   * Height on this map (Update 148): 'flat' implied by the tiles like RPG Maker (the Heights layer is kept but not
+   * used), '3d' real heights. Unset: follows the view mode (2D flat, 3D real heights).
+   */
+  heightMode?: 'flat' | '3d';
   /** Height layer: one row per line, space-separated steps from -10 to 10 (a step is half a tile). Omitted when flat. */
   heights?: string[];
   /**

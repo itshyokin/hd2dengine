@@ -84,7 +84,7 @@ export function tileThumb(key: string, size = 36): HTMLCanvasElement {
     // One tile of the first frame (an autotile: its top-left preview tile).
     ctx.imageSmoothingEnabled = false;
     const l = frameLayout(def, img.width, img.height);
-    const [sx, sy, sw, sh] = def.kind === 'autotile' ? [0, 0, img.width / l.frames / 2, img.height / 3] : frameRect(img.width, img.height, l, 0);
+    const [sx, sy, sw, sh] = def.kind === 'autotile' || def.kind === 'wall' ? [0, 0, img.width / l.frames / 2, img.height / (def.kind === 'wall' ? 2 : 3)] : frameRect(img.width, img.height, l, 0);
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
     return c;
   }

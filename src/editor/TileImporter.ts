@@ -40,7 +40,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     flipGreen: false,
     flat: !!existing?.flat,
     /** Update 146: plain, animated (a strip of frames) or an RPG Maker autotile (2 × 3 tiles, perhaps several side by side). */
-    kind: (existing?.kind ?? 'plain') as 'plain' | 'animated' | 'autotile',
+    kind: (existing?.kind ?? 'plain') as 'plain' | 'animated' | 'autotile' | 'wall',
     /** Frames (0: worked out from the picture). */
     frames: existing?.frames ?? 0,
     fps: existing?.fps ?? 4,
@@ -72,7 +72,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
 
   const pixel = () => st.kind !== 'plain';
   /** The tile as it would be saved, for the frame helpers. */
-  const asDef = (): TileDef => ({ key: '?', id: '?', name: '', span: 1, ...(pixel() ? { kind: st.kind as 'animated' | 'autotile' } : {}), ...(st.frames ? { frames: st.frames } : {}), fps: st.fps });
+  const asDef = (): TileDef => ({ key: '?', id: '?', name: '', span: 1, ...(pixel() ? { kind: st.kind as 'animated' | 'autotile' | 'wall' } : {}), ...(st.frames ? { frames: st.frames } : {}), fps: st.fps });
   function rebuild(): void {
     // RPG Maker-style tiles keep the picture exactly as it is (every frame, every quarter).
     processed = !st.image ? null : pixel() ? copyCanvas(st.image.canvas) : renderTile(st.image.canvas, st.span, ppt(), st.filter);
@@ -97,12 +97,12 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     const ox = Math.round((r.width - cell * PREVIEW_COLS) / 2), oy = Math.round((r.height - cell * PREVIEW_ROWS) / 2);
     if (pixel()) {
       const d = asDef(), l = frameLayout(d, processed.width, processed.height), f = frameAt(d, l.frames, performance.now() / 1000);
-      const inside = (x: number, z: number) => st.kind !== 'autotile' || (POND[z]?.[x] ?? '.') === '#';
+      const inside = (x: number, z: number) => (st.kind !== 'autotile' && st.kind !== 'wall') || (POND[z]?.[x] ?? '.') === '#';
       for (let z = 0; z < PREVIEW_ROWS; z++) for (let x = 0; x < PREVIEW_COLS; x++) {
         if (!inside(x, z)) { ctx.fillStyle = (x + z) % 2 ? '#2a3a2a' : '#2f402f'; ctx.fillRect(ox + x * cell, oy + z * cell, cell, cell); continue; }
         drawPixelTile(ctx, processed, d, ox + x * cell, oy + z * cell, cell, f, (dx, dz) => { const nx = x + dx, nz = z + dz; return nx < 0 || nz < 0 || nx >= PREVIEW_COLS || nz >= PREVIEW_ROWS || inside(nx, nz); });
       }
-      foot.textContent = `${processed.width} × ${processed.height} px · ${l.frames} frame${l.frames === 1 ? '' : 's'}${st.kind === 'autotile' ? ` · ${Math.round(processed.height / 3)} px per tile` : ''}`;
+      foot.textContent = `${processed.width} × ${processed.height} px · ${l.frames} frame${l.frames === 1 ? '' : 's'}${st.kind === 'autotile' || st.kind === 'wall' ? ` · ${Math.round(processed.height / (st.kind === 'wall' ? 2 : 3))} px per tile` : ''}`;
       return;
     }
     const tilePx = processed.width / st.span;
@@ -194,9 +194,9 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     const parts: Node[] = [
       skinOf ? h('p', { class: 'hint' }, `This picture replaces the built-in “${skinOf.name}” everywhere it’s painted, on every map. Its sounds, edge blending, cliffs and everything else stay as they are; switch back to Built-in any time.`)
         : field('Name', textInput(st.name, (v) => (st.name = v.trim()), { placeholder: 'e.g. Cobblestone', oninput: (e: Event) => (st.name = (e.target as HTMLInputElement).value.trim()) })),
-      skinOf ? h('span') : field('Kind', select([['plain', 'Plain (a repeating texture)'], ['animated', 'Animated (frames side by side or stacked)'], ['autotile', 'Autotile (RPG Maker A2: 2 × 3 tiles, edges drawn for you)']], st.kind,
+      skinOf ? h('span') : field('Kind', select([['plain', 'Plain (a repeating texture)'], ['animated', 'Animated (frames side by side or stacked)'], ['autotile', 'Autotile (RPG Maker A2: 2 × 3 tiles, edges drawn for you)'], ['wall', 'Wall (RPG Maker A3 / A4 wall: 2 × 2 tiles, sides and ends drawn for you)']], st.kind,
         (v) => { st.kind = v as typeof st.kind; if (pixel()) { st.flat = true; st.filter = 'point'; } renderForm(); rebuild(); })),
-      slot('image', pixel() ? 'Picture' : 'Texture', st.kind === 'autotile' ? 'RPG Maker’s A2 layout: 2 tiles wide, 3 tall (64 × 96 at 32 px). Animated (like A1 water): the frames’ blocks side by side.'
+      slot('image', pixel() ? 'Picture' : 'Texture', st.kind === 'wall' ? 'RPG Maker’s wall layout (A3, or the wall part of A4): 2 tiles wide, 2 tall (64 × 64 at 32 px). The top of a cliff is an Autotile; its face is a Wall.' : st.kind === 'autotile' ? 'RPG Maker’s A2 layout: 2 tiles wide, 3 tall (64 × 96 at 32 px). Animated (like A1 water): the frames’ blocks side by side.'
         : st.kind === 'animated' ? 'All the frames in one picture, side by side or stacked (3 frames of 32 px: 96 × 32 or 32 × 96), or add them one at a time below.'
         : 'Seamless textures repeat without visible seams. Non-square images are cropped to a square from the centre.'),
     ];
@@ -251,7 +251,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       }
       const id = skinOf?.id ?? existing?.id ?? uniqueId(st.name, (x) => store.tiles.all().some((t) => t.id === x));
       const def: TileDef = { key, id, name: st.name, span: pixel() ? 1 : st.span, filter: pixel() ? 'point' : st.filter };
-      if (pixel()) { def.kind = st.kind as 'animated' | 'autotile'; def.flat = true; if (st.frames) def.frames = st.frames; if (st.fps !== 4) def.fps = st.fps; }
+      if (pixel()) { def.kind = st.kind as 'animated' | 'autotile' | 'wall'; def.flat = true; if (st.frames) def.frames = st.frames; if (st.fps !== 4) def.fps = st.fps; }
       if (skinOf) def.skin = true;
       if (existing?.credits) def.credits = existing.credits;
       if (st.blocks) def.blocks = true;

@@ -279,6 +279,10 @@ export class Inspector {
       h('p', { class: 'hint' }, 'Resizing keeps the top-left corner. Anything outside the new size is removed.'),
       field('Theme', select([['', 'None'], ...mapThemes(s.db.mapThemes).map((t) => [t.id, t.name] as [string, string])], m.theme ?? '', (v) => this.edit(() => { if (v) m.theme = v; else delete m.theme; }, true)),
         'Database → Map themes: the edges, cliffs, lighting, music, sounds, wind, weather and air this kind of map has. Settings left on “Theme default” follow the theme; change one to override it here.'),
+      // Update 148: height implied by the tiles (RPG Maker) or real 3D heights.
+      field('Height', select([['', `Follow the view mode (now ${s.db.viewMode === '2d' ? 'flat: 2D mode' : 'real 3D heights: 3D mode'})`], ['flat', 'Implied by the tiles (flat, like RPG Maker)'], ['3d', 'Real 3D heights (the Heights layer)']],
+        m.heightMode ?? '', (v) => this.edit(() => { if (v) m.heightMode = v as 'flat' | '3d'; else delete m.heightMode; })),
+        'Flat: cliffs and stairs are drawn by the tiles (autotiles, walls) and everything stays at one height; the Heights layer is kept but not used, so you can switch back any time.'),
       field('Cliff walls', this.themed(cliffChoices(s), m.cliffTile && s.tiles.isCliffLook(m.cliffTile) ? m.cliffTile : m.cliffTile === undefined ? undefined : BRICKS, 'cliffTile', BRICKS,
         (v) => this.edit(() => { if (v === undefined) delete m.cliffTile; else m.cliffTile = v; })),
         'What cliff walls on this map look like. A tile can choose its own in the Terrain palette.'),

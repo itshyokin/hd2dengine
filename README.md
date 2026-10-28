@@ -1372,6 +1372,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **RPG Maker cliffs** (Update 148): tile *Kind → Wall* is RPG Maker's A3 / A4 wall block (2 × 2 tiles, 64 × 64 at
+  32 px), its sides and ends drawn from the neighbours; paint a cliff's top with an Autotile and its face with a Wall.
+  Map settings → **Height**: *Implied by the tiles* (flat, like RPG Maker; the Heights layer is kept but unused),
+  *Real 3D heights*, or follow the view mode (2D flat, 3D heights; battle maps keep their heights).
 - **Upper terrain layer** (Update 147, Terrain → *Lower / Upper*): paint any imported tile over the ground (see-through
   where its picture is: flowers, path edges, tree tops), with an Eraser. Each tile has a **Passage** like RPG Maker:
   O walkable, X blocks, ☆ drawn over the characters and walked under.

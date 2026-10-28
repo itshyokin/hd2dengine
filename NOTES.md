@@ -401,6 +401,9 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 148: TileDef kind 'wall' (wallQuarters: outer / inner half-tile per side, 4 rows; quartersFor /
+        blockRows shared). MapData.heightMode 'flat' | '3d'; TileMap.flatByDefault (Game sets it from viewMode before
+        building maps, false for battle stages) drops heights / ramps / heightStyles. Next: box-select a sheet into a prop.
   - [x] Update 147: MapData.upper (rows, space = none), TileMap.upper(); upper X tiles block (☆ don't). TileDef.above;
         buildPixelTiles also draws the upper layer (plain tiles by span piece, alphaTest 0.5, lift 0.014); ☆ meshes
         depthTest off, renderOrder 20. Editor: store.terrainLayer / upperTile / upperAt / setUpper / layerAt /

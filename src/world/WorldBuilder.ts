@@ -28,7 +28,7 @@ import { QuadList, buildTerrainGeometry, cornerRounding, cornerSliver } from './
 import { BRICKS } from './tiles';
 import type { BorderKind, MapData, PropData, PropDef } from './types';
 import { isToonWater, waterStyles } from './waterStyles';
-import { autotileQuarters, frameAt, frameLayout, isPixelTile } from './pixelTiles';
+import { blockRows, frameAt, frameLayout, isPixelTile, quartersFor } from './pixelTiles';
 import { patchSeason } from '../render/season';
 import { propSeason } from './seasons';
 
@@ -63,7 +63,7 @@ function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<
     if (!upper && !isPixelTile(def)) continue;
     const img = tt.map.image as { width: number; height: number };
     const l = isPixelTile(def) ? frameLayout(def, img.width, img.height) : { frames: 1, horiz: true };
-    const auto = def.kind === 'autotile', span = isPixelTile(def) ? 1 : Math.max(1, Math.round(def.span || 1));
+    const auto = def.kind === 'autotile' || def.kind === 'wall', rows = blockRows(def), span = isPixelTile(def) ? 1 : Math.max(1, Math.round(def.span || 1));
     const fw = l.horiz ? 1 / l.frames : 1, fh = l.horiz ? 1 : 1 / l.frames;
     const q = new QuadList(), lift = upper ? 0.014 : 0.006;
     const y = (x: number, z: number) => map.surfaceY(x, z) + lift;
@@ -81,10 +81,10 @@ function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<
         continue;
       }
       const same = (dx: number, dz: number) => { const nx = x + dx, nz = z + dz; return !map.inMap(nx, nz) || at(nx, nz) === key; };
-      autotileQuarters(same).forEach(([c, r], k) => {
+      quartersFor(def, same).forEach(([c, r], k) => {
         const qx = x + (k % 2) * 0.5, qz = z + Math.floor(k / 2) * 0.5;
-        const u0 = (c / 4) * fw, v0 = 1 - r / 6;
-        quad(qx, qz, qx + 0.5, qz + 0.5, u0, v0, u0 + fw / 4, v0 - 1 / 6);
+        const u0 = (c / 4) * fw, v0 = 1 - r / rows;
+        quad(qx, qz, qx + 0.5, qz + 0.5, u0, v0, u0 + fw / 4, v0 - 1 / rows);
       });
     }
     if (!q.quads) continue;
