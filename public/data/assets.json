@@ -1116,6 +1116,24 @@
       ],
       "filter": "point",
       "image": "assets/props/fence_gate.png"
+    },
+    {
+      "id": "steps_brown",
+      "name": "Steps Brown",
+      "w": 1,
+      "h": 1,
+      "foot": {
+        "w": 1,
+        "d": 1,
+        "solid": [
+          "."
+        ]
+      },
+      "block": [],
+      "filter": "point",
+      "frontOfTiles": false,
+      "ground": true,
+      "image": "assets/props/steps_brown.png"
     }
   ],
   "tiles": [
@@ -1230,6 +1248,14 @@
       "flat": true,
       "blocks": true,
       "image": "assets/tiles/grass_cliff.png"
+    },
+    {
+      "key": "d",
+      "id": "steps_brown",
+      "name": "Steps Brown",
+      "span": 1,
+      "filter": "point",
+      "image": "assets/tiles/steps_brown.png"
     }
   ],
   "tileCliffs": {
