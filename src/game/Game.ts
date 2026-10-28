@@ -38,7 +38,7 @@ import { type TileTexture, loadTileTextures, setTileAnisotropy } from '../render
 import type { AssetRegistry } from '../world/types';
 import { TileMap } from '../world/TileMap';
 import { TimeOfDay, wrapHour } from '../world/TimeOfDay';
-import { type BuiltWorld, buildWorld, hideProp } from '../world/WorldBuilder';
+import { type BuiltWorld, buildWorld, hideProp, tickPixelTiles } from '../world/WorldBuilder';
 import { Rings } from './rings';
 import { Bursts } from '../render/Bursts';
 import { Combat, type CombatHost } from './combat/Combat';
@@ -105,7 +105,7 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { EvolveScreen } from '../ui/EvolveScreen';
-import { leanNow, patchLean, setLean, setGroundYield } from '../render/lean';
+import { leanNow, patchLean, setLean, setView2D, setGroundYield } from '../render/lean';
 import { DEFAULT_OVERWORLD_CAMERA } from './cameraDefaults';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
@@ -1038,6 +1038,8 @@ export class Game {
     this.season = this.seasonNow();
     setSeason(this.season);
     this.mapWinter = this.season === 'winter';
+    // Update 148: maps that don't choose are flat in 2D view mode (height implied by the tiles).
+    TileMap.flatByDefault = this.db.viewMode === '2d';
     this.map = pre?.map ?? new TileMap(data, this.tiles, (style) => this.frozen(style));
     const built = pre?.built ?? buildWorld(worldGroup, this.map, data, this.sprites, this.tileTextures, origin);
     this.world = { group: worldGroup, built, origin };
@@ -1160,6 +1162,7 @@ export class Game {
           const group = new THREE.Group(), origin = new THREE.Vector2(n.dx, n.dz);
           group.name = `next:${n.map}`;
           group.position.set(n.dx, 0, n.dz);
+          TileMap.flatByDefault = this.db.viewMode === '2d';
           const map = new TileMap(data, this.tiles, (st) => this.season === 'winter' && !(waterStyle(data, st).flow ?? 0) && !(waterStyle(data, st).glow ?? 0));
           const built = buildWorld(group, map, data, this.sprites, this.tileTextures, origin);
           tagAOMeshes(group);
@@ -2064,7 +2067,8 @@ export class Game {
     this.updateTimeWarp(dt);
     // Characters always on top (Update 139): the hero and party drawn over props they overlap.
     // Update 142: off, the ground and props aren't pushed back either, so trees and ledges in front hide characters.
-    { const top = !!this.db.charactersOnTop; setGroundYield(top); this.player.setOnTop(top); for (const a of this.allies) a.sprite.setOnTop(top); }
+    // 2D mode (Update 145): layers decide, so no on-top copies.
+    { const top = !!this.db.charactersOnTop && this.db.viewMode !== '2d'; setGroundYield(top); this.player.setOnTop(top); for (const a of this.allies) a.sprite.setOnTop(top); }
     document.body.classList.toggle('sleeping', this.sleepLook > 0.05);
     this.updateCamera(dt);
     this.updateBubbles();
@@ -6106,7 +6110,10 @@ export class Game {
   /** Build a battle map as the stage for the battle about to start, and switch the view to it. */
   private openStage(data: MapData, specs: StageFighterSpec[]): void {
     this.endStage();
+    // Battle maps keep their heights unless they choose flat.
+    TileMap.flatByDefault = false;
     const map = new TileMap(data, this.tiles);
+    TileMap.flatByDefault = this.db.viewMode === '2d';
     const stage = new BattleStage(data, (x, z) => map.standY(x, z));
     // Pocket Handheld: the camera starts behind the hero, the foe up and across from them.
     stage.pocket = this.combatCfg.turnBased.layout === 'pocket';
@@ -7212,6 +7219,11 @@ export class Game {
   private updateCamera(dt: number): void {
     // Sprites lean back to face the map camera (upright on battle maps, where the camera goes all round).
     setLean(this.stage ? 0 : THREE.MathUtils.degToRad(this.overworldCam.pitch) * this.overworldCam.lean / 100);
+    const twoD = !this.stage && this.db.viewMode === '2d';
+    setView2D(twoD, this.db.playerLayer ?? 10);
+    // 2D: nothing comes near the camera, so its near plane moves close to the ground for finer depth (layers, sorting).
+    const near = twoD ? Math.max(0.5, this.overworldCam.distance * 0.4) : 0.5;
+    if (this.camera.near !== near) { this.camera.near = near; this.camera.updateProjectionMatrix(); }
     if (this.stage) { this.updateStageCamera(dt); return; }
     // A griffin flight: further back and higher, following the griffin.
     if (this.flight) {
@@ -7381,6 +7393,7 @@ export class Game {
     this.waterFlow.x += 0.03 * dt; this.waterFlow.y += 0.018 * dt;
     this.waterNormals.offset.set(this.waterFlow.x, this.waterFlow.y);
     // Each style's ripples: a gentle drift, carried along by its current (a river, a stream).
+    tickPixelTiles(this.elapsed);
     for (const f of this.waterFlows) {
       const fd = THREE.MathUtils.degToRad(f.flowDir);
       f.tex.offset.x += (0.03 - Math.cos(fd) * f.flow * 0.45) * dt;

@@ -208,6 +208,7 @@ export async function deleteTile(store: EditorStore, key: string): Promise<void>
   store.checkpoint();
   let n = 0;
   store.map.terrain = store.map.terrain.map((row) => row.replace(new RegExp(escapeRe(key), 'g'), () => { n++; return '.'; }));
+  if (store.map.upper) store.map.upper = store.map.upper.map((row) => row.replace(new RegExp(escapeRe(key), 'g'), () => { n++; return ' '; }));
   if (n) store.changed(); else store.dropCheckpoint();
   setCustomTileImage(key, null);
   if (store.terrain === key) store.terrain = '.';

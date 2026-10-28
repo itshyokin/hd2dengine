@@ -65,6 +65,9 @@ export class EditorStore {
   /** Key of the tile being painted. */
   terrain = '.';
   terrainTool: TerrainTool = 'pencil';
+  /** Update 147: which terrain layer is painted, and the upper layer's brush (a space erases). */
+  terrainLayer: 'lower' | 'upper' = 'lower';
+  upperTile = ' ';
   brushSize = 1;
   heightTool: HeightTool = 'raise';
   /** The Style brush's shape for raised and lowered ground. */
@@ -248,6 +251,25 @@ export class EditorStore {
     this.map.terrain[z] = row.slice(0, x) + t + row.slice(x + 1);
     return true;
   }
+
+  /** The upper terrain layer (Update 147): a space for nothing. */
+  upperAt(x: number, z: number): string {
+    return this.map.upper?.[z]?.[x] ?? ' ';
+  }
+
+  setUpper(x: number, z: number, t: string): boolean {
+    if (!this.inMap(x, z)) return false;
+    const w = this.map.width, rows = (this.map.upper ??= Array.from({ length: this.map.height }, () => ' '.repeat(w)));
+    const row = (rows[z] ?? '').padEnd(w, ' ');
+    if (row[x] === t) return false;
+    rows[z] = row.slice(0, x) + t + row.slice(x + 1);
+    if (rows.every((r) => !r.trim())) delete this.map.upper;
+    return true;
+  }
+
+  /** The cell on the terrain layer being painted, and painting it with that layer's brush. */
+  layerAt(x: number, z: number): string { return this.terrainLayer === 'upper' ? this.upperAt(x, z) : this.terrainAt(x, z); }
+  paintLayer(x: number, z: number): boolean { return this.terrainLayer === 'upper' ? this.setUpper(x, z, this.upperTile) : this.setTerrain(x, z, this.terrain); }
 
   inMap(x: number, z: number): boolean {
     return x >= 0 && z >= 0 && x < this.map.width && z < this.map.height;

@@ -118,6 +118,11 @@ export class Palette {
     if (s.mode === 'terrain') {
       const blendSummary = (key: string) => { const b = s.tiles.blendFor(key); return b.blend ? `priority ${Math.round(b.priority)}` : 'off'; };
       body.push(this.tools(TERRAIN_TOOLS, s.terrainTool, (t) => (s.terrainTool = t)));
+      // Update 147: the lower (ground) or upper layer, like RPG Maker's.
+      const upper = s.terrainLayer === 'upper';
+      body.push(h('div', { class: 'toolrow small' }, ...([['lower', 'Lower (ground)'], ['upper', 'Upper (over it)']] as const).map(([k, label]) =>
+        h('button', { type: 'button', class: 'tool', 'aria-pressed': String(s.terrainLayer === k), onclick: () => { s.terrainLayer = k; s.emit('ui'); } }, label))));
+      if (upper) body.push(h('p', { class: 'note' }, 'Painted over the ground: flowers, path edges, tree tops. See-through where the picture is. Tiles set to ☆ draw over the characters.'));
       if (s.terrainTool === 'pencil') body.push(this.brush());
       const tiles = s.tiles.all();
       const editTile = (key: string) => { const d = s.tiles.get(key); if (d) void openTileImporter(s, d); };
@@ -192,20 +197,23 @@ export class Palette {
               `“${cur.name}” will be removed from the tile list. On this map its cells turn back into grass (you can undo that). Its image files stay in your project.`,
               'Delete', () => void deleteTile(s, cur.key), true) }, 'Delete'))));
       }
+      const brushKey = () => (upper ? s.upperTile : s.terrain);
       const swatch = (t: TileDef) => h('div', { class: 'swatch-row' },
-        h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(s.terrain === t.key), title: tileNote(t), onclick: () => { s.terrain = t.key; s.emit('ui'); } },
+        h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(brushKey() === t.key), title: tileNote(t), onclick: () => { if (upper) s.upperTile = t.key; else s.terrain = t.key; s.emit('ui'); } },
           tileThumb(t.key),
           h('span', { class: 'swatch-name' }, t.name),
           h('span', { class: 'swatch-note' }, tileNote(t))),
         t.builtin ? null : h('button', { type: 'button', class: 'mini-btn swatch-edit', title: `Edit ${t.name}`, 'aria-label': `Edit ${t.name}`, onclick: () => editTile(t.key) }, '✎'));
       const imported = tiles.filter((t) => !t.builtin);
-      body.push(
+      body.push(...[
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openTileImporter(s) }, '+ Import tile from texture…'),
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openLpcLibrary(s, 'tile') }, '+ Add from the LPC library…'),
-        h('div', { class: 'section-label' }, 'Built-in'),
-        h('div', { class: 'swatches' }, ...tiles.filter((t) => t.builtin).map(swatch)),
+        upper ? h('div', { class: 'swatches' }, h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(s.upperTile === ' '), onclick: () => { s.upperTile = ' '; s.emit('ui'); } },
+          h('span', { class: 'swatch-name' }, '✕ Eraser'), h('span', { class: 'swatch-note' }, 'Clears the upper layer'))) : null,
+        upper ? null : h('div', { class: 'section-label' }, 'Built-in'),
+        upper ? null : h('div', { class: 'swatches' }, ...tiles.filter((t) => t.builtin).map(swatch)),
         h('div', { class: 'section-label' }, `Imported (${imported.length})`),
-        imported.length ? h('div', { class: 'swatches' }, ...imported.map(swatch)) : h('p', { class: 'note' }, 'Tiles you import from textures appear here.'));
+        imported.length ? h('div', { class: 'swatches' }, ...imported.map(swatch)) : h('p', { class: 'note' }, 'Tiles you import from textures appear here.')].filter((x): x is NonNullable<typeof x> => !!x));
     } else if (s.mode === 'water') {
       body.push(...this.waterPanel());
     } else if (s.mode === 'height') {

@@ -1372,6 +1372,24 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Props from a tileset sheet** (Update 149, prop editor → *From a tileset sheet…*): open a sheet (RPG Maker B–E
+  sheets, your commissioned ones), pick the tile size, drag a box over the tiles of a tree, rock or cave mouth, and
+  they become the prop's picture, framed exactly (one sheet tile = one map tile).
+- **RPG Maker cliffs** (Update 148): tile *Kind → Wall* is RPG Maker's A3 / A4 wall block (2 × 2 tiles, 64 × 64 at
+  32 px), its sides and ends drawn from the neighbours; paint a cliff's top with an Autotile and its face with a Wall.
+  Map settings → **Height**: *Implied by the tiles* (flat, like RPG Maker; the Heights layer is kept but unused),
+  *Real 3D heights*, or follow the view mode (2D flat, 3D heights; battle maps keep their heights).
+- **Upper terrain layer** (Update 147, Terrain → *Lower / Upper*): paint any imported tile over the ground (see-through
+  where its picture is: flowers, path edges, tree tops), with an Eraser. Each tile has a **Passage** like RPG Maker:
+  O walkable, X blocks, ☆ drawn over the characters and walked under.
+- **RPG Maker-style tiles** (Update 146, tile editor → *Kind*): *Animated* (a strip of frames side by side or
+  stacked, or added one picture at a time; set the frame count and speed) and *Autotile* (RPG Maker's A2 block,
+  2 × 3 tiles, e.g. 64 × 96 at 32 px: painting picks the edges and corners from the neighbours; animated autotiles
+  have the frames' blocks side by side, like A1 water). Drawn crisp and flat on the ground with no blended edges.
+- **2D / 3D mode** (Update 145, Database → World → View & camera): *3D mode* is the HD-2D look; *2D mode* looks
+  straight down with everything flat and draws in order of layers like RPG Maker: characters are on the *Player
+  layer* (default 10), props on a lower layer always cover them, higher ones are always under them, and on the same
+  layer whoever is further down the screen is in front (trees on the player's layer, flowers on 25, overhangs low).
 - **Prop layers** (Update 144): every placed prop has a *Layer*, 0 (drawn on top) … 25 (the ground, the default),
   like RPG Maker's layers. Pick it in the map editor's prop brush (or *Prop's own*, the default set in the prop
   editor), or on a selected prop in the inspector. Where props overlap the lower layer draws on top; it never moves

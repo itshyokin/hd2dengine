@@ -401,6 +401,28 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 149: editor/SheetPicker.ts pickFromSheet (grid, drag a box of cells, tile size 16–64) → PropImporter
+        sets the picture, size in tiles, scale = tile px, offset 0. RPG Maker plan (145–149) done.
+  - [x] Update 148: TileDef kind 'wall' (wallQuarters: outer / inner half-tile per side, 4 rows; quartersFor /
+        blockRows shared). MapData.heightMode 'flat' | '3d'; TileMap.flatByDefault (Game sets it from viewMode before
+        building maps, false for battle stages) drops heights / ramps / heightStyles. Next: box-select a sheet into a prop.
+  - [x] Update 147: MapData.upper (rows, space = none), TileMap.upper(); upper X tiles block (☆ don't). TileDef.above;
+        buildPixelTiles also draws the upper layer (plain tiles by span piece, alphaTest 0.5, lift 0.014); ☆ meshes
+        depthTest off, renderOrder 20. Editor: store.terrainLayer / upperTile / upperAt / setUpper / layerAt /
+        paintLayer (pencil, rectangle, fill), upper drawn over the 2D map, resize and tile delete handle it, Passage
+        select in the tile editor. Next: RPG Maker cliffs (flat), then box-select a sheet into a prop.
+  - [x] Update 146: TileDef kind 'animated' / 'autotile', frames, fps; world/pixelTiles.ts (frameLayout,
+        autotileQuarters: per quarter v / h / diagonal → A2 half-tile, drawPixelTile for the editor). WorldBuilder
+        buildPixelTiles: own flat mesh per tile (quarters for autotiles) at surfaceY, nearest, UVs inset half a
+        pixel, frame by texture offset in onBeforeRender from tickPixelTiles(elapsed); their overlays / slivers
+        skipped and edge blending off. TileImporter: Kind, Frames, Speed, + Add frames, animated pond preview.
+        Next: upper terrain layer, passage O / X / ☆, cliffs.
+  - [x] Update 145: Database viewMode '2d' / playerLayer. lean.ts uHd2D / uHdPlayer, per-instance hdLayer (hdNudge now
+        only the tie); 2D: depth at the ground (y 0) pulled toward the camera by a share of the distance, (25 − layer)
+        × 0.012 + z × 0.00002 + tie × 0.0001; non-instanced lean sprites (characters, events) use the player layer;
+        not in shadow passes. 2D camera near = 0.4 × distance for depth precision. No on-top copies in 2D.
+        Plan next: tile kinds (plain / animated / autotile A2, animated autotile), passage O / X / ☆, upper terrain
+        layer, RPG Maker cliffs (flat, per-map option vs 3D heights), box-select a sheet into a prop.
   - [x] Update 144: prop layers (PropData.layer, PropDef.layer, store.propLayer; lean.ts layerNudge → per-instance
         `hdNudge` attribute pulling depth toward the camera, (25 − layer) × 0.01 + a 5-step tie of 0.0018; flat
         props raised by 0.4 × that). Backpack 440px wide, 44px slots, menu-note hidden, actions rendered outside

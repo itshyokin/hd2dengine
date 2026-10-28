@@ -221,6 +221,19 @@ export interface TileDef {
   /** Built-in tiles only: painted in code. */
   builtin?: boolean;
   /**
+   * RPG Maker-style tiles (Update 146): 'animated' a strip of frames (side by side or stacked); 'autotile' RPG
+   * Maker's A2 block (2 × 3 tiles) whose edges and corners follow the neighbours, its frames side by side (A1
+   * water). Update 148: 'wall' RPG Maker's A3 / A4 wall block (2 × 2 tiles): its sides and ends follow the neighbours.
+   * Unset: a plain repeating texture.
+   */
+  kind?: 'animated' | 'autotile' | 'wall';
+  /** How many frames (unset: worked out from the picture's shape). */
+  frames?: number;
+  /** Frames per second (default 4). */
+  fps?: number;
+  /** ☆ passage (Update 147): drawn above characters (tree tops, roof edges) and walked under. */
+  above?: boolean;
+  /**
    * A built-in tile with a picture of your own (kept in the asset list under the built-in tile's key): the picture
    * replaces the painted art everywhere, the tile keeps everything else. False: back to the built-in art (the picture
    * is kept, to switch back to).
@@ -692,6 +705,16 @@ export interface MapData {
   width: number;
   height: number;
   terrain: string[];
+  /**
+   * Upper terrain layer (Update 147): one row per line, one tile key per cell (a space: nothing), painted over the
+   * ground like RPG Maker's upper layers (flowers, path edges, overhangs). Omitted when empty.
+   */
+  upper?: string[];
+  /**
+   * Height on this map (Update 148): 'flat' implied by the tiles like RPG Maker (the Heights layer is kept but not
+   * used), '3d' real heights. Unset: follows the view mode (2D flat, 3D real heights).
+   */
+  heightMode?: 'flat' | '3d';
   /** Height layer: one row per line, space-separated steps from -10 to 10 (a step is half a tile). Omitted when flat. */
   heights?: string[];
   /**
@@ -1104,6 +1127,13 @@ export interface Database {
   aButton?: 'jump' | FieldUseKind | FieldPower;
   /** Characters always on top (Update 139): the hero and party are drawn over props they overlap. */
   charactersOnTop?: boolean;
+  /**
+   * View (Update 145): '2d' draws everything flat and in order of layers like RPG Maker (characters on
+   * `playerLayer`, props on theirs; the same layer sorts by position); unset, the 3D HD-2D look.
+   */
+  viewMode?: '2d';
+  /** 2D mode: the layer characters are on (0 on top … 25 the ground; default 10). */
+  playerLayer?: number;
   title: string;
   /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
   world?: import('./worldLayout').WorldData;

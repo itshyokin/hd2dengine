@@ -15,6 +15,12 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 149 (Oct 28):** Props from a tileset sheet (box-select tiles); picker checked in the browser. RPG Maker plan done.
+- **Update 148 (Oct 28):** Wall tiles (A3 / A4) and the per-map Height option (flat by default in 2D); checked in the browser.
+- **Update 147 (Oct 28):** Upper terrain layer and O / X / ☆ passage; ☆ over the hero checked in the browser.
+- **Update 146 (Oct 28):** Animated tiles and RPG Maker A2 autotiles (tile editor → Kind); checked in the browser.
+- **Update 145 (Oct 28):** 2D / 3D mode and the Player layer (Database → View & camera); checked all four sort cases
+  in the browser. Next (agreed with the owner): RPG Maker-style tiles, see NOTES Update 145.
 - **Update 144 (Oct 28):** Prop layers 0–25 (brush, inspector, prop editor default; no z-fighting on overlaps) and
   the Backpack's Use / Equip pop-up menu, wider bag, no controls line. Checked in the browser.
 - **Update 143 (Oct 28):** Camera angle goes to 90° with a *Top-down 2D* preset (flat sprites, fog follows the

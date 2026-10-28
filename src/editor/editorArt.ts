@@ -4,6 +4,7 @@ import { missingImage } from '../shared/images';
 import { HIDDEN_BUILTINS, PropCatalog } from '../world/props';
 import { TileCatalog } from '../world/tiles';
 import { hash2 } from '../core/math';
+import { drawPixelTile, frameLayout, frameRect, isPixelTile } from '../world/pixelTiles';
 import type { CharacterDef, Dir, EnemyDef, PropDef, TileDef } from '../world/types';
 
 export const TS = 16;
@@ -47,6 +48,8 @@ export function drawTile(ctx: CanvasRenderingContext2D, t: string, x: number, z:
   if (def?.image) {
     const img = customTiles.get(t);
     if (!img) { ctx.drawImage(missingTile, px, py); return; }
+    // RPG Maker-style tiles (Update 146): first frame, autotiles shaped by their neighbours.
+    if (isPixelTile(def)) { drawPixelTile(ctx, img, def, px, py, TS, 0, (dx, dz) => at(x + dx, z + dz) === t); return; }
     const span = Math.max(1, Math.round(def.span || 1));
     const sw = img.width / span, sh = img.height / span;
     const ix = ((x % span) + span) % span, iz = ((z % span) + span) % span;
@@ -77,6 +80,14 @@ export function tileThumb(key: string, size = 36): HTMLCanvasElement {
   const def = tileCatalog.get(key);
   const img = def?.image ? customTiles.get(key) : tileImage(key, 0, 0);
   if (!img) { ctx.drawImage(missingTile, 0, 0, size, size); return c; }
+  if (def && isPixelTile(def)) {
+    // One tile of the first frame (an autotile: its top-left preview tile).
+    ctx.imageSmoothingEnabled = false;
+    const l = frameLayout(def, img.width, img.height);
+    const [sx, sy, sw, sh] = def.kind === 'autotile' || def.kind === 'wall' ? [0, 0, img.width / l.frames / 2, img.height / (def.kind === 'wall' ? 2 : 3)] : frameRect(img.width, img.height, l, 0);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+    return c;
+  }
   ctx.imageSmoothingEnabled = img.width > size || def?.filter === 'smooth';
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, size, size);

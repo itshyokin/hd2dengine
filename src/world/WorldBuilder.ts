@@ -5,7 +5,7 @@
 import { markProp } from '../render/lean';
 import { patchSway } from '../render/wind';
 import { patchLip } from '../render/lipFade';
-import { GROUND_LAYER, layerNudge, patchGroundYield, patchLean } from '../render/lean';
+import { GROUND_LAYER, clampLayer, layerNudge, layerTie, patchGroundYield, patchLean } from '../render/lean';
 import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
@@ -28,6 +28,7 @@ import { QuadList, buildTerrainGeometry, cornerRounding, cornerSliver } from './
 import { BRICKS } from './tiles';
 import type { BorderKind, MapData, PropData, PropDef } from './types';
 import { isToonWater, waterStyles } from './waterStyles';
+import { blockRows, frameAt, frameLayout, isPixelTile, quartersFor } from './pixelTiles';
 import { patchSeason } from '../render/season';
 import { propSeason } from './seasons';
 
@@ -44,6 +45,64 @@ export interface BuiltWorld {
   buildings: BuiltBuilding[];
   /** Waterfalls (where water drops more than two steps to water below): the foot of each, for spray and sound. */
   waterfalls: { x: number; z: number; y: number; top: number }[];
+}
+
+/** The clock animated RPG Maker-style tiles show (Update 146), in seconds: set by tickPixelTiles each frame. */
+let pixelClock = 0;
+export function tickPixelTiles(seconds: number): void { pixelClock = seconds; }
+
+/**
+ * RPG Maker-style tiles (Update 146): each cell a flat picture on the ground, crisp pixels, no blended edges.
+ * Autotiles are four quarters picked from the neighbours; animated ones step through their frames. Update 147: also
+ * the upper terrain layer (any imported tile, see-through where its picture is), ☆ tiles drawn over the characters.
+ */
+function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<string, TileTexture>): void {
+  const layers: [(x: number, z: number) => string, boolean][] = [[(x, z) => map.terrain(x, z), false], [(x, z) => map.upper(x, z), true]];
+  for (const [at, upper] of layers) for (const [key, tt] of tileTextures) {
+    const def = tt.def;
+    if (!upper && !isPixelTile(def)) continue;
+    const img = tt.map.image as { width: number; height: number };
+    const l = isPixelTile(def) ? frameLayout(def, img.width, img.height) : { frames: 1, horiz: true };
+    const auto = def.kind === 'autotile' || def.kind === 'wall', rows = blockRows(def), span = isPixelTile(def) ? 1 : Math.max(1, Math.round(def.span || 1));
+    const fw = l.horiz ? 1 / l.frames : 1, fh = l.horiz ? 1 : 1 / l.frames;
+    const q = new QuadList(), lift = upper ? 0.014 : 0.006;
+    const y = (x: number, z: number) => map.surfaceY(x, z) + lift;
+    // UVs pulled in half a pixel so crisp sampling never picks up the next piece of the picture at an edge.
+    const eu = 0.5 / img.width, ev = 0.5 / img.height;
+    const quad = (x0: number, z0: number, x1: number, z1: number, u0: number, v0: number, u1: number, v1: number) => (
+      [u0, u1, v0, v1] = [u0 + eu, u1 - eu, v0 - ev, v1 + ev],
+      q.add([[x0, y(x0, z0), z0], [x1, y(x1, z0), z0], [x1, y(x1, z1), z1], [x0, y(x0, z1), z1]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], [0, 1, 0]));
+    for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) {
+      if (at(x, z) !== key) continue;
+      if (!auto) {
+        // A plain tile on the upper layer: its piece of the repeating picture.
+        const ix = ((x % span) + span) % span, iz = ((z % span) + span) % span;
+        quad(x, z, x + 1, z + 1, (ix / span) * fw, 1 - iz / span, ((ix + 1) / span) * fw, 1 - ((iz + 1) / span) * fh);
+        continue;
+      }
+      const same = (dx: number, dz: number) => { const nx = x + dx, nz = z + dz; return !map.inMap(nx, nz) || at(nx, nz) === key; };
+      quartersFor(def, same).forEach(([c, r], k) => {
+        const qx = x + (k % 2) * 0.5, qz = z + Math.floor(k / 2) * 0.5;
+        const u0 = (c / 4) * fw, v0 = 1 - r / rows;
+        quad(qx, qz, qx + 0.5, qz + 0.5, u0, v0, u0 + fw / 4, v0 - 1 / rows);
+      });
+    }
+    if (!q.quads) continue;
+    const tex = new THREE.CanvasTexture(tt.map.image as HTMLCanvasElement);
+    tex.encoding = THREE.sRGBEncoding;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, alphaTest: upper ? 0.5 : 0, polygonOffset: true, polygonOffsetFactor: upper ? -3 : -2, polygonOffsetUnits: upper ? -6 : -4 }));
+    const m = mesh(q, mat);
+    m.renderOrder = upper ? 2 : 1;
+    // ☆: drawn over the characters (and everything else), like RPG Maker's star tiles.
+    if (def.above) { mat.depthTest = false; mat.depthWrite = false; mat.transparent = true; m.renderOrder = 20; m.receiveShadow = false; }
+    scene.add(m);
+    if (l.frames > 1) m.onBeforeRender = () => {
+      const f = frameAt(def, l.frames, pixelClock);
+      if (l.horiz) tex.offset.x = f / l.frames; else tex.offset.y = -f / l.frames;
+    };
+  }
 }
 
 /** Falling water: soft streaks running down, foamy white at the edges. */
@@ -153,11 +212,14 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
     return mat;
   };
   for (const [key, quads] of geo.overlays) {
+    // RPG Maker-style tiles are drawn by buildPixelTiles instead (Update 146).
+    if (isPixelTile(tileTextures.get(key)?.def)) continue;
     const m = mesh(quads, tileMat(key, true));
     m.renderOrder = 0;
     scene.add(m);
   }
-  for (const [key, quads] of geo.slivers) scene.add(mesh(quads, tileMat(key, false)));
+  for (const [key, quads] of geo.slivers) if (!isPixelTile(tileTextures.get(key)?.def)) scene.add(mesh(quads, tileMat(key, false)));
+  buildPixelTiles(scene, map, tileTextures);
   // Soft blocky's grass lip over the cliff tops (the painted ground, then any imported tile over it).
   // Its pixels stay sharp however slanted the wall is (a blurred, far-off copy of the texture showed as a pale line).
   const sharp = (m: THREE.MeshStandardMaterial) => {
@@ -735,7 +797,8 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (ps !== 'off') patchSeason(a.material, ps === 'bare' ? 'bare' : 'leaves');
     // Each copy's layer (Update 144): its own geometry carries how far each is pulled forward in depth.
     const geo = a.geometry.clone();
-    geo.setAttribute('hdNudge', new THREE.InstancedBufferAttribute(new Float32Array(list.map((p) => layerNudge(p.layer ?? pdef?.layer ?? GROUND_LAYER, p.x, p.z))), 1));
+    geo.setAttribute('hdNudge', new THREE.InstancedBufferAttribute(new Float32Array(list.map((p) => layerTie(p.x, p.z))), 1));
+    geo.setAttribute('hdLayer', new THREE.InstancedBufferAttribute(new Float32Array(list.map((p) => clampLayer(p.layer ?? pdef?.layer ?? GROUND_LAYER))), 1));
     const mesh = withSpriteShadows(new THREE.InstancedMesh(geo, a.material, list.length), a);
     mesh.frustumCulled = false;
     // Characters set always on top draw over it (Update 139).

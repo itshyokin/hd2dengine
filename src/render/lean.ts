@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 /** How far the ground gives way with Characters always on top off (Update 142): low ledges only. */
 const GROUND_YIELD_OFF = 1.0;
-const uniforms = { uHdLean: { value: 0 }, uHdYield: { value: GROUND_YIELD_OFF }, uHdBack: { value: 0 } };
+const uniforms = { uHdLean: { value: 0 }, uHdYield: { value: GROUND_YIELD_OFF }, uHdBack: { value: 0 }, uHd2D: { value: 0 }, uHdPlayer: { value: 10 } };
 
 /**
  * Characters always on top (Update 142): how far the ground (and props not drawn in front of tiles) are pushed back
@@ -24,6 +24,8 @@ export function setGroundYield(on: boolean): void {
 
 /** The lean now, in radians (0: upright). */
 export function setLean(radians: number): void { uniforms.uHdLean.value = radians; }
+/** 2D mode (Update 145): draw order by layer (characters on `playerLayer`), then by position on the same layer. */
+export function setView2D(on: boolean, playerLayer: number): void { uniforms.uHd2D.value = on ? 1 : 0; uniforms.uHdPlayer.value = playerLayer; }
 /** The lean now (radians). */
 export const leanNow = (): number => uniforms.uHdLean.value;
 
@@ -63,21 +65,45 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
     // Drawn leaning, but at the depth it would have standing up: terrain behind a sprite (a cliff wall, a bevel)
     // never cuts through its leaned-back top, while anything really in front of it still hides it.
     // Update 144: props' layers, per copy (hdNudge, world units pulled toward the camera in depth only).
-    shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\n#ifdef USE_INSTANCING\nattribute float hdNudge;\n#endif\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    // Update 145: hdLayer, the copy's layer; hdNudge, a tiny difference between overlapping neighbours.
+    shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\nuniform float uHd2D;\nuniform float uHdPlayer;\n#ifdef USE_INSTANCING\nattribute float hdNudge;\nattribute float hdLayer;\n#endif\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
   vec3 hdUpright = transformed;
   { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }`).replace('#include <project_vertex>', `#include <project_vertex>
-  float hdN = 0.0;
+  // Pulled toward the camera in depth only: 3D, props by layer (characters not); 2D (Update 145), everything by
+  // layer (characters on the player's), then further south in front, all at the depth of the ground they stand on.
+  float hdN = 0.0, hdF = 0.0, hdL = uHdPlayer;
   #ifdef USE_INSTANCING
-  hdN = hdNudge;
+  hdN = hdNudge; hdL = hdLayer;
   #endif
-  if (uHdLean > 0.0 || hdN > 0.0) {
-    vec4 hdUp = vec4(hdUpright, 1.0);
+  vec3 hdStand = hdUpright;
+  // Not in the shadow pass: shadows keep the sprites' real depth.
+  #if defined(DEPTH_PACKING) || defined(DISTANCE)
+  float hd2D = 0.0;
+  #else
+  float hd2D = uHd2D;
+  #endif
+  if (hd2D > 0.5) {
+    vec4 hdBase = vec4(0.0, 0.0, 0.0, 1.0);
+    #ifdef USE_INSTANCING
+    hdBase = instanceMatrix * hdBase;
+    #endif
+    hdBase = modelMatrix * hdBase;
+    // A share of the distance to the camera (the 2D camera keeps its near plane close to the ground for precision).
+    hdF = (25.0 - hdL) * 0.012 + clamp(hdBase.z, 0.0, 400.0) * 0.00002 + hdN * 0.0001;
+    hdN = 0.0;
+    hdStand.y = 0.0;
+  }
+  #ifdef USE_INSTANCING
+  else hdN += (25.0 - hdL) * 0.01;
+  #endif
+  if (uHdLean > 0.0 || hdN > 0.0 || hdF > 0.0) {
+    vec4 hdUp = vec4(hdStand, 1.0);
     #ifdef USE_INSTANCING
     hdUp = instanceMatrix * hdUp;
     #endif
     hdUp = modelViewMatrix * hdUp;
     ${back}
-    hdUp.xyz *= 1.0 - hdN / max(0.001, length(hdUp.xyz));
+    hdUp.xyz *= (1.0 - hdN / max(0.001, length(hdUp.xyz))) * (1.0 - hdF);
     hdUp = projectionMatrix * hdUp;
     gl_Position.z = hdUp.z / hdUp.w * gl_Position.w;
   }`);
@@ -122,9 +148,12 @@ export const GROUND_LAYER = 25;
  * neighbours on the same layer so overlapping copies never flicker (z-fighting).
  */
 export function layerNudge(layer: number, x: number, z: number): number {
-  const l = Math.max(0, Math.min(GROUND_LAYER, Math.round(layer)));
-  const tie = (((Math.floor(x * 2) * 7 + Math.floor(z * 2) * 3) % 5) + 5) % 5;
-  return (GROUND_LAYER - l) * 0.01 + tie * 0.0018;
+  return (GROUND_LAYER - clampLayer(layer)) * 0.01 + layerTie(x, z);
+}
+export const clampLayer = (layer: number): number => Math.max(0, Math.min(GROUND_LAYER, Math.round(layer)));
+/** The tiny difference between neighbours on the same layer (the shader adds the layer's own step). */
+export function layerTie(x: number, z: number): number {
+  return ((((Math.floor(x * 2) * 7 + Math.floor(z * 2) * 3) % 5) + 5) % 5) * 0.0018;
 }
 
 /** The stencil value props write (Update 139). */
