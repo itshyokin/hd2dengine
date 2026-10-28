@@ -139,7 +139,7 @@ import { GALLOP_COST, HORSE_SCALE, JUMP_COST, RECOVER_AT, REST_GAIN, SEAT, findH
 import { griffinSheet, horseSheet } from '../art/horseArt';
 import type { PickSpot } from '../ui/WorldMapScreen';
 import { type Action, BINDINGS_VERSION, DEFAULT_BINDINGS, Input } from './Input';
-import { PlayerMotion } from './PlayerMotion';
+import { PlayerMotion, setBody2D } from './PlayerMotion';
 import { PlayerStats, configFromDb } from './stats';
 import { StatusBars, type HudWidget } from '../ui/StatusBars';
 import { GameMenu, type MenuItem, slotLabel } from '../ui/GameMenu';
@@ -7221,6 +7221,7 @@ export class Game {
     setLean(this.stage ? 0 : THREE.MathUtils.degToRad(this.overworldCam.pitch) * this.overworldCam.lean / 100);
     const twoD = !this.stage && this.db.viewMode === '2d';
     setView2D(twoD, this.db.playerLayer ?? 10);
+    setBody2D(twoD);
     // 2D: nothing comes near the camera, so its near plane moves close to the ground for finer depth (layers, sorting).
     const near = twoD ? Math.max(0.5, this.overworldCam.distance * 0.4) : 0.5;
     if (this.camera.near !== near) { this.camera.near = near; this.camera.updateProjectionMatrix(); }

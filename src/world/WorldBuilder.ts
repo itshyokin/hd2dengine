@@ -26,9 +26,9 @@ import { linearColor, makeTexture, registerNormalMap } from '../render/textures'
 import type { TileMap } from './TileMap';
 import { QuadList, buildTerrainGeometry, cornerRounding, cornerSliver } from './terrainGeometry';
 import { BRICKS } from './tiles';
-import type { BorderKind, MapData, PropData, PropDef } from './types';
+import type { BorderKind, MapData, PropData, PropDef, TileDef } from './types';
 import { isToonWater, waterStyles } from './waterStyles';
-import { blockRows, frameAt, frameLayout, isPixelTile, quartersFor } from './pixelTiles';
+import { blockRows, frameAt, frameLayout, framePieceRect, frameQuarters, isPixelTile, quartersFor } from './pixelTiles';
 import { patchSeason } from '../render/season';
 import { propSeason } from './seasons';
 
@@ -58,50 +58,82 @@ export function tickPixelTiles(seconds: number): void { pixelClock = seconds; }
  */
 function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<string, TileTexture>): void {
   const layers: [(x: number, z: number) => string, boolean][] = [[(x, z) => map.terrain(x, z), false], [(x, z) => map.upper(x, z), true]];
-  for (const [at, upper] of layers) for (const [key, tt] of tileTextures) {
-    const def = tt.def;
-    if (!upper && !isPixelTile(def)) continue;
-    const img = tt.map.image as { width: number; height: number };
-    const l = isPixelTile(def) ? frameLayout(def, img.width, img.height) : { frames: 1, horiz: true };
-    const auto = def.kind === 'autotile' || def.kind === 'wall', rows = blockRows(def), span = isPixelTile(def) ? 1 : Math.max(1, Math.round(def.span || 1));
-    const fw = l.horiz ? 1 / l.frames : 1, fh = l.horiz ? 1 : 1 / l.frames;
-    const q = new QuadList(), lift = upper ? 0.014 : 0.006;
-    const y = (x: number, z: number) => map.surfaceY(x, z) + lift;
-    // UVs pulled in half a pixel so crisp sampling never picks up the next piece of the picture at an edge.
-    const eu = 0.5 / img.width, ev = 0.5 / img.height;
-    const quad = (x0: number, z0: number, x1: number, z1: number, u0: number, v0: number, u1: number, v1: number) => (
-      [u0, u1, v0, v1] = [u0 + eu, u1 - eu, v0 - ev, v1 + ev],
-      q.add([[x0, y(x0, z0), z0], [x1, y(x1, z0), z0], [x1, y(x1, z1), z1], [x0, y(x0, z1), z1]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], [0, 1, 0]));
-    for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) {
-      if (at(x, z) !== key) continue;
-      if (!auto) {
-        // A plain tile on the upper layer: its piece of the repeating picture.
-        const ix = ((x % span) + span) % span, iz = ((z % span) + span) % span;
-        quad(x, z, x + 1, z + 1, (ix / span) * fw, 1 - iz / span, ((ix + 1) / span) * fw, 1 - ((iz + 1) / span) * fh);
-        continue;
-      }
-      const same = (dx: number, dz: number) => { const nx = x + dx, nz = z + dz; return !map.inMap(nx, nz) || at(nx, nz) === key; };
-      quartersFor(def, same).forEach(([c, r], k) => {
-        const qx = x + (k % 2) * 0.5, qz = z + Math.floor(k / 2) * 0.5;
-        const u0 = (c / 4) * fw, v0 = 1 - r / rows;
-        quad(qx, qz, qx + 0.5, qz + 0.5, u0, v0, u0 + fw / 4, v0 - 1 / rows);
-      });
-    }
-    if (!q.quads) continue;
-    const tex = new THREE.CanvasTexture(tt.map.image as HTMLCanvasElement);
+  const flatTex = (img: TexImageSource) => {
+    const tex = new THREE.CanvasTexture(img as HTMLCanvasElement);
     tex.encoding = THREE.sRGBEncoding;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-    const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, alphaTest: upper ? 0.5 : 0, polygonOffset: true, polygonOffsetFactor: upper ? -3 : -2, polygonOffsetUnits: upper ? -6 : -4 }));
+    return tex;
+  };
+  const addMesh = (q: QuadList, tex: THREE.Texture, def: TileDef, upper: boolean, see: boolean, order: number) => {
+    const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, alphaTest: see ? 0.5 : 0, polygonOffset: true, polygonOffsetFactor: -2 - order, polygonOffsetUnits: -4 - 2 * order }));
     const m = mesh(q, mat);
-    m.renderOrder = upper ? 2 : 1;
+    m.renderOrder = order;
     // ☆: drawn over the characters (and everything else), like RPG Maker's star tiles.
-    if (def.above) { mat.depthTest = false; mat.depthWrite = false; mat.transparent = true; m.renderOrder = 20; m.receiveShadow = false; }
+    if (def.above) { mat.depthTest = false; mat.depthWrite = false; mat.transparent = true; m.renderOrder = 20 + order; m.receiveShadow = false; }
     scene.add(m);
-    if (l.frames > 1) m.onBeforeRender = () => {
-      const f = frameAt(def, l.frames, pixelClock);
-      if (l.horiz) tex.offset.x = f / l.frames; else tex.offset.y = -f / l.frames;
+    return m;
+  };
+  for (const [at, upper] of layers) for (const [key, tt] of tileTextures) {
+    const def = tt.def;
+    const img = tt.map.image as { width: number; height: number };
+    // Cells of this tile on this layer.
+    const cells: [number, number][] = [];
+    for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) if (at(x, z) === key) cells.push([x, z]);
+    if (!cells.length) continue;
+    const sameAt = (x: number, z: number) => (dx: number, dz: number) => { const nx = x + dx, nz = z + dz; return !map.inMap(nx, nz) || at(nx, nz) === key; };
+    const lift = upper ? 0.014 : 0.006;
+    const y = (x: number, z: number, extra: number) => map.surfaceY(x, z) + lift + extra;
+    const quadder = (q: QuadList, w: number, hh: number, extra: number) => {
+      // UVs pulled in half a pixel so crisp sampling never picks up the next piece of the picture at an edge.
+      const eu = 0.5 / w, ev = 0.5 / hh;
+      return (x0: number, z0: number, x1: number, z1: number, u0: number, v0: number, u1: number, v1: number) => {
+        [u0, u1, v0, v1] = [u0 + eu, u1 - eu, v0 - ev, v1 + ev];
+        q.add([[x0, y(x0, z0, extra), z0], [x1, y(x1, z0, extra), z0], [x1, y(x1, z1, extra), z1], [x0, y(x0, z1, extra), z1]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], [0, 1, 0]);
+      };
     };
+    /** Quarters cut from a frame picture (and a corners picture) for every cell, as two meshes. */
+    const frameMeshes = (frame: { width: number; height: number }, n: number, corners: { width: number; height: number } | undefined, extra: number, see: boolean, order: number) => {
+      const qf = new QuadList(), qc = new QuadList();
+      const addF = quadder(qf, frame.width, frame.height, extra), addC = corners ? quadder(qc, corners.width, corners.height, extra) : null;
+      for (const [x, z] of cells) frameQuarters(sameAt(x, z), !!corners, def.cornersAt).forEach((p, k) => {
+        const qx = x + (k % 2) * 0.5, qz = z + Math.floor(k / 2) * 0.5;
+        const pic = p.corner ? corners! : frame, [px, py, pw, ph] = framePieceRect(p, pic.width, pic.height, n);
+        (p.corner ? addC! : addF)(qx, qz, qx + 0.5, qz + 0.5, px / pic.width, 1 - py / pic.height, (px + pw) / pic.width, 1 - (py + ph) / pic.height);
+      });
+      if (qf.quads) addMesh(qf, flatTex(frame as unknown as TexImageSource), def, upper, see, order);
+      if (qc.quads && corners) addMesh(qc, flatTex(corners as unknown as TexImageSource), def, upper, see, order);
+    };
+    // The tile itself (plain lower-layer tiles are drawn by the blended ground instead).
+    const n = Math.max(2, Math.round(def.frameTiles ?? 2));
+    if (def.kind === 'autotile' && def.layout === 'frame') frameMeshes(img, n, tt.corners, 0, upper, upper ? 2 : 1);
+    else if (upper || isPixelTile(def)) {
+      const l = isPixelTile(def) ? frameLayout(def, img.width, img.height) : { frames: 1, horiz: true };
+      const auto = def.kind === 'autotile' || def.kind === 'wall', rows = blockRows(def), span = isPixelTile(def) ? 1 : Math.max(1, Math.round(def.span || 1));
+      const fw = l.horiz ? 1 / l.frames : 1, fh = l.horiz ? 1 : 1 / l.frames;
+      const q = new QuadList(), quad = quadder(q, img.width, img.height, 0);
+      for (const [x, z] of cells) {
+        if (!auto) {
+          // A plain tile on the upper layer: its piece of the repeating picture.
+          const ix = ((x % span) + span) % span, iz = ((z % span) + span) % span;
+          quad(x, z, x + 1, z + 1, (ix / span) * fw, 1 - iz / span, ((ix + 1) / span) * fw, 1 - ((iz + 1) / span) * fh);
+          continue;
+        }
+        quartersFor(def, sameAt(x, z)).forEach(([c, r], k) => {
+          const qx = x + (k % 2) * 0.5, qz = z + Math.floor(k / 2) * 0.5;
+          const u0 = (c / 4) * fw, v0 = 1 - r / rows;
+          quad(qx, qz, qx + 0.5, qz + 0.5, u0, v0, u0 + fw / 4, v0 - 1 / rows);
+        });
+      }
+      const tex = flatTex(tt.map.image as TexImageSource);
+      const m = addMesh(q, tex, def, upper, upper, upper ? 2 : 1);
+      if (l.frames > 1) m.onBeforeRender = () => {
+        const f = frameAt(def, l.frames, pixelClock);
+        if (l.horiz) tex.offset.x = f / l.frames; else tex.offset.y = -f / l.frames;
+      };
+    }
+    // Update 151: an edge trim over the tile, along the edges of each patch of it.
+    if (tt.edges) frameMeshes(tt.edges, n, tt.corners, 0.003, true, upper ? 3 : 2);
   }
 }
 

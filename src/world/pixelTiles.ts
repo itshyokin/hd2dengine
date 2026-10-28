@@ -96,3 +96,37 @@ export function drawPixelTile(ctx: CanvasRenderingContext2D, img: CanvasImageSou
   const [sx, sy, sw, sh] = frameRect(img.width, img.height, l, fr);
   ctx.drawImage(img, sx, sy, sw, sh, px, py, size, size);
 }
+
+/**
+ * Frames (Update 151): a picture of one whole patch's outline (2 × 2 or 3 × 3 tiles: its corners, edges and inside),
+ * any tile size. Each quarter of a cell is cut from the frame's corner tiles: the outer half where the patch ends that
+ * way, the inner half where it carries on. Inside corners come from a separate one-tile picture of corner pieces
+ * (meeting in the middle like a dot, or RPG Maker style in the outer corners); without one, the inside is used.
+ */
+export interface FramePiece { corner: boolean; tx: number; ty: number; qx: number; qy: number }
+export function frameQuarters(same: (dx: number, dz: number) => boolean, hasCorners: boolean, cornersAt: 'middle' | 'edge' = 'middle'): FramePiece[] {
+  return [[0, 0], [1, 0], [0, 1], [1, 1]].map(([sx, sy]) => {
+    const dx = sx ? 1 : -1, dz = sy ? 1 : -1;
+    const v = same(0, dz), hz = same(dx, 0), d = same(dx, dz);
+    if (v && hz && !d && hasCorners) return cornersAt === 'edge' ? { corner: true, tx: 0, ty: 0, qx: sx, qy: sy } : { corner: true, tx: 0, ty: 0, qx: 1 - sx, qy: 1 - sy };
+    return { corner: false, tx: sx, ty: sy, qx: hz ? 1 - sx : sx, qy: v ? 1 - sy : sy };
+  });
+}
+/** Pixel rectangle of a frame piece: in the frame picture (n × n tiles; tx / ty 0 the first tile, 1 the last) or the corners picture. */
+export function framePieceRect(p: FramePiece, w: number, h: number, n: number): [number, number, number, number] {
+  if (p.corner) return [(p.qx * w) / 2, (p.qy * h) / 2, w / 2, h / 2];
+  const tw = w / n, th = h / n;
+  return [p.tx * (n - 1) * tw + (p.qx * tw) / 2, p.ty * (n - 1) * th + (p.qy * th) / 2, tw / 2, th / 2];
+}
+/** Draw a frame (and its corners) for one cell onto a 2D canvas (the editor). */
+export function drawFrameCell(ctx: CanvasRenderingContext2D, frame: CanvasImageSource & { width: number; height: number }, n: number,
+  corners: (CanvasImageSource & { width: number; height: number }) | undefined, cornersAt: 'middle' | 'edge' | undefined,
+  px: number, py: number, size: number, same: (dx: number, dz: number) => boolean): void {
+  ctx.imageSmoothingEnabled = false;
+  const half = size / 2;
+  frameQuarters(same, !!corners, cornersAt).forEach((p, k) => {
+    const img = p.corner ? corners! : frame;
+    const [sx, sy, sw, sh] = framePieceRect(p, img.width, img.height, n);
+    ctx.drawImage(img, sx, sy, sw, sh, px + (k % 2) * half, py + Math.floor(k / 2) * half, half, half);
+  });
+}

@@ -69,6 +69,8 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
     shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\nuniform float uHd2D;\nuniform float uHdPlayer;\n#ifdef USE_INSTANCING\nattribute float hdNudge;\nattribute float hdLayer;\n#endif\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
   vec3 hdUpright = transformed;
   { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }`).replace('#include <project_vertex>', `#include <project_vertex>
+  // Update 151: 2D, feet on the bottom edge of their cell like RPG Maker (drawn half a tile further south).
+  if (uHd2D > 0.5) { mvPosition.xyz += (viewMatrix * vec4(0.0, 0.0, 0.5, 0.0)).xyz; gl_Position = projectionMatrix * mvPosition; }
   // Pulled toward the camera in depth only: 3D, props by layer (characters not); 2D (Update 145), everything by
   // layer (characters on the player's), then further south in front, all at the depth of the ground they stand on.
   float hdN = 0.0, hdF = 0.0, hdL = uHdPlayer;

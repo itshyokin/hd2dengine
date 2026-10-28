@@ -234,6 +234,21 @@ export interface TileDef {
   /** ☆ passage (Update 147): drawn above characters (tree tops, roof edges) and walked under. */
   above?: boolean;
   /**
+   * Update 151: an autotile laid out as a frame (one patch's outline, `frameTiles` × `frameTiles` tiles, any tile
+   * size) instead of RPG Maker's A2 block.
+   */
+  layout?: 'frame';
+  /** Tiles across a frame picture (the autotile's, or its edges'): 2 (default) or 3. */
+  frameTiles?: number;
+  /** A frame picture drawn over the tile as a trim along the edges of each patch of it (grass edging, a cliff's rim). */
+  edges?: string;
+  /** One tile of inside-corner pieces for frames (where a patch turns a corner inwards). */
+  corners?: string;
+  /** How the corner pieces sit in their picture: meeting in the middle (a dot, the default) or in its outer corners (RPG Maker). */
+  cornersAt?: 'middle' | 'edge';
+  /** Passage (Update 151): only the cells at the edge of each patch block (walk on top of a raised patch, not off its sides). */
+  edgeBlocks?: boolean;
+  /**
    * A built-in tile with a picture of your own (kept in the asset list under the built-in tile's key): the picture
    * replaces the painted art everywhere, the tile keeps everything else. False: back to the built-in art (the picture
    * is kept, to switch back to).

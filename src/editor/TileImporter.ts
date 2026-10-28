@@ -8,7 +8,7 @@ import { MAX_CUSTOM_TILES, freeTileKey } from '../world/tiles';
 import type { TileDef } from '../world/types';
 import { type TileImages, cliffChoices, commitTile, mapCliffName, setTileCliff } from './assets';
 import { checkbox, field, h, numberInput, openModal, select, textInput, toast } from './dom';
-import { drawPixelTile, frameAt, frameLayout } from '../world/pixelTiles';
+import { drawFrameCell, drawPixelTile, frameAt, frameLayout } from '../world/pixelTiles';
 import { customTileImage } from './editorArt';
 import type { EditorStore } from './store';
 
@@ -44,6 +44,13 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     /** Frames (0: worked out from the picture). */
     frames: existing?.frames ?? 0,
     fps: existing?.fps ?? 4,
+    /** Update 151: an autotile laid out as a frame; frame size; edge trim and inside corners; edge-blocking passage. */
+    layout: (existing?.layout ?? 'a2') as 'a2' | 'frame',
+    frameTiles: existing?.frameTiles ?? 2,
+    edges: undefined as Src | undefined,
+    corners: undefined as Src | undefined,
+    cornersAt: existing?.cornersAt ?? ('middle' as 'middle' | 'edge'),
+    edgeBlocks: !!existing?.edgeBlocks,
     grid: true,
     image: undefined as Src | undefined,
     normal: undefined as Src | undefined,
@@ -52,6 +59,9 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     const img = customTileImage(existing.key);
     if (!img) { toast('This tile’s texture isn’t loaded, so it can’t be edited.', 'error'); return; }
     st.image = { canvas: img, name: existing.image?.split('/').pop() ?? 'texture.png' };
+    const eImg = customTileImage(`${existing.key}#edges`), cImg = customTileImage(`${existing.key}#corners`);
+    if (eImg) st.edges = { canvas: eImg, name: existing.edges?.split('/').pop() ?? 'edges.png' };
+    if (cImg) st.corners = { canvas: cImg, name: existing.corners?.split('/').pop() ?? 'corners.png' };
     const nb = existing.normal ? store.files.get(existing.normal) : undefined;
     if (nb) st.normal = { canvas: await canvasFromBlob(nb), name: existing.normal!.split('/').pop()! };
   }
@@ -72,7 +82,8 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
 
   const pixel = () => st.kind !== 'plain';
   /** The tile as it would be saved, for the frame helpers. */
-  const asDef = (): TileDef => ({ key: '?', id: '?', name: '', span: 1, ...(pixel() ? { kind: st.kind as 'animated' | 'autotile' | 'wall' } : {}), ...(st.frames ? { frames: st.frames } : {}), fps: st.fps });
+  const asDef = (): TileDef => ({ key: '?', id: '?', name: '', span: 1, ...(pixel() ? { kind: st.kind as 'animated' | 'autotile' | 'wall' } : {}), ...(st.frames ? { frames: st.frames } : {}), fps: st.fps,
+    ...(st.kind === 'autotile' && st.layout === 'frame' ? { layout: 'frame' as const } : {}), frameTiles: st.frameTiles, cornersAt: st.cornersAt });
   function rebuild(): void {
     // RPG Maker-style tiles keep the picture exactly as it is (every frame, every quarter).
     processed = !st.image ? null : pixel() ? copyCanvas(st.image.canvas) : renderTile(st.image.canvas, st.span, ppt(), st.filter);
@@ -97,10 +108,13 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
     const ox = Math.round((r.width - cell * PREVIEW_COLS) / 2), oy = Math.round((r.height - cell * PREVIEW_ROWS) / 2);
     if (pixel()) {
       const d = asDef(), l = frameLayout(d, processed.width, processed.height), f = frameAt(d, l.frames, performance.now() / 1000);
-      const inside = (x: number, z: number) => (st.kind !== 'autotile' && st.kind !== 'wall') || (POND[z]?.[x] ?? '.') === '#';
+      const inside = (x: number, z: number) => (st.kind !== 'autotile' && st.kind !== 'wall' && !st.edges) || (POND[z]?.[x] ?? '.') === '#';
       for (let z = 0; z < PREVIEW_ROWS; z++) for (let x = 0; x < PREVIEW_COLS; x++) {
         if (!inside(x, z)) { ctx.fillStyle = (x + z) % 2 ? '#2a3a2a' : '#2f402f'; ctx.fillRect(ox + x * cell, oy + z * cell, cell, cell); continue; }
-        drawPixelTile(ctx, processed, d, ox + x * cell, oy + z * cell, cell, f, (dx, dz) => { const nx = x + dx, nz = z + dz; return nx < 0 || nz < 0 || nx >= PREVIEW_COLS || nz >= PREVIEW_ROWS || inside(nx, nz); });
+        const same = (dx: number, dz: number) => { const nx = x + dx, nz = z + dz; return nx < 0 || nz < 0 || nx >= PREVIEW_COLS || nz >= PREVIEW_ROWS || inside(nx, nz); };
+        if (d.layout === 'frame') drawFrameCell(ctx, processed, st.frameTiles, st.corners?.canvas, st.cornersAt, ox + x * cell, oy + z * cell, cell, same);
+        else drawPixelTile(ctx, processed, d, ox + x * cell, oy + z * cell, cell, f, same);
+        if (st.edges) drawFrameCell(ctx, st.edges.canvas, st.frameTiles, st.corners?.canvas, st.cornersAt, ox + x * cell, oy + z * cell, cell, same);
       }
       foot.textContent = `${processed.width} × ${processed.height} px · ${l.frames} frame${l.frames === 1 ? '' : 's'}${st.kind === 'autotile' || st.kind === 'wall' ? ` · ${Math.round(processed.height / (st.kind === 'wall' ? 2 : 3))} px per tile` : ''}`;
       return;
@@ -188,8 +202,39 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
   };
 
   /** Passage, like RPG Maker's O / X / ☆ (Update 147). */
-  const passageField = () => field('Passage', select([['o', 'O: walkable'], ['x', 'X: blocks movement (water, walls…)'], ['star', '☆: drawn over the characters, walked under (tree tops, roof edges)']],
-    st.above ? 'star' : st.blocks ? 'x' : 'o', (v) => { st.blocks = v === 'x'; st.above = v === 'star'; }), '☆ tiles go on the upper terrain layer.');
+  const passageField = () => field('Passage', select([['o', 'O: walkable'], ['x', 'X: blocks movement (water, walls…)'], ['star', '☆: drawn over the characters, walked under (tree tops, roof edges)'],
+    ['edge', 'Edges block: walk on top of a patch of it, not off its sides (a plateau; put stairs on the upper layer)']],
+    st.above ? 'star' : st.blocks ? 'x' : st.edgeBlocks ? 'edge' : 'o', (v) => { st.blocks = v === 'x'; st.above = v === 'star'; st.edgeBlocks = v === 'edge'; }),
+    '☆ tiles go on the upper terrain layer. A tile on the upper layer decides the passage of its cell, like RPG Maker (stairs set to O open a way up).');
+  /** Pick a picture for an extra slot (edges, corners). */
+  const pickExtra = (slotName: 'edges' | 'corners') => {
+    const inp = h('input', { type: 'file', accept: 'image/*' });
+    inp.addEventListener('change', () => void (async () => {
+      const f = inp.files?.[0]; if (!f) return;
+      const url = URL.createObjectURL(f);
+      try { st[slotName] = { canvas: canvasFromImage(await loadImage(url)), name: f.name }; renderForm(); draw(); }
+      catch { toast(`Couldn’t read ${f.name} as an image.`, 'error'); } finally { URL.revokeObjectURL(url); }
+    })());
+    inp.click();
+  };
+  /** Update 151: frame layout and size, edge trim and inside corners. */
+  const edgesSection = (): Node[] => {
+    const frameUsed = (st.kind === 'autotile' && st.layout === 'frame') || !!st.edges;
+    const extraSlot = (k: 'edges' | 'corners', label: string, hint: string) => h('div', { class: 'slot' },
+      h('div', { class: 'slot-head' }, h('span', { class: 'slot-label' }, label), st[k] ? h('span', { class: 'slot-file', title: st[k]!.name }, st[k]!.name) : h('span', { class: 'slot-none' }, 'Optional')),
+      h('div', { class: 'slot-actions' }, h('button', { type: 'button', class: 'btn small', onclick: () => pickExtra(k) }, st[k] ? 'Replace…' : 'Choose…'),
+        st[k] ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => { st[k] = undefined; renderForm(); draw(); } }, 'Remove') : null),
+      h('p', { class: 'hint' }, hint));
+    return [
+      h('div', { class: 'section-label' }, 'Edges and corners'),
+      st.kind === 'autotile' ? field('Autotile layout', select([['a2', 'RPG Maker A2 (2 × 3 tiles)'], ['frame', 'Frame: one patch’s outline (2 × 2 or 3 × 3 tiles, any tile size)']], st.layout,
+        (v) => { st.layout = v as 'a2' | 'frame'; renderForm(); rebuild(); })) : h('span'),
+      st.kind === 'autotile' && st.layout === 'frame' ? null : extraSlot('edges', 'Edge trim', 'A frame drawn over this tile along the edges of each patch of it (grass edging round sand, a rim round water). Transparent in the middle.'),
+      frameUsed ? field('Frame size', select([['2', '2 × 2 tiles'], ['3', '3 × 3 tiles']], String(st.frameTiles), (v) => { st.frameTiles = Number(v); draw(); }), 'How many tiles the frame picture is across (16 px tiles in a 32 × 32 frame: 2 × 2).') : null,
+      frameUsed ? extraSlot('corners', 'Inside corners', 'One tile of corner pieces for where a patch turns inwards (the little dots beside your frames).') : null,
+      frameUsed && st.corners ? field('Corner pieces', select([['middle', 'Meet in the middle (a dot)'], ['edge', 'In the outer corners (RPG Maker style)']], st.cornersAt, (v) => { st.cornersAt = v as 'middle' | 'edge'; draw(); })) : null,
+    ].filter((x): x is HTMLElement => !!x);
+  };
   function renderForm(): void {
     const parts: Node[] = [
       skinOf ? h('p', { class: 'hint' }, `This picture replaces the built-in “${skinOf.name}” everywhere it’s painted, on every map. Its sounds, edge blending, cliffs and everything else stay as they are; switch back to Built-in any time.`)
@@ -208,6 +253,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
           field('Speed (frames per second)', numberInput(st.fps, (v) => { st.fps = Math.max(0.5, Math.min(30, v)); }, { step: 0.5, min: 0.5, max: 30 }))),
         h('button', { type: 'button', class: 'btn small', onclick: () => inputs.frame.click() }, st.image ? '+ Add frames (separate pictures)…' : 'Choose frames (separate pictures)…'),
         h('p', { class: 'hint' }, 'Drawn crisp, flat on the ground, with no blended edges (the picture draws its own).'),
+        ...edgesSection(),
         passageField());
       form.replaceChildren(...parts);
       return;
@@ -222,6 +268,7 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
         field('Filtering', select([['point', 'Point (crisp pixels)'], ['smooth', 'Smooth']], st.filter, (v) => { st.filter = v as 'point' | 'smooth'; rebuild(); }))),
       h('p', { class: 'hint' }, 'Characters are drawn at 32 px per tile: draw tiles at 32 × 32 (or a seamless 64 × 64 or 128 × 128 covering 2 × 2 or 4 × 4 tiles) and keep Point filtering for crisp pixels.'),
       passageField(),
+      ...edgesSection(),
       skinOf ? h('span') : field('Cliff walls under this tile', select([['', `Map default (${mapCliffName(store)})`], ['self', 'This tile'],
         ...cliffChoices(store).filter(([k]) => k !== existing?.key)], st.cliff, (v) => (st.cliff = v)),
         'When this tile is on top of a cliff, the wall below shows this. “This tile” uses the same texture for the wall.'),
@@ -256,6 +303,12 @@ export async function openTileImporter(store: EditorStore, existing?: TileDef, s
       if (existing?.credits) def.credits = existing.credits;
       if (st.blocks) def.blocks = true;
       if (st.above) def.above = true;
+      if (st.edgeBlocks) def.edgeBlocks = true;
+      if (st.kind === 'autotile' && st.layout === 'frame') def.layout = 'frame';
+      if ((def.layout === 'frame' || st.edges) && st.frameTiles !== 2) def.frameTiles = st.frameTiles;
+      if (st.corners && st.cornersAt !== 'middle') def.cornersAt = st.cornersAt;
+      if (st.edges) images.edges = { blob: await toPng(st.edges.canvas), canvas: st.edges.canvas };
+      if (st.corners && (def.layout === 'frame' || st.edges)) images.corners = { blob: await toPng(st.corners.canvas), canvas: st.corners.canvas };
       if (st.flat && !st.normal) def.flat = true;
       if (await commitTile(store, def, images, processed)) {
         const look = st.cliff === 'self' ? key : st.cliff || undefined;

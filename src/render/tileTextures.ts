@@ -5,7 +5,7 @@ import { loadCanvas, missingImage } from '../shared/images';
 import type { TileCatalog } from '../world/tiles';
 import type { TileDef } from '../world/types';
 
-export interface TileTexture { def: TileDef; map: THREE.Texture; normal: THREE.Texture }
+export interface TileTexture { def: TileDef; map: THREE.Texture; normal: THREE.Texture; /** Update 151: its edge trim and inside-corner pictures. */ edges?: HTMLCanvasElement; corners?: HTMLCanvasElement }
 
 let maxAniso = 1;
 export function setTileAnisotropy(n: number): void { maxAniso = n; }
@@ -47,7 +47,11 @@ export async function loadTileTextures(catalog: TileCatalog, resolve: (path: str
       catch { problems.push(`Tile ${def.name}: normal map “${def.normal}” is missing`); }
     }
     nm ??= def.flat ? flatNormal() : normalMapFrom(img, { strength: 2, wrap: true });
-    out.set(def.key, { def, map: texture(img, def, false), normal: texture(nm, def, true) });
+    const extra = async (path: string | undefined, what: string) => {
+      if (!path) return undefined;
+      try { return await loadCanvas(resolve(path)); } catch { problems.push(`Tile ${def.name}: ${what} “${path}” is missing`); return undefined; }
+    };
+    out.set(def.key, { def, map: texture(img, def, false), normal: texture(nm, def, true), edges: await extra(def.edges, 'edges picture'), corners: await extra(def.corners, 'corners picture') });
   }));
   return out;
 }

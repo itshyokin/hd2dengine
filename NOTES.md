@@ -401,6 +401,13 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 151: pixelTiles frameQuarters / framePieceRect / drawFrameCell (corner tiles of the frame: outer
+        half where the patch ends, inner where it continues; inside corners from the corners tile, middle or edge).
+        TileDef layout 'frame', frameTiles, edges, corners, cornersAt, edgeBlocks; TileTexture.edges / corners;
+        buildPixelTiles rewritten (frame meshes, trims at +0.003). TileMap: upper non-☆ tile decides passage;
+        edgeBlocks blocks cells with a different 4-neighbour (store.autoBlocking mirrors it). 2D: lean shader shifts
+        sprites +0.5 z (feet on the cell's bottom edge), PlayerMotion setBody2D (radius 0.4 × 0.45), editor
+        drawStanding / picking / outlines shifted too. Idea: grid movement for 2D (RPG Maker steps).
   - [x] Update 150: skinned built-in tiles carry kind / frames / fps / blocks / above (TileCatalog), Kind and Passage
         in the skin importer. Palette: tile settings modal from ✎ (no panel above the list), tilePicks with Group… /
         Delete, prop picks gain Group… / Delete, groupSections (details, open state in localStorage

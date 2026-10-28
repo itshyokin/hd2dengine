@@ -28,12 +28,15 @@ export async function loadProjectAssets(store: EditorStore): Promise<void> {
     }
   }));
   await Promise.all(assets.tiles.map(async (t) => {
-    for (const path of [t.image, t.normal]) {
+    for (const path of [t.image, t.normal, t.edges, t.corners]) {
       if (!path) continue;
       try {
         const blob = await store.project.readFile(path);
         store.files.set(path, blob);
         if (path === t.image) setCustomTileImage(t.key, await canvasFromBlob(blob));
+        // Update 151: its edge trim and inside corners.
+        if (path === t.edges) setCustomTileImage(`${t.key}#edges`, await canvasFromBlob(blob));
+        if (path === t.corners) setCustomTileImage(`${t.key}#corners`, await canvasFromBlob(blob));
       } catch {
         if (path === t.image) console.warn(`Tile ${t.name}: texture ${path} is missing`);
       }
@@ -128,7 +131,7 @@ export async function resetProp(store: EditorStore, id: string): Promise<void> {
 
 /* ------------------------------------------------------------ tiles */
 
-export interface TileImages { image: Blob; normal?: Blob }
+export interface TileImages { image: Blob; normal?: Blob; /** Update 151: canvases are kept for the editor's drawing. */ edges?: { blob: Blob; canvas: HTMLCanvasElement }; corners?: { blob: Blob; canvas: HTMLCanvasElement } }
 
 /** Save a new or edited tile: its textures, then the updated asset list. Returns false if saving failed. */
 export async function commitTile(store: EditorStore, def: TileDef, images: TileImages, preview: HTMLCanvasElement): Promise<boolean> {
@@ -137,6 +140,8 @@ export async function commitTile(store: EditorStore, def: TileDef, images: TileI
   const files: [string, Blob][] = [[`${base}.png`, images.image]];
   def.image = `${base}.png`;
   if (images.normal) { def.normal = `${base}_normal.png`; files.push([def.normal, images.normal]); } else delete def.normal;
+  if (images.edges) { def.edges = `${base}_edges.png`; files.push([def.edges, images.edges.blob]); } else delete def.edges;
+  if (images.corners) { def.corners = `${base}_corners.png`; files.push([def.corners, images.corners.blob]); } else delete def.corners;
 
   const tiles = store.assets.tiles.filter((t) => t.key !== def.key);
   tiles.push(def);
@@ -153,6 +158,8 @@ export async function commitTile(store: EditorStore, def: TileDef, images: TileI
   }
   for (const [path, blob] of files) store.files.set(path, blob);
   setCustomTileImage(def.key, preview);
+  setCustomTileImage(`${def.key}#edges`, images.edges?.canvas ?? null);
+  setCustomTileImage(`${def.key}#corners`, images.corners?.canvas ?? null);
   store.setAssets(next);
   toast(persistent ? `Saved “${def.name}” to assets/tiles/` : 'Imported for this session only. Open the editor from your project to keep imported tiles.');
   return true;
