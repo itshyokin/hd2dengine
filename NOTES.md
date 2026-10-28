@@ -401,6 +401,12 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 146: TileDef kind 'animated' / 'autotile', frames, fps; world/pixelTiles.ts (frameLayout,
+        autotileQuarters: per quarter v / h / diagonal → A2 half-tile, drawPixelTile for the editor). WorldBuilder
+        buildPixelTiles: own flat mesh per tile (quarters for autotiles) at surfaceY, nearest, UVs inset half a
+        pixel, frame by texture offset in onBeforeRender from tickPixelTiles(elapsed); their overlays / slivers
+        skipped and edge blending off. TileImporter: Kind, Frames, Speed, + Add frames, animated pond preview.
+        Next: upper terrain layer, passage O / X / ☆, cliffs.
   - [x] Update 145: Database viewMode '2d' / playerLayer. lean.ts uHd2D / uHdPlayer, per-instance hdLayer (hdNudge now
         only the tie); 2D: depth at the ground (y 0) pulled toward the camera by a share of the distance, (25 − layer)
         × 0.012 + z × 0.00002 + tie × 0.0001; non-instanced lean sprites (characters, events) use the player layer;

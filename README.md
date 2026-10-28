@@ -1372,6 +1372,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **RPG Maker-style tiles** (Update 146, tile editor → *Kind*): *Animated* (a strip of frames side by side or
+  stacked, or added one picture at a time; set the frame count and speed) and *Autotile* (RPG Maker's A2 block,
+  2 × 3 tiles, e.g. 64 × 96 at 32 px: painting picks the edges and corners from the neighbours; animated autotiles
+  have the frames' blocks side by side, like A1 water). Drawn crisp and flat on the ground with no blended edges.
 - **2D / 3D mode** (Update 145, Database → World → View & camera): *3D mode* is the HD-2D look; *2D mode* looks
   straight down with everything flat and draws in order of layers like RPG Maker: characters are on the *Player
   layer* (default 10), props on a lower layer always cover them, higher ones are always under them, and on the same
