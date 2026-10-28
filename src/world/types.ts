@@ -221,6 +221,16 @@ export interface TileDef {
   /** Built-in tiles only: painted in code. */
   builtin?: boolean;
   /**
+   * RPG Maker-style tiles (Update 146): 'animated' a strip of frames (side by side or stacked); 'autotile' RPG
+   * Maker's A2 block (2 × 3 tiles) whose edges and corners follow the neighbours, its frames side by side (A1
+   * water). Unset: a plain repeating texture.
+   */
+  kind?: 'animated' | 'autotile';
+  /** How many frames (unset: worked out from the picture's shape). */
+  frames?: number;
+  /** Frames per second (default 4). */
+  fps?: number;
+  /**
    * A built-in tile with a picture of your own (kept in the asset list under the built-in tile's key): the picture
    * replaces the painted art everywhere, the tile keeps everything else. False: back to the built-in art (the picture
    * is kept, to switch back to).

@@ -38,7 +38,7 @@ import { type TileTexture, loadTileTextures, setTileAnisotropy } from '../render
 import type { AssetRegistry } from '../world/types';
 import { TileMap } from '../world/TileMap';
 import { TimeOfDay, wrapHour } from '../world/TimeOfDay';
-import { type BuiltWorld, buildWorld, hideProp } from '../world/WorldBuilder';
+import { type BuiltWorld, buildWorld, hideProp, tickPixelTiles } from '../world/WorldBuilder';
 import { Rings } from './rings';
 import { Bursts } from '../render/Bursts';
 import { Combat, type CombatHost } from './combat/Combat';
@@ -7387,6 +7387,7 @@ export class Game {
     this.waterFlow.x += 0.03 * dt; this.waterFlow.y += 0.018 * dt;
     this.waterNormals.offset.set(this.waterFlow.x, this.waterFlow.y);
     // Each style's ripples: a gentle drift, carried along by its current (a river, a stream).
+    tickPixelTiles(this.elapsed);
     for (const f of this.waterFlows) {
       const fd = THREE.MathUtils.degToRad(f.flowDir);
       f.tex.offset.x += (0.03 - Math.cos(fd) * f.flow * 0.45) * dt;

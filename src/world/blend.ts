@@ -38,6 +38,8 @@ export function guessBlend(name: string): Omit<TileBlend, 'detail'> {
 
 export function resolveBlend(def: TileDef | undefined, override?: Partial<TileBlend>): TileBlend {
   const b = { ...defaultBlend(def), ...override };
+  // RPG Maker-style tiles draw their own edges (Update 146).
+  if (def?.kind) b.blend = false;
   b.width = Math.min(0.5, Math.max(0.05, b.width));
   b.roughness = Math.min(1, Math.max(0, b.roughness));
   return b;
