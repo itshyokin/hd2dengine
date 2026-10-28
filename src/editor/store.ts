@@ -112,6 +112,8 @@ export class EditorStore {
   /** Imported images by path, kept for playtests (and for this session when the project can't store them). */
   files = new Map<string, Blob>();
   snap = true;
+  /** The layer props are painted on (Update 144); null: each prop's own default. */
+  propLayer: number | null = null;
   showGrid = true;
   selection: Selection = null;
   /** Page shown in the event inspector. */

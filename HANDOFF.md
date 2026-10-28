@@ -15,6 +15,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 144 (Oct 28):** Prop layers 0–25 (brush, inspector, prop editor default; no z-fighting on overlaps) and
+  the Backpack's Use / Equip pop-up menu, wider bag, no controls line. Checked in the browser.
 - **Update 143 (Oct 28):** Camera angle goes to 90° with a *Top-down 2D* preset (flat sprites, fog follows the
   distance, no tilt-shift when steep). Checked in the browser at 90° and 75°.
 - **Update 142 (Oct 26):** Characters always on top now also controls the ground yield (off by default: trees and

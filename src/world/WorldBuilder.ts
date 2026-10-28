@@ -5,7 +5,7 @@
 import { markProp } from '../render/lean';
 import { patchSway } from '../render/wind';
 import { patchLip } from '../render/lipFade';
-import { patchGroundYield, patchLean } from '../render/lean';
+import { GROUND_LAYER, layerNudge, patchGroundYield, patchLean } from '../render/lean';
 import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
@@ -683,7 +683,8 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     for (const p of list) {
       const s = p.s ?? 1, y = propBase(map, p, d).y;
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(p.x, y + 0.012, p.z - (d.h * s) / 2);
+      // Its layer (Update 144): raised a hair off the ground per layer, so overlapping flat props never flicker.
+      mesh.position.set(p.x, y + 0.012 + layerNudge(p.layer ?? d.layer ?? GROUND_LAYER, p.x, p.z) * 0.4, p.z - (d.h * s) / 2);
       mesh.scale.set(s, 1, s);
       mesh.receiveShadow = true;
       scene.add(mesh);
@@ -732,7 +733,10 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     // Leaves follow the seasons (bare or snowy in winter), unless the prop says it doesn't change.
     const ps = pdef ? propSeason(pdef) : 'off';
     if (ps !== 'off') patchSeason(a.material, ps === 'bare' ? 'bare' : 'leaves');
-    const mesh = withSpriteShadows(new THREE.InstancedMesh(a.geometry, a.material, list.length), a);
+    // Each copy's layer (Update 144): its own geometry carries how far each is pulled forward in depth.
+    const geo = a.geometry.clone();
+    geo.setAttribute('hdNudge', new THREE.InstancedBufferAttribute(new Float32Array(list.map((p) => layerNudge(p.layer ?? pdef?.layer ?? GROUND_LAYER, p.x, p.z))), 1));
+    const mesh = withSpriteShadows(new THREE.InstancedMesh(geo, a.material, list.length), a);
     mesh.frustumCulled = false;
     // Characters set always on top draw over it (Update 139).
     markProp(a.material);

@@ -401,6 +401,10 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 144: prop layers (PropData.layer, PropDef.layer, store.propLayer; lean.ts layerNudge → per-instance
+        `hdNudge` attribute pulling depth toward the camera, (25 − layer) × 0.01 + a 5-step tie of 0.0018; flat
+        props raised by 0.4 × that). Backpack 440px wide, 44px slots, menu-note hidden, actions rendered outside
+        the box as a fixed pop-up to its left.
   - [x] Update 143: camera angle up to 90° (runtime caps at 89.5° so lookAt keeps its up), Top-down 2D preset
         (TOPDOWN_OVERWORLD_CAMERA 90 / 38 / 15 / 100); fog near / far pushed back by distance − 14.5; tiltFade
         ramps in from 70° to 85°.

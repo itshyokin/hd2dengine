@@ -542,14 +542,14 @@ export class InventoryScreen {
         ${this.filter === 'gear' ? `<div class="inv-gearwrap"><div class="inv-gearhead"><span>Weapons</span><span>Armor</span></div><div class="inv-grid gear-split" style="--cols:${COLS}">${grid}</div></div>` : `<div class="inv-grid" style="--cols:${COLS}">${grid}</div>`}
         <div class="inv-side">
           <div class="inv-info">${info}${(() => { const u = s && !(this.filter === 'shard' && this.hfocus) ? this.actions.usedBy?.(this.sel) : null; return u ? `<div class="inv-set inv-who">${u.startsWith('In ') ? `Set in <b>${esc(u.slice(3))}</b>` : `Equipped by <b>${esc(u)}</b>`}</div>` : ''; })()}${def && def.kind === 'equipment' && def.slot !== 'magic' ? (() => { const sh = this.actions.shardIn?.(s!.id); return sh ? `<div class="inv-set"><img src="${sh.icon}" alt=""> Enchanted with <b>${esc(sh.name)}</b></div>` : ''; })() : ''}${s && !(this.filter === 'shard' && this.hfocus) ? this.compareBlock() : ''}</div>
-          ${actions}
+          ${this.compact ? '' : actions}
           <div class="inv-msg">${esc(this.message)}</div>
           ${this.filter === 'shard' ? this.holderLists() : ''}
         </div>
       </div>
       <div class="menu-note">${this.filter === 'shard' && this.hfocus ? '↑ ↓ ← → choose · Space: take out or switch · Esc: back to the shards'
         : `Arrows move${this.filter === 'shard' && this.actions.holders ? ' (→ past the last column: who holds shards)' : ''} · Space: ${this.filter === 'shard' ? 'ready a spell, wear an element stone, or fuse stones' : this.filter === 'gear' ? 'equip (choose who)' : 'use / equip'} · ${esc(this.input.label('switchWeapon'))}: more (${this.filter === 'gear' || this.filter === 'shard' ? 'take off, ' : ''}move, drop)${this.tabs ? ` · ${esc(this.tabs.keys[0])} / ${esc(this.tabs.keys[1])}: tabs` : ''} · Esc: back`}</div>
-    </div>`;
+    </div>${this.compact ? actions : ''}`;
     wireTabs(this.root, this.tabs);
     this.root.querySelector('.inv-slot.sel')?.scrollIntoView({ block: 'nearest' });
     this.root.querySelector('.inv-equip')?.addEventListener('click', () => this.actions.openEquip?.());

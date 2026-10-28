@@ -775,7 +775,7 @@ export class MapView {
       s.map.props.splice(existing, 1);
       if (s.selection?.kind === 'prop') s.select(null);
     }
-    s.map.props.push({ type: s.propType, x: p.x, z: p.z });
+    s.map.props.push({ type: s.propType, x: p.x, z: p.z, ...(s.propLayer !== null ? { layer: s.propLayer } : {}) });
     st.placed++;
     s.changed();
   }
@@ -789,7 +789,7 @@ export class MapView {
       const x = r2(w.x + Math.cos(a) * d), z = r2(w.z + Math.sin(a) * d), tx = Math.floor(x), tz = Math.floor(z);
       if (!s.inMap(tx, tz) || s.terrainAt(tx, tz) === '~') continue;
       if (s.propOnTile(tx, tz) >= 0) continue; // one prop per tile
-      const prop: { type: string; x: number; z: number; s?: number } = { type: s.propType, x, z };
+      const prop: { type: string; x: number; z: number; s?: number; layer?: number } = { type: s.propType, x, z, ...(s.propLayer !== null ? { layer: s.propLayer } : {}) };
       const scale = r2(0.85 + Math.random() * 0.3);
       if (Math.abs(scale - 1) > 0.01) prop.s = scale;
       s.map.props.push(prop);

@@ -69,6 +69,8 @@ interface State {
   front: boolean;
   /** Flat mode: painted flat on the ground (Update 139). */
   ground: boolean;
+  /** The layer new copies are painted on (Update 144). */
+  layer: number;
   /** Walked on (a bridge or platform): '' no; the way it runs. */
   deck: '' | 'h' | 'v' | 'any';
   /** How a bridge or platform is drawn: its own picture, or built 3D pieces. */
@@ -119,6 +121,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
     rustle: existing?.rustle === undefined ? '' : existing.rustle ? 'yes' : 'no',
     front: existing?.frontOfTiles !== false,
     ground: !!existing?.ground,
+    layer: existing?.layer ?? 25,
     deck: existing?.deck ? existing.deck.dir ?? 'any' : '',
     deckLook: existing?.deck ? (existing.deck.art ? (existing.deck.stand ? 'artStand' : 'art') : existing.deck.style) : 'art',
     tilt: !existing?.noTilt,
@@ -516,6 +519,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
           rows,
           h('p', { class: 'note' }, 'The player’s own date, any year: Oct 31 to Oct 31 for Halloween only, Oct 24 to Oct 31 for the week before. To use the same picture all year somewhere else too, Duplicate the prop and give only the copy dates.'));
       })(),
+      field('Layer new copies are painted on (0 on top … 25 the ground; lower draws over higher where props overlap)', numberInput(st.layer, (v) => (st.layer = Math.max(0, Math.min(25, Math.round(v)))), { step: 1, min: 0, max: 25 })),
       checkbox('Lie flat on the ground (Flat mode: painted onto the ground like a 2D game, for bedrolls, rugs and puddles; NOT for trees or anything standing up: characters walk over it)', st.ground, (v) => (st.ground = v)),
       checkbox('Sits flat against the wall behind it (cave mouths, doors, windows, banners)', st.wall, (v) => { st.wall = v; renderTools(); }),
       checkbox('Stretches to the height of the wall it’s placed against (ladders, hanging vines)', st.stretch, (v) => (st.stretch = v)),
@@ -682,6 +686,7 @@ export async function openPropImporter(store: EditorStore, existing?: PropDef, o
       if (st.rustle) def.rustle = st.rustle === 'yes';
       if (!st.front) def.frontOfTiles = false;
       if (st.ground) def.ground = true;
+      if (st.layer !== 25) def.layer = st.layer;
       if (!st.tilt) def.noTilt = true;
       if (st.walkSound) def.walkSound = st.walkSound;
       if (st.deck) {

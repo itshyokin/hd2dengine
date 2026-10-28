@@ -62,16 +62,22 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
     const back = mat.userData.hdBack ? `hdUp.xyz *= 1.0 + uHdBack / max(0.001, length(hdUp.xyz));` : '';
     // Drawn leaning, but at the depth it would have standing up: terrain behind a sprite (a cliff wall, a bevel)
     // never cuts through its leaned-back top, while anything really in front of it still hides it.
-    shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    // Update 144: props' layers, per copy (hdNudge, world units pulled toward the camera in depth only).
+    shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\n#ifdef USE_INSTANCING\nattribute float hdNudge;\n#endif\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
   vec3 hdUpright = transformed;
   { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }`).replace('#include <project_vertex>', `#include <project_vertex>
-  if (uHdLean > 0.0) {
+  float hdN = 0.0;
+  #ifdef USE_INSTANCING
+  hdN = hdNudge;
+  #endif
+  if (uHdLean > 0.0 || hdN > 0.0) {
     vec4 hdUp = vec4(hdUpright, 1.0);
     #ifdef USE_INSTANCING
     hdUp = instanceMatrix * hdUp;
     #endif
     hdUp = modelViewMatrix * hdUp;
     ${back}
+    hdUp.xyz *= 1.0 - hdN / max(0.001, length(hdUp.xyz));
     hdUp = projectionMatrix * hdUp;
     gl_Position.z = hdUp.z / hdUp.w * gl_Position.w;
   }`);
@@ -107,6 +113,18 @@ export function patchGroundYield<T extends THREE.Material>(mat: T): T {
   const prevKey = mat.customProgramCacheKey?.bind(mat);
   mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|yield';
   return mat;
+}
+
+/** The ground layer: props placed without one (Update 144). */
+export const GROUND_LAYER = 25;
+/**
+ * How far a prop is pulled toward the camera in depth for its layer (Update 144), plus a tiny difference between
+ * neighbours on the same layer so overlapping copies never flicker (z-fighting).
+ */
+export function layerNudge(layer: number, x: number, z: number): number {
+  const l = Math.max(0, Math.min(GROUND_LAYER, Math.round(layer)));
+  const tie = (((Math.floor(x * 2) * 7 + Math.floor(z * 2) * 3) % 5) + 5) % 5;
+  return (GROUND_LAYER - l) * 0.01 + tie * 0.0018;
 }
 
 /** The stencil value props write (Update 139). */

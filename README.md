@@ -840,7 +840,8 @@ them: Freezing before a fight, still Freezing after.
   **Party** and **Journal**, switched with **LT / RT** (Z / C), the Journal's own tabs with **LB / RB** (Q / E);
   small buttons in its top corner open the Backpack, World Map and Settings (mouse and touch; the touch Menu button
   opens it). **B** (I or B) opens the **Backpack**: the bag as a compact window at the bottom right (the game waits;
-  use items and key items, equip gear and shards; Update 142: pocket tabs are pictures, 8 columns on every pocket,
+  use items and key items, equip gear and shards; Update 144: a little wider, no controls line (more room for the
+  details), and Use / Equip pops up as its own menu to the left;  use items and key items, equip gear and shards; Update 142: pocket tabs are pictures, 8 columns on every pocket,
   gear as 4 weapons + 4 armor, and the item's details at the bottom above the controls). **Riding, hold B** (or Esc)
   to get off the horse; a quick press still opens the Backpack (or Settings). **Y** (M) opens the **World Map**. Each button closes what it
   opened; in the Backpack, B first backs out of an item's choices. **Achievements** are a Journal tab now (with the
@@ -1371,6 +1372,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Prop layers** (Update 144): every placed prop has a *Layer*, 0 (drawn on top) … 25 (the ground, the default),
+  like RPG Maker's layers. Pick it in the map editor's prop brush (or *Prop's own*, the default set in the prop
+  editor), or on a selected prop in the inspector. Where props overlap the lower layer draws on top; it never moves
+  the picture. Overlapping copies on the same layer get a tiny automatic difference so they never flicker.
   **Characters always on top** (Update 139; Update 142: off by default, and now it covers the ground too): on, the
   hero and party are drawn over props they overlap and over ledges and cliff tops in front of them; off, trees,
   props, ledges and cliffs in front of a character hide them, as they really stand. Either way a leaned sprite

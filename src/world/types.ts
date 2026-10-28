@@ -19,6 +19,11 @@ export interface PropData {
   y?: number;
   /** Uniform scale. */
   s?: number;
+  /**
+   * Layer (Update 144): 0 drawn on top of everything … 25 the ground (the default). Lower layers win where props
+   * overlap; it only changes which draws on top, never where the picture is.
+   */
+  layer?: number;
 }
 
 /* ------------------------------------------------------------------ lights */
@@ -156,6 +161,8 @@ export interface PropDef {
   frontOfTiles?: boolean;
   /** Flat mode (Update 139): painted flat on the ground like a 2D game draws it (bedrolls, rugs), not standing up. */
   ground?: boolean;
+  /** The layer new copies are painted on (Update 144), 0 … 25 (25, the ground, when unset). */
+  layer?: number;
   /**
    * The hero's footsteps on it: a ground sound ('wood', 'stone', 'metal', 'carpet', 'grass', 'dirt', 'sand', 'snow',
    * 'water') or a sound of its own (an imported file or a built-in effect). Unset: the ground's (bridges: their wood

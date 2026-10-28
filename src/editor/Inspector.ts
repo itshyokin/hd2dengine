@@ -545,6 +545,8 @@ export class Inspector {
         field('X', numberInput(p.x, (v) => this.moveProp(i, v, p.z), { step: 0.1 })),
         field('Z', numberInput(p.z, (v) => this.moveProp(i, p.x, v), { step: 0.1 }))),
       field('Scale', numberInput(p.s ?? 1, (v) => this.edit(() => { const sc = Math.min(3, Math.max(0.3, v)); if (Math.abs(sc - 1) < 0.001) delete p.s; else p.s = sc; }), { step: 0.05, min: 0.3, max: 3 })),
+      // Update 144: which draws on top where props overlap.
+      field('Layer (0 on top … 25 ground)', numberInput(p.layer ?? def?.layer ?? 25, (v) => this.edit(() => { const l = Math.max(0, Math.min(25, Math.round(v))); if (l === (def?.layer ?? 25)) delete p.layer; else p.layer = l; }), { step: 1, min: 0, max: 25 })),
       h('p', { class: 'hint' }, `Positions are in tiles; .5 is the centre of a tile. ${notes.join(' ')}`),
       def ? h('button', { type: 'button', class: 'btn small', onclick: () => void openPropImporter(s, def) },
         def.image ? `Edit “${def.name}” (all copies)` : `Customise “${def.name}” (all copies)`) : null,

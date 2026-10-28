@@ -322,6 +322,14 @@ export class Palette {
           h('p', { class: 'note' }, 'Pick the kind in the list below (the tool stays on Erase).')));
       }
       body.push(checkbox('Snap to tiles', s.snap, (v) => { s.snap = v; s.emit('ui'); }));
+      // Layer (Update 144): 0 on top … 25 the ground, like RPG Maker's layers.
+      if (s.propTool === 'place' || s.propTool === 'scatter') {
+        const dl = s.catalog.get(s.propType)?.layer ?? 25;
+        body.push(h('label', { class: 'field-row prop-layer' }, h('span', {}, 'Layer'),
+          select([['', `Prop’s own (${dl})`], ...Array.from({ length: 26 }, (_, k) => [String(k), k === 0 ? '0 (on top)' : k === 25 ? '25 (ground)' : String(k)] as [string, string])],
+            s.propLayer === null ? '' : String(s.propLayer), (v) => { s.propLayer = v === '' ? null : Number(v); s.emit('ui'); }),
+          h('span', { class: 'swatch-note' }, 'Lower numbers draw on top where props overlap.')));
+      }
       const edit = (id: string) => { const d = s.catalog.get(id); if (d) void openPropImporter(s, d); };
       const remove = (id: string, name: string) => confirmModal('Delete prop?',
         `“${name}” will be removed from the prop list and from this map. Its image files stay in your project.`, 'Delete', () => void deleteProp(s, id), true);
