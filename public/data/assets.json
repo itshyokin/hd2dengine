@@ -1120,250 +1120,6 @@
   ],
   "tiles": [
     {
-      "key": "a",
-      "id": "lpcr_wood_floor_a_2",
-      "name": "Wood Floor A 2",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Wood Floor A",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/lpc-modified-base-tiles",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_wood_floor_a_2.png"
-    },
-    {
-      "key": "b",
-      "id": "lpcr_adobe_brick_wall_2",
-      "name": "Adobe Brick Wall 2",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Adobe Brick Wall",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/lpc-adobe-building-set",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_adobe_brick_wall_2.png"
-    },
-    {
-      "key": "c",
-      "id": "lpcr_jagged_stone_walls_1",
-      "name": "Jagged Stone Walls 1",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Jagged Stone Walls",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/lpc-interior-castle-tiles",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_jagged_stone_walls_1.png"
-    },
-    {
-      "key": "d",
-      "id": "lpcr_brick_wall_b_6",
-      "name": "Brick Wall B 6",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Adobe Brick Wall",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/lpc-adobe-building-set",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_brick_wall_b_6.png"
-    },
-    {
-      "key": "e",
-      "id": "lpcr_floral_wallpaper_a_11",
-      "name": "Floral Wallpaper A 11",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Floral Wallpaper A",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/lpc-interior-castle-tiles",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_floral_wallpaper_a_11.png"
-    },
-    {
-      "key": "f",
-      "id": "lpcr_siding_plain_3",
-      "name": "Siding, Plain 3",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Siding, Plain",
-          "authors": [
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_siding_plain_3.png"
-    },
-    {
-      "key": "g",
-      "id": "lpcr_painted_walls_13",
-      "name": "Painted Walls 13",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Painted Walls",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/lpc-modified-base-tiles",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_painted_walls_13.png"
-    },
-    {
-      "key": "h",
-      "id": "lpcr_geometric_carpet_a_14",
-      "name": "Geometric Carpet A 14",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Geometric Carpet A",
-          "authors": [
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_geometric_carpet_a_14.png"
-    },
-    {
-      "key": "i",
-      "id": "lpcr_floral_carpet_a_11",
-      "name": "Floral Carpet A 11",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Floral Carpet A",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/lpc-dungeon-elements",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_floral_carpet_a_11.png"
-    },
-    {
-      "key": "j",
-      "id": "ground037",
-      "name": "Ground037",
-      "span": 3,
-      "filter": "point",
-      "image": "assets/tiles/ground037.png"
-    },
-    {
-      "key": "k",
-      "id": "lpcr_grass_summer",
-      "name": "Grass (summer)",
-      "span": 1,
-      "filter": "point",
-      "credits": [
-        {
-          "item": "Terrain (all seasons)",
-          "authors": [
-            "Lanea Zimmerman (Sharm)",
-            "Eliza Wyatt (DeathsDarling)"
-          ],
-          "licenses": [
-            "OGA-BY 3.0"
-          ],
-          "urls": [
-            "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
-            "https://github.com/ElizaWy/LPC"
-          ]
-        }
-      ],
-      "image": "assets/tiles/lpcr_grass_summer.png"
-    },
-    {
       "key": "▲",
       "id": "rock",
       "name": "Rock (cliffs, mountains)",
@@ -1427,6 +1183,53 @@
       "skin": true,
       "flat": true,
       "image": "assets/tiles/path.png"
+    },
+    {
+      "key": "~",
+      "id": "water",
+      "name": "Lake bed",
+      "span": 1,
+      "filter": "point",
+      "kind": "animated",
+      "flat": true,
+      "fps": 1.5,
+      "skin": true,
+      "blocks": true,
+      "image": "assets/tiles/water.png"
+    },
+    {
+      "key": "b",
+      "id": "water_edged",
+      "name": "Water Edged",
+      "span": 1,
+      "filter": "point",
+      "kind": "wall",
+      "flat": true,
+      "frames": 1,
+      "blocks": true,
+      "image": "assets/tiles/water_edged.png"
+    },
+    {
+      "key": "c",
+      "id": "grass_cliff_upper",
+      "name": "Grass Cliff - Upper",
+      "span": 1,
+      "filter": "point",
+      "kind": "wall",
+      "flat": true,
+      "blocks": true,
+      "image": "assets/tiles/grass_cliff_upper.png"
+    },
+    {
+      "key": "a",
+      "id": "grass_cliff",
+      "name": "Grass Cliff",
+      "span": 1,
+      "filter": "point",
+      "kind": "wall",
+      "flat": true,
+      "blocks": true,
+      "image": "assets/tiles/grass_cliff.png"
     }
   ],
   "tileCliffs": {
@@ -1442,16 +1245,6 @@
     ":": {
       "width": 0.35,
       "roughness": 0.95
-    },
-    "j": {
-      "width": 0.43,
-      "roughness": 0.95
-    },
-    "k": {
-      "priority": 30,
-      "width": 0.5,
-      "roughness": 0.7,
-      "edge": "dither"
     }
   },
   "tileRoads": {
@@ -1459,6 +1252,7 @@
     "~": true
   },
   "tileSteps": {
-    "▲": "stone"
+    "▲": "stone",
+    "~": "water"
   }
 }
