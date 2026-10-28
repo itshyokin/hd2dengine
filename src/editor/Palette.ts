@@ -2,12 +2,12 @@ import { HEIGHT_STYLES, type HeightStyle } from '../world/heights';
 import { levelRangeField } from './levelFields';
 import { openDatabase } from './DatabaseEditor';
 /** Left panel: layer tabs, tools, brush options and the swatch / sprite palette. */
-import { cliffChoices, deleteProp, deleteTile, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSkin, setTilePrints, setTileSteps } from './assets';
+import { cliffChoices, deleteProp, deleteTile, setPaletteGroup, mapCliffName, resetProp, setTileAilment, setTileCliff, setTileRoad, setTileSkin, setTilePrints, setTileSteps } from './assets';
 import { AILMENTS, AILMENT_INFO } from '../game/status';
 import type { Ailment } from '../world/types';
 import { FOOT_MATERIALS, guessFootstep } from '../world/footsteps';
 import { isBuiltinProp } from '../world/props';
-import { canvasCopy, checkbox, confirmModal, h, numberInput, select, toast } from './dom';
+import { canvasCopy, checkbox, confirmModal, h, numberInput, openModal, select, textInput, toast } from './dom';
 import { characterImage, paletteProps, propImage, tileNote, tileThumb } from './editorArt';
 import { openTileImporter } from './TileImporter';
 import { openBlendSettings } from './BlendSettings';
@@ -32,6 +32,42 @@ import { ABILITY_NAMES } from './CommandEditor';
 import { MAX_HEIGHT, MIN_HEIGHT } from '../world/heights';
 import { BUILDING_PRESETS, drawBuildingTop } from './buildingPresets';
 import { TS } from './editorArt';
+
+/**
+ * Palette groups (Update 150): each group a section that opens and closes (remembered on this device), its items
+ * drawn by `draw`. Items not in a group are left for the usual sections.
+ */
+function groupSections<T>(kind: 'tile' | 'prop', items: [string, T][], groups: Record<string, string> | undefined, draw: (list: T[]) => HTMLElement): HTMLElement[] {
+  if (!groups) return [];
+  const by = new Map<string, T[]>();
+  for (const [id, t] of items) { const g = groups[id]; if (g) by.set(g, [...(by.get(g) ?? []), t]); }
+  return [...by].sort(([a], [b]) => a.localeCompare(b)).map(([name, list]) => {
+    const key = `hd2d.palGroup.${kind}.${name}`;
+    let open = true;
+    try { open = localStorage.getItem(key) !== '0'; } catch { /* storage off */ }
+    const d = h('details', { class: 'pal-group', ...(open ? { open: true } : {}) },
+      h('summary', { class: 'section-label' }, `${name} (${list.length})`), draw(list));
+    d.addEventListener('toggle', () => { try { localStorage.setItem(key, d.open ? '1' : '0'); } catch { /* storage off */ } });
+    return d;
+  });
+}
+
+/** Put ticked tiles or props into a group (a new name or an existing one), or out of their group. */
+function groupModal(store: EditorStore, kind: 'tile' | 'prop', ids: string[], done: () => void): void {
+  const groups = kind === 'tile' ? store.assets.tileGroups : store.assets.propGroups;
+  const names = [...new Set(Object.values(groups ?? {}))].sort();
+  let name = (ids.length === 1 && groups?.[ids[0]]) || '';
+  const list = h('datalist', { id: 'pal-group-names' }, ...names.map((n) => h('option', { value: n })));
+  const input = textInput(name, (v) => (name = v.trim()), { placeholder: 'e.g. Desert, Forest, Testing', list: 'pal-group-names', oninput: (e: Event) => (name = (e.target as HTMLInputElement).value.trim()) });
+  openModal(`Group ${ids.length} ${kind}${ids.length === 1 ? '' : 's'}`, h('div', { class: 'stack' },
+    h('label', { class: 'field' }, h('span', {}, 'Group name'), input), list,
+    names.length ? h('div', { class: 'toolrow small' }, ...names.map((n) => h('button', { type: 'button', class: 'chip', onclick: () => { name = n; input.value = n; } }, n))) : null,
+    h('p', { class: 'note' }, 'Groups show as their own sections in the palette; click a group’s name to show or hide it.')), [
+    { label: 'Take out of groups', onClick: () => { void setPaletteGroup(store, kind, ids, undefined).then(done); } },
+    { label: 'Cancel' },
+    { label: 'Group', primary: true, onClick: () => { if (!name) { toast('Type a group name.', 'error'); return false; } void setPaletteGroup(store, kind, ids, name).then(done); return true; } },
+  ]);
+}
 
 const MODES: [Mode, string, string][] = [
   ['terrain', 'Terrain', '1'], ['height', 'Height', '2'], ['passage', 'Passage', '3'], ['props', 'Props', '4'], ['lights', 'Lights', '5'], ['events', 'Events', '6'], ['buildings', 'Buildings', '7'], ['water', 'Water', '8'], ['zones', 'Spawns', '9'],
@@ -126,7 +162,6 @@ export class Palette {
       if (s.terrainTool === 'pencil') body.push(this.brush());
       const tiles = s.tiles.all();
       const editTile = (key: string) => { const d = s.tiles.get(key); if (d) void openTileImporter(s, d); };
-      const cur = s.tiles.get(s.terrain);
       const cliffField = (key: string) => {
         const choice = s.tiles.cliffChoice(key) ?? '';
         const sel = select([['', `Map default (${mapCliffName(s)})`], ...cliffChoices(s)], choice, (v) => void setTileCliff(s, key, v || undefined),
@@ -176,44 +211,55 @@ export class Palette {
         f.title = 'Swap this built-in tile’s look for a picture of your own, on every map, without repainting. Everything else about the tile stays.';
         return f;
       };
-      if (cur?.builtin) {
-        body.push(h('div', { class: 'prop-current' },
-          h('span', { class: 'prop-current-thumb' }, tileThumb(cur.key, 40)),
-          h('div', { class: 'prop-current-info' }, h('div', { class: 'prop-current-name' }, cur.name), h('div', { class: 'swatch-note' }, `${cur.skin ? 'Built-in, your picture' : 'Built-in'} · ${tileNote(cur)}`)),
-          h('div', { class: 'prop-current-actions' }, pictureField(cur), cliffField(cur.key), stepsField(cur.key), printsField(cur.key), ailmentField(cur.key), roadField(cur.key),
-            h('button', { type: 'button', class: 'btn small', onclick: () => openBlendSettings(s, cur.key) }, `Edge blending… (${blendSummary(cur.key)})`))));
-      }
-      if (cur && !cur.builtin) {
-        body.push(h('div', { class: 'prop-current' },
-          h('span', { class: 'prop-current-thumb' }, tileThumb(cur.key, 40)),
-          h('div', { class: 'prop-current-info' },
-            h('div', { class: 'prop-current-name' }, cur.name),
-            h('div', { class: 'swatch-note' }, `Imported · ${tileNote(cur)} · repeats every ${cur.span} tile${cur.span === 1 ? '' : 's'}`)),
-          h('div', { class: 'prop-current-actions' },
-            cliffField(cur.key), stepsField(cur.key), printsField(cur.key), ailmentField(cur.key), roadField(cur.key),
-            h('button', { type: 'button', class: 'btn small', onclick: () => openBlendSettings(s, cur.key) }, `Edge blending… (${blendSummary(cur.key)})`),
-            h('button', { type: 'button', class: 'btn small', onclick: () => editTile(cur.key) }, 'Edit…'),
-            h('button', { type: 'button', class: 'btn small danger', onclick: () => confirmModal('Delete tile?',
-              `“${cur.name}” will be removed from the tile list. On this map its cells turn back into grass (you can undo that). Its image files stay in your project.`,
-              'Delete', () => void deleteTile(s, cur.key), true) }, 'Delete'))));
+      // Update 150: a tile's settings open from its ✎ (built-in and imported alike), not a panel above the list.
+      const tileSettings = (t: TileDef) => {
+        const body = h('div', { class: 'tile-settings' },
+          h('div', { class: 'prop-current' },
+            h('span', { class: 'prop-current-thumb' }, tileThumb(t.key, 48)),
+            h('div', { class: 'prop-current-info' }, h('div', { class: 'prop-current-name' }, t.name),
+              h('div', { class: 'swatch-note' }, `${t.builtin ? (t.skin ? 'Built-in, your picture' : 'Built-in') : 'Imported'} · ${tileNote(t)}`))),
+          t.builtin ? pictureField(t) : h('button', { type: 'button', class: 'btn small', onclick: () => { close(); editTile(t.key); } }, 'Picture, kind and passage…'),
+          cliffField(t.key), stepsField(t.key), printsField(t.key), ailmentField(t.key), roadField(t.key),
+          h('button', { type: 'button', class: 'btn small', onclick: () => openBlendSettings(s, t.key) }, `Edge blending… (${blendSummary(t.key)})`),
+          t.builtin ? null : h('button', { type: 'button', class: 'btn small danger', onclick: () => confirmModal('Delete tile?',
+            `“${t.name}” will be removed from the tile list. On this map its cells turn back into grass (you can undo that). Its image files stay in your project.`,
+            'Delete', () => { close(); void deleteTile(s, t.key); }, true) }, 'Delete tile'));
+        const close = openModal(`Tile: ${t.name}`, body, [{ label: 'Done', primary: true }]);
+      };
+      // Ticked tiles (Update 150): delete or group them together.
+      const tpicks = this.tilePicks;
+      for (const k of [...tpicks]) if (!s.tiles.get(k)) tpicks.delete(k);
+      if (tpicks.size) {
+        const own = [...tpicks].filter((k) => !s.tiles.get(k)?.builtin);
+        body.push(h('div', { class: 'prop-picks' },
+          h('span', { class: 'prop-picks-n' }, `${tpicks.size} ticked`),
+          h('button', { type: 'button', class: 'btn small', onclick: () => groupModal(s, 'tile', [...tpicks], () => { tpicks.clear(); this.render(); }) }, 'Group…'),
+          h('button', { type: 'button', class: 'btn small danger', disabled: !own.length, title: own.length ? 'Delete the ticked imported tiles' : 'Built-in tiles can’t be deleted',
+            onclick: () => confirmModal(`Delete ${own.length} tile${own.length === 1 ? '' : 's'}?`, `${own.map((k) => `“${s.tiles.get(k)?.name}”`).join(', ')} will be removed from the tile list. Their cells on this map turn back into grass (you can undo that). Built-in tiles stay.`,
+              'Delete', () => void (async () => { for (const k of own) await deleteTile(s, k); tpicks.clear(); this.render(); })(), true) }, `Delete${own.length ? ` (${own.length})` : ''}`),
+          h('button', { type: 'button', class: 'btn small ghost', onclick: () => { tpicks.clear(); this.render(); } }, 'Clear')));
       }
       const brushKey = () => (upper ? s.upperTile : s.terrain);
-      const swatch = (t: TileDef) => h('div', { class: 'swatch-row' },
+      const swatch = (t: TileDef) => h('div', { class: `swatch-row${tpicks.has(t.key) ? ' ticked' : ''}` },
+        h('input', { type: 'checkbox', class: 'swatch-tick', checked: tpicks.has(t.key), 'aria-label': `Tick ${t.name}`, title: `Tick ${t.name} to delete or group it with others`,
+          onchange: (e: Event) => { if ((e.target as HTMLInputElement).checked) tpicks.add(t.key); else tpicks.delete(t.key); this.render(); } }),
         h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(brushKey() === t.key), title: tileNote(t), onclick: () => { if (upper) s.upperTile = t.key; else s.terrain = t.key; s.emit('ui'); } },
           tileThumb(t.key),
           h('span', { class: 'swatch-name' }, t.name),
           h('span', { class: 'swatch-note' }, tileNote(t))),
-        t.builtin ? null : h('button', { type: 'button', class: 'mini-btn swatch-edit', title: `Edit ${t.name}`, 'aria-label': `Edit ${t.name}`, onclick: () => editTile(t.key) }, '✎'));
+        h('button', { type: 'button', class: 'mini-btn swatch-edit', title: `${t.name}: settings`, 'aria-label': `${t.name} settings`, onclick: () => tileSettings(t) }, '✎'));
       const imported = tiles.filter((t) => !t.builtin);
       body.push(...[
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openTileImporter(s) }, '+ Import tile from texture…'),
         h('button', { type: 'button', class: 'btn import-btn', onclick: () => void openLpcLibrary(s, 'tile') }, '+ Add from the LPC library…'),
         upper ? h('div', { class: 'swatches' }, h('button', { type: 'button', class: 'swatch', 'aria-pressed': String(s.upperTile === ' '), onclick: () => { s.upperTile = ' '; s.emit('ui'); } },
           h('span', { class: 'swatch-name' }, '✕ Eraser'), h('span', { class: 'swatch-note' }, 'Clears the upper layer'))) : null,
+        // Update 150: groups first (each opens and closes), then the rest.
+        ...groupSections('tile', (upper ? imported : tiles).map((t) => [t.key, t] as [string, TileDef]), s.assets.tileGroups, (list) => h('div', { class: 'swatches' }, ...list.map(swatch))),
         upper ? null : h('div', { class: 'section-label' }, 'Built-in'),
-        upper ? null : h('div', { class: 'swatches' }, ...tiles.filter((t) => t.builtin).map(swatch)),
-        h('div', { class: 'section-label' }, `Imported (${imported.length})`),
-        imported.length ? h('div', { class: 'swatches' }, ...imported.map(swatch)) : h('p', { class: 'note' }, 'Tiles you import from textures appear here.')].filter((x): x is NonNullable<typeof x> => !!x));
+        upper ? null : h('div', { class: 'swatches' }, ...tiles.filter((t) => t.builtin && !s.assets.tileGroups?.[t.key]).map(swatch)),
+        h('div', { class: 'section-label' }, `Imported (${imported.filter((t) => !s.assets.tileGroups?.[t.key]).length})`),
+        imported.length ? h('div', { class: 'swatches' }, ...imported.filter((t) => !s.assets.tileGroups?.[t.key]).map(swatch)) : h('p', { class: 'note' }, 'Tiles you import from textures appear here.')].filter((x): x is NonNullable<typeof x> => !!x));
     } else if (s.mode === 'water') {
       body.push(...this.waterPanel());
     } else if (s.mode === 'height') {
@@ -373,6 +419,14 @@ export class Palette {
         body.push(h('div', { class: 'prop-picks' },
           h('span', { class: 'prop-picks-n' }, `${picks.size} ticked`),
           h('button', { type: 'button', class: 'btn small primary', disabled: picks.size < 2, title: picks.size < 2 ? 'Tick at least two' : 'Change settings for all the ticked props', onclick: () => openPropBatchEdit(s, [...picks], () => { picks.clear(); this.render(); }) }, 'Edit together…'),
+          h('button', { type: 'button', class: 'btn small', onclick: () => groupModal(s, 'prop', [...picks], () => { picks.clear(); this.render(); }) }, 'Group…'),
+          (() => {
+            // Update 150: delete the ticked imported props at once.
+            const own = [...picks].filter((id) => !isBuiltinProp(id));
+            return h('button', { type: 'button', class: 'btn small danger', disabled: !own.length, title: own.length ? 'Delete the ticked imported props' : 'Built-in props can’t be deleted',
+              onclick: () => confirmModal(`Delete ${own.length} prop${own.length === 1 ? '' : 's'}?`, `${own.map((id) => `“${s.catalog.get(id)?.name ?? id}”`).join(', ')} will be removed from the prop list and from this map. Their image files stay in your project.`,
+                'Delete', () => void (async () => { for (const id of own) await deleteProp(s, id); picks.clear(); this.render(); })(), true) }, `Delete${own.length ? ` (${own.length})` : ''}`);
+          })(),
           h('button', { type: 'button', class: 'btn small ghost', onclick: () => { picks.clear(); this.render(); } }, 'Clear')));
       }
       const card = (id: string, name: string, lit: boolean) => {
@@ -386,7 +440,8 @@ export class Palette {
             customised(id) ? h('span', { class: 'sprite-badge left', title: 'Customised' }, '●') : null),
           h('button', { type: 'button', class: 'mini-btn sprite-edit', title: `Edit ${name}`, 'aria-label': `Edit ${name}`, onclick: () => edit(id) }, '✎'));
       };
-      const builtins = defs.filter((d) => isBuiltinProp(d.id)), imported = defs.filter((d) => !isBuiltinProp(d.id));
+      const pg = s.assets.propGroups ?? {};
+      const builtins = defs.filter((d) => isBuiltinProp(d.id) && !pg[d.id]), imported = defs.filter((d) => !isBuiltinProp(d.id) && !pg[d.id]);
       const tickAll = (list: { id: string }[]) => {
         const all = list.every((d) => picks.has(d.id));
         return h('button', { type: 'button', class: 'mini-link', onclick: () => { for (const d of list) if (all) picks.delete(d.id); else picks.add(d.id); this.render(); } }, all ? 'Untick all' : 'Tick all');
@@ -396,10 +451,12 @@ export class Palette {
         h('button', { type: 'button', class: 'btn import-btn', title: 'Import a prop from an image', onclick: () => void openPropImporter(s) }, '+ Image…'),
         h('button', { type: 'button', class: 'btn import-btn', title: 'Import a 3D prop from a GLB or FBX model', onclick: () => void openPropImporter(s, undefined, { model: true }) }, '+ 3D model…'),
         h('button', { type: 'button', class: 'btn import-btn', title: 'Add props from the LPC library', onclick: () => void openLpcLibrary(s, 'prop') }, '+ LPC library…'),
+        ...groupSections('prop', defs.map((d) => [d.id, d] as [string, typeof d]), pg, (list) => h('div', { class: 'sprites' }, ...list.map((d) => card(d.id, d.name, !!d.light)))),
         builtinLabel,
         h('div', { class: 'sprites' }, ...builtins.map((d) => card(d.id, d.name, !!d.light))));
       // Everything above the lists (tools, the chosen prop, ticks, import) stays in view while scrolling them.
-      const at = body.indexOf(builtinLabel);
+      const firstGroup = body.findIndex((n) => n instanceof HTMLElement && n.classList.contains('pal-group'));
+      const at = firstGroup >= 0 ? firstGroup : body.indexOf(builtinLabel);
       if (at > stickFrom) body.splice(stickFrom, at - stickFrom, h('div', { class: 'prop-sticky' }, ...body.slice(stickFrom, at)));
       body.push(h('div', { class: 'section-label' }, `Imported (${imported.length})`, imported.length ? tickAll(imported) : null),
         imported.length
@@ -432,7 +489,7 @@ export class Palette {
           h('div', { class: 'sprite-card' }, h('button', { type: 'button', class: 'sprite-btn', 'aria-pressed': String(s.buildingPreset === p.id), title: p.note,
             onclick: () => { s.buildingPreset = p.id; s.buildingTool = 'draw'; s.emit('ui'); } },
             h('span', { class: 'sprite-frame' }, buildingThumb(p.id)), h('span', { class: 'sprite-name' }, p.name))))),
-        h('p', { class: 'note' }, 'Change the walls, roof, height, doors and windows of a selected building on the right. Buildings block their tiles. For an interior, make a new map and put a Transfer event in front of the door (the building’s panel can add one).'));
+        h('p', { class: 'note' }, 'Change the walls, roof, height, doors and windows of a selected building at the top of this panel. Buildings block their tiles. For an interior, make a new map and put a Transfer event in front of the door (the building’s panel can add one).'));
       const list = s.map.buildings ?? [];
       if (list.length)
         body.push(h('div', { class: 'section-label' }, `Buildings on this map (${list.length})`),
@@ -443,6 +500,8 @@ export class Palette {
     } else {
       body.push(h('p', { class: 'note' }, 'Click an empty tile to create an event or move the player start there. Drag across tiles for one event covering an area (wide doorways). Ctrl+C / Ctrl+V copy and paste events.'));
       const hero = s.db.characters[s.db.player];
+      // Update 150: the selected event's settings (or the new-event panel) right above the list.
+      if (this.inspector) body.push(this.inspector);
       body.push(h('div', { class: 'section-label' }, `Events on this map (${s.map.events.length})`),
         h('ul', { class: 'event-list' },
           s.startHere && hero ? h('li', {}, h('button', { type: 'button', class: 'event-item', 'aria-pressed': String(s.selection?.kind === 'start'),
@@ -458,19 +517,27 @@ export class Palette {
           })));
     }
     body.push(checkbox('Show grid', s.showGrid, (v) => { s.showGrid = v; s.emit('ui'); }));
+    // Other tabs: what's selected (a prop, a light, a building…) at the top.
+    if (this.inspector && s.mode !== 'events') body.unshift(this.inspector);
 
     // Keep the list where it was (editing a prop, picking one, saving): only a different tab starts at the top.
     const old = this.el.querySelector('.side-body') as HTMLElement | null;
     const keep = old && this.shownMode === s.mode ? old.scrollTop : 0;
     const side = h('div', { class: 'side-body' }, ...body);
-    this.el.replaceChildren(head, side);
+    const grip = this.el.querySelector('.side-grip');
+    this.el.replaceChildren(head, side, ...(grip ? [grip] : []));
     side.scrollTop = keep;
     this.shownMode = s.mode;
   }
   /** The tab the panel was last drawn for. */
   private shownMode = '';
+  /** Update 150: the inspector (what's selected), shown inside this panel; the right bar is gone. */
+  private inspector: HTMLElement | null = null;
+  setInspector(el: HTMLElement): void { this.inspector = el; this.render(); }
   /** Props ticked in the palette, to edit together. */
   private readonly propPicks = new Set<string>();
+  /** Ticked tiles (Update 150). */
+  private readonly tilePicks = new Set<string>();
 
   /**
    * The Water tab: fill, paint, remove or restyle water; its level and kind; and the map's water styles (a pond, a

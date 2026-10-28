@@ -401,6 +401,12 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 150: skinned built-in tiles carry kind / frames / fps / blocks / above (TileCatalog), Kind and Passage
+        in the skin importer. Palette: tile settings modal from ✎ (no panel above the list), tilePicks with Group… /
+        Delete, prop picks gain Group… / Delete, groupSections (details, open state in localStorage
+        hd2d.palGroup.*), assets.tileGroups / propGroups via setPaletteGroup. Inspector is a section inside the left
+        bar (hidden with nothing selected; above the events list in Events), right bar and Details button gone;
+        .layout --left-w set by the .side-grip drag (localStorage hd2d.editorLeftWidth). Maps grouping: later.
   - [x] Update 149: editor/SheetPicker.ts pickFromSheet (grid, drag a box of cells, tile size 16–64) → PropImporter
         sets the picture, size in tiles, scale = tile px, offset 0. RPG Maker plan (145–149) done.
   - [x] Update 148: TileDef kind 'wall' (wallQuarters: outer / inner half-tile per side, 4 rows; quartersFor /

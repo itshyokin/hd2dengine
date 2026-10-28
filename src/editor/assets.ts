@@ -324,3 +324,17 @@ export async function duplicateProp(store: EditorStore, id: string): Promise<voi
     toast(`“${copy.name}”: the same picture with its own settings (Edit… to give it dates, a new name…).`);
   }
 }
+
+/** Put tiles or props into a palette group (Update 150), or take them out of one (undefined). */
+export async function setPaletteGroup(store: EditorStore, kind: 'tile' | 'prop', ids: string[], group: string | undefined): Promise<void> {
+  const field = kind === 'tile' ? 'tileGroups' : 'propGroups';
+  const all = { ...(store.assets[field] ?? {}) };
+  for (const id of ids) if (group) all[id] = group; else delete all[id];
+  const next = { ...store.assets, [field]: Object.keys(all).length ? all : undefined };
+  if (!next[field]) delete next[field];
+  if (store.project.canSave && store.project.canStoreImages) {
+    try { await store.project.write('assets.json', formatAssets(next)); }
+    catch (err) { toast(`Couldn’t save the groups: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+  }
+  store.setAssets(next);
+}

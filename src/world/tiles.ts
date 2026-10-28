@@ -59,7 +59,9 @@ export class TileCatalog {
       if (!BUILTIN_KEYS.has(t.key)) { this.byKey.set(t.key, t); continue; }
       // A built-in tile with a picture of your own: the picture, everything else as built in.
       const b = this.byKey.get(t.key);
-      if (b && t.skin && t.image) this.byKey.set(t.key, { ...b, image: t.image, normal: t.normal, flat: t.flat, span: t.span || 1, filter: t.filter, skin: true });
+      // Update 150: with its kind (animated, autotile, wall) and passage too.
+      if (b && t.skin && t.image) this.byKey.set(t.key, { ...b, image: t.image, normal: t.normal, flat: t.flat, span: t.span || 1, filter: t.filter, skin: true,
+        ...(t.kind ? { kind: t.kind, frames: t.frames, fps: t.fps } : {}), ...(t.blocks ? { blocks: true } : {}), ...(t.above ? { above: true } : {}) });
     }
   }
 

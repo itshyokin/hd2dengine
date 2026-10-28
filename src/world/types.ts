@@ -258,6 +258,9 @@ export interface AssetRegistry {
   tileBlend?: Record<string, Partial<TileBlend>>;
   /** Footstep sounds per tile key ("grass", "stone", "wood"…), overriding the guess from the tile's name. */
   tileSteps?: Record<string, string>;
+  /** Update 150: palette groups, tile key → group name and prop id → group name (built-ins too). */
+  tileGroups?: Record<string, string>;
+  propGroups?: Record<string, string>;
   /** Update 123: tiles that keep footprints (or don't), by key; unset: on for snow and sand. */
   tilePrints?: Record<string, boolean>;
   /** Ailments a tile gives while it's stood on (lava burns, a swamp poisons): a % chance each half second. */

@@ -1372,6 +1372,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Editor layout** (Update 150): one bar on the left (drag its edge to make it wider; double-click the edge for the
+  normal width); what's selected shows at the top of it (events: above *Events on this map*); the right bar is gone.
+  Every tile, built-in or imported, has a ✎ for its settings (picture, kind, passage, cliffs, footsteps, blending,
+  delete). Tick tiles or props to **Delete** them together or put them in a **Group**: groups are sections of the
+  palette you can show or hide. Built-in tiles given your own picture can be Animated, Autotiles or Walls too.
 - **Props from a tileset sheet** (Update 149, prop editor → *From a tileset sheet…*): open a sheet (RPG Maker B–E
   sheets, your commissioned ones), pick the tile size, drag a box over the tiles of a tree, rock or cave mouth, and
   they become the prop's picture, framed exactly (one sheet tile = one map tile).
