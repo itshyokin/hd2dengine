@@ -1228,17 +1228,6 @@
       "image": "assets/tiles/water_edged.png"
     },
     {
-      "key": "c",
-      "id": "grass_cliff_upper",
-      "name": "Grass Cliff - Upper",
-      "span": 1,
-      "filter": "point",
-      "kind": "wall",
-      "flat": true,
-      "blocks": true,
-      "image": "assets/tiles/grass_cliff_upper.png"
-    },
-    {
       "key": "a",
       "id": "grass_cliff",
       "name": "Grass Cliff",
@@ -1256,6 +1245,18 @@
       "span": 1,
       "filter": "point",
       "image": "assets/tiles/steps_brown.png"
+    },
+    {
+      "key": "c",
+      "id": "grass_cliff_upper",
+      "name": "Grass Cliff - Upper",
+      "span": 1,
+      "filter": "point",
+      "kind": "wall",
+      "flat": true,
+      "blocks": true,
+      "image": "assets/tiles/grass_cliff_upper.png",
+      "edges": "assets/tiles/grass_cliff_upper_edges.png"
     }
   ],
   "tileCliffs": {
