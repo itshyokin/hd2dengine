@@ -7182,8 +7182,8 @@
     ]
   },
   "overworldCamera": {
-    "pitch": 90,
-    "lean": 100,
+    "pitch": 88,
+    "lean": 95,
     "distance": 38,
     "fov": 15
   }
