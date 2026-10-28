@@ -7,8 +7,16 @@ import type { TileMap } from '../world/TileMap';
 import type { Ability, Dir } from '../world/types';
 
 /** Half the player's footprint (x) and its depth (z), in tiles. */
-export const PLAYER_RADIUS = 0.26;
-const RZ = PLAYER_RADIUS * 0.6;
+export let PLAYER_RADIUS = 0.26;
+let RZ = PLAYER_RADIUS * 0.6;
+/**
+ * 2D mode (Update 151): the hero's body nearly fills a tile, so walls and trees stop him where their tiles are, like
+ * RPG Maker (3D: a small body at his feet).
+ */
+export function setBody2D(on: boolean): void {
+  PLAYER_RADIUS = on ? 0.4 : 0.26;
+  RZ = on ? 0.45 : 0.26 * 0.6;
+}
 /** Highest rise or drop the player can walk over without a ramp (a height step is 0.5). */
 export const MAX_STEP = 0.2;
 /** Movement speeds in tiles per second (set in the database). */

@@ -1372,6 +1372,14 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Frames, edge trims and inside corners** (Update 151, tile editor → *Edges and corners*): an Autotile can use the
+  *Frame* layout (a picture of one patch's outline, 2 × 2 or 3 × 3 tiles, any tile size, e.g. 32 × 32 for 16 px
+  tiles); any tile can have an *Edge trim* (a frame, see-through in the middle, drawn along the edges of each patch:
+  grass edging, a rim round water); *Inside corners* is one tile of corner pieces (meeting in the middle like a dot,
+  or RPG Maker style). New passage **Edges block**: walk on top of a patch, not off its sides. A tile on the upper
+  layer decides its cell's passage, like RPG Maker (stairs set to O open a way up). **2D mode** draws characters and
+  props with their feet on the bottom edge of their cell, and the hero's body fills his tile, so walls and trees stop
+  him where their tiles are.
 - **Editor layout** (Update 150): one bar on the left (drag its edge to make it wider; double-click the edge for the
   normal width); what's selected shows at the top of it (events: above *Events on this map*); the right bar is gone.
   Every tile, built-in or imported, has a ✎ for its settings (picture, kind, passage, cliffs, footsteps, blending,

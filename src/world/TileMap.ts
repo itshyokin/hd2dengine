@@ -66,9 +66,13 @@ export class TileMap {
     this.blocked = new Uint8Array(this.w * this.h);
     for (let z = 0; z < this.h; z++)
       for (let x = 0; x < this.w; x++) {
-        // Update 147: an upper-layer tile set to block (not ☆) blocks too.
-        const u = this.upper(x, z);
-        if (tiles.blocks(this.terrain(x, z)) || (u !== ' ' && tiles.blocks(u) && !tiles.get(u)?.above)) this.blocked[z * this.w + x] = 1;
+        // Update 151, like RPG Maker: a tile on the upper layer (not ☆) decides its cell's passage (stairs set to O
+        // open a way up a plateau); otherwise the ground's: blocking, or only at the edges of its patch.
+        const u = this.upper(x, z), ud = u !== ' ' ? tiles.get(u) : undefined;
+        if (ud && !ud.above) { if (ud.blocks) this.blocked[z * this.w + x] = 1; continue; }
+        const k = this.terrain(x, z), d = tiles.get(k);
+        if (tiles.blocks(k)) this.blocked[z * this.w + x] = 1;
+        else if (d?.edgeBlocks && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => this.inMap(x + dx, z + dz) && this.terrain(x + dx, z + dz) !== k)) this.blocked[z * this.w + x] = 1;
       }
   }
   private readonly upperRows: string[];

@@ -4,7 +4,7 @@ import { missingImage } from '../shared/images';
 import { HIDDEN_BUILTINS, PropCatalog } from '../world/props';
 import { TileCatalog } from '../world/tiles';
 import { hash2 } from '../core/math';
-import { drawPixelTile, frameLayout, frameRect, isPixelTile } from '../world/pixelTiles';
+import { drawFrameCell, drawPixelTile, frameLayout, frameRect, isPixelTile } from '../world/pixelTiles';
 import type { CharacterDef, Dir, EnemyDef, PropDef, TileDef } from '../world/types';
 
 export const TS = 16;
@@ -48,8 +48,13 @@ export function drawTile(ctx: CanvasRenderingContext2D, t: string, x: number, z:
   if (def?.image) {
     const img = customTiles.get(t);
     if (!img) { ctx.drawImage(missingTile, px, py); return; }
+    const same = (dx: number, dz: number) => at(x + dx, z + dz) === t;
+    const corners = customTiles.get(`${t}#corners`), edges = customTiles.get(`${t}#edges`), n = Math.max(2, Math.round(def.frameTiles ?? 2));
+    // Update 151: a frame autotile; then any edge trim over the tile.
+    const trim = () => { if (edges) drawFrameCell(ctx, edges, n, corners, def.cornersAt, px, py, TS, same); };
+    if (def.kind === 'autotile' && def.layout === 'frame') { drawFrameCell(ctx, img, n, corners, def.cornersAt, px, py, TS, same); trim(); return; }
     // RPG Maker-style tiles (Update 146): first frame, autotiles shaped by their neighbours.
-    if (isPixelTile(def)) { drawPixelTile(ctx, img, def, px, py, TS, 0, (dx, dz) => at(x + dx, z + dz) === t); return; }
+    if (isPixelTile(def)) { drawPixelTile(ctx, img, def, px, py, TS, 0, same); trim(); return; }
     const span = Math.max(1, Math.round(def.span || 1));
     const sw = img.width / span, sh = img.height / span;
     const ix = ((x % span) + span) % span, iz = ((z % span) + span) % span;
@@ -57,6 +62,7 @@ export function drawTile(ctx: CanvasRenderingContext2D, t: string, x: number, z:
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, ix * sw, iz * sh, sw, sh, px, py, TS, TS);
     ctx.imageSmoothingEnabled = false;
+    trim();
     return;
   }
   ctx.drawImage(tileImage(def ? t : '.', x, z), px, py);
@@ -84,7 +90,7 @@ export function tileThumb(key: string, size = 36): HTMLCanvasElement {
     // One tile of the first frame (an autotile: its top-left preview tile).
     ctx.imageSmoothingEnabled = false;
     const l = frameLayout(def, img.width, img.height);
-    const [sx, sy, sw, sh] = def.kind === 'autotile' || def.kind === 'wall' ? [0, 0, img.width / l.frames / 2, img.height / (def.kind === 'wall' ? 2 : 3)] : frameRect(img.width, img.height, l, 0);
+    const [sx, sy, sw, sh] = def.layout === 'frame' ? [0, 0, img.width / Math.max(2, Math.round(def.frameTiles ?? 2)), img.height / Math.max(2, Math.round(def.frameTiles ?? 2))] : def.kind === 'autotile' || def.kind === 'wall' ? [0, 0, img.width / l.frames / 2, img.height / (def.kind === 'wall' ? 2 : 3)] : frameRect(img.width, img.height, l, 0);
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
     return c;
   }

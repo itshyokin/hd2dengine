@@ -540,7 +540,11 @@ export class EditorStore {
     const m = this.map, w = m.width, out: ('tile' | 'prop' | 'building' | 'deep' | null)[] = new Array(w * m.height).fill(null);
     for (let z = 0; z < m.height; z++)
       for (let x = 0; x < w; x++) {
-        if (this.tiles.blocks(this.terrainAt(x, z))) out[z * w + x] = 'tile';
+        // Update 151: as the game decides it (an upper tile decides its cell; edge-blocking tiles block at the edges).
+        const u = this.upperAt(x, z), ud = u !== ' ' ? this.tiles.get(u) : undefined, k = this.terrainAt(x, z);
+        if (ud && !ud.above) { if (ud.blocks) out[z * w + x] = 'tile'; }
+        else if (this.tiles.blocks(k)) out[z * w + x] = 'tile';
+        else if (this.tiles.get(k)?.edgeBlocks && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => this.inMap(x + dx, z + dz) && this.terrainAt(x + dx, z + dz) !== k)) out[z * w + x] = 'tile';
         else if (this.waterAt(x, z)?.kind === 'deep') out[z * w + x] = 'deep';
       }
     for (const p of m.props) {

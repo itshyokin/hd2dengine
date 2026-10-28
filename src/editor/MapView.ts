@@ -891,12 +891,12 @@ export class MapView {
   private hitProp(w: Pt, type?: string): number {
     const props = this.store.map.props;
     let best = -1, bestZ = -Infinity;
-    const px = w.x * TS, pz = w.z * TS;
+    const px = w.x * TS, pz = w.z * TS, sh = this.store.db.viewMode === '2d' ? 0.5 : 0;
     props.forEach((p, i) => {
       if (type && p.type !== type) return;
       const sp = propSprite(p.type), sc = p.s ?? 1, iw = sp.w * sc, ih = sp.h * sc;
-      const x0 = p.x * TS - iw / 2, y0 = p.z * TS - ih;
-      if (px >= x0 && px <= x0 + iw && pz >= y0 && pz <= p.z * TS + 2 && p.z >= bestZ) { best = i; bestZ = p.z; }
+      const x0 = p.x * TS - iw / 2, y0 = (p.z + sh) * TS - ih;
+      if (px >= x0 && px <= x0 + iw && pz >= y0 && pz <= (p.z + sh) * TS + 2 && p.z >= bestZ) { best = i; bestZ = p.z; }
     });
     return best;
   }
@@ -1157,7 +1157,7 @@ export class MapView {
     if (sel?.kind === 'prop' && s.map.props[sel.index]) {
       const p = s.map.props[sel.index], sp = propSprite(p.type), sc = p.s ?? 1;
       ctx.lineWidth = lw; ctx.strokeStyle = '#7fd3ff'; ctx.setLineDash([4 / this.zoom, 3 / this.zoom]);
-      ctx.strokeRect(p.x * TS - (sp.w * sc) / 2, p.z * TS - sp.h * sc, sp.w * sc, sp.h * sc);
+      ctx.strokeRect(p.x * TS - (sp.w * sc) / 2, (p.z + (this.store.db.viewMode === '2d' ? 0.5 : 0)) * TS - sp.h * sc, sp.w * sc, sp.h * sc);
       ctx.setLineDash([]);
       ctx.fillStyle = '#7fd3ff';
       ctx.fillRect(p.x * TS - 1.5, p.z * TS - 1.5, 3, 3);
@@ -1253,7 +1253,7 @@ export class MapView {
       if (s.propTool === 'place' && !st) {
         const sp = propSprite(s.propType), pos = this.propPos(s.propType, h);
         ctx.globalAlpha = 0.6;
-        ctx.drawImage(sp.img, pos.x * TS - sp.w / 2, pos.z * TS - sp.h, sp.w, sp.h);
+        ctx.drawImage(sp.img, pos.x * TS - sp.w / 2, (pos.z + (s.db.viewMode === '2d' ? 0.5 : 0)) * TS - sp.h, sp.w, sp.h);
         ctx.globalAlpha = 1;
         this.drawBlocked(ctx, s.propType, pos.x, pos.z, 1);
       } else if (s.propTool === 'scatter') {
@@ -1264,7 +1264,7 @@ export class MapView {
         if (i >= 0) {
           const p = s.map.props[i], sp = propSprite(p.type), sc = p.s ?? 1;
           ctx.lineWidth = lw; ctx.strokeStyle = s.propTool === 'erase' ? '#ff6b6b' : 'rgba(255,255,255,0.7)';
-          ctx.strokeRect(p.x * TS - (sp.w * sc) / 2, p.z * TS - sp.h * sc, sp.w * sc, sp.h * sc);
+          ctx.strokeRect(p.x * TS - (sp.w * sc) / 2, (p.z + (this.store.db.viewMode === '2d' ? 0.5 : 0)) * TS - sp.h * sc, sp.w * sc, sp.h * sc);
         }
       }
     } else if (s.mode === 'buildings') {
@@ -1495,7 +1495,10 @@ export class MapView {
    * `y`: its own base height (undefined: the ground's; null: on a wall face, never hidden).
    */
   private drawStanding(img: CanvasImageSource, x: number, z: number, w: number, h: number, alpha: number, y: number | null | undefined): void {
-    const ctx = this.ctx, s = this.store, left = x * TS - w / 2;
+    const s = this.store;
+    // 2D mode (Update 151): feet on the bottom edge of the cell, as the game draws it.
+    if (s.db.viewMode === '2d') z += 0.5;
+    const ctx = this.ctx, left = x * TS - w / 2;
     const cut = y === null ? null : frontWall(s, x, z, y, h / TS);
     if (!cut) { ctx.globalAlpha = alpha; ctx.drawImage(img, left, z * TS - h, w, h); return; }
     const iw = (img as HTMLCanvasElement).width, ih = (img as HTMLCanvasElement).height;
