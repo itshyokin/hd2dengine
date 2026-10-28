@@ -105,7 +105,7 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { EvolveScreen } from '../ui/EvolveScreen';
-import { leanNow, patchLean, setLean, setGroundYield } from '../render/lean';
+import { leanNow, patchLean, setLean, setView2D, setGroundYield } from '../render/lean';
 import { DEFAULT_OVERWORLD_CAMERA } from './cameraDefaults';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
@@ -2064,7 +2064,8 @@ export class Game {
     this.updateTimeWarp(dt);
     // Characters always on top (Update 139): the hero and party drawn over props they overlap.
     // Update 142: off, the ground and props aren't pushed back either, so trees and ledges in front hide characters.
-    { const top = !!this.db.charactersOnTop; setGroundYield(top); this.player.setOnTop(top); for (const a of this.allies) a.sprite.setOnTop(top); }
+    // 2D mode (Update 145): layers decide, so no on-top copies.
+    { const top = !!this.db.charactersOnTop && this.db.viewMode !== '2d'; setGroundYield(top); this.player.setOnTop(top); for (const a of this.allies) a.sprite.setOnTop(top); }
     document.body.classList.toggle('sleeping', this.sleepLook > 0.05);
     this.updateCamera(dt);
     this.updateBubbles();
@@ -7212,6 +7213,11 @@ export class Game {
   private updateCamera(dt: number): void {
     // Sprites lean back to face the map camera (upright on battle maps, where the camera goes all round).
     setLean(this.stage ? 0 : THREE.MathUtils.degToRad(this.overworldCam.pitch) * this.overworldCam.lean / 100);
+    const twoD = !this.stage && this.db.viewMode === '2d';
+    setView2D(twoD, this.db.playerLayer ?? 10);
+    // 2D: nothing comes near the camera, so its near plane moves close to the ground for finer depth (layers, sorting).
+    const near = twoD ? Math.max(0.5, this.overworldCam.distance * 0.4) : 0.5;
+    if (this.camera.near !== near) { this.camera.near = near; this.camera.updateProjectionMatrix(); }
     if (this.stage) { this.updateStageCamera(dt); return; }
     // A griffin flight: further back and higher, following the griffin.
     if (this.flight) {

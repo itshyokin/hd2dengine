@@ -5,7 +5,7 @@
 import { markProp } from '../render/lean';
 import { patchSway } from '../render/wind';
 import { patchLip } from '../render/lipFade';
-import { GROUND_LAYER, layerNudge, patchGroundYield, patchLean } from '../render/lean';
+import { GROUND_LAYER, clampLayer, layerNudge, layerTie, patchGroundYield, patchLean } from '../render/lean';
 import { buildDecks, placeDecks } from './decks';
 import * as THREE from 'three';
 import { propBase } from './wallAnchor';
@@ -735,7 +735,8 @@ function buildProps(scene: THREE.Object3D, map: TileMap, data: MapData, sprites:
     if (ps !== 'off') patchSeason(a.material, ps === 'bare' ? 'bare' : 'leaves');
     // Each copy's layer (Update 144): its own geometry carries how far each is pulled forward in depth.
     const geo = a.geometry.clone();
-    geo.setAttribute('hdNudge', new THREE.InstancedBufferAttribute(new Float32Array(list.map((p) => layerNudge(p.layer ?? pdef?.layer ?? GROUND_LAYER, p.x, p.z))), 1));
+    geo.setAttribute('hdNudge', new THREE.InstancedBufferAttribute(new Float32Array(list.map((p) => layerTie(p.x, p.z))), 1));
+    geo.setAttribute('hdLayer', new THREE.InstancedBufferAttribute(new Float32Array(list.map((p) => clampLayer(p.layer ?? pdef?.layer ?? GROUND_LAYER))), 1));
     const mesh = withSpriteShadows(new THREE.InstancedMesh(geo, a.material, list.length), a);
     mesh.frustumCulled = false;
     // Characters set always on top draw over it (Update 139).

@@ -1372,6 +1372,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **2D / 3D mode** (Update 145, Database → World → View & camera): *3D mode* is the HD-2D look; *2D mode* looks
+  straight down with everything flat and draws in order of layers like RPG Maker: characters are on the *Player
+  layer* (default 10), props on a lower layer always cover them, higher ones are always under them, and on the same
+  layer whoever is further down the screen is in front (trees on the player's layer, flowers on 25, overhangs low).
 - **Prop layers** (Update 144): every placed prop has a *Layer*, 0 (drawn on top) … 25 (the ground, the default),
   like RPG Maker's layers. Pick it in the map editor's prop brush (or *Prop's own*, the default set in the prop
   editor), or on a selected prop in the inspector. Where props overlap the lower layer draws on top; it never moves

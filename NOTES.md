@@ -401,6 +401,12 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 145: Database viewMode '2d' / playerLayer. lean.ts uHd2D / uHdPlayer, per-instance hdLayer (hdNudge now
+        only the tie); 2D: depth at the ground (y 0) pulled toward the camera by a share of the distance, (25 − layer)
+        × 0.012 + z × 0.00002 + tie × 0.0001; non-instanced lean sprites (characters, events) use the player layer;
+        not in shadow passes. 2D camera near = 0.4 × distance for depth precision. No on-top copies in 2D.
+        Plan next: tile kinds (plain / animated / autotile A2, animated autotile), passage O / X / ☆, upper terrain
+        layer, RPG Maker cliffs (flat, per-map option vs 3D heights), box-select a sheet into a prop.
   - [x] Update 144: prop layers (PropData.layer, PropDef.layer, store.propLayer; lean.ts layerNudge → per-instance
         `hdNudge` attribute pulling depth toward the camera, (25 − layer) × 0.01 + a 5-step tie of 0.0018; flat
         props raised by 0.4 × that). Backpack 440px wide, 44px slots, menu-note hidden, actions rendered outside

@@ -1104,6 +1104,13 @@ export interface Database {
   aButton?: 'jump' | FieldUseKind | FieldPower;
   /** Characters always on top (Update 139): the hero and party are drawn over props they overlap. */
   charactersOnTop?: boolean;
+  /**
+   * View (Update 145): '2d' draws everything flat and in order of layers like RPG Maker (characters on
+   * `playerLayer`, props on theirs; the same layer sorts by position); unset, the 3D HD-2D look.
+   */
+  viewMode?: '2d';
+  /** 2D mode: the layer characters are on (0 on top … 25 the ground; default 10). */
+  playerLayer?: number;
   title: string;
   /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
   world?: import('./worldLayout').WorldData;

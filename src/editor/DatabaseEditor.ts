@@ -89,7 +89,7 @@ const DB_GROUPS: [string, [DbTab, string, string][]][] = [
   ['Abilities', [['skills', 'Skill trees', 'tree'], ['spells', 'Spells', 'spark'], ['additions', 'Additions', 'combo']]],
   ['Items', [['items', 'Items', 'potion'], ['materials', 'Materials', 'ore'], ['weapons', 'Weapons', 'sword'], ['gear', 'Gear: armor, shields, accessories', 'armor'], ['shards', 'Shards: spells and element stones', 'gem'], ['keyItems', 'Key items', 'key'], ['inventory', 'Starting inventory', 'bag']]],
   ['Story', [['quests', 'Quests', 'scroll'], ['achievements', 'Achievements', 'trophy'], ['tutorials', 'Tutorials', 'bubble'], ['globals', 'Global events', 'globe']]],
-  ['World', [['camera', 'Camera', 'eye'], ['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Travel: horses and griffins', 'horse']]],
+  ['World', [['camera', 'View & camera', 'eye'], ['time', 'Time & seasons', 'clock'], ['climate', 'Weather & temperature', 'cloud'], ['mapThemes', 'Map themes', 'mountain'], ['markers', 'Map markers', 'pin'], ['horses', 'Travel: horses and griffins', 'horse']]],
   ['Game', [['stats', 'Stat order', 'bars'], ['menus', 'Title & menus', 'menu'], ['messageStyles', 'Text boxes', 'bubble'], ['textColors', 'Text colours', 'palette'], ['audio', 'Audio', 'note'], ['saving', 'Saving', 'disk'], ['credits', 'Credits', 'heart']]],
 ];
 const ICON_PATHS: Record<string, string> = {
@@ -150,6 +150,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const menus: MenuConfig = JSON.parse(JSON.stringify(store.db.menus ?? {})) as MenuConfig;
   const cam: OverworldCamera = JSON.parse(JSON.stringify(store.db.overworldCamera ?? {})) as OverworldCamera;
   let onTop = !!store.db.charactersOnTop;
+  let view2d = store.db.viewMode === '2d', playerLayer = store.db.playerLayer ?? 10;
   const saving = { anywhere: store.db.saving?.anywhere !== false, autosave: store.db.saving?.autosave !== false };
   const abilities = Object.fromEntries(ABILITIES.map((a) => [a, store.db.abilities?.[a] ?? true])) as Record<string, boolean>;
   const body = h('div', { class: 'db-editor' });
@@ -507,7 +508,17 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
     const D = DEFAULT_OVERWORLD_CAMERA, val = <K extends keyof OverworldCamera>(k: K) => cam[k] ?? D[k];
     const set = <K extends keyof OverworldCamera>(k: K, v: number) => { if (v === D[k]) delete cam[k]; else cam[k] = v; };
     const preset = (p: Required<OverworldCamera>) => { for (const k of Object.keys(p) as (keyof OverworldCamera)[]) set(k, p[k]); render(); };
-    return [h('section', { class: 'db-section db-narrow' }, h('h3', {}, 'Camera over the maps'),
+    // Update 145: 2D mode (RPG Maker style: flat, drawn in order of layers) or 3D mode (HD-2D).
+    const mode = (two: boolean) => { view2d = two; preset(two ? TOPDOWN_OVERWORLD_CAMERA : DEFAULT_OVERWORLD_CAMERA); };
+    return [h('section', { class: 'db-section db-narrow' }, h('h3', {}, 'View'),
+      h('div', { class: 'stack row' },
+        h('button', { type: 'button', class: view2d ? 'btn ghost' : 'btn', 'aria-pressed': String(!view2d), onclick: () => mode(false) }, '3D mode (HD-2D)'),
+        h('button', { type: 'button', class: view2d ? 'btn' : 'btn ghost', 'aria-pressed': String(view2d), onclick: () => mode(true) }, '2D mode (like RPG Maker)')),
+      h('p', { class: 'note' }, view2d
+        ? '2D: looking straight down, everything flat, drawn in order of layers: props on a lower layer than the characters always cover them, higher ones are always under them, and on the same layer whoever is further down the screen is in front (put trees on the player’s layer, flowers and rugs on 25, overhangs on a low number). Picking a mode also sets the camera below.'
+        : '3D: the HD-2D look, sprites standing in a real 3D world; layers only settle which prop is on top where they overlap. Picking a mode also sets the camera below.'),
+      view2d ? field('Player layer (0 on top … 25 the ground)', numberInput(playerLayer, (v) => (playerLayer = Math.max(0, Math.min(25, Math.round(v)))), { step: 1, min: 0, max: 25 }), 'The layer the hero, party and other characters are on.') : null),
+      h('section', { class: 'db-section db-narrow' }, h('h3', {}, 'Camera over the maps'),
       h('p', { class: 'note' }, 'How the camera looks at the maps while exploring (battle maps have their own cameras). Standing sprites (trees, people, signs) lean back to face it, so a steep camera still shows their full height and they fill out their tile.'),
       h('div', { class: 'stack row' },
         h('button', { type: 'button', class: 'btn', onclick: () => preset(DEFAULT_OVERWORLD_CAMERA) }, 'Handheld 3D (default)'),
@@ -519,8 +530,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         field('Field of view (°)', numberInput(val('fov'), (v) => set('fov', Math.max(15, Math.min(70, Math.round(v)))), { step: 1, min: 15, max: 70 }), 'Wider: more perspective.'),
         field('Sprite lean (%)', numberInput(val('lean'), (v) => set('lean', Math.max(0, Math.min(100, Math.round(v)))), { step: 5, min: 0, max: 100 }), 'Of the camera’s angle: 0 upright, 100 facing it fully (at 90° that lays them flat, like a 2D game).')),
       h('p', { class: 'note' }, 'Playtest to see it. Tall sprites right in front of walls may tuck into them when they lean a lot; lower the lean if so.'),
-      checkbox('Characters always on top: the hero and party are drawn over props they overlap and over ledges and cliff tops in front of them (nothing hides them)', onTop, (v) => (onTop = v)),
-      h('p', { class: 'note' }, 'Off: trees, props, ledges and cliffs in front of a character hide them, as they really stand. Either way, a sprite standing in front of a wall never tucks into it.'))];
+      view2d ? null : checkbox('Characters always on top: the hero and party are drawn over props they overlap and over ledges and cliff tops in front of them (nothing hides them)', onTop, (v) => (onTop = v)),
+      view2d ? null : h('p', { class: 'note' }, 'Off: trees, props, ledges and cliffs in front of a character hide them, as they really stand. Either way, a sprite standing in front of a wall never tucks into it.'))];
   };
 
   const timeTab = () => {
@@ -761,7 +772,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) && onTop === !!db.charactersOnTop &&
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) && onTop === !!db.charactersOnTop && view2d === (db.viewMode === '2d') && playerLayer === (db.playerLayer ?? 10) &&
         (activeParty === 4) === (db.activeParty === 4) && aButton === (db.aButton ?? 'jump') && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? []) && JSON.stringify(cleanGlobals(globals)) === JSON.stringify(db.globalEvents ?? []) && JSON.stringify(cleanGenders(genders) ?? null) === JSON.stringify(db.genders ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
@@ -774,6 +785,8 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (tFinal) db.time = C(tFinal); else delete db.time;
       if (camOut) db.overworldCamera = C(camOut); else delete db.overworldCamera;
       if (onTop) db.charactersOnTop = true; else delete db.charactersOnTop;
+      if (view2d) db.viewMode = '2d'; else delete db.viewMode;
+      if (playerLayer !== 10) db.playerLayer = playerLayer; else delete db.playerLayer;
       if (statOut) db.statOrder = statOut; else delete db.statOrder;
       if (activeParty === 4) db.activeParty = 4; else delete db.activeParty;
       if (aButton !== 'jump') db.aButton = aButton; else delete db.aButton;
