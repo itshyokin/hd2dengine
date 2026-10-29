@@ -1372,6 +1372,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **3D view** (Update 155, the toolbar's *3D view* on a 3D map): fly round the Blender scene (right mouse + W A S D),
+  right-click a spot to put a new event or the player's start there, click events to select them, drag the gizmo to
+  move (W) or turn (E) them, F to frame, double-click to edit. Events placed in 3D keep their exact spot and height
+  (`pos3`); the game stands them there, talks to them from in front and fires touch events when walked into.
 - **3D maps from Blender** (Update 154, Map Properties → *3D map (Blender scene)*; how-to: docs/BLENDER_3D_MAPS.md):
   a whole place modelled in Blender, walked through in third person. Names in the scene mark collision (`_col`,
   `_nocol`, `_nocam`), swaying foliage (`_foliage` materials), water to swim in (`_water`), waterfalls

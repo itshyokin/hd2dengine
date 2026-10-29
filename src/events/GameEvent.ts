@@ -38,7 +38,7 @@ export class GameEvent {
   /** Does this event cover tile (x, z)? */
   covers(x: number, z: number): boolean { return eventCovers(this.data, x, z); }
   /** Centre of the event's tile nearest to a point. */
-  nearest(px: number, pz: number): [number, number] { return nearestTileCentre(this.data, px, pz); }
+  nearest(px: number, pz: number): [number, number] { return this.data.pos3 ? [this.data.pos3.x, this.data.pos3.z] : nearestTileCentre(this.data, px, pz); }
   get onMap(): boolean { return this.map.inMap(this.data.x, this.data.z); }
   get solid(): boolean { return !!this.page?.solid && !this.page.enemy && !this.broken && this.onMap; }
   /** The active page is something to break. */
@@ -106,6 +106,9 @@ export class GameEvent {
         this.visual.position.set(vx, w.y, w.z);
         this.visual.castShadow = false;
       } else this.visual.position.set(vx, y, vz);
+      // Update 155: placed in 3D (a 3D map): exactly there, turned its way.
+      const p3 = this.data.pos3;
+      if (p3) { this.visual.position.set(p3.x, p3.y, p3.z); if (p3.ry !== undefined && this.character?.rig) this.character.faceVector(Math.sin((p3.ry * Math.PI) / 180), Math.cos((p3.ry * Math.PI) / 180)); }
       this.scene.add(this.visual);
     }
   }

@@ -51,8 +51,18 @@ weather on top.
 1. In the Map Editor, make a map (**New map**) big enough to cover the scene in tiles (a 60 × 40 m scene needs a map
    of at least 60 × 40), then open **⚙ Map Properties → 3D map (Blender scene) → Choose…** and pick the `.glb`. It's
    saved in the project as `assets/maps/<map>_3d.glb`, and the editor tells you how big it is.
-2. The editor's map shows the scene from above. Place **events** on its tiles as on any map (transfers, people,
-   chests, encounters); music, sounds, weather, battles and encounters are set in Map Properties as usual.
+2. Click **3D view** in the toolbar to see the scene in 3D:
+   - **Fly:** hold the right mouse button and drag to look; **W A S D** move, **Q / E** down / up, **Shift** faster;
+     the wheel moves forward and back.
+   - **Place:** right-click a spot (without dragging) → **New event here…**, then pick its kind on the left (an
+     event, a transfer, a chest, an enemy…): it stands exactly on that spot, on whatever floor you clicked. **Move
+     the player's start here** does what it says.
+   - **Select and move:** click an event; drag the gizmo's arrows to move it (**W**), or press **E** and drag the
+     ring to turn it; **F** frames it; double-click opens its pages and commands. Its settings show in the left bar.
+   - In the game, a *talk* event is talked to from in front of it (at about the same height), and a *touch* event
+     fires when the hero walks into it.
+   The 2D map (the toolbar's 3D view button again) shows the scene from above, and events can still be placed on its
+   tiles. Music, sounds, weather, battles and encounters are set in Map Properties as usual.
 3. **▶ Playtest.** The camera orbits the hero: drag with the mouse (or use the right stick) to turn it, and the wheel
    zooms. Database → World → View & camera → *Camera on 3D maps* can switch it to **Follow** (it settles behind the
    hero as they walk). Either way it never looks up from under the ground or straight down.

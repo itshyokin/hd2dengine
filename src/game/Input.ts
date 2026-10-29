@@ -261,6 +261,8 @@ export class Input {
   consume(a: Action): boolean {
     return this.pressed.delete(a);
   }
+  /** Pressed this frame, without using it up (Update 155). */
+  peek(a: Action): boolean { return this.pressed.has(a); }
 
   /** Confirm in menus and messages: Enter, Space or A. */
   confirm(): boolean {

@@ -1952,6 +1952,21 @@ export class Game {
     return this.events.find((e) => e.covers(x, z) && e.trigger === 'action') ?? null;
   }
 
+  /** Update 155: 3D maps: touch events the hero is standing in (fired once until they step out). */
+  private readonly touched3d = new Set<GameEvent>();
+  /** Update 155: on a 3D map, the talk-to event in front of the hero (placed in 3D, within reach, about level). */
+  private event3DAhead(): GameEvent | null {
+    const w = this.w3!, p = this.player.position, ax = p.x + Math.sin(w.heading) * 0.6, az = p.z + Math.cos(w.heading) * 0.6;
+    let best: GameEvent | null = null, bd = 1.3;
+    for (const e of this.events) {
+      const p3 = e.data.pos3;
+      if (!p3 || e.trigger !== 'action' || !e.page || Math.abs(p3.y - p.y) > 1.6) continue;
+      const d = Math.hypot(p3.x - ax, p3.z - az);
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
+
   /** Distance from the player to the centre of the event's nearest tile. */
   private eventDistance(ev: GameEvent): number {
     const p = this.player.position, [x, z] = ev.nearest(p.x, p.z);
@@ -2200,6 +2215,11 @@ export class Game {
     if (this.combat.hitStop > 0) { this.combat.hitStop -= dt; return; }
     const fromX = this.player.position.x, fromZ = this.player.position.z;
     // (While fishing, Talk / interact reels in instead: see updateFishing.)
+    // Update 155: on a 3D map, talking reaches the nearest event in front (and at about the same height).
+    if (this.w3 && !this.fishing && i.peek('ok')) {
+      const ev = this.event3DAhead();
+      if (ev) { i.consume('ok'); i.consume('jump'); this.runEvent(ev); return; }
+    }
     if (!this.fishing && i.consume('ok')) {
       const [fx, fz] = DIR_VECTOR[this.player.dir];
       const tx = Math.floor(this.player.position.x + fx * 0.75), tz = Math.floor(this.player.position.z + fz * 0.75);
@@ -2361,6 +2381,17 @@ export class Game {
     this.syncPlayer(dt);
     if (m.airborne || m.climbing) return;
 
+    // Update 155: 3D maps: touch events placed in 3D fire when the hero walks into them (once each time).
+    if (this.w3) {
+      const p = this.player.position;
+      for (const e of this.events) {
+        const p3 = e.data.pos3;
+        if (!p3 || e.trigger !== 'touch' || !e.page) continue;
+        const near = Math.hypot(p3.x - p.x, p3.z - p.z) < 0.75 && Math.abs(p3.y - p.y) < 1.4;
+        if (near && !this.touched3d.has(e)) { this.touched3d.add(e); this.runEvent(e); return; }
+        if (!near && Math.hypot(p3.x - p.x, p3.z - p.z) > 1.1) this.touched3d.delete(e);
+      }
+    }
     // Touch triggers fire when the player steps onto a new tile.
     const t = this.playerTile();
     if (t.x !== this.lastTile.x || t.z !== this.lastTile.z) {

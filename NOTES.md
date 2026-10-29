@@ -401,6 +401,11 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 155 (3D maps, phase B): editor/View3D.ts (own WebGLRenderer in .stage, fly camera on RMB, markers =
+        cylinders + name sprites coloured by trigger, TransformControls translate / rotate-Y, right-click menu: New
+        event here → selects the tile and the next new event gets pos3; Move start; tablet: a note with Close).
+        EventData.pos3; GameEvent stands there; Game.event3DAhead (talk) and touched3d (touch) on 3D maps;
+        Input.peek. Next: phase C (trigger and encounter volumes, roaming monsters), phase D (3D NPCs, Mixamo library).
   - [x] Update 154 (3D maps, phase A): game/World3D.ts (build3D: tags by object / material name, offset to the map
         corner, merged world-space collider with a three-mesh-bvh MeshBVH (0.5.24, three 0.149), cam collider without
         _nocam; Body3D capsule r 0.3 h 1.6 pushed out per the three-mesh-bvh character example, 4 substeps, gravity

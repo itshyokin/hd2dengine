@@ -1,4 +1,5 @@
 /** Map editor entry point: lays out the panels and wires the toolbar and shortcuts. */
+import { View3D } from './View3D';
 import { WEAPON_MANIFEST_PATH, itemWeaponSprite, usedWeaponSprites } from '../game/combat/weaponSprites';
 import { findWeapon, loadWeaponList, loadWeaponSheets } from './weaponPicker';
 import '../fonts.css';
@@ -145,6 +146,20 @@ function buildUI(): void {
   const redoBtn = h('button', { type: 'button', class: 'icon-btn', title: 'Redo (Ctrl+Y)', 'aria-label': 'Redo', onclick: () => store.redo() }, '↷');
   const zoomOut = h('button', { type: 'button', class: 'icon-btn', title: 'Zoom out (−)', 'aria-label': 'Zoom out', onclick: () => { view.zoomBy(1 / 1.25); updateStatus(); } }, '−');
   const zoomIn = h('button', { type: 'button', class: 'icon-btn', title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => { view.zoomBy(1.25); updateStatus(); } }, '+');
+  // Update 155: a 3D map's scene in 3D (fly round it, place and move events), instead of the 2D map.
+  const view3d = new View3D(store, (ev) => inspector.openEventWindow(ev));
+  const toggle3d = h('button', { type: 'button', class: 'btn ghost', 'aria-pressed': 'false', title: 'See this 3D map’s scene in 3D: fly round it (hold the right mouse button + W A S D), right-click to place things, drag to move them', onclick: () => set3d(!view3d.active) }, '3D view');
+  const set3d = (on: boolean) => {
+    on = on && !!store.map.scene3d;
+    view3d.show(on);
+    view.el.hidden = on;
+    toggle3d.setAttribute('aria-pressed', String(on));
+    if (!on) store.emit('ui');
+  };
+  view3d.onClose = () => set3d(false);
+  const update3d = () => { toggle3d.hidden = !store.map?.scene3d; if (view3d.active && !store.map?.scene3d) set3d(false); };
+  store.on('meta', update3d);
+  store.on('structure', update3d);
   const fitBtn = h('button', { type: 'button', class: 'btn ghost', title: 'Fit map (F)', onclick: () => { view.fit(); updateStatus(); } }, 'Fit');
   const playBtn = h('a', { class: 'btn play', href: PLAYTEST_URL, target: '_blank', title: 'Play this map in a new tab, including unsaved changes',
     onclick: () => {
@@ -166,6 +181,7 @@ function buildUI(): void {
       h('button', { type: 'button', class: 'btn ghost', title: 'Lay the maps out as one world: the world map in the pause menu, and seamless edges', onclick: () => void openWorldLayout(store) }, 'World')),
     h('div', { class: 'tb-group' }, undoBtn, redoBtn),
     h('div', { class: 'tb-group zoom' }, zoomOut, fitBtn, zoomIn),
+    h('div', { class: 'tb-group' }, toggle3d),
     h('div', { class: 'tb-spacer' }),
     h('div', { class: 'tb-group' }, toggleLeft),
     h('div', { class: 'tb-group' }, saveState, saveBtn, playBtn));
@@ -225,7 +241,8 @@ function buildUI(): void {
   palette.setInspector(inspector.el);
   const grip = h('div', { class: 'side-grip', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Drag to resize the panel', title: 'Drag to resize (double-click: back to normal)' });
   palette.el.append(grip);
-  const layout = h('div', { class: 'layout' }, palette.el, h('main', { class: 'stage' }, view.el));
+  const layout = h('div', { class: 'layout' }, palette.el, h('main', { class: 'stage' }, view.el, view3d.el));
+  update3d();
   const LEFT_KEY = 'hd2d.editorLeftWidth';
   const setLeft = (px: number | null) => {
     if (px === null) { layout.style.removeProperty('--left-w'); try { localStorage.removeItem(LEFT_KEY); } catch { /* storage off */ } return; }

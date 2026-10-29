@@ -573,6 +573,11 @@ export interface EventData {
   h?: number;
   /** A marker on the world map (Quest location, Landmark…), optionally only while a switch is on. */
   marker?: import('./landmarks').EventMarker;
+  /**
+   * 3D maps (Update 155): exactly where it stands (metres; y its feet) and which way it faces (degrees), placed in the
+   * editor's 3D view. Its tile (x, z) follows along.
+   */
+  pos3?: { x: number; y: number; z: number; ry?: number };
   pages: EventPage[];
 }
 
