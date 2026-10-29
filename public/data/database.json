@@ -1,10 +1,11 @@
 {
   "title": "Titamas",
-  "startMap": "Zone_MonolithWoods",
+  "startMap": "map010",
   "start": {
-    "x": 47.5,
-    "z": 14.5,
-    "dir": "up"
+    "x": 7.71,
+    "z": 2.94,
+    "dir": "up",
+    "y": 0.34
   },
   "startHour": 8,
   "stats": {
