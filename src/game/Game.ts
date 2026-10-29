@@ -1112,7 +1112,7 @@ export class Game {
     const was3 = !!this.w3;
     this.w3 = s3 ? { scene: s3, body: new Body3D(s3), cam: new Camera3D(s3), heading: 0 } : null;
     // Back from a 3D map: the map camera's own field of view again.
-    if (was3 && !this.w3) this.resize();
+    if (was3 && !this.w3) { this.camera.far = 200; this.resize(); }
     this.inVolumes.clear();
     const s = start ?? (s3?.start ? { x: s3.start.x, z: s3.start.z } : this.findOpenTile(data));
     const game = this;
@@ -7430,7 +7430,7 @@ export class Game {
     setLean(0); setView2D(false, 10); setBody2D(false); this.motion.grid = false;
     // Its own lens: a normal field of view and a near plane close in (the 2D camera's narrow view and far near plane
     // would hide everything near the hero).
-    if (this.camera.fov !== 55 || this.camera.near !== 0.1) { this.camera.fov = 55; this.camera.near = 0.1; this.camera.updateProjectionMatrix(); }
+    if (this.camera.fov !== 55 || this.camera.near !== 0.1 || this.camera.far !== 400) { this.camera.fov = 55; this.camera.near = 0.1; this.camera.far = 400; this.camera.updateProjectionMatrix(); }
     if (i.rstick.x || i.rstick.y) w.cam.turn(-i.rstick.x * dt * 2.6, i.rstick.y * dt * 1.8);
     w.cam.update(dt, this.camera, this.player.position, w.moving ?? null);
     // A sprite hero shows the side the camera sees; a 3D model turns to the way they're heading.
@@ -7512,9 +7512,10 @@ export class Game {
     const thick = Math.min(1, Math.max(air?.haze ?? 0, outdoor ? haze * 0.75 + rain * 0.25 + mist * 0.7 : 0));
     // A battle stage is small and seen from close by: the fog starts further out so the sky and the scenery around
     // it show (it read as a grey wall before update 93).
-    const reach = this.stage ? 1.8 : 1;
+    // Update 159: a 3D map is seen from the hero's shoulder, out to the horizon: the fog starts far further out.
+    const reach = this.stage ? 1.8 : this.w3 ? 3.6 : 1;
     // A camera set further back than the default pushes the fog back with it (Update 143: the top-down camera).
-    const back = this.stage ? 0 : Math.max(0, this.overworldCam.distance - DEFAULT_OVERWORLD_CAMERA.distance);
+    const back = this.stage || this.w3 ? 0 : Math.max(0, this.overworldCam.distance - DEFAULT_OVERWORLD_CAMERA.distance);
     this.fog.near = (22 - 16 * thick) * reach + back;
     this.fog.far = (50 - 30 * thick) * reach + back;
     // Mist (perhaps only around dawn or after dark) and sun rays (only while the sun is out).

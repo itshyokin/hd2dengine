@@ -15,6 +15,7 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 159 (Oct 29):** 3D maps see further (fog ~80–180 m); lighting guide in docs/BLENDER_3D_MAPS.md.
 - **Update 158 (Oct 29):** Draco and Meshopt compressed models load; Blender doc section on keeping maps small.
 - **Update 157 (Oct 29):** 3D view: the player start can be selected, moved and turned (keeps its floor height);
   Move / Turn / Size buttons and a controls hint on screen.

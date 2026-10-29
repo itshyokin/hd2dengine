@@ -47,6 +47,28 @@ Keep textures small where you can (1024 × 1024 is plenty for most things). Bake
 nothing: bake shadows and light into the textures in Blender, and the engine adds its own day and night, lights and
 weather on top.
 
+## Lighting
+
+The engine lights the scene: its sun moves with the time of day and casts shadows, the sky, night, weather, fog and
+bloom all apply, and lights placed in the editor (Lights tab, or props that carry them, like torches) shine on it.
+
+- **Materials:** use Blender's **Principled BSDF** (it exports as a lit material). Base Color, Roughness, Metallic,
+  Normal and Emission all come through. Don't bake shadows or light *into the colour textures* of outdoor maps: the
+  sun moves and night falls, and a baked midday shadow would still be there at night.
+- **Ambient occlusion** (the soft darkening in corners and creases) is the one bake that works with day and night:
+  bake AO to its own texture and plug it into a **glTF Material Output** node's *Occlusion* input (Add → Group →
+  glTF Material Output). It gives depth without fighting the sun.
+- **Glowing things** (windows, lamps, crystals, lava): give them **Emission**; they glow, and bloom at night. Place an
+  engine light there too if it should light its surroundings.
+- **Indoors and caves:** Map Properties → *Lighting: Indoor* (muted, windows show daylight) or *Dark* (only lights
+  show), plus lights placed in the editor. For a place that never changes (a shrine, a tomb), a full light bake looks
+  richest: bake it into the colour and give those materials Blender's **unlit** look (an Emission-only material
+  exports as unlit), so the engine shows them exactly as baked.
+- **Shadows** are drawn in about 36 m around the hero (moving with them), on every mesh except water and kill zones.
+  Settings → Graphics trades their sharpness for speed.
+- **Fog** on 3D maps starts about 80 m out and closes in by about 180 m (sooner in rain, mist or a sandstorm), so
+  open maps show their distance.
+
 ## Keeping maps small
 
 GitHub refuses any file over **100 MB**, and big files load slowly. A whole map can usually be a few MB:
