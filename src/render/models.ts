@@ -7,6 +7,8 @@
  * place a flat prop's picture stands, so the map, the footprint and the collision line up. One mesh means the game
  * draws every copy of it in one go (instanced) and cuts, breaks and hides it like any other prop.
  */
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -23,8 +25,26 @@ export function modelExt(name: string): ModelExt | null {
 /** Read a model file into a scene graph. Throws when it can't be read. */
 export async function parseModel(buf: ArrayBuffer, ext: ModelExt): Promise<THREE.Object3D> {
   if (ext === 'fbx') return new FBXLoader().parse(buf, '');
-  const gltf = await new GLTFLoader().parseAsync(buf, '');
+  // Update 158: compressed models: Meshopt (gltf-transform; its decoder is built in) and Draco (Blender's own
+  // "Compression" export option; its decoder is read from the project's draco/ folder when a model needs it).
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  if (usesDraco(buf)) loader.setDRACOLoader(draco());
+  const gltf = await loader.parseAsync(buf, '');
   return gltf.scene;
+}
+
+let dracoLoader: DRACOLoader | null = null;
+function draco(): DRACOLoader {
+  if (!dracoLoader) {
+    dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath(new URL('draco/', document.baseURI).href);
+  }
+  return dracoLoader;
+}
+/** Does a GLB's description mention Draco compression? (The JSON chunk is at the start of the file.) */
+function usesDraco(buf: ArrayBuffer): boolean {
+  const head = new Uint8Array(buf, 0, Math.min(buf.byteLength, 65536));
+  return new TextDecoder().decode(head).includes('KHR_draco_mesh_compression');
 }
 
 export interface BakeOpts {
