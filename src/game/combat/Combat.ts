@@ -260,7 +260,10 @@ export class Combat {
       const base = this.host.db.enemies?.find((d) => d.id === id);
       if (!base) continue;
       const def = this.host.levelled?.(base, ev.page?.enemyLevels) ?? base;
-      const e = new Enemy(def, ev, this.host.level, this.host.sprites, this.host.db, ev.x + ev.w / 2, ev.z + ev.h - 0.5, this.host.map);
+      // Update 156: placed in 3D (a 3D map): there, on the floor it was placed on.
+      const p3 = (ev as { data?: { pos3?: { x: number; y: number; z: number } } }).data?.pos3;
+      const e = new Enemy(def, ev, this.host.level, this.host.sprites, this.host.db, p3 ? p3.x : ev.x + ev.w / 2, p3 ? p3.z : ev.z + ev.h - 0.5, this.host.map);
+      if (p3) e.y = this.host.map.standY(p3.x, p3.z, p3.y + 0.2);
       this.enemies.push(e);
       this.byEvent.set(ev, e);
     }

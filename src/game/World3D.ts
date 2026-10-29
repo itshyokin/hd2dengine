@@ -36,6 +36,8 @@ export interface Scene3D {
   kills: THREE.Box3[];
   start: THREE.Vector3 | null;
   bounds: THREE.Box3;
+  /** Update 156: boxes named trigger_… / encounter_… in Blender, offered as volumes in the editor. */
+  volumes: { name: string; kind: 'trigger' | 'encounter'; x: number; y: number; z: number; sx: number; sy: number; sz: number; zone?: string }[];
 }
 
 /** A 3D map's data with its scene attached (at run time, never saved). */
@@ -95,12 +97,22 @@ export function build3D(src: THREE.Object3D, scale = 1): Scene3D {
   const cols: THREE.Mesh[] = [], solid: THREE.Mesh[] = [], nocam = new Set<THREE.Mesh>();
   const waters: Scene3D['waters'] = [], falls: Scene3D['falls'] = [], kills: THREE.Box3[] = [];
   let start: THREE.Vector3 | null = null;
+  const volumes: Scene3D['volumes'] = [];
   root.traverse((o) => {
     if (!start && /^(start|player_?start|spawn)(\.\d+)?$/i.test(o.name)) start = o.getWorldPosition(new THREE.Vector3());
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;
     const box = new THREE.Box3().setFromObject(m);
     if (tagged(m, 'killzone')) { kills.push(box); m.visible = false; return; }
+    // Update 156: trigger_… and encounter_A… boxes: volumes (the letter after encounter_ is the zone).
+    const vm = /^(trigger|encounter)[_ ]?(.*?)(\.\d+)?$/i.exec(m.name);
+    if (vm) {
+      const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+      const kind = vm[1].toLowerCase() as 'trigger' | 'encounter', rest = vm[2] || m.name;
+      volumes.push({ name: m.name, kind, x: c.x, y: box.min.y, z: c.z, sx: sz.x, sy: sz.y, sz: sz.z, ...(kind === 'encounter' && /^[a-z]$/i.test(rest.charAt(0)) ? { zone: rest.charAt(0).toUpperCase() } : {}) });
+      m.visible = false;
+      return;
+    }
     if (tagged(m, 'col')) { cols.push(m); m.visible = false; return; }
     m.castShadow = true; m.receiveShadow = true;
     const mats = Array.isArray(m.material) ? m.material : [m.material];
@@ -114,7 +126,30 @@ export function build3D(src: THREE.Object3D, scale = 1): Scene3D {
   const colliding = cols.length ? cols : solid;
   const collider = mergedCollider(colliding) ?? mergedCollider([new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2))])!;
   const camCollider = nocam.size ? mergedCollider(colliding.filter((m) => !nocam.has(m))) : collider;
-  return { object: root, collider, camCollider, waters, falls, kills, start, bounds: new THREE.Box3().setFromObject(root) };
+  return { object: root, collider, camCollider, waters, falls, kills, start, volumes, bounds: new THREE.Box3().setFromObject(root) };
+}
+
+/**
+ * The floor at a point for things that walk the map's grid (enemies, the party, events), Update 156: the highest
+ * floor no more than a step above `fromY` (the highest of all without it). Where something solid stands, or the
+ * ceiling is too low to stand, it answers far above, so they treat it as a wall.
+ */
+export function ground3D(s: Scene3D, x: number, z: number, fromY?: number): number {
+  const bvh = (s.collider.geometry as THREE.BufferGeometry & { boundsTree: MeshBVH }).boundsTree;
+  const ray = new THREE.Ray(new THREE.Vector3(x, s.bounds.max.y + 5, z), new THREE.Vector3(0, -1, 0));
+  const hits = bvh.raycast(ray, THREE.DoubleSide) as THREE.Intersection[];
+  const ref = fromY === undefined ? Infinity : fromY + 0.45;
+  let floor = -Infinity, above: THREE.Intersection | null = null;
+  for (const hit of hits) {
+    const y = hit.point.y;
+    if (y <= ref) { if (y > floor) floor = y; }
+    else if (!above || y < above.point.y) above = hit;
+  }
+  if (fromY !== undefined && above) {
+    // Under the top of something solid (inside a wall), or a ceiling lower than a head: blocked.
+    if ((above.face?.normal.y ?? 0) > 0.2 || above.point.y < fromY + 1.5) return fromY + 50;
+  }
+  return floor === -Infinity ? s.bounds.min.y - 10 : floor;
 }
 
 const cache = new Map<string, Promise<THREE.Object3D>>();

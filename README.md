@@ -1372,6 +1372,11 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Volumes and monsters on 3D maps** (Update 156): in the 3D view, right-click → *Trigger volume* (runs an event's
+  page when the hero walks in or out, once ever or every time) or *Encounter volume* (counts as one of the map's
+  encounter zones); move, turn (E) and size (R) them with the gizmo. Boxes named `trigger_…` / `encounter_A…` in
+  Blender come in with one click. Monsters (Create enemy here) placed in 3D roam and chase on the scene's floors and
+  stop at its walls; whole-map random encounters work as on any map.
 - **3D view** (Update 155, the toolbar's *3D view* on a 3D map): fly round the Blender scene (right mouse + W A S D),
   right-click a spot to put a new event or the player's start there, click events to select them, drag the gizmo to
   move (W) or turn (E) them, F to frame, double-click to edit. Events placed in 3D keep their exact spot and height

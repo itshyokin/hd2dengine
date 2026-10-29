@@ -32,6 +32,8 @@ export type Selection =
   /** An empty tile, or a dragged rectangle of tiles (w × h). */
   | { kind: 'tile'; x: number; z: number; w?: number; h?: number }
   | { kind: 'ramp'; x: number; z: number }
+  /** Update 156: a trigger or encounter volume on a 3D map. */
+  | { kind: 'volume'; id: number }
   | null;
 
 /**

@@ -28,6 +28,9 @@ export class View3D {
   private world: { key: string; s3: Scene3D; body: Body3D } | null = null;
   private loading = '';
   private readonly markers = new Map<number, THREE.Group>();
+  /** Update 156: volumes, as unit boxes scaled to their size (bottom at the group's origin). */
+  private readonly vols = new Map<number, THREE.Group>();
+  private readonly bring = h('button', { type: 'button', class: 'btn small view3d-bring', hidden: true, onclick: () => this.bringVolumes() });
   private readonly startMarker = new THREE.Group();
   private known = new Set<number>();
   private yaw = 0;
@@ -39,7 +42,7 @@ export class View3D {
   private menu: HTMLElement | null = null;
 
   constructor(private readonly store: EditorStore, private readonly openEvent: (ev: EventData) => void) {
-    this.el = h('div', { class: 'view3d', hidden: true }, this.canvas);
+    this.el = h('div', { class: 'view3d', hidden: true }, this.canvas, this.bring);
     this.scene.background = new THREE.Color(0x9fb4c8);
     this.scene.add(new THREE.HemisphereLight(0xdfeeff, 0x4a4030, 0.9));
     const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(-30, 60, -20); this.scene.add(sun);
@@ -156,14 +159,55 @@ export class View3D {
     const st = s.db.start, here = s.db.startMap === s.mapName;
     this.startMarker.visible = here;
     if (here) this.startMarker.position.set(st.x, this.world?.body.groundBelow(st.x, (this.world?.s3.bounds.max.y ?? 0) + 5, st.z) ?? 0, st.z);
-    // The gizmo on the selected event.
-    const gm = sel !== null ? this.markers.get(sel) : undefined;
-    if (this.gizmo) { if (gm) { if (this.gizmo.object !== gm) this.gizmo.attach(gm); } else this.gizmo.detach(); }
+    // Volumes.
+    const vsel = s.selection?.kind === 'volume' ? s.selection.id : null, vols = m.volumes ?? [];
+    for (const [id, g] of this.vols) if (!vols.some((v) => v.id === id)) { this.scene.remove(g); this.vols.delete(id); }
+    for (const v of vols) {
+      let g = this.vols.get(v.id);
+      const key = `${v.kind}|${v.name}`;
+      if (!g || g.userData.key !== key) {
+        if (g) this.scene.remove(g);
+        g = new THREE.Group();
+        g.userData = { key, volumeId: v.id };
+        const col = v.kind === 'trigger' ? 0xff9a3c : 0xff4f6a;
+        const fill = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.16, depthWrite: false }));
+        fill.userData.volumeId = v.id;
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)), new THREE.LineBasicMaterial({ color: col }));
+        g.add(fill, edges);
+        this.vols.set(v.id, g);
+        this.scene.add(g);
+      }
+      if (!(this.gizmo?.dragging && this.gizmo.object === g)) {
+        g.position.set(v.x, v.y, v.z); g.rotation.set(0, ((v.ry ?? 0) * Math.PI) / 180, 0); g.scale.set(v.sx, v.sy, v.sz);
+      }
+      ((g.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = v.id === vsel ? 0.32 : 0.16;
+    }
+    // Volumes made in Blender and not brought in yet.
+    const fresh = (this.world?.s3.volumes ?? []).filter((b) => !vols.some((v) => v.name === b.name));
+    this.bring.hidden = !fresh.length;
+    this.bring.textContent = `Bring in ${fresh.length} volume${fresh.length === 1 ? '' : 's'} from Blender`;
+    // The gizmo on the selected event or volume.
+    const gm = sel !== null ? this.markers.get(sel) : vsel !== null ? this.vols.get(vsel) : undefined;
+    if (this.gizmo) {
+      if (gm) { if (this.gizmo.object !== gm) this.gizmo.attach(gm); } else this.gizmo.detach();
+      // Events don't scale.
+      if (this.gizmo.mode === 'scale' && vsel === null) this.gizmo.setMode('translate');
+    }
   }
 
   /** The gizmo let go: the event's new spot and facing. */
   private commitGizmo(): void {
     const g = this.gizmo?.object, s = this.store;
+    const vol = g && g.userData.volumeId !== undefined ? s.map.volumes?.find((v) => v.id === g.userData.volumeId) : undefined;
+    if (g && vol) {
+      s.checkpoint();
+      vol.x = round2(g.position.x); vol.y = round2(g.position.y); vol.z = round2(g.position.z);
+      const ry = Math.round(((((g.rotation.y * 180) / Math.PI) % 360) + 360) % 360);
+      if (ry) vol.ry = ry; else delete vol.ry;
+      vol.sx = Math.max(0.2, round2(Math.abs(g.scale.x))); vol.sy = Math.max(0.2, round2(Math.abs(g.scale.y))); vol.sz = Math.max(0.2, round2(Math.abs(g.scale.z)));
+      s.changed();
+      return;
+    }
     const ev = g ? s.map.events.find((e) => e.id === g.userData.id) : undefined;
     if (!g || !ev) return;
     s.checkpoint();
@@ -213,8 +257,8 @@ export class View3D {
       if (e.button === 2) { this.look = { x: e.clientX, y: e.clientY, moved: 0 }; c.setPointerCapture(e.pointerId); return; }
       if (e.button !== 0 || this.gizmo?.axis) return;
       // Click: select the event under the pointer (or nothing).
-      const hit = this.ray(e).intersectObjects([...this.markers.values()], true).find((i) => i.object.userData.eventId !== undefined);
-      this.store.select(hit ? { kind: 'event', id: hit.object.userData.eventId as number } : null);
+      const hit = this.ray(e).intersectObjects([...this.markers.values(), ...this.vols.values()], true).find((i) => i.object.userData.eventId !== undefined || i.object.userData.volumeId !== undefined);
+      this.store.select(!hit ? null : hit.object.userData.eventId !== undefined ? { kind: 'event', id: hit.object.userData.eventId as number } : { kind: 'volume', id: hit.object.userData.volumeId as number });
     });
     c.addEventListener('pointermove', (e) => {
       if (!this.look) return;
@@ -246,7 +290,13 @@ export class View3D {
       if (this.look) return;
       if (e.code === 'KeyW') this.gizmo?.setMode('translate');
       if (e.code === 'KeyE') { this.gizmo?.setMode('rotate'); }
+      if (e.code === 'KeyR' && this.store.selection?.kind === 'volume') this.gizmo?.setMode('scale');
       if (this.gizmo) { const rot = this.gizmo.mode === 'rotate'; this.gizmo.showX = !rot; this.gizmo.showZ = !rot; this.gizmo.showY = true; }
+      if ((e.code === 'Delete' || e.code === 'Backspace') && this.store.selection?.kind === 'volume') {
+        const id = this.store.selection.id, m = this.store.map;
+        this.store.checkpoint(); m.volumes = (m.volumes ?? []).filter((v) => v.id !== id); if (!m.volumes.length) delete m.volumes;
+        this.store.select(null); this.store.changed('structure');
+      }
       if (e.code === 'KeyF') this.frameSelected();
       if (e.code === 'Escape') { this.store.select(null); this.closeMenu(); }
     });
@@ -255,7 +305,7 @@ export class View3D {
   }
 
   private frameSelected(): void {
-    const sel = this.store.selection, g = sel?.kind === 'event' ? this.markers.get(sel.id) : null;
+    const sel = this.store.selection, g = sel?.kind === 'event' ? this.markers.get(sel.id) : sel?.kind === 'volume' ? this.vols.get(sel.id) : null;
     if (!g) return;
     const f = new THREE.Vector3(); this.camera.getWorldDirection(f);
     this.camera.position.copy(g.position).add(new THREE.Vector3(0, 1, 0)).addScaledVector(f, -6);
@@ -273,11 +323,32 @@ export class View3D {
         this.pending = p;
         s.select({ kind: 'tile', x: Math.floor(p.x), z: Math.floor(p.z) });
       }),
+      item('Trigger volume here (runs an event when walked into)', () => this.addVolume('trigger', p)),
+      item('Encounter volume here (random battles inside)', () => this.addVolume('encounter', p)),
       s.db.startMap === s.mapName ? item('Move the player’s start here', () => { s.checkpoint(); s.db.start = { ...s.db.start, x: round2(p.x), z: round2(p.z) }; s.changedDb(); }) : null,
       h('div', { class: 'view3d-menu-note' }, `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`));
     this.el.append(this.menu);
   }
   private closeMenu(): void { this.menu?.remove(); this.menu = null; }
+
+  /** A new volume standing on the clicked spot (Update 156). */
+  private addVolume(kind: 'trigger' | 'encounter', p: THREE.Vector3, size?: { name: string; sx: number; sy: number; sz: number; zone?: string; y?: number }): void {
+    const s = this.store, m = s.map, vols = (m.volumes ??= []);
+    const id = vols.reduce((a, v) => Math.max(a, v.id), 0) + 1;
+    const n = vols.filter((v) => v.kind === kind).length + 1;
+    s.checkpoint();
+    vols.push({ id, name: size?.name ?? `${kind === 'trigger' ? 'Trigger' : 'Encounters'} ${n}`, kind, x: round2(p.x), y: round2(size?.y ?? p.y), z: round2(p.z),
+      sx: size?.sx ?? 3, sy: size?.sy ?? 2.5, sz: size?.sz ?? 3, ...(size?.zone ? { zone: size.zone } : {}) });
+    s.changed('structure');
+    if (!size) s.select({ kind: 'volume', id });
+  }
+  /** The trigger_… and encounter_… boxes from Blender, as volumes to edit here. */
+  private bringVolumes(): void {
+    const m = this.store.map;
+    for (const b of this.world?.s3.volumes ?? []) if (!(m.volumes ?? []).some((v) => v.name === b.name))
+      this.addVolume(b.kind, new THREE.Vector3(b.x, b.y, b.z), { name: b.name, sx: round2(b.sx), sy: round2(b.sy), sz: round2(b.sz), zone: b.zone, y: b.y });
+    toast('Brought in. Pick each trigger’s event (and each encounter box’s zone) on the left.');
+  }
 }
 
 const round2 = (v: number) => Math.round(v * 100) / 100;

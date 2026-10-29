@@ -401,6 +401,14 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 156 (3D maps, phase C): MapData.volumes (Volume3D: centre x / z, bottom y, size, ry; trigger event /
+        once / onExit; encounter zone). build3D reads trigger_ / encounter_ boxes (scene.volumes). ground3D: one
+        downward BVH raycast, highest floor ≤ fromY + 0.45; the lowest surface above facing up (inside a solid) or a
+        ceiling under head height → fromY + 50 (a wall); TileMap.ground3d answers standY / surfaceY (set right after
+        the TileMap so monsters spawn on floors); lineOfSight passes its height. Game: updateVolumes (inVolumes set,
+        @vol:map:id switch for once), volumeZone in updateEncounters, monster billboards. Combat spawns pos3 enemies
+        there. Editor: Selection 'volume', Inspector.volume, palette Volumes list, View3D volumes (scale gizmo R,
+        Delete, right-click add, Bring in from Blender). Next: phase D (3D NPCs, Mixamo animation library).
   - [x] Update 155 (3D maps, phase B): editor/View3D.ts (own WebGLRenderer in .stage, fly camera on RMB, markers =
         cylinders + name sprites coloured by trigger, TransformControls translate / rotate-Y, right-click menu: New
         event here → selects the tile and the next new event gets pos3; Move start; tablet: a note with Close).

@@ -581,6 +581,28 @@ export interface EventData {
   pages: EventPage[];
 }
 
+/**
+ * A volume on a 3D map (Update 156): a box (x, z its centre, y its bottom, sx × sy × sz metres, turned ry degrees).
+ * A trigger runs an event's page when the hero walks in (or out); an encounter box counts as one of the map's
+ * encounter zones (its troops and rate, Map Properties → Encounters).
+ */
+export interface Volume3D {
+  id: number;
+  name: string;
+  kind: 'trigger' | 'encounter';
+  x: number; y: number; z: number;
+  sx: number; sy: number; sz: number;
+  ry?: number;
+  /** Trigger: the event on this map whose page runs. */
+  event?: number;
+  /** Trigger: only the first time ever (off: every time the hero walks in). */
+  once?: boolean;
+  /** Trigger: on walking out instead of in. */
+  onExit?: boolean;
+  /** Encounter: the zone letter. */
+  zone?: string;
+}
+
 /** A ramp or stairs on one cell. Without `dir` it faces the neighbour that is one step higher. */
 export interface RampData {
   x: number;
@@ -748,6 +770,8 @@ export interface MapData {
    * say what things are (docs/BLENDER_3D_MAPS.md); the map's tiles still hold events for now.
    */
   scene3d?: { src: string; scale?: number };
+  /** Update 156: trigger and encounter volumes on a 3D map (boxes placed in the editor's 3D view). */
+  volumes?: Volume3D[];
   /** Height layer: one row per line, space-separated steps from -10 to 10 (a step is half a tile). Omitted when flat. */
   heights?: string[];
   /**

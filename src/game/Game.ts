@@ -2,7 +2,7 @@
  * The game: loads data, builds the scene, and runs the frame loop.
  * Systems are kept in their own modules; this file wires them together.
  */
-import { Body3D, Camera3D, type Scene3D, type With3D, load3D } from './World3D';
+import { Body3D, Camera3D, type Scene3D, type With3D, ground3D, load3D } from './World3D';
 import { type WithGround, loadGround } from '../world/groundModel';
 import { restoreAmount, restoreBits, restoreParts, restoresAny } from './restore';
 import { partyLayout } from '../ui/partyLayout';
@@ -37,7 +37,7 @@ import { Lights, type ShaderLights, maxLights, scheduleFactor } from '../world/L
 import { PropCatalog, migrateMap } from '../world/props';
 import { TileCatalog } from '../world/tiles';
 import { type TileTexture, loadTileTextures, setTileAnisotropy } from '../render/tileTextures';
-import type { AssetRegistry } from '../world/types';
+import type { AssetRegistry, Volume3D } from '../world/types';
 import { TileMap } from '../world/TileMap';
 import { TimeOfDay, wrapHour } from '../world/TimeOfDay';
 import { type BuiltWorld, buildWorld, hideProp, tickPixelTiles } from '../world/WorldBuilder';
@@ -1054,6 +1054,8 @@ export class Game {
     // Update 148: maps that don't choose are flat in 2D view mode (height implied by the tiles).
     TileMap.flatByDefault = this.db.viewMode === '2d';
     this.map = pre?.map ?? new TileMap(data, this.tiles, (style) => this.frozen(style));
+    // Update 156: everything that walks the map's grid (monsters, the party, events) stands on the scene's floors.
+    { const sc = (data as With3D).__scene3d; if (sc) this.map.ground3d = (x, z, fromY) => ground3D(sc, x, z, fromY); }
     const built = pre?.built ?? buildWorld(worldGroup, this.map, data, this.sprites, this.tileTextures, origin);
     this.world = { group: worldGroup, built, origin };
     this.waterNormals = built.waterNormals;
@@ -1111,6 +1113,7 @@ export class Game {
     this.w3 = s3 ? { scene: s3, body: new Body3D(s3), cam: new Camera3D(s3), heading: 0 } : null;
     // Back from a 3D map: the map camera's own field of view again.
     if (was3 && !this.w3) this.resize();
+    this.inVolumes.clear();
     const s = start ?? (s3?.start ? { x: s3.start.x, z: s3.start.z } : this.findOpenTile(data));
     const game = this;
     this.motion = new PlayerMotion({
@@ -1952,6 +1955,40 @@ export class Game {
     return this.events.find((e) => e.covers(x, z) && e.trigger === 'action') ?? null;
   }
 
+  /** Update 156: the volumes the hero is inside (by id). */
+  private readonly inVolumes = new Set<number>();
+  /** Is a point inside a volume (a turned box)? */
+  private static inVolume(v: Volume3D, x: number, y: number, z: number): boolean {
+    const a = (-(v.ry ?? 0) * Math.PI) / 180, dx = x - v.x, dz = z - v.z;
+    const lx = dx * Math.cos(a) - dz * Math.sin(a), lz = dx * Math.sin(a) + dz * Math.cos(a);
+    return Math.abs(lx) <= v.sx / 2 && Math.abs(lz) <= v.sz / 2 && y >= v.y - 0.2 && y <= v.y + v.sy;
+  }
+  /** Update 156: trigger volumes: walking in (or out) runs their event's page; only once ever if set so. */
+  private updateVolumes(): boolean {
+    const vols = this.mapData.volumes;
+    if (!vols?.length) return false;
+    const p = this.player.position;
+    for (const v of vols) {
+      const inside = Game.inVolume(v, p.x, p.y + 0.5, p.z), was = this.inVolumes.has(v.id);
+      if (inside) this.inVolumes.add(v.id); else this.inVolumes.delete(v.id);
+      if (v.kind !== 'trigger' || inside === was || (v.onExit ? inside : !inside)) continue;
+      const key = `@vol:${this.mapName}:${v.id}`;
+      if (v.once && this.state.getSwitch(key)) continue;
+      const ev = this.events.find((e) => e.data.id === v.event);
+      if (!ev?.page?.commands.length) continue;
+      if (v.once) this.state.setSwitch(key, true);
+      this.runEvent(ev);
+      return true;
+    }
+    return false;
+  }
+  /** Update 156: the encounter zone of the volume the hero is in, if any. */
+  private volumeZone(): string | null {
+    const p = this.player.position;
+    for (const v of this.mapData.volumes ?? []) if (v.kind === 'encounter' && v.zone && Game.inVolume(v, p.x, p.y + 0.5, p.z)) return v.zone;
+    return null;
+  }
+
   /** Update 155: 3D maps: touch events the hero is standing in (fired once until they step out). */
   private readonly touched3d = new Set<GameEvent>();
   /** Update 155: on a 3D map, the talk-to event in front of the hero (placed in 3D, within reach, about level). */
@@ -2381,6 +2418,8 @@ export class Game {
     this.syncPlayer(dt);
     if (m.airborne || m.climbing) return;
 
+    // Update 156: trigger volumes.
+    if (this.w3 && this.updateVolumes()) return;
     // Update 155: 3D maps: touch events placed in 3D fire when the hero walks into them (once each time).
     if (this.w3) {
       const p = this.player.position;
@@ -5689,7 +5728,7 @@ export class Game {
   /** Random encounters (the map's table, turn-based mode): count the tiles walked, and now and then a battle. */
   private updateEncounters(): void {
     const m = this.mapData, t = m?.encounters, p = this.player.position;
-    const hasZones = !!m?.zoneGrid && !!m.zones && Object.values(m.zones).some((z) => z.troops.length);
+    const hasZones = (!!m?.zoneGrid || !!m?.volumes?.some((v) => v.kind === 'encounter')) && !!m.zones && Object.values(m.zones).some((z) => z.troops.length);
     if ((!t?.enemies.length && !hasZones) || this.onTitle || this.transfer || this.dying || this.battle.active || this.battlePending || this.interpreter.running) { this.encounterFrom = null; return; }
     const from = this.encounterFrom;
     this.encounterFrom = { x: p.x, z: p.z };
@@ -5699,7 +5738,8 @@ export class Game {
     // A painted encounter zone under the hero, if any; otherwise the map's own random encounters (if it has them).
     // Safe zones: never a random battle.
     if (safeAt(m, p.x, p.z)) return;
-    const letter = hasZones ? zoneAt(m, p.x, p.z) : null, zone = letter ? m.zones?.[letter] : undefined;
+    // Update 156: an encounter volume on a 3D map counts as its zone.
+    const letter = hasZones ? this.volumeZone() ?? (m.zoneGrid ? zoneAt(m, p.x, p.z) : null) : null, zone = letter ? m.zones?.[letter] : undefined;
     if (!zone?.troops.length) {
       if (!t?.enemies.length) return;
       // Only on the chosen ground (tall grass, say).
@@ -7404,6 +7444,8 @@ export class Game {
       if (y !== null) p.y = y;
     }
     for (const e of this.events) if (e.visual) e.visual.rotation.y = yaw;
+    // Monsters drawn as pictures turn to the camera too.
+    for (const e of this.combat.enemies) if (!e.rigged) e.visual.rotation.y = yaw;
     this.camTarget.copy(this.player.position);
     this.post.focus = 0.5; this.post.focusBand = 1; this.post.tiltFade = 1;
     // Waterfalls run down their planes.

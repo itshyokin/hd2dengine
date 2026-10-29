@@ -31,6 +31,8 @@ export class TileMap {
   private readonly ice: (number | null)[];
 
   /** `frozen(style)`: water of this style is frozen over (still water in winter). */
+  /** Update 156: on a 3D map, the floors come from its scene (set by the game). */
+  ground3d: ((x: number, z: number, fromY?: number) => number) | null = null;
   /** Height for maps that don't choose (Update 148): flat in 2D view mode (set by the game). */
   static flatByDefault = false;
   constructor(data: MapData, readonly tiles: TileCatalog = new TileCatalog(), frozen?: (style: number) => boolean) {
@@ -115,6 +117,7 @@ export class TileMap {
   }
   /** Ground height at any point (in tiles), following ramps smoothly (and hills along their curves). */
   surfaceY(x: number, z: number): number {
+    if (this.ground3d) return this.ground3d(x, z);
     const cx = Math.floor(x), cz = Math.floor(z);
     if (this.hillGrid && this.isHill(cx, cz)) return this.hillY(x, z);
     return surfaceInCell(this.cornersAt(cx, cz), x - cx, z - cz);
@@ -178,6 +181,7 @@ export class TileMap {
    * Using the surface lets the player walk from a bank straight into a pond dug lower than it.
    */
   standY(x: number, z: number, fromY?: number): number {
+    if (this.ground3d) return this.ground3d(x, z, fromY);
     const d = this.deckAt(Math.floor(x), Math.floor(z));
     if (d !== null) {
       // On a bridge (or arriving at its level): its deck. From below (swimming up a river, walking along a chasm's

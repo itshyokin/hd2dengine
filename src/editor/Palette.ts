@@ -504,6 +504,12 @@ export class Palette {
       const hero = s.db.characters[s.db.player];
       // Update 150: the selected event's settings (or the new-event panel) right above the list.
       if (this.inspector) body.push(this.inspector);
+      // Update 156: a 3D map's volumes (made in the 3D view).
+      const vols = s.map.volumes ?? [];
+      if (s.map.scene3d) body.push(h('div', { class: 'section-label' }, `Volumes (${vols.length})`),
+        vols.length ? h('ul', { class: 'event-list' }, ...vols.map((v) => h('li', {}, h('button', { type: 'button', class: 'event-item', 'aria-pressed': String(s.selection?.kind === 'volume' && s.selection.id === v.id), onclick: () => s.select({ kind: 'volume', id: v.id }) },
+          h('span', { class: 'ev-id' }, v.kind === 'trigger' ? '▣' : '⚔'), h('span', { class: 'ev-name' }, v.name), h('span', { class: 'ev-pos' }, v.kind === 'encounter' ? (v.zone ? `zone ${v.zone}` : 'no zone') : v.event !== undefined ? `→ ${String(v.event).padStart(3, '0')}` : 'no event')))))
+          : h('p', { class: 'note' }, 'In the 3D view, right-click a spot → Trigger volume or Encounter volume.'));
       body.push(h('div', { class: 'section-label' }, `Events on this map (${s.map.events.length})`),
         h('ul', { class: 'event-list' },
           s.startHere && hero ? h('li', {}, h('button', { type: 'button', class: 'event-item', 'aria-pressed': String(s.selection?.kind === 'start'),

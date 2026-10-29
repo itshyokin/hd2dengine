@@ -85,6 +85,9 @@ export class Enemy {
   private repath = 0;
   private readonly home: { x: number; z: number };
   private readonly sprite: CharacterSprite;
+  /** Its picture or model (Update 156: turned to the camera on 3D maps), and whether it's a 3D model. */
+  get visual(): THREE.Object3D { return this.sprite.mesh; }
+  get rigged(): boolean { return !!this.sprite.rig; }
   /** Its sprite's mesh (for its reflection in water). */
   get spriteMesh(): THREE.Mesh { return this.sprite.mesh; }
   /** A flat-image enemy's sprite (the same object as `sprite`), for its generic motion. */
@@ -590,7 +593,7 @@ export function lineOfSight(map: TileMap, ax: number, ay: number, az: number, bx
     const k = i / n, x = ax + (bx - ax) * k, z = az + (bz - az) * k, y = ay + (by - ay) * k;
     const cx = Math.floor(x), cz = Math.floor(z);
     if (!map.inMap(cx, cz) || map.isSolid(cx, cz)) return false;
-    if (map.standY(x, z) > y - 0.15) return false;
+    if (map.standY(x, z, y) > y - 0.15) return false;
   }
   return true;
 }

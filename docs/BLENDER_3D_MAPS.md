@@ -30,9 +30,10 @@ Upper or lower case doesn't matter, and `Rock_col`, `col_Rock` and `Rock.col` al
 | `_waterfall` | object (a plane) | Falling water: its texture runs downwards and it's heard nearby. |
 | `_killzone` | object (a box) | Pits and the void: falling into it puts the hero back on the last safe ground. Invisible. Falling far below the whole scene does the same anyway. |
 | `start` | an **empty** (or any object) named `start` | Where the hero appears when nothing else says (a transfer or the game's start point decides first). |
+| `trigger_…` | a **box** named e.g. `trigger_door` | Becomes a **trigger volume** (invisible) the editor can bring in: pick the event it runs there. |
+| `encounter_…` | a **box** named e.g. `encounter_A_cave` | Becomes an **encounter volume**: the letter after `encounter_` is its encounter zone (A here). |
 
-Coming later: `_ladder` (climbable) and `trigger_…` / `spawn_…` empties that turn into trigger volumes and enemy spawns
-you can then edit in the engine.
+Coming later: `_ladder` (climbable).
 
 ## 3. Export
 
@@ -61,6 +62,14 @@ weather on top.
      ring to turn it; **F** frames it; double-click opens its pages and commands. Its settings show in the left bar.
    - In the game, a *talk* event is talked to from in front of it (at about the same height), and a *touch* event
      fires when the hero walks into it.
+   - **Volumes:** right-click → **Trigger volume here** (runs an event's page when the hero walks in, or out; once
+     ever or every time) or **Encounter volume here** (random battles inside: it counts as one of the map's encounter
+     zones, with that zone's troops and rate from Map Properties → Encounters). Select one to move it (**W**), turn
+     it (**E**) or size it (**R**); Delete removes it. Boxes named `trigger_…` / `encounter_…` in Blender come in with
+     **Bring in N volumes from Blender** (top left of the 3D view).
+   - **Monsters:** right-click → New event here → *Create enemy here*: it roams and chases on the scene's floors and
+     starts its battle when it touches the hero. Map Properties → Encounters still gives the whole map random battles
+     (a Pokémon cave).
    The 2D map (the toolbar's 3D view button again) shows the scene from above, and events can still be placed on its
    tiles. Music, sounds, weather, battles and encounters are set in Map Properties as usual.
 3. **▶ Playtest.** The camera orbits the hero: drag with the mouse (or use the right stick) to turn it, and the wheel

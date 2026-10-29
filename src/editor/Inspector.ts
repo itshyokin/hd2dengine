@@ -2,7 +2,7 @@ import { switchInput } from './switchPicker';
 import { build3D } from '../game/World3D';
 import { readGroundModel } from '../world/groundModel';
 import { modelExt } from '../render/models';
-import type { EncounterPick } from '../world/types';
+import type { EncounterPick, Volume3D } from '../world/types';
 import { levelRangeField } from './levelFields';
 import { TRANSITIONS, TRANSITION_NAMES } from '../ui/BattleTransition';
 import { formatFishing, parseFishing } from '../world/fishing';
@@ -80,6 +80,7 @@ export class Inspector {
     else if (sel?.kind === 'start') content = this.start();
     else if (sel?.kind === 'tile') content = this.tile(sel.x, sel.z, sel.w ?? 1, sel.h ?? 1);
     else if (sel?.kind === 'ramp' && s.rampAt(sel.x, sel.z)) content = this.ramp(sel.x, sel.z);
+    else if (sel?.kind === 'volume' && s.map.volumes?.some((v) => v.id === sel.id)) content = this.volume(sel.id);
     else content = this.lastSummary = this.mapSummary();
     const body = h('div', { class: 'side-body' }, ...content);
     this.el.replaceChildren(body);
@@ -710,6 +711,29 @@ export class Inspector {
       }));
     }
     return out;
+  }
+
+  /** Update 156: a trigger or encounter volume (moved, turned and sized in the 3D view). */
+  private volume(id: number): HTMLElement[] {
+    const s = this.store, m = s.map, v = m.volumes!.find((x) => x.id === id)!;
+    const num = (k: 'sx' | 'sy' | 'sz', label: string) => field(label, numberInput(v[k], (n) => this.edit(() => (v[k] = Math.max(0.2, Math.round(n * 100) / 100)), true), { step: 0.5, min: 0.2 }));
+    const zones = Object.keys(m.zones ?? {}).sort();
+    return [
+      this.header(v.name, v.kind === 'trigger' ? 'Trigger volume' : 'Encounter volume', () => this.edit(() => { m.volumes = m.volumes!.filter((x) => x.id !== id); if (!m.volumes.length) delete m.volumes; s.select(null); }, true)),
+      field('Name', textInput(v.name, (n) => this.edit(() => (v.name = n.trim() || v.name), true))),
+      field('Kind', select([['trigger', 'Trigger: runs an event when the hero walks in'], ['encounter', 'Encounter: random battles inside (an encounter zone)']], v.kind, (k) => this.edit(() => { v.kind = k as Volume3D['kind']; }, true))),
+      h('div', { class: 'field-row' }, num('sx', 'Width (m)'), num('sz', 'Depth (m)'), num('sy', 'Height (m)')),
+      ...(v.kind === 'trigger' ? [
+        field('Runs', select([['', '— choose an event —'], ...m.events.map((e) => [String(e.id), `${String(e.id).padStart(3, '0')} ${e.name}`] as [string, string])], v.event !== undefined ? String(v.event) : '',
+          (e) => this.edit(() => { if (e) v.event = Number(e); else delete v.event; }, true)), 'Its current page’s commands run (its conditions apply, as for any event). An event without a picture, placed anywhere, works well.'),
+        checkbox('When the hero walks out (instead of in)', !!v.onExit, (b) => this.edit(() => { if (b) v.onExit = true; else delete v.onExit; })),
+        checkbox('Only the first time ever (off: every time)', !!v.once, (b) => this.edit(() => { if (b) v.once = true; else delete v.once; })),
+      ] : [
+        field('Zone', select([['', '— choose a zone —'], ...zones.map((z) => [z, `Zone ${z}`] as [string, string])], v.zone ?? '', (z) => this.edit(() => { if (z) v.zone = z; else delete v.zone; }, true)),
+          zones.length ? 'Inside it, that zone’s troops and rate apply (Map Properties → Encounters).' : 'Make a zone in Map Properties → Encounters first (its troops and how often they attack).'),
+      ]),
+      h('p', { class: 'hint' }, 'In the 3D view: drag the gizmo to move it (W), turn it (E) or size it (R).'),
+    ];
   }
 
   private ramp(x: number, z: number): HTMLElement[] {
