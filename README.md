@@ -1372,6 +1372,8 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Compressed models** (Update 158): GLBs compressed with Draco (Blender's export option; decoder in public/draco/)
+  or Meshopt (gltf-transform) load anywhere models do. docs/BLENDER_3D_MAPS.md → *Keeping maps small*.
 - **Volumes and monsters on 3D maps** (Update 156): in the 3D view, right-click → *Trigger volume* (runs an event's
   page when the hero walks in or out, once ever or every time) or *Encounter volume* (counts as one of the map's
   encounter zones); move, turn (E) and size (R) them with the gizmo. Boxes named `trigger_…` / `encounter_A…` in

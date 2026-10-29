@@ -47,6 +47,28 @@ Keep textures small where you can (1024 × 1024 is plenty for most things). Bake
 nothing: bake shadows and light into the textures in Blender, and the engine adds its own day and night, lights and
 weather on top.
 
+## Keeping maps small
+
+GitHub refuses any file over **100 MB**, and big files load slowly. A whole map can usually be a few MB:
+
+1. **Textures are most of the size.** Use **1024 × 1024** for most things and **2048** only for big hero surfaces;
+   reuse one texture (or a texture atlas) across many objects instead of a unique picture for each; let Blender
+   save colour textures as **JPEG** (Export → Images: *Automatic* or *JPEG*), keeping PNG only for see-through ones
+   (leaves, fences).
+2. **Compress the meshes** in Blender's export: **Data → Mesh → Compression** (Draco) on, level 6. It often cuts
+   the meshes to a tenth. (The engine reads it; it needs the editor and game to run from the project, e.g. *Start
+   Map Editor.bat*, not double-clicked files.)
+3. **Or shrink the exported file afterwards** with gltf-transform (it keeps the object and material names the tags
+   use):
+   ```
+   npx @gltf-transform/cli optimize map.glb map_small.glb --compress meshopt --texture-compress webp --texture-size 2048 --join-named false --palette false --flatten false --simplify false
+   ```
+   This works everywhere, double-clicked files too.
+4. **Model what's seen.** Apply only the modifiers you need, delete faces nobody can see (under the ground, inside
+   walls), keep background mountains low-poly, and use Blender's *Decimate* on dense scans. Simple `_col` boxes for
+   collision cost almost nothing.
+5. **Split huge worlds into several maps** joined by transfers (a town, its fields, a cave), like the 2D maps.
+
 ## 4. Bring it in
 
 1. In the Map Editor, make a map (**New map**) big enough to cover the scene in tiles (a 60 × 40 m scene needs a map

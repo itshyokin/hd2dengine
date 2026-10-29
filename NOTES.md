@@ -401,6 +401,9 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 158: parseModel sets MeshoptDecoder (src/meshopt.d.ts types it) and, when the GLB's JSON mentions
+        KHR_draco_mesh_compression, a DRACOLoader reading public/draco/ (decoder files copied from three). Checked:
+        plain / Meshopt / Draco / gltf-transform optimize (names kept) all load with their tags.
   - [x] Update 157: the player start in the 3D view is selectable (Selection 'start') and moved / turned with the
         gizmo; db.start.y (the floor; Body3D.place uses it), facing from the rotation. View3D toolbar: Move / Turn /
         Size buttons (setMode) and a controls hint.
