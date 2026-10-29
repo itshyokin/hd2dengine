@@ -16,6 +16,8 @@
  * floors all work; gravity, jumping and swimming on top. The camera orbits the hero like World of Warcraft (or settles
  * behind them in Follow mode), never under the ground nor straight down, and comes in closer when a wall is between.
  */
+import { patchSeason } from '../render/season';
+import { patchAreaTint } from '../render/areaTint';
 import * as THREE from 'three';
 import { MeshBVH, type ExtendedTriangle } from 'three-mesh-bvh';
 import { patchSwayModel } from '../render/wind';
@@ -82,8 +84,53 @@ function mergedCollider(meshes: THREE.Mesh[]): THREE.Mesh | null {
   return mesh;
 }
 
+/** A game tile's picture for a model's ter_… material (Update 160): its picture, tiles per repeat, crisp or smooth. */
+export type TerrainPicture = (name: string) => { image: CanvasImageSource; span: number; point: boolean } | null;
+
+/** The texture laid across the model from above (world x / z), one copy every `span` metres. */
+function patchWorldUV<T extends THREE.Material>(mat: T, span: number): T {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    prev?.call(mat, shader, renderer);
+    shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
+  #ifdef USE_UV
+    vUv = (modelMatrix * vec4(position, 1.0)).xz / ${span.toFixed(3)};
+  #endif`);
+  };
+  const prevKey = mat.customProgramCacheKey?.bind(mat);
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|worlduv${span}`;
+  return mat;
+}
+
+/**
+ * Seasons on a model's materials (Update 160): ter_<tile> becomes that game tile's picture (laid from above) and
+ * changes with the seasons and weather like the 2D ground; _season keeps its own texture but changes too; _foliage
+ * gets snow on its leaves in winter (and sways).
+ */
+function seasonal(m: THREE.Mesh, terrain: TerrainPicture | undefined, done: Map<string, THREE.Material>): void {
+  const swap = (mt: THREE.Material): THREE.Material => {
+    const hit = done.get(mt.uuid);
+    if (hit) return hit;
+    let out = mt;
+    const ter = /^ter[_ ](.+?)(\.\d+)?$/i.exec(mt.name);
+    const pic = ter && terrain ? terrain(ter[1]) : null;
+    if (pic) {
+      const tex = new THREE.CanvasTexture(pic.image as HTMLCanvasElement);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      if (pic.point) { tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestMipmapLinearFilter; }
+      out = patchSeason(patchAreaTint(patchWorldUV(new THREE.MeshStandardMaterial({ name: mt.name, map: tex, roughness: 1, metalness: 0, side: mt.side }), pic.span), false), 'ground');
+    } else if (has(mt.name, 'season')) patchSeason(patchAreaTint(mt, false), 'ground');
+    else if (has(mt.name, 'foliage')) patchSeason(patchAreaTint(mt, false), 'leaves');
+    done.set(mt.uuid, out);
+    return out;
+  };
+  m.material = Array.isArray(m.material) ? m.material.map(swap) : swap(m.material);
+}
+
 /** Read a Blender scene into a 3D map: sorted by its names, offset so its corner sits at the map's (0, 0). */
-export function build3D(src: THREE.Object3D, scale = 1): Scene3D {
+export function build3D(src: THREE.Object3D, scale = 1, terrain?: TerrainPicture): Scene3D {
+  const swapped = new Map<string, THREE.Material>();
   const root = new THREE.Group();
   const obj = src.clone(true);
   obj.scale.multiplyScalar(scale);
@@ -115,6 +162,7 @@ export function build3D(src: THREE.Object3D, scale = 1): Scene3D {
     }
     if (tagged(m, 'col')) { cols.push(m); m.visible = false; return; }
     m.castShadow = true; m.receiveShadow = true;
+    seasonal(m, terrain, swapped);
     const mats = Array.isArray(m.material) ? m.material : [m.material];
     for (const mt of mats) if (has(mt.name, 'foliage')) patchSwayModel(mt, 1);
     if (tagged(m, 'waterfall')) { falls.push({ mesh: m, x: (box.min.x + box.max.x) / 2, z: (box.min.z + box.max.z) / 2, y: box.min.y, top: box.max.y }); m.castShadow = false; return; }
@@ -154,14 +202,14 @@ export function ground3D(s: Scene3D, x: number, z: number, fromY?: number): numb
 
 const cache = new Map<string, Promise<THREE.Object3D>>();
 /** Load a 3D map's scene file (once per address) and read it. */
-export async function load3D(data: MapData, url: string): Promise<Scene3D> {
+export async function load3D(data: MapData, url: string, terrain?: TerrainPicture): Promise<Scene3D> {
   let p = cache.get(url);
   if (!p) {
     p = (async () => parseModel(await (await fetch(url)).arrayBuffer(), modelExt(data.scene3d!.src) ?? 'glb'))();
     cache.set(url, p);
     p.catch(() => cache.delete(url));
   }
-  return build3D(await p, data.scene3d!.scale ?? 1);
+  return build3D(await p, data.scene3d!.scale ?? 1, terrain);
 }
 
 export interface Move3D {

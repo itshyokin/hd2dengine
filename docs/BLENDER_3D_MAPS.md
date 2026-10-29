@@ -47,6 +47,20 @@ Keep textures small where you can (1024 × 1024 is plenty for most things). Bake
 nothing: bake shadows and light into the textures in Blender, and the engine adds its own day and night, lights and
 weather on top.
 
+## Seasons
+
+The 2D maps change with the seasons (fresh spring greens, golden summer, straw autumn, snow in winter) and with the
+weather (damp, frost, parched). Name **materials** so the 3D maps do too:
+
+| Material name | What it does |
+| --- | --- |
+| `ter_grass` | Uses the game's **Grass** tile picture instead of the Blender texture, laid across the surface from above at one copy per tile (or per the tile's *one copy covers* size), and changes with the seasons and weather exactly like the 2D ground. Any tile works by its id or name: `ter_dirt`, `ter_sand`, `ter_snow`, `ter_tall_grass` (spaces become `_`). Your own tile pictures (built-in tiles you gave a picture, imported tiles) are used automatically, so changing the tile changes every map. |
+| `…_season` | Keeps your own Blender texture, but its greens change with the seasons and weather like the ground. |
+| `…_foliage` | Sways in the wind (see above), and its leaves turn with the seasons and carry snow in winter. |
+
+Because `ter_` pictures are laid from above, they suit floors, fields and gentle slopes. For cliffs and walls use
+ordinary textures (or `_season` on mossy ones).
+
 ## Lighting
 
 The engine lights the scene: its sun moves with the time of day and casts shadows, the sky, night, weather, fog and

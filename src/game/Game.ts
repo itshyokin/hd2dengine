@@ -2,6 +2,8 @@
  * The game: loads data, builds the scene, and runs the frame loop.
  * Systems are kept in their own modules; this file wires them together.
  */
+import { builtinTileArt } from '../art/placeholderArt';
+import { frameLayout, frameRect } from '../world/pixelTiles';
 import { Body3D, Camera3D, type Scene3D, type With3D, ground3D, load3D } from './World3D';
 import { type WithGround, loadGround } from '../world/groundModel';
 import { restoreAmount, restoreBits, restoreParts, restoresAny } from './restore';
@@ -549,7 +551,7 @@ export class Game {
       catch (e) { console.warn(`Its 3D model “${mapData.groundModel.src}” couldn’t be read`, e); }
     }
     if (mapData.scene3d?.src) {
-      try { (mapData as With3D).__scene3d = await load3D(mapData, resolve(mapData.scene3d.src)); }
+      try { (mapData as With3D).__scene3d = await load3D(mapData, resolve(mapData.scene3d.src), (n) => this.terrainPicture(n)); }
       catch (e) { console.warn(`Its 3D scene “${mapData.scene3d.src}” couldn’t be read`, e); }
     }
     await this.sprites.preload(resolve);
@@ -1357,7 +1359,7 @@ export class Game {
     }
     // Update 154: a 3D map's Blender scene.
     if (data.scene3d?.src) {
-      try { (data as With3D).__scene3d = await load3D(data, this.resolveFile(data.scene3d.src)); }
+      try { (data as With3D).__scene3d = await load3D(data, this.resolveFile(data.scene3d.src), (n) => this.terrainPicture(n)); }
       catch (e) { console.warn(`Map ${name}: its 3D scene “${data.scene3d.src}” couldn’t be read`, e); }
     }
     return data;
@@ -7343,6 +7345,29 @@ export class Game {
     // Just short of straight down (Update 143): exactly 90° leaves the camera no way to tell which way is up.
     const c = this.overworldCam, p = THREE.MathUtils.degToRad(Math.min(c.pitch, 89.5));
     return this.camOffset.set(0, Math.sin(p) * c.distance, Math.cos(p) * c.distance);
+  }
+
+  /**
+   * Update 160: a game tile's picture for a 3D map's ter_… material, by the tile's id or name ("grass", "tall_grass"):
+   * your own picture when it has one (the first frame of an animated tile, the middle of an autotile), else the
+   * built-in art.
+   */
+  private terrainPicture(name: string): { image: CanvasImageSource; span: number; point: boolean } | null {
+    const norm = (t: string) => t.toLowerCase().replace(/[\s-]+/g, '_');
+    const n = norm(name), def = this.tiles.all().find((t) => norm(t.id) === n || norm(t.name) === n);
+    if (!def) { console.warn(`3D map: no tile called “${name}” for its ter_${name} material`); return null; }
+    const tt = this.tileTextures.get(def.key);
+    if (!tt) return { image: builtinTileArt(def.key), span: 1, point: true };
+    const img = tt.map.image as HTMLCanvasElement;
+    if (!def.kind) return { image: img, span: Math.max(1, def.span || 1), point: def.filter !== 'smooth' };
+    // An animated tile's first frame; an autotile's or wall's inside (its middle half-tiles).
+    const l = frameLayout(def, img.width, img.height), c = document.createElement('canvas');
+    const [sx, sy, sw, sh] = def.kind === 'animated' ? frameRect(img.width, img.height, l, 0)
+      : def.layout === 'frame' ? [img.width / (def.frameTiles ?? 2) / 2, img.height / (def.frameTiles ?? 2) / 2, img.width / (def.frameTiles ?? 2), img.height / (def.frameTiles ?? 2)]
+      : [img.width / l.frames / 4, def.kind === 'wall' ? img.height / 4 : img.height / 2, img.width / l.frames / 2, def.kind === 'wall' ? img.height / 2 : img.height / 3];
+    c.width = Math.max(1, Math.round(sw)); c.height = Math.max(1, Math.round(sh));
+    c.getContext('2d')!.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return { image: c, span: 1, point: true };
   }
 
   /** 3D maps (Update 154): the hero's body this frame, from screen-relative directions; as a MotionResult. */

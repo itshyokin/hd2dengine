@@ -402,6 +402,7 @@ decide things; the tablet editor keeps working.
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
   - [x] Update 159: 3D maps: fog reach × 3.6 (no overworld-distance push), camera far 400 (200 again off them).
+  - [x] Update 160: 3D map materials named `ter_<tile>` take that tile's picture (custom or built-in; pixel tiles' first frame / interior), laid in world XZ (`patchWorldUV`, span = tile's one-copy size) with the ground season + area tint; `…_season` keeps its texture with the ground season; `_foliage` also gets the leaves season. Resolver: Game.terrainPicture, View3D uses customTileImage/builtinTileArt.
         Blender doc: Lighting section.
   - [x] Update 158: parseModel sets MeshoptDecoder (src/meshopt.d.ts types it) and, when the GLB's JSON mentions
         KHR_draco_mesh_compression, a DRACOLoader reading public/draco/ (decoder files copied from three). Checked:

@@ -5,6 +5,8 @@
  * Right-click a spot to put something there: a new event (pick its kind on the left) or the player's start.
  * Events placed here keep their exact 3D position (EventData.pos3), used by the game.
  */
+import { customTileImage } from './editorArt';
+import { builtinTileArt } from '../art/placeholderArt';
 import * as THREE from 'three';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { Body3D, type Scene3D, build3D } from '../game/World3D';
@@ -117,7 +119,14 @@ export class View3D {
           const blob = this.store.files.get(g.src) ?? await this.store.project.readFile(g.src);
           if (!this.store.files.has(g.src)) this.store.files.set(g.src, blob);
           const url = URL.createObjectURL(blob);
-          const s3 = build3D(await readGroundModel(url, g.src), g.scale ?? 1);
+          const s3 = build3D(await readGroundModel(url, g.src), g.scale ?? 1, (n) => {
+            // ter_… materials (Update 160): the game tile's picture, as in the game.
+            const norm = (t: string) => t.toLowerCase().replace(/[\s-]+/g, '_'), want = norm(n);
+            const def = this.store.tiles.all().find((t) => norm(t.id) === want || norm(t.name) === want);
+            if (!def) return null;
+            const img = customTileImage(def.key) ?? builtinTileArt(def.key);
+            return { image: img, span: def.kind ? 1 : Math.max(1, def.span || 1), point: def.filter !== 'smooth' };
+          });
           URL.revokeObjectURL(url);
           if (this.world) this.scene.remove(this.world.s3.object);
           this.world = { key, s3, body: new Body3D(s3) };
