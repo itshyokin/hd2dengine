@@ -36,6 +36,47 @@
     "........................"
   ],
   "lights": [],
-  "events": [],
+  "events": [
+    {
+      "id": 1,
+      "name": "Chest",
+      "x": 7,
+      "z": 14,
+      "pages": [
+        {
+          "sprite": "chest",
+          "trigger": "action",
+          "solid": true,
+          "commands": [
+            {
+              "cmd": "giveItem",
+              "item": "potion",
+              "count": 1
+            },
+            {
+              "cmd": "setSwitch",
+              "switch": "chest_map010_1",
+              "value": true
+            }
+          ]
+        },
+        {
+          "condition": {
+            "switch": "chest_map010_1",
+            "is": true
+          },
+          "sprite": "chest_open",
+          "trigger": "action",
+          "solid": true,
+          "commands": []
+        }
+      ],
+      "pos3": {
+        "x": 7.24,
+        "y": 0.36,
+        "z": 14.8
+      }
+    }
+  ],
   "props": []
 }
