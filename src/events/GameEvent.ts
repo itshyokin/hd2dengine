@@ -14,7 +14,7 @@ import { eventCovers, eventH, eventW, nearestTileCentre } from '../world/eventAr
 export class GameEvent {
   page: EventPage | null = null;
   private pageIndex = -2;
-  private visual: THREE.Object3D | null = null;
+  visual: THREE.Object3D | null = null;
   character: CharacterSprite | null = null;
   /** For 'auto' pages: has this page already run since it became active? */
   autoDone = false;

@@ -1,4 +1,6 @@
 import { switchInput } from './switchPicker';
+import { build3D } from '../game/World3D';
+import { readGroundModel } from '../world/groundModel';
 import { modelExt } from '../render/models';
 import type { EncounterPick } from '../world/types';
 import { levelRangeField } from './levelFields';
@@ -88,6 +90,46 @@ export class Inspector {
       if (sel?.kind === 'event' && sel.id === this.eventWin.id) this.drawEventWindow();
       else this.eventWin.close();
     }
+  }
+
+  /**
+   * Update 154: a 3D map: a whole place modelled in Blender (GLB), walked through in third person. Names in the scene
+   * say what things are (collision, foliage, water, waterfalls, kill zones, the start): docs/BLENDER_3D_MAPS.md.
+   */
+  private scene3dFields(): HTMLElement[] {
+    const s = this.store, m = s.map, g = m.scene3d;
+    const choose = () => {
+      const inp = h('input', { type: 'file', accept: '.glb' });
+      inp.addEventListener('change', () => void (async () => {
+        const f = inp.files?.[0]; if (!f) return;
+        if (modelExt(f.name) !== 'glb') { toast('Export the scene from Blender as a .glb (glTF Binary).', 'error'); return; }
+        const path = `assets/maps/${s.mapName}_3d.glb`;
+        if (s.project.canSave && s.project.canStoreImages) {
+          try { await s.project.writeFile(path, f); } catch (err) { toast(`Couldn’t save the scene: ${err instanceof Error ? err.message : String(err)}`, 'error'); return; }
+        }
+        s.files.set(path, f);
+        this.edit(() => { m.scene3d = { ...(m.scene3d ?? {}), src: path }; }, true);
+        // How big it is, so the map's tiles (for events, for now) can cover it.
+        try {
+          const url = URL.createObjectURL(f);
+          const sc = build3D(await readGroundModel(url, f.name), m.scene3d?.scale ?? 1);
+          URL.revokeObjectURL(url);
+          const w = Math.ceil(sc.bounds.max.x), d = Math.ceil(sc.bounds.max.z);
+          toast(w > m.width || d > m.height ? `The scene is ${w} × ${d} m: make the map at least that big (Width and Height above) so events can go anywhere on it.` : `The scene is ${w} × ${d} m, inside the map’s ${m.width} × ${m.height}.`);
+        } catch { toast('The scene is set, but couldn’t be read here to measure it.', 'error'); }
+      })());
+      inp.click();
+    };
+    return [
+      h('div', { class: 'section-label' }, '3D map (Blender scene)'),
+      h('div', { class: 'slot' },
+        h('div', { class: 'slot-head' }, h('span', { class: 'slot-label' }, 'Scene (GLB)'), g ? h('span', { class: 'slot-file', title: g.src }, g.src.split('/').pop()!) : h('span', { class: 'slot-none' }, 'None')),
+        h('div', { class: 'slot-actions' },
+          h('button', { type: 'button', class: 'btn small', onclick: choose }, g ? 'Replace…' : 'Choose…'),
+          g ? h('button', { type: 'button', class: 'btn small ghost', onclick: () => this.edit(() => { delete m.scene3d; }, true) }, 'Remove') : null),
+        h('p', { class: 'hint' }, 'A whole place modelled in Blender, walked through in third person (the camera orbits the hero). Names in the scene mark collision (_col), foliage (_foliage), water (_water), waterfalls (_waterfall), kill zones (_killzone) and the start: see docs/BLENDER_3D_MAPS.md. 1 Blender metre = 1 tile.')),
+      ...(g ? [field('Scale', numberInput(g.scale ?? 1, (v) => this.edit(() => { const n = { ...m.scene3d! }; if (v > 0 && v !== 1) n.scale = v; else delete n.scale; m.scene3d = n; }, true), { step: 0.1, min: 0.01 }), 'Tiles per Blender metre (1 normally).')] : []),
+    ];
   }
 
   /**
@@ -339,6 +381,7 @@ export class Inspector {
       field('Height', select([['', `Follow the view mode (now ${s.db.viewMode === '2d' ? 'flat: 2D mode' : 'real 3D heights: 3D mode'})`], ['flat', 'Implied by the tiles (flat, like RPG Maker)'], ['3d', 'Real 3D heights (the Heights layer)']],
         m.heightMode ?? '', (v) => this.edit(() => { if (v) m.heightMode = v as 'flat' | '3d'; else delete m.heightMode; })),
         'Flat: cliffs and stairs are drawn by the tiles (autotiles, walls) and everything stays at one height; the Heights layer is kept but not used, so you can switch back any time.'),
+      ...this.scene3dFields(),
       ...this.groundModelFields(),
       field('Cliff walls', this.themed(cliffChoices(s), m.cliffTile && s.tiles.isCliffLook(m.cliffTile) ? m.cliffTile : m.cliffTile === undefined ? undefined : BRICKS, 'cliffTile', BRICKS,
         (v) => this.edit(() => { if (v === undefined) delete m.cliffTile; else m.cliffTile = v; })),

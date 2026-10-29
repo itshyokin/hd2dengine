@@ -2,6 +2,7 @@
  * Turns map data into scene geometry: the ground with its heights, cliff walls and stairs,
  * imported tiles, animated water, and instanced prop sprites.
  */
+import type { With3D } from '../game/World3D';
 import type { WithGround } from './groundModel';
 import { markProp } from '../render/lean';
 import { patchSway } from '../render/wind';
@@ -294,7 +295,12 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
   buildBorder(scene, map, data, waterNormals, tileTextures, edgeWater);
   // Update 153: a 3D model as the ground: the painted terrain and the scenery round the edge stay hidden (the ground
   // mesh is still there for pointing at tiles), the model is drawn instead; painted water still shows.
-  const gm = (data as WithGround).__ground;
+  const gm = (data as WithGround).__ground, s3 = (data as With3D).__scene3d;
+  // Update 154: a 3D map: the same, with the Blender scene.
+  if (s3) {
+    for (const o of [...scene.children.slice(terrainFrom, waterFrom), ...scene.children.slice(borderFrom)]) o.visible = false;
+    scene.add(s3.object);
+  }
   if (gm) {
     for (const o of [...scene.children.slice(terrainFrom, waterFrom), ...scene.children.slice(borderFrom)]) o.visible = false;
     scene.add(gm.object.clone(true));

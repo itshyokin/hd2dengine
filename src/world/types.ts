@@ -738,6 +738,11 @@ export interface MapData {
    * shaped. Fitted over the map unless `scale` is set (tiles per model unit); turned `rot` degrees; moved by x / y / z.
    */
   groundModel?: { src: string; scale?: number; rot?: number; x?: number; y?: number; z?: number };
+  /**
+   * Update 154: a 3D map: a whole place modelled in Blender (GLB), walked through in third person. Names in the scene
+   * say what things are (docs/BLENDER_3D_MAPS.md); the map's tiles still hold events for now.
+   */
+  scene3d?: { src: string; scale?: number };
   /** Height layer: one row per line, space-separated steps from -10 to 10 (a step is half a tile). Omitted when flat. */
   heights?: string[];
   /**
@@ -1159,6 +1164,8 @@ export interface Database {
   playerLayer?: number;
   /** 2D mode (Update 152): walk freely instead of tile by tile. */
   freeMove2D?: boolean;
+  /** 3D maps (Update 154): the camera orbits the hero (default) or settles behind them as they walk. */
+  camera3d?: 'orbit' | 'follow';
   title: string;
   /** The World layout (Map editor → World): where each map sits, place names, and the world map's fog. */
   world?: import('./worldLayout').WorldData;

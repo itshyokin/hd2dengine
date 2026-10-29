@@ -2,6 +2,7 @@
  * The game: loads data, builds the scene, and runs the frame loop.
  * Systems are kept in their own modules; this file wires them together.
  */
+import { Body3D, Camera3D, type Scene3D, type With3D, load3D } from './World3D';
 import { type WithGround, loadGround } from '../world/groundModel';
 import { restoreAmount, restoreBits, restoreParts, restoresAny } from './restore';
 import { partyLayout } from '../ui/partyLayout';
@@ -331,6 +332,8 @@ export class Game {
   /** The title screen is showing. */
   private onTitle = false;
   private mapData!: MapData;
+  /** Update 154: on a 3D map, its scene, the hero's body, the camera and the way the hero is heading. */
+  private w3: { scene: Scene3D; body: Body3D; cam: Camera3D; heading: number; moving?: [number, number] | null } | null = null;
   private inventory!: Inventory;
   private bag!: InventoryScreen;
   private shop!: ShopScreen;
@@ -544,6 +547,10 @@ export class Game {
     if (mapData.groundModel?.src) {
       try { (mapData as WithGround).__ground = await loadGround(mapData, resolve(mapData.groundModel.src)); }
       catch (e) { console.warn(`Its 3D model “${mapData.groundModel.src}” couldn’t be read`, e); }
+    }
+    if (mapData.scene3d?.src) {
+      try { (mapData as With3D).__scene3d = await load3D(mapData, resolve(mapData.scene3d.src)); }
+      catch (e) { console.warn(`Its 3D scene “${mapData.scene3d.src}” couldn’t be read`, e); }
     }
     await this.sprites.preload(resolve);
     this.sprites.modelStyle = modelStyle(this.db);
@@ -1055,6 +1062,8 @@ export class Game {
     this.waterfalls = [];
     for (const f of built.waterfalls) if (!this.waterfalls.some((o) => Math.hypot(o.x - f.x, o.z - f.z) < 2.5)) this.waterfalls.push(f);
     this.fallFeet = built.waterfalls;
+    // Update 154: a 3D map's waterfalls (planes named _waterfall) are heard the same way.
+    if (this.w3) for (const f of this.w3.scene.falls) { const spot = { x: f.x, z: f.z, y: f.y, top: f.top }; this.waterfalls.push(spot); this.fallFeet.push(spot); }
     this.findWetProps();
     tagAOMeshes(level);
     this.groundMeshes = built.ground;
@@ -1096,7 +1105,13 @@ export class Game {
     this.printWalk.clear();
     this.puddles.setSpots(this.puddleSpots(data));
 
-    const s = start ?? this.findOpenTile(data);
+    // Update 154: a 3D map: the hero's body and the orbiting camera (a start from the scene when nothing else says).
+    const s3 = (data as With3D).__scene3d;
+    const was3 = !!this.w3;
+    this.w3 = s3 ? { scene: s3, body: new Body3D(s3), cam: new Camera3D(s3), heading: 0 } : null;
+    // Back from a 3D map: the map camera's own field of view again.
+    if (was3 && !this.w3) this.resize();
+    const s = start ?? (s3?.start ? { x: s3.start.x, z: s3.start.z } : this.findOpenTile(data));
     const game = this;
     this.motion = new PlayerMotion({
       map: this.map,
@@ -1120,6 +1135,11 @@ export class Game {
       },
     });
     this.motion.place(s.x, s.z);
+    if (this.w3) {
+      this.w3.body.place(s.x, s.z);
+      this.motion.x = this.w3.body.pos.x; this.motion.y = this.w3.body.pos.y; this.motion.z = this.w3.body.pos.z;
+      this.w3.cam.follow = this.db.camera3d === 'follow';
+    }
     if (s.dir) this.player.faceVector(...DIR_VECTOR[s.dir]);
     this.syncPlayer();
     this.camTarget.copy(this.player.position);
@@ -1331,6 +1351,11 @@ export class Game {
     if (data.groundModel?.src) {
       try { (data as WithGround).__ground = await loadGround(data, this.resolveFile(data.groundModel.src)); }
       catch (e) { console.warn(`Map ${name}: its 3D model “${data.groundModel.src}” couldn’t be read`, e); }
+    }
+    // Update 154: a 3D map's Blender scene.
+    if (data.scene3d?.src) {
+      try { (data as With3D).__scene3d = await load3D(data, this.resolveFile(data.scene3d.src)); }
+      catch (e) { console.warn(`Map ${name}: its 3D scene “${data.scene3d.src}” couldn’t be read`, e); }
     }
     return data;
   }
@@ -1875,9 +1900,29 @@ export class Game {
     this.canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 3 && this.devConsole.enabled) { e.preventDefault(); this.devConsole.toggle(); } }, { passive: false });
     this.canvas.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && this.settings.tapToWalk) this.showCursor(this.pick(e)); });
     this.canvas.addEventListener('pointerleave', () => (this.cursor.visible = false));
+    // Update 154: on a 3D map, dragging (either button) turns the camera round the hero and the wheel zooms.
+    {
+      let orbit: { x: number; y: number } | null = null;
+      this.canvas.addEventListener('contextmenu', (e) => { if (this.w3) e.preventDefault(); });
+      this.canvas.addEventListener('pointerdown', (e) => {
+        if (!this.w3 || this.message.isOpen) return;
+        orbit = { x: e.clientX, y: e.clientY };
+        this.canvas.setPointerCapture(e.pointerId);
+      });
+      this.canvas.addEventListener('pointermove', (e) => {
+        if (!orbit || !this.w3) return;
+        this.w3.cam.turn(-(e.clientX - orbit.x) * 0.006, (e.clientY - orbit.y) * 0.005);
+        orbit = { x: e.clientX, y: e.clientY };
+      });
+      const end = () => (orbit = null);
+      this.canvas.addEventListener('pointerup', end);
+      this.canvas.addEventListener('pointercancel', end);
+      this.canvas.addEventListener('wheel', (e) => { if (!this.w3) return; e.preventDefault(); this.w3.cam.zoom(e.deltaY > 0 ? 1.12 : 1 / 1.12); }, { passive: false });
+    }
     this.canvas.addEventListener('pointerdown', (e) => {
       // While a message is up, a tap anywhere advances it.
       if (this.message.isOpen) { if (!this.message.isChoosing) this.input.press('ok'); return; }
+      if (this.w3) return;
       if (this.interpreter.running || !this.settings.tapToWalk) return;
       const p = this.pick(e);
       if (!p) return;
@@ -2247,8 +2292,9 @@ export class Game {
     if (!i.sprintToggle) i.runLatched = false;
     const sprint = (this.state.sprint && this.carries('dash')) || (this.db.aButton === 'dash' && i.isHeld('jump'));
     const run = sprint || (this.settings.alwaysRun ? !i.isHeld('run') : i.isHeld('run') || i.runLatched || i.touchRun || stickRun);
-    const res = m.update(dt, { dx, dz, run, jump: space, sneak: this.combat.sneaking, speedScale: this.combat.speedScale * this.cheats.speed * (this.riding ? 1 : 1 - slowOf(this.weatherStates.get(mainHero(this.db).id) ?? null, this.bodyCfg)) });
-    if (!m.airborne && !m.climbing && this.trySeamless(dx, dz)) return;
+    const scale = this.combat.speedScale * this.cheats.speed * (this.riding ? 1 : 1 - slowOf(this.weatherStates.get(mainHero(this.db).id) ?? null, this.bodyCfg));
+    const res = this.w3 ? this.move3D(dt, dx, dz, run, space, scale) : m.update(dt, { dx, dz, run, jump: space, sneak: this.combat.sneaking, speedScale: scale });
+    if (!this.w3 && !m.airborne && !m.climbing && this.trySeamless(dx, dz)) return;
     // Locked on, the hero keeps facing the target (strafing); otherwise they face where they walk, unless attacking.
     const lock = this.combat.lock;
     if (lock) this.player.faceToward(lock.x, lock.z);
@@ -7228,7 +7274,23 @@ export class Game {
     return this.camOffset.set(0, Math.sin(p) * c.distance, Math.cos(p) * c.distance);
   }
 
+  /** 3D maps (Update 154): the hero's body this frame, from screen-relative directions; as a MotionResult. */
+  private move3D(dt: number, dx: number, dz: number, run: boolean, jump: boolean, scale: number): { moving: boolean; blocked: boolean; fell: boolean; face: null; jumped?: boolean } {
+    const w = this.w3!, sp = this.motion.speeds, [wx, wz] = w.cam.toWorld(dx, dz);
+    const r = w.body.update(dt, { dx: wx, dz: wz, speed: (run ? sp.run : sp.walk) * scale, swimSpeed: sp.swim * scale, jump });
+    const m = this.motion;
+    m.x = w.body.pos.x; m.y = w.body.pos.y; m.z = w.body.pos.z;
+    m.running = run && r.moving;
+    if (r.moving) w.heading = Math.atan2(wx, wz);
+    if (r.splash) this.audio.play('splash', m.x, m.z);
+    if (r.respawned) this.fade = { from: 0.7, to: 0, t: 0, duration: 0.6 };
+    w.moving = r.moving ? [wx, wz] : null;
+    return { moving: r.moving, blocked: false, fell: r.respawned, face: null, jumped: r.jumped };
+  }
+
   private updateCamera(dt: number): void {
+    // Update 154: a 3D map: upright sprites turned to the camera, the camera orbiting the hero.
+    if (this.w3 && !this.stage) { this.updateCamera3D(dt); return; }
     // Sprites lean back to face the map camera (upright on battle maps, where the camera goes all round).
     setLean(this.stage ? 0 : THREE.MathUtils.degToRad(this.overworldCam.pitch) * this.overworldCam.lean / 100);
     const twoD = !this.stage && this.db.viewMode === '2d';
@@ -7287,6 +7349,35 @@ export class Game {
     // Looking (nearly) straight down, everything is the same distance away: no tilt-shift blur (Update 143).
     this.post.tiltFade = Math.max(this.sleepLook, clamp((this.overworldCam.pitch - 70) / 15, 0, 1));
     // The sun's shadow camera follows the view so shadows stay sharp.
+    this.sun.target.position.copy(t);
+    this.sun.position.copy(t).addScaledVector(this.time.sunDir, 30);
+  }
+
+  /** The camera on a 3D map (Update 154), and characters drawn as pictures turned to face it. */
+  private updateCamera3D(dt: number): void {
+    const w = this.w3!, i = this.input;
+    setLean(0); setView2D(false, 10); setBody2D(false); this.motion.grid = false;
+    // Its own lens: a normal field of view and a near plane close in (the 2D camera's narrow view and far near plane
+    // would hide everything near the hero).
+    if (this.camera.fov !== 55 || this.camera.near !== 0.1) { this.camera.fov = 55; this.camera.near = 0.1; this.camera.updateProjectionMatrix(); }
+    if (i.rstick.x || i.rstick.y) w.cam.turn(-i.rstick.x * dt * 2.6, i.rstick.y * dt * 1.8);
+    w.cam.update(dt, this.camera, this.player.position, w.moving ?? null);
+    // A sprite hero shows the side the camera sees; a 3D model turns to the way they're heading.
+    const yaw = w.cam.yaw, rel = w.heading - yaw;
+    if (this.player.rig) this.player.faceVector(Math.sin(w.heading), Math.cos(w.heading));
+    else { this.player.faceVector(Math.sin(rel), Math.cos(rel)); this.player.mesh.rotation.y = yaw; }
+    for (const a of this.allies) {
+      if (!a.sprite.rig) a.sprite.mesh.rotation.y = yaw;
+      // The party stands on the scene's floors (their trail is laid on the tile grid).
+      const p = a.sprite.mesh.position, y = w.body.groundBelow(p.x, p.y + 2.5, p.z);
+      if (y !== null) p.y = y;
+    }
+    for (const e of this.events) if (e.visual) e.visual.rotation.y = yaw;
+    this.camTarget.copy(this.player.position);
+    this.post.focus = 0.5; this.post.focusBand = 1; this.post.tiltFade = 1;
+    // Waterfalls run down their planes.
+    for (const f of w.scene.falls) { const mt = f.mesh.material as THREE.MeshStandardMaterial; if (mt.map) { if (mt.map.wrapT !== THREE.RepeatWrapping) { mt.map.wrapT = THREE.RepeatWrapping; mt.map.needsUpdate = true; } mt.map.offset.y += dt * 0.9; } }
+    const t = this.camTarget;
     this.sun.target.position.copy(t);
     this.sun.position.copy(t).addScaledVector(this.time.sunDir, 30);
   }

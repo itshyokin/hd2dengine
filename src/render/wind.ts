@@ -62,3 +62,36 @@ export function patchSway<T extends THREE.Material>(mat: T, amount = 1): T {
   mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|sway${amount}`;
   return mat;
 }
+
+/**
+ * Foliage on 3D models (Update 154, materials named "…_foliage"): sways in the wind in world space. How much each
+ * part moves follows the model's vertex colour red when it has vertex colours (paint the trunk black, leaf tips red),
+ * otherwise everything sways a little.
+ */
+export function patchSwayModel<T extends THREE.Material>(mat: T, amount = 1): T {
+  if (mat.userData.hdSwayModel) return mat;
+  mat.userData.hdSwayModel = amount;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    prev?.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = VERT_HEAD + shader.vertexShader.replace('#include <project_vertex>', `
+  {
+    #ifdef USE_COLOR
+      float swW = vColor.r;
+    #else
+      float swW = 0.6;
+    #endif
+    vec4 swWorld = modelMatrix * vec4(transformed, 1.0);
+    float swPhase = swWorld.x * 0.7 + swWorld.z * 0.5;
+    float swS = uWind.y * ${amount.toFixed(3)};
+    float swSway = sin(uSwayTime * (1.3 + swS * 1.4) + swPhase) * (0.03 + 0.07 * swS) + sin(uSwayTime * 3.4 + swPhase * 2.1) * 0.015 * swS;
+    vec3 swOff = vec3(uWind.x, 0.0, uWind.z) * (swSway + swS * 0.05) * swW;
+    transformed += (inverse(mat3(modelMatrix)) * swOff);
+  }
+#include <project_vertex>`);
+  };
+  const prevKey = mat.customProgramCacheKey?.bind(mat);
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + `|swaym${amount}`;
+  return mat;
+}

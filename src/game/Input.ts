@@ -111,6 +111,8 @@ export class Input {
   mode: 'field' | 'menu' = 'menu';
   /** The left stick (or nothing), for walking at any angle. */
   readonly stick = { x: 0, y: 0 };
+  /** The right stick (Update 154: turns the camera on 3D maps). */
+  readonly rstick = { x: 0, y: 0 };
   /** How far the left stick is pushed (0 … 1). */
   get stickAmount(): number { return Math.min(1, Math.hypot(this.stick.x, this.stick.y)); }
   /** Which device was used last, so prompts can name the right button. */
@@ -196,6 +198,7 @@ export class Input {
     const pad = [...pads].find((p) => p && p.connected);
     this.padHeld.clear();
     this.stick.x = 0; this.stick.y = 0;
+    this.rstick.x = 0; this.rstick.y = 0;
     if (!pad) { this.padPrev = []; this.rebuildHeld(); return; }
     const down = pad.buttons.map((b) => b.pressed || b.value > 0.5);
     if (down.some(Boolean) || Math.hypot(pad.axes[0] ?? 0, pad.axes[1] ?? 0) > 0.5) this.lastDevice = 'pad';
@@ -225,6 +228,7 @@ export class Input {
       }
     });
     this.padPrev = down;
+    { const rx = pad.axes[2] ?? 0, ry = pad.axes[3] ?? 0; if (Math.hypot(rx, ry) > STICK_DEAD) { this.rstick.x = rx; this.rstick.y = ry; } }
     // Left stick: walking direction in the field; steps through menus (with repeat).
     const x = pad.axes[0] ?? 0, y = pad.axes[1] ?? 0, mag = Math.hypot(x, y);
     if (mag > STICK_DEAD) {

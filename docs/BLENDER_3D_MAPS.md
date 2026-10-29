@@ -1,0 +1,61 @@
+# Building 3D maps in Blender
+
+A **3D map** is a whole place you model in Blender and walk through in third person. Blender does the place itself
+(the ground, buildings, rocks, trees, water); the engine does everything that happens there (events, music, sounds,
+battles, encounters, weather, the time of day).
+
+## 1. Model it
+
+- **Scale:** 1 Blender metre = 1 engine unit (one tile). Characters are about 1.6–1.8 m tall, so model at real size:
+  doors about 2.2 m high, steps about 0.2 m high and 0.3 m deep, corridors at least 1.5 m wide.
+- **Which way is north:** Blender's **+Y** is north (up on the map) and **+X** is east. The engine moves the scene so
+  its south-west corner sits at the map's top-left tile, so you can model around Blender's origin.
+- **Floors over floors are fine:** bridges over paths, balconies, caves under hills. The hero walks on whatever is
+  under their feet.
+- **Ramps and stairs:** slopes up to about 45° can be walked up; stairs work if each step is no taller than about
+  0.3 m (a smooth ramp hidden under the steps, tagged `_col`, makes them feel smoother).
+
+## 2. Name things (tags)
+
+Put the tag anywhere in the **object's name** (or its parent's), or in the **material's name** where it says so.
+Upper or lower case doesn't matter, and `Rock_col`, `col_Rock` and `Rock.col` all count.
+
+| Tag | Put it on | What it does |
+| --- | --- | --- |
+| `_col` | object | **Collision only**, invisible. As soon as the scene has any `_col` object, *only* `_col` objects collide: make simple boxes and ramps around your detailed models (like Halo's collision geometry). Without any, every visible mesh collides. |
+| `_nocol` | object | Shown, never collided with: tall grass, cobwebs, hanging vines, light shafts. |
+| `_nocam` | object | Collides, but the camera passes through it instead of zooming in: leaves, thin poles, fences. |
+| `_foliage` | **material** | Sways in the wind (the same wind as the 2D maps). With vertex colours, paint **red** where it should move most (leaf tips) and **black** where it shouldn't (trunks); without, it all sways a little. |
+| `_water` | object (a flat plane) | A **water surface**: deeper than about chest height, the hero swims; jumping in splashes. The plane's height is the surface. Not collided with: model the bottom of the pond or river under it. |
+| `_waterfall` | object (a plane) | Falling water: its texture runs downwards and it's heard nearby. |
+| `_killzone` | object (a box) | Pits and the void: falling into it puts the hero back on the last safe ground. Invisible. Falling far below the whole scene does the same anyway. |
+| `start` | an **empty** (or any object) named `start` | Where the hero appears when nothing else says (a transfer or the game's start point decides first). |
+
+Coming later: `_ladder` (climbable) and `trigger_…` / `spawn_…` empties that turn into trigger volumes and enemy spawns
+you can then edit in the engine.
+
+## 3. Export
+
+**File → Export → glTF 2.0**, format **glTF Binary (.glb)**, with:
+
+- **Include:** Selected Objects off (the whole scene), **Custom Properties** on.
+- **Transform:** **+Y Up** on (the default).
+- **Mesh:** Apply Modifiers on, UVs, Normals, **Vertex Colors** on (for `_foliage` sway weights), Materials: Export.
+
+Keep textures small where you can (1024 × 1024 is plenty for most things). Baked lighting looks great and costs
+nothing: bake shadows and light into the textures in Blender, and the engine adds its own day and night, lights and
+weather on top.
+
+## 4. Bring it in
+
+1. In the Map Editor, make a map (**New map**) big enough to cover the scene in tiles (a 60 × 40 m scene needs a map
+   of at least 60 × 40), then open **⚙ Map Properties → 3D map (Blender scene) → Choose…** and pick the `.glb`. It's
+   saved in the project as `assets/maps/<map>_3d.glb`, and the editor tells you how big it is.
+2. The editor's map shows the scene from above. Place **events** on its tiles as on any map (transfers, people,
+   chests, encounters); music, sounds, weather, battles and encounters are set in Map Properties as usual.
+3. **▶ Playtest.** The camera orbits the hero: drag with the mouse (or use the right stick) to turn it, and the wheel
+   zooms. Database → World → View & camera → *Camera on 3D maps* can switch it to **Follow** (it settles behind the
+   hero as they walk). Either way it never looks up from under the ground or straight down.
+
+To change the place, edit it in Blender, export over the same file and choose it again (or replace the file in
+`public/assets/maps/`).

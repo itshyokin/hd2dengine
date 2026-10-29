@@ -11,7 +11,8 @@ import { MAX_HEIGHT, MIN_HEIGHT, STEP } from '../world/heights';
 import { toast } from './dom';
 import { waterStyle } from '../world/waterStyles';
 import { TS, characterImage, drawTile, enemyImage, propSprite } from './editorArt';
-import { groundTopView, loadGround } from '../world/groundModel';
+import { groundTopView, loadGround, readGroundModel } from '../world/groundModel';
+import { build3D } from '../game/World3D';
 import type { MapData } from '../world/types';
 import type { EditorStore } from './store';
 import { PASSAGE_FLAGS } from '../world/passage';
@@ -59,7 +60,7 @@ export class MapView {
   /** Update 153: top-down pictures of maps' 3D model grounds, by file and fit. */
   private readonly groundViews = new Map<string, HTMLCanvasElement | 'loading' | 'failed'>();
   private groundView(m: MapData): HTMLCanvasElement | null {
-    const g = m.groundModel!, key = JSON.stringify([g, m.width, m.height]);
+    const g = (m.scene3d ?? m.groundModel)!, key = JSON.stringify([g, m.width, m.height]);
     const have = this.groundViews.get(key);
     if (have instanceof HTMLCanvasElement) return have;
     if (have) return null;
@@ -69,7 +70,8 @@ export class MapView {
         const blob = this.store.files.get(g.src) ?? await this.store.project.readFile(g.src);
         if (!this.store.files.has(g.src)) this.store.files.set(g.src, blob);
         const url = URL.createObjectURL(blob);
-        try { this.groundViews.set(key, groundTopView(await loadGround(m, url), m.width, m.height, TS)); }
+        // A 3D map's scene as it's placed in the game; a model ground as it's fitted.
+        try { this.groundViews.set(key, groundTopView(m.scene3d ? { object: build3D(await readGroundModel(url, g.src), m.scene3d.scale ?? 1).object } as Parameters<typeof groundTopView>[0] : await loadGround(m, url), m.width, m.height, TS)); }
         finally { URL.revokeObjectURL(url); }
       } catch { this.groundViews.set(key, 'failed'); }
       this.needsTerrain = true; this.needsDraw = true;
@@ -933,7 +935,7 @@ export class MapView {
     const at = (x: number, z: number): string => s.terrainAt(Math.max(0, Math.min(m.width - 1, x)), Math.max(0, Math.min(m.height - 1, z)));
     for (let z = 0; z < m.height; z++) for (let x = 0; x < m.width; x++) drawTile(ctx, s.terrainAt(x, z), x, z, x * TS, z * TS, at);
     // Update 153: a 3D model ground, seen from above (the tiles under it are hidden in the game).
-    if (m.groundModel?.src) {
+    if (m.groundModel?.src || m.scene3d?.src) {
       const view = this.groundView(m);
       if (view) { ctx.globalAlpha = 0.92; ctx.drawImage(view, 0, 0); ctx.globalAlpha = 1; }
     }

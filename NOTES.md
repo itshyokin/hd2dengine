@@ -401,6 +401,15 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 154 (3D maps, phase A): game/World3D.ts (build3D: tags by object / material name, offset to the map
+        corner, merged world-space collider with a three-mesh-bvh MeshBVH (0.5.24, three 0.149), cam collider without
+        _nocam; Body3D capsule r 0.3 h 1.6 pushed out per the three-mesh-bvh character example, 4 substeps, gravity
+        22, swim at water − 0.7 h, kill zones / far fall → last safe; Camera3D yaw / pitch / dist, pitch clamp
+        orbit −0.12…1.15, follow 0.12…0.85, wall raycast). wind.ts patchSwayModel (vertex colour red weight). Game:
+        w3 state, move3D replaces motion.update (motion x / y / z mirrored), updateCamera3D (fov 55, near 0.1,
+        sprites turned to the camera, party set on floors), mouse drag / wheel, Input.rstick, 3D waterfalls into
+        the waterfall sounds. Editor: Map Properties scene field, top view, playtest hand-over, Database camera3d.
+        Next: phase B, the 3D editor (viewport, right-click placing, gizmos, outliner, events in 3D).
   - [x] Update 153 (phase 1 of 3D model maps): MapData.groundModel {src, scale, rot, x, y, z}; world/groundModel.ts
         fitGround (fit footprint, raycast down at corners → hill field, centres + steepness → blocked), loadGround,
         groundTopView (ortho render for the editor). TileMap: __ground → all cells hills on the field, blocked OR.

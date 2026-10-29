@@ -15,6 +15,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 154 (Oct 29):** 3D maps from Blender, phase A (tags, mesh collision, third-person hero and camera,
+  water, kill zones; docs/BLENDER_3D_MAPS.md). Checked in the browser with a generated tagged scene.
 - **Update 153 (Oct 28):** 3D model maps, phase 1 (a GLB as the ground, walked on as shaped). Checked in the browser
   with a generated GLB (platform heights, model drawn, tiles hidden).
 - **Update 152 (Oct 28):** Grid movement (2D), map folders, MV sheet import, flat props sway / rustle. Checked in the

@@ -1372,6 +1372,12 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **3D maps from Blender** (Update 154, Map Properties → *3D map (Blender scene)*; how-to: docs/BLENDER_3D_MAPS.md):
+  a whole place modelled in Blender, walked through in third person. Names in the scene mark collision (`_col`,
+  `_nocol`, `_nocam`), swaying foliage (`_foliage` materials), water to swim in (`_water`), waterfalls
+  (`_waterfall`), kill zones (`_killzone`) and the start (`start`). The hero walks up ramps and stairs, over and
+  under bridges, jumps and swims; the camera orbits them like World of Warcraft (or follows behind: Database → View
+  & camera), never from under the ground or straight down. Events still go on the map's tiles for now.
 - **3D model maps** (Update 153, Map Properties → *3D model ground*): a GLB or FBX of a whole place as the map's
   ground and scenery instead of painted tiles. It's fitted over the map (or scaled, turned and raised as you set), and
   the game walks on it as it's shaped: slopes, floors and stairs; steep places, walls and holes block. Events, props,

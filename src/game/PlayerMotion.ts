@@ -145,6 +145,8 @@ export class PlayerMotion {
     return this.map.standY(x, z, this.y);
   }
   private get sp(): Speeds { return this.w.speed ?? DEFAULT_SPEEDS; }
+  /** Walking, running and swimming speeds (Update 154: the 3D maps' hero uses them too). */
+  get speeds(): Speeds { return this.sp; }
 
   /** Put the player at a point on the ground. */
   place(x: number, z: number): void {
