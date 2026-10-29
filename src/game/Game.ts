@@ -218,7 +218,7 @@ const INTERACT_RANGE = 1.3;
 /** Seconds B (or Esc) is held while riding to get off the horse (Update 142). */
 const DISMOUNT_HOLD = 0.45;
 
-type Start = { x: number; z: number; dir?: Dir };
+type Start = { x: number; z: number; y?: number; dir?: Dir };
 
 /** A neighbouring map drawn beside this one (a Seamless side), ready to walk into. */
 interface Preview { name: string; n: Neighbour; group: THREE.Group; map: TileMap; built: BuiltWorld; data: MapData; origin: THREE.Vector2 }
@@ -1139,7 +1139,7 @@ export class Game {
     });
     this.motion.place(s.x, s.z);
     if (this.w3) {
-      this.w3.body.place(s.x, s.z);
+      this.w3.body.place(s.x, s.z, s.y);
       this.motion.x = this.w3.body.pos.x; this.motion.y = this.w3.body.pos.y; this.motion.z = this.w3.body.pos.z;
       this.w3.cam.follow = this.db.camera3d === 'follow';
     }

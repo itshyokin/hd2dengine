@@ -58,8 +58,10 @@ weather on top.
    - **Place:** right-click a spot (without dragging) → **New event here…**, then pick its kind on the left (an
      event, a transfer, a chest, an enemy…): it stands exactly on that spot, on whatever floor you clicked. **Move
      the player's start here** does what it says.
-   - **Select and move:** click an event; drag the gizmo's arrows to move it (**W**), or press **E** and drag the
-     ring to turn it; **F** frames it; double-click opens its pages and commands. Its settings show in the left bar.
+   - **Select and move:** click an event, a volume or the green player start; the **Move / Turn / Size** buttons
+     (top right, or **W / E / R**) pick what the gizmo does: drag its arrows to move, its ring to turn (the start's
+     facing snaps to the nearest of the four ways), its handles to size (volumes). **F** frames it; double-click opens
+     an event's pages and commands. Its settings show in the left bar.
    - In the game, a *talk* event is talked to from in front of it (at about the same height), and a *touch* event
      fires when the hero walks into it.
    - **Volumes:** right-click → **Trigger volume here** (runs an event's page when the hero walks in, or out; once

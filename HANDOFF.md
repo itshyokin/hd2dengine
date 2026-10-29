@@ -15,6 +15,8 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 157 (Oct 29):** 3D view: the player start can be selected, moved and turned (keeps its floor height);
+  Move / Turn / Size buttons and a controls hint on screen.
 - **Update 156 (Oct 29):** Trigger and encounter volumes, monsters on 3D floors. Checked in the browser (volume fired
   its event, zone A inside the box, monster on the platform, walls block grid walkers).
 - **Update 155 (Oct 29):** The editor's 3D view (fly, right-click to place, gizmos) and events placed in 3D.

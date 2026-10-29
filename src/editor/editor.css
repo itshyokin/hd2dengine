@@ -1005,3 +1005,6 @@ body.resizing-side { user-select: none; cursor: col-resize; }
 .view3d-menu-note { font-size: 11px; color: var(--muted); padding: 2px 10px; }
 .view3d-note { display: grid; place-items: center; align-content: center; gap: 12px; height: 100%; color: #1c2230; font-weight: 600; }
 .view3d-bring { position: absolute; top: 10px; left: 10px; z-index: 4; }
+.view3d-tools { position: absolute; top: 10px; right: 10px; z-index: 4; display: grid; gap: 6px; justify-items: end; }
+.view3d-tools .toolrow { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; padding: 3px; }
+.view3d-help { font-size: 11.5px; color: #1c2230; background: rgba(255,255,255,0.72); padding: 4px 8px; border-radius: 6px; max-width: 520px; text-align: right; }

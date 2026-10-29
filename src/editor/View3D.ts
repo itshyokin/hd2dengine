@@ -42,13 +42,23 @@ export class View3D {
   private menu: HTMLElement | null = null;
 
   constructor(private readonly store: EditorStore, private readonly openEvent: (ev: EventData) => void) {
-    this.el = h('div', { class: 'view3d', hidden: true }, this.canvas, this.bring);
+    // Update 157: the tools in view: Move / Turn / Size, and how to get round.
+    const tool = (mode: 'translate' | 'rotate' | 'scale', text: string, key: string) => h('button', { type: 'button', class: 'tool', 'data-mode': mode, title: `${text} (${key})`, onclick: () => { this.setMode(mode); this.canvas.focus(); } }, `${text} · ${key}`);
+    this.tools = h('div', { class: 'view3d-tools' },
+      h('div', { class: 'toolrow small' }, tool('translate', 'Move', 'W'), tool('rotate', 'Turn', 'E'), tool('scale', 'Size', 'R')),
+      h('div', { class: 'view3d-help' }, 'Click: select · Right-click: place here · Hold right button: look, W A S D / Q E fly, Shift faster · Wheel: forward / back · F: frame · Double-click: open'));
+    this.el = h('div', { class: 'view3d', hidden: true }, this.canvas, this.bring, this.tools);
     this.scene.background = new THREE.Color(0x9fb4c8);
     this.scene.add(new THREE.HemisphereLight(0xdfeeff, 0x4a4030, 0.9));
     const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(-30, 60, -20); this.scene.add(sun);
     this.scene.add(this.startMarker);
     const startMesh = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.2, 12), new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x1a5a30 }));
     startMesh.position.y = 0.6; startMesh.rotation.x = Math.PI;
+    startMesh.userData.start = true;
+    // Which way the hero faces at the start.
+    const startNose = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.5), new THREE.MeshStandardMaterial({ color: 0x14532d }));
+    startNose.position.set(0, 0.9, 0.35);
+    this.startMarker.add(startNose);
     this.startMarker.add(startMesh, label('Player start', '#4ade80'));
     for (const t of ['map', 'structure', 'selection'] as const) store.on(t, () => { if (this.active) this.sync(); });
     this.bind();
@@ -76,10 +86,21 @@ export class View3D {
       this.scene.add(this.gizmo);
     }
     this.sync();
+    this.setMode('translate');
     this.canvas.focus();
     this.last = performance.now();
     const loop = () => { this.frame(); this.raf = requestAnimationFrame(loop); };
     loop();
+  }
+  private readonly tools: HTMLElement;
+  /** The gizmo's tool (sizing is for volumes only); the buttons show which is on. */
+  private setMode(mode: 'translate' | 'rotate' | 'scale'): void {
+    if (!this.gizmo) return;
+    if (mode === 'scale' && this.store.selection?.kind !== 'volume') mode = 'translate';
+    this.gizmo.setMode(mode);
+    const rot = mode === 'rotate';
+    this.gizmo.showX = !rot; this.gizmo.showZ = !rot; this.gizmo.showY = true;
+    this.tools.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
   }
   /** Asked to close (the tablet note's button). */
   onClose: (() => void) | null = null;
@@ -158,7 +179,11 @@ export class View3D {
     // The player's start, when it's on this map.
     const st = s.db.start, here = s.db.startMap === s.mapName;
     this.startMarker.visible = here;
-    if (here) this.startMarker.position.set(st.x, this.world?.body.groundBelow(st.x, (this.world?.s3.bounds.max.y ?? 0) + 5, st.z) ?? 0, st.z);
+    if (here && !(this.gizmo?.dragging && this.gizmo.object === this.startMarker)) {
+      this.startMarker.position.set(st.x, st.y ?? this.world?.body.groundBelow(st.x, (this.world?.s3.bounds.max.y ?? 0) + 5, st.z) ?? 0, st.z);
+      this.startMarker.rotation.y = { down: 0, right: Math.PI / 2, up: Math.PI, left: -Math.PI / 2 }[st.dir ?? 'down'];
+    }
+    ((this.startMarker.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).emissive.setHex(s.selection?.kind === 'start' ? 0x2a8a50 : 0x1a5a30);
     // Volumes.
     const vsel = s.selection?.kind === 'volume' ? s.selection.id : null, vols = m.volumes ?? [];
     for (const [id, g] of this.vols) if (!vols.some((v) => v.id === id)) { this.scene.remove(g); this.vols.delete(id); }
@@ -187,17 +212,26 @@ export class View3D {
     this.bring.hidden = !fresh.length;
     this.bring.textContent = `Bring in ${fresh.length} volume${fresh.length === 1 ? '' : 's'} from Blender`;
     // The gizmo on the selected event or volume.
-    const gm = sel !== null ? this.markers.get(sel) : vsel !== null ? this.vols.get(vsel) : undefined;
+    const gm = sel !== null ? this.markers.get(sel) : vsel !== null ? this.vols.get(vsel) : s.selection?.kind === 'start' && here ? this.startMarker : undefined;
     if (this.gizmo) {
       if (gm) { if (this.gizmo.object !== gm) this.gizmo.attach(gm); } else this.gizmo.detach();
       // Events don't scale.
       if (this.gizmo.mode === 'scale' && vsel === null) this.gizmo.setMode('translate');
+      if (this.gizmo.mode === 'rotate') { this.gizmo.showX = false; this.gizmo.showZ = false; }
     }
   }
 
   /** The gizmo let go: the event's new spot and facing. */
   private commitGizmo(): void {
     const g = this.gizmo?.object, s = this.store;
+    // The player's start (Update 157): where, on which floor, and facing which way (the nearest of the four).
+    if (g === this.startMarker) {
+      const a = ((g.rotation.y % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI), q = Math.round(a / (Math.PI / 2)) % 4;
+      s.checkpoint();
+      s.db.start = { ...s.db.start, x: round2(g.position.x), y: round2(g.position.y), z: round2(g.position.z), dir: (['down', 'right', 'up', 'left'] as const)[q] };
+      s.changedDb();
+      return;
+    }
     const vol = g && g.userData.volumeId !== undefined ? s.map.volumes?.find((v) => v.id === g.userData.volumeId) : undefined;
     if (g && vol) {
       s.checkpoint();
@@ -257,8 +291,8 @@ export class View3D {
       if (e.button === 2) { this.look = { x: e.clientX, y: e.clientY, moved: 0 }; c.setPointerCapture(e.pointerId); return; }
       if (e.button !== 0 || this.gizmo?.axis) return;
       // Click: select the event under the pointer (or nothing).
-      const hit = this.ray(e).intersectObjects([...this.markers.values(), ...this.vols.values()], true).find((i) => i.object.userData.eventId !== undefined || i.object.userData.volumeId !== undefined);
-      this.store.select(!hit ? null : hit.object.userData.eventId !== undefined ? { kind: 'event', id: hit.object.userData.eventId as number } : { kind: 'volume', id: hit.object.userData.volumeId as number });
+      const hit = this.ray(e).intersectObjects([...this.markers.values(), ...this.vols.values(), this.startMarker], true).find((i) => i.object.userData.eventId !== undefined || i.object.userData.volumeId !== undefined || i.object.userData.start);
+      this.store.select(!hit ? null : hit.object.userData.start ? { kind: 'start' } : hit.object.userData.eventId !== undefined ? { kind: 'event', id: hit.object.userData.eventId as number } : { kind: 'volume', id: hit.object.userData.volumeId as number });
     });
     c.addEventListener('pointermove', (e) => {
       if (!this.look) return;
@@ -288,10 +322,9 @@ export class View3D {
       e.stopPropagation();
       this.keys.add(e.code);
       if (this.look) return;
-      if (e.code === 'KeyW') this.gizmo?.setMode('translate');
-      if (e.code === 'KeyE') { this.gizmo?.setMode('rotate'); }
-      if (e.code === 'KeyR' && this.store.selection?.kind === 'volume') this.gizmo?.setMode('scale');
-      if (this.gizmo) { const rot = this.gizmo.mode === 'rotate'; this.gizmo.showX = !rot; this.gizmo.showZ = !rot; this.gizmo.showY = true; }
+      if (e.code === 'KeyW') this.setMode('translate');
+      if (e.code === 'KeyE') this.setMode('rotate');
+      if (e.code === 'KeyR') this.setMode('scale');
       if ((e.code === 'Delete' || e.code === 'Backspace') && this.store.selection?.kind === 'volume') {
         const id = this.store.selection.id, m = this.store.map;
         this.store.checkpoint(); m.volumes = (m.volumes ?? []).filter((v) => v.id !== id); if (!m.volumes.length) delete m.volumes;
@@ -305,7 +338,7 @@ export class View3D {
   }
 
   private frameSelected(): void {
-    const sel = this.store.selection, g = sel?.kind === 'event' ? this.markers.get(sel.id) : sel?.kind === 'volume' ? this.vols.get(sel.id) : null;
+    const sel = this.store.selection, g = sel?.kind === 'event' ? this.markers.get(sel.id) : sel?.kind === 'volume' ? this.vols.get(sel.id) : sel?.kind === 'start' ? this.startMarker : null;
     if (!g) return;
     const f = new THREE.Vector3(); this.camera.getWorldDirection(f);
     this.camera.position.copy(g.position).add(new THREE.Vector3(0, 1, 0)).addScaledVector(f, -6);
@@ -325,7 +358,7 @@ export class View3D {
       }),
       item('Trigger volume here (runs an event when walked into)', () => this.addVolume('trigger', p)),
       item('Encounter volume here (random battles inside)', () => this.addVolume('encounter', p)),
-      s.db.startMap === s.mapName ? item('Move the player’s start here', () => { s.checkpoint(); s.db.start = { ...s.db.start, x: round2(p.x), z: round2(p.z) }; s.changedDb(); }) : null,
+      s.db.startMap === s.mapName ? item('Move the player’s start here', () => { s.checkpoint(); s.db.start = { ...s.db.start, x: round2(p.x), y: round2(p.y), z: round2(p.z) }; s.changedDb(); s.select({ kind: 'start' }); }) : null,
       h('div', { class: 'view3d-menu-note' }, `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`));
     this.el.append(this.menu);
   }

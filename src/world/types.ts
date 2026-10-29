@@ -1229,7 +1229,8 @@ export interface Database {
   startMap: string;
   /** Update 152: the editor's map folders, map name → folder name (maps not listed: no folder). */
   mapFolders?: Record<string, string>;
-  start: { x: number; z: number; dir?: Dir };
+  /** Update 157: `y` the floor it stands on (3D maps, where floors can be stacked). */
+  start: { x: number; z: number; y?: number; dir?: Dir };
   startHour: number;
   /** The shared outdoor weather when a new game starts (outdoor maps without their own weather all share it). */
   weather?: { kind: WeatherKind; amount?: number };
