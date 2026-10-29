@@ -56,14 +56,15 @@ bloom all apply, and lights placed in the editor (Lights tab, or props that carr
   Normal and Emission all come through. Don't bake shadows or light *into the colour textures* of outdoor maps: the
   sun moves and night falls, and a baked midday shadow would still be there at night.
 - **Ambient occlusion** (the soft darkening in corners and creases) is the one bake that works with day and night:
-  bake AO to its own texture and plug it into a **glTF Material Output** node's *Occlusion* input (Add → Group →
-  glTF Material Output). It gives depth without fighting the sun.
+  bake AO to its own texture and plug it into the *Occlusion* input of a **glTF Material Output** node (called *glTF
+  Settings* in older Blender versions; see Blender's glTF manual if your version doesn't list it). It gives depth
+  without fighting the sun.
 - **Glowing things** (windows, lamps, crystals, lava): give them **Emission**; they glow, and bloom at night. Place an
   engine light there too if it should light its surroundings.
 - **Indoors and caves:** Map Properties → *Lighting: Indoor* (muted, windows show daylight) or *Dark* (only lights
   show), plus lights placed in the editor. For a place that never changes (a shrine, a tomb), a full light bake looks
-  richest: bake it into the colour and give those materials Blender's **unlit** look (an Emission-only material
-  exports as unlit), so the engine shows them exactly as baked.
+  richest: bake it into the colour and make those materials **unlit** (Blender's glTF manual, *Unlit materials*,
+  shows the node setup the exporter turns into an unlit material), so the engine shows them exactly as baked.
 - **Shadows** are drawn in about 36 m around the hero (moving with them), on every mesh except water and kill zones.
   Settings → Graphics trades their sharpness for speed.
 - **Fog** on 3D maps starts about 80 m out and closes in by about 180 m (sooner in rain, mist or a sandstorm), so
