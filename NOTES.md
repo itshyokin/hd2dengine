@@ -401,6 +401,9 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 161: renamed to the Saturn Game Engine (titles, editor brand, playtest panel, README, package name).
+        The GBA fork is Mimas (github.com/itshyokin/mimas). Internal file kinds like "hd2d-settings" stay as they are
+        so existing saves and settings keep loading.
   - [x] Update 159: 3D maps: fog reach × 3.6 (no overworld-distance push), camera far 400 (200 again off them).
   - [x] Update 160: 3D map materials named `ter_<tile>` take that tile's picture (custom or built-in; pixel tiles' first frame / interior), laid in world XZ (`patchWorldUV`, span = tile's one-copy size) with the ground season + area tint; `…_season` keeps its texture with the ground season; `_foliage` also gets the leaves season. Resolver: Game.terrainPicture, View3D uses customTileImage/builtinTileArt.
         Blender doc: Lighting section.

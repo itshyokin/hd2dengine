@@ -5,7 +5,7 @@ A summary for picking the work back up in a new Claude session or account. Every
 NOTES.md and README.md, then continue with the next update."*
 
 ## What this is
-An HD-2D RPG engine (TypeScript + three.js 0.149 + Vite): pixel sprites in a 3D tile world, a Map Editor with
+The **Saturn Game Engine** (named Nov 1, 2026; formerly "2.5D Engine" / hd2dengine): an HD-2D RPG engine (TypeScript + three.js 0.149 + Vite): pixel sprites in a 3D tile world, a Map Editor with
 a full Database, a Character Builder, and a playtest game. It has turn-based battles (FFX-style turn order,
 Legend of Dragoon-style Additions and Guard, battle maps); on the map the sword and bow are field tools and
 bumping into (or striking) a foe starts a battle. It builds to standalone HTML files and runs on an Android tablet through the online editor.
@@ -15,6 +15,9 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 161 (Nov 1):** renamed to the **Saturn Game Engine** (README, page titles, editor brand, playtest panel,
+  package name; save/settings file formats unchanged). GBA fork started as **Mimas** (`itshyokin/mimas`: exporter +
+  Butano runtime).
 - **Update 160 (Oct 29):** 3D maps change with the seasons: Blender materials named `ter_grass` (any tile id/name) use the game's tile picture; `_season` / `_foliage` tint their own textures. World3D `seasonal()`.
 - **Update 159 (Oct 29):** 3D maps see further (fog ~80–180 m); lighting guide in docs/BLENDER_3D_MAPS.md.
 - **Update 158 (Oct 29):** Draco and Meshopt compressed models load; Blender doc section on keeping maps small.

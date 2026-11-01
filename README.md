@@ -1,9 +1,12 @@
-# 2.5D Engine
+# Saturn Game Engine
 
-A browser-based 2.5D RPG engine in the spirit of RPG Maker MV, with HD-2D style lighting:
+The **Saturn Game Engine** is a browser-based 2.5D RPG engine in the spirit of RPG Maker MV, with HD-2D style lighting:
 2D sprites standing in a lit 3D world, with dynamic lights, shadows, bloom and tilt-shift.
 
 Written in TypeScript on top of three.js, built with Vite.
+
+Its little sibling is **[Mimas](https://github.com/itshyokin/mimas)**, a fork for making Game Boy Advance
+games from the same kind of maps (named after Saturn's smallest major moon).
 
 ## Running it on Windows
 
@@ -897,7 +900,7 @@ them: Freezing before a fight, still Freezing after.
 - **Achievements**: each with its icon, name, description and points (Xbox-style G), the newest unlocks at the top,
   then the rest unlocked, then locked ones (greyed, with how far along they are) closest first; hidden ones as "???"
   until unlocked; your total at the top.
-- **Playtest panel**: drag the *2.5D Engine* panel by its title bar to move it anywhere (remembered in this browser).
+- **Playtest panel**: drag the *Saturn Game Engine* panel by its title bar to move it anywhere (remembered in this browser).
 - **HUD**: level, magic, health and EXP (all the same size) across the top; the clock and readied shard top right,
   with a little picture of the season behind it (blossom, sun, falling leaves, snow; Settings → HUD → Season
   picture) and a round **mini-map** under it (north up, you in the middle, drawn like the world map with the same fog,

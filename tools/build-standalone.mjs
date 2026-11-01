@@ -53,14 +53,14 @@ ${body}
 `;
 
 const editor = await bundle('src/editor/main.ts', false);
-writeFileSync(path.join(root, 'Map Editor.html'), page('Map Editor', editor.css,
+writeFileSync(path.join(root, 'Map Editor.html'), page('Saturn · Map Editor', editor.css,
   `<div id="editor"></div>\n<script type="module">\n${safe(editor.js)}\n</script>`));
 
 // With three.js installed, bundle it in so the game also works offline.
 // Without it, load the same version from a CDN.
 const game = await bundle('src/main.ts', !haveThree);
 const threeTag = haveThree ? '' : '<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>\n';
-writeFileSync(path.join(root, 'Playtest.html'), page('Playtest', game.css,
+writeFileSync(path.join(root, 'Playtest.html'), page('Saturn · Playtest', game.css,
   `<canvas id="view" tabindex="0" aria-label="Game view"></canvas>\n${threeTag}<script type="module">\n${safe(game.js)}\n</script>`));
 
 console.log(`Built “Map Editor.html” and Playtest.html${haveThree ? '' : ' (three.js from CDN: run npm install to bundle it)'}.`);
