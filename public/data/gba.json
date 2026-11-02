@@ -107,7 +107,7 @@
       "type": "water",
       "palette": "water",
       "image": "gba/tiles/water.png",
-      "frames": 3
+      "frames": 4
     },
     {
       "id": "tall_grass",
