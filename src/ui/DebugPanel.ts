@@ -47,7 +47,7 @@ export class DebugPanel {
     this.root.className = 'panel';
     this.root.innerHTML = `
       <header class="panel-head">
-        <div><div class="eyebrow" id="dbgMap">Playtest · ${escapeHtml(mapName)}</div><h1>2.5D Engine</h1></div>
+        <div><div class="eyebrow" id="dbgMap">Playtest · ${escapeHtml(mapName)}</div><h1>Saturn Game Engine</h1></div>
         <button class="ghost" id="dbgCollapse" type="button" aria-expanded="true" aria-controls="dbgBody">Hide</button>
       </header>
       <div id="dbgBody" class="panel-body">

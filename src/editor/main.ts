@@ -103,7 +103,7 @@ function welcome(): Promise<Project> {
       catch (err) { if ((err as Error)?.name !== 'AbortError') fail(`Couldn’t open that folder: ${(err as Error)?.message ?? String(err)}`); }
     };
     const card = h('div', { class: 'welcome-card' },
-      h('div', { class: 'brand-mark' }, 'Map Editor'),
+      h('div', { class: 'brand-mark' }, 'Saturn · Map Editor'),
       h('h1', {}, 'Open your project'),
       h('p', {}, 'Choose your game’s project folder, the one this “Map Editor.html” file is in. The editor opens the maps inside it and saves your changes straight back there.'));
     root.replaceChildren(h('div', { class: 'welcome' }, card));
@@ -171,7 +171,7 @@ function buildUI(): void {
   const toggleLeft = h('button', { type: 'button', class: 'btn ghost panel-toggle', 'aria-expanded': 'false', onclick: () => togglePanel('left') }, 'Tools');
 
   const toolbar = h('header', { class: 'toolbar' },
-    h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, 'Map Editor')),
+    h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, 'Saturn · Map Editor')),
     h('div', { class: 'tb-group' },
       store.project.kind === 'folder' ? h('span', { class: 'project-chip', title: 'Project folder' }, store.project.label) : null,
       store.project.kind === 'browser' ? h('button', { type: 'button', class: 'btn ghost', title: 'Your changes are kept in this browser. Push them to GitHub (or Pull the latest), or save them as a zip.', onclick: () => void projectMenu(store) }, 'Project') : null,
