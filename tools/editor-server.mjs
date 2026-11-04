@@ -8,6 +8,7 @@
  *   /__editor/maps         → list of maps
  *   /__editor/save?file=…  → save a data file (POST)
  *   /__editor/upload?file= → save an imported image or sound into public/assets/ (POST, raw bytes)
+ *   /__editor/delete?file= → move a map (maps/x.json) into .trash/maps/ (POST; the Maps window's Delete and Rename)
  *   /__editor/ping         → keep-alive from the open editor (and the Character Builder)
  *   /builder/              → the Character Builder (characters and weapons), tools/lpc/builder/site/index.html,
  *                            with its parts library from tools/lpc/library/ and the weapons from public/assets/weapons/
@@ -108,6 +109,16 @@ const server = http.createServer(async (req, res) => {
       await fs.mkdir(path.dirname(target), { recursive: true });
       await fs.writeFile(target, body, 'utf8');
       console.log(`Saved public/data/${file}`);
+      return send(res, 200, { ok: true });
+    }
+    if (p === '/__editor/delete' && req.method === 'POST') {
+      const m = /^maps\/([A-Za-z0-9_-]+)\.json$/.exec(url.searchParams.get('file') ?? '');
+      if (!m) return send(res, 400, { error: 'Invalid file name' });
+      const trash = path.join(ROOT, '.trash', 'maps');
+      await fs.mkdir(trash, { recursive: true });
+      const to = path.join(trash, `${m[1]}-${new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-')}.json`);
+      await fs.rename(path.join(DATA, 'maps', `${m[1]}.json`), to);
+      console.log(`Moved public/data/maps/${m[1]}.json to .trash/maps/`);
       return send(res, 200, { ok: true });
     }
     if (p === '/__editor/upload' && req.method === 'POST') {

@@ -25,6 +25,7 @@ async function listAudio(dir = AUDIO_DIR, rel = 'audio'): Promise<string[]> {
  *   GET  /__editor/maps                     → ["map001", ...]
  *   POST /__editor/save?file=maps/x.json    → writes the request body
  *   POST /__editor/upload?file=assets/props/x.png → writes an imported image (or sound)
+ *   POST /__editor/delete?file=maps/x.json  → moves a map into .trash/maps/ (Update 162)
  * Only database.json, assets.json, maps/*.json, assets/(props|tiles|icons|characters|weapons/custom)/*.png, assets/props/*.glb|fbx, assets/models/(any folders)/*.glb|fbx and assets/audio/* can be written.
  */
 function editorApi(): Plugin {
@@ -59,6 +60,17 @@ function editorApi(): Plugin {
           res.end(data);
         } catch { next(); }
       });
+      // Update 162: maps made, renamed or deleted this session (the data folder isn't watched either): read from disk.
+      server.middlewares.use(async (req, res, next) => {
+        const m = /^\/data\/(maps\/[A-Za-z0-9_-]+|database|assets)\.json(?:\?.*)?$/.exec(req.url ?? '');
+        if (!m) return next();
+        try {
+          const data = await fs.readFile(path.join(DATA_DIR, `${m[1]}.json`));
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(data);
+        } catch { send(res, 404, { error: 'Not found' }); }
+      });
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith('/__editor/')) return next();
         try {
@@ -77,6 +89,14 @@ function editorApi(): Plugin {
             const target = path.join(DATA_DIR, file);
             await fs.mkdir(path.dirname(target), { recursive: true });
             await fs.writeFile(target, body, 'utf8');
+            return send(res, 200, { ok: true });
+          }
+          if (req.method === 'POST' && url.pathname === '/__editor/delete') {
+            const m = /^maps\/([A-Za-z0-9_-]+)\.json$/.exec(url.searchParams.get('file') ?? '');
+            if (!m) return send(res, 400, { error: 'Invalid file name' });
+            const from = path.join(DATA_DIR, 'maps', `${m[1]}.json`), trash = path.resolve('.trash', 'maps');
+            await fs.mkdir(trash, { recursive: true });
+            await fs.rename(from, path.join(trash, `${m[1]}-${new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-')}.json`));
             return send(res, 200, { ok: true });
           }
           if (req.method === 'POST' && url.pathname === '/__editor/upload') {

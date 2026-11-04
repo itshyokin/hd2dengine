@@ -9,7 +9,7 @@
  *
  * The browser's files are laid out like public/ (data/…, assets/…); in the repository they're under public/.
  */
-import { blobSha, changedFiles, readBased, readLocal, writeBased, writeLocal } from './browserProject';
+import { blobSha, changedFiles, readBased, readDeleted, readLocal, writeBased, writeDeleted, writeLocal } from './browserProject';
 
 export interface GitHubLink { owner: string; repo: string; branch: string; token: string }
 
@@ -119,6 +119,7 @@ async function changedOnGitHub(l: GitHubLink, from: string, to: string): Promise
  */
 function outdated(mine: Pending[], tree: Map<string, string>, based: Record<string, string>): string[] {
   return mine.filter((m) => {
+    if (m.deleted) return false;
     const was = based[m.path], now = tree.get(repoPath(m.path));
     if (was === undefined) return true;
     return was === 'new' ? now !== undefined : was !== now;
@@ -127,7 +128,8 @@ function outdated(mine: Pending[], tree: Map<string, string>, based: Record<stri
 
 /* ------------------------------------------------------------------ what's waiting */
 
-export interface Pending { path: string; data: Uint8Array; sha: string }
+/** `deleted` (Update 162): a file deleted on this device (a map deleted in the Maps window): Push deletes it. */
+export interface Pending { path: string; data: Uint8Array; sha: string; deleted?: true }
 
 /** This device's files that differ from the repository's latest (what Push would send). */
 export async function pendingChanges(l: GitHubLink, tree?: Map<string, string>): Promise<Pending[]> {
@@ -139,6 +141,7 @@ export async function pendingChanges(l: GitHubLink, tree?: Map<string, string>):
     const data = new Uint8Array(await f.arrayBuffer()), sha = await blobSha(data);
     if (t.get(repoPath(p)) !== sha) out.push({ path: p, data, sha });
   }
+  for (const p of await readDeleted()) if (t.has(repoPath(p)) && !out.some((o) => o.path === p)) out.push({ path: p, data: new Uint8Array(0), sha: '', deleted: true });
   return out;
 }
 
@@ -165,8 +168,9 @@ export async function push(l: GitHubLink, message: string, resolve?: 'mine', pro
       if (both.length) return { kind: 'conflict', files: both };
     }
     let n = 0;
-    const entries: { path: string; mode: string; type: string; sha: string }[] = [];
+    const entries: { path: string; mode: string; type: string; sha: string | null }[] = [];
     for (const m of mine) {
+      if (m.deleted) { entries.push({ path: repoPath(m.path), mode: '100644', type: 'blob', sha: null }); continue; }
       progress?.(`Sending ${++n} of ${mine.length}: ${m.path.split('/').pop()}`);
       const b = await api<{ sha: string }>(l, '/git/blobs', { method: 'POST', body: JSON.stringify({ content: base64(m.data), encoding: 'base64' }) });
       entries.push({ path: repoPath(m.path), mode: '100644', type: 'blob', sha: b.sha });
@@ -184,8 +188,11 @@ export async function push(l: GitHubLink, message: string, resolve?: 'mine', pro
     }
     await setBase(commit.sha);
     // These are now GitHub's versions too: later edits start from them.
-    for (const m of mine) based[m.path] = m.sha;
+    for (const m of mine) { if (m.deleted) delete based[m.path]; else based[m.path] = m.sha; }
     await writeBased(based);
+    // Deleted on GitHub now too: nothing left to remember.
+    const sent = new Set(mine.filter((m) => m.deleted).map((m) => m.path));
+    if (sent.size) await writeDeleted((await readDeleted()).filter((p) => !sent.has(p)));
     return { kind: 'pushed', commit: commit.sha, files: mine.length, url: commit.html_url };
   }
   throw new GitHubError('GitHub kept changing while pushing (someone else is pushing too). Try again in a moment.');
@@ -208,7 +215,8 @@ export async function pull(l: GitHubLink, resolve?: 'mine' | 'theirs', progress?
   // Without a starting point: everything in the project that differs from GitHub's counts as theirs.
   if (!theirs) theirs = new Set([...tree.keys()].filter((p) => localPath(p)));
   const pending = await pendingChanges(l, tree), mine = new Set(pending.map((m) => m.path)), based = await readBased();
-  const wanted = [...theirs].map((p) => ({ repo: p, local: localPath(p) })).filter((x): x is { repo: string; local: string } => !!x.local && tree.has(x.repo));
+  const gone = await readDeleted();
+  const wanted = [...theirs].map((p) => ({ repo: p, local: localPath(p) })).filter((x): x is { repo: string; local: string } => !!x.local && tree.has(x.repo) && !gone.includes(x.local));
   // This device's old copies (GitHub moved on since they were taken) count as changed in both places too.
   for (const p of outdated(pending, tree, based)) if (tree.has(repoPath(p)) && !wanted.some((x) => x.local === p)) wanted.push({ repo: repoPath(p), local: p });
   const both = wanted.filter((x) => mine.has(x.local)).map((x) => x.local);
@@ -227,5 +235,7 @@ export async function pull(l: GitHubLink, resolve?: 'mine' | 'theirs', progress?
   }
   await setBase(head);
   await writeBased(based);
+  // Deleted on this device and already gone from GitHub: forget them.
+  if (gone.some((p) => !tree.has(repoPath(p)))) await writeDeleted(gone.filter((p) => tree.has(repoPath(p))));
   return { kind: 'pulled', files: n };
 }

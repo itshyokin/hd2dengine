@@ -20,6 +20,11 @@ export interface Project {
   listMaps(): Promise<string[]>;
   /** `file` is relative to the data folder: "database.json" or "maps/<name>.json". */
   write(file: string, text: string): Promise<void>;
+  /**
+   * Update 162: delete a map's file (Maps window → Delete / Rename). Dev server and project folder keep a copy in the
+   * project's .trash/maps/ folder; the browser project notes it so Push to GitHub deletes it there too.
+   */
+  removeMap?(name: string): Promise<void>;
   readAssets(): Promise<AssetRegistry>;
   /** Can imported images be stored in the project (public/assets/)? */
   canStoreImages: boolean;
@@ -71,6 +76,13 @@ export async function devServerProject(): Promise<Project | null> {
     listAudio: async () => {
       try { const r = await fetch('/__editor/audio', { cache: 'no-store' }); if (!r.ok) return []; const v = (await r.json()) as unknown; return Array.isArray(v) ? (v as string[]) : []; } catch { return []; }
     },
+    removeMap: async (name) => {
+      const res = await fetch(`/__editor/delete?file=${encodeURIComponent(`maps/${name}.json`)}`, { method: 'POST' });
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(msg.error ?? `HTTP ${res.status}`);
+      }
+    },
     write: async (file, text) => {
       const res = await fetch(`/__editor/save?file=${encodeURIComponent(file)}`, { method: 'POST', body: text, headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) {
@@ -105,6 +117,7 @@ export interface DirHandle {
   name: string;
   getDirectoryHandle(name: string, o?: { create?: boolean }): Promise<DirHandle>;
   getFileHandle(name: string, o?: { create?: boolean }): Promise<FileHandle>;
+  removeEntry?(name: string, o?: { recursive?: boolean }): Promise<void>;
   values(): AsyncIterable<{ kind: string; name: string }>;
   queryPermission?(d: { mode: 'readwrite' }): Promise<Perm>;
   requestPermission?(d: { mode: 'readwrite' }): Promise<Perm>;
@@ -203,6 +216,18 @@ export function folderProject(root: DirHandle, dirs: ProjectDirs): Project {
       } catch { /* no maps folder yet */ }
       return out.sort();
     },
+    removeMap: async (name) => {
+      const maps = await data.getDirectoryHandle('maps');
+      const file = await (await maps.getFileHandle(`${name}.json`)).getFile();
+      // A copy in the project folder's .trash/maps/ first (when the project folder itself was picked).
+      if (pub) {
+        const w = await (await (await walk(root, ['.trash', 'maps'], true)).getFileHandle(`${name}-${trashStamp()}.json`, { create: true })).createWritable();
+        await w.write(await file.text());
+        await w.close();
+      }
+      if (!maps.removeEntry) throw new Error('This browser can’t delete files from the folder.');
+      await maps.removeEntry(`${name}.json`);
+    },
     write: async (file, text) => {
       const parts = file.split('/');
       let d = data;
@@ -213,6 +238,9 @@ export function folderProject(root: DirHandle, dirs: ProjectDirs): Project {
     },
   };
 }
+
+/** A file-name-safe date and time for copies in .trash/ (2026-11-04_10-37-05). */
+export const trashStamp = (): string => new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
 
 /* ------------------------------------------------------------ remember the folder */
 

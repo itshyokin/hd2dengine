@@ -1191,8 +1191,8 @@ export interface Database {
   viewMode?: '2d';
   /** 2D mode: the layer characters are on (0 on top … 25 the ground; default 10). */
   playerLayer?: number;
-  /** 2D mode (Update 152): walk freely instead of tile by tile. */
-  freeMove2D?: boolean;
+  /** 2D mode (Update 162): step tile by tile like RPG Maker (unset: walk freely, the default). */
+  gridMove2D?: boolean;
   /** 3D maps (Update 154): the camera orbits the hero (default) or settles behind them as they walk. */
   camera3d?: 'orbit' | 'follow';
   title: string;
@@ -1229,6 +1229,8 @@ export interface Database {
   startMap: string;
   /** Update 152: the editor's map folders, map name → folder name (maps not listed: no folder). */
   mapFolders?: Record<string, string>;
+  /** Update 162: every folder of the map list, in order (empty ones kept too). Folders only in mapFolders follow, A–Z. */
+  mapFolderList?: string[];
   /** Update 157: `y` the floor it stands on (3D maps, where floors can be stacked). */
   start: { x: number; z: number; y?: number; dir?: Dir };
   startHour: number;

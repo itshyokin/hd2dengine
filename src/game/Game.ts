@@ -7392,8 +7392,8 @@ export class Game {
     const twoD = !this.stage && this.db.viewMode === '2d';
     setView2D(twoD, this.db.playerLayer ?? 10);
     setBody2D(twoD);
-    // Update 152: tile-by-tile steps in 2D mode, like RPG Maker (unless the game walks freely).
-    this.motion.grid = twoD && !this.db.freeMove2D;
+    // Update 162: the hero walks freely again (as before Update 152); tile-by-tile steps only when a game asks for them.
+    this.motion.grid = twoD && !!this.db.gridMove2D;
     // 2D: nothing comes near the camera, so its near plane moves close to the ground for finer depth (layers, sorting).
     const near = twoD ? Math.max(0.5, this.overworldCam.distance * 0.4) : 0.5;
     if (this.camera.near !== near) { this.camera.near = near; this.camera.updateProjectionMatrix(); }
