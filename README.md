@@ -1375,6 +1375,12 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Camera** (Update 164): the map camera's angle goes from 0° (level with the hero) to 90° (straight down), its
+  distance from 1 to 150 tiles and its field of view from 1° to 150° (battle maps' cameras open up too). **3D camera
+  on 2.5D maps** (Database → View & camera): the player turns the camera round the hero with the right mouse button
+  (or middle) or the right stick and zooms with the wheel; walking follows the camera and sprites and props turn to
+  face it. Players set **look speed** (mouse and stick), zoom speed and inverting in **Settings → Camera** (on 3D maps
+  too).
 - **Edge shading** (Update 163, a tile's ✎ → *Edge blending…* → *Edge shading*): a tile gets darker where it meets a
   different tile, for depth (water in the shadow of its banks): how much darker and how far in. Pixel edge styles
   shade in three steps, Smooth fades. **Animated tiles** (like a water strip) now blend too: they give way where a

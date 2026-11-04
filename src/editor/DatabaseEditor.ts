@@ -150,7 +150,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
   const menus: MenuConfig = JSON.parse(JSON.stringify(store.db.menus ?? {})) as MenuConfig;
   const cam: OverworldCamera = JSON.parse(JSON.stringify(store.db.overworldCamera ?? {})) as OverworldCamera;
   let onTop = !!store.db.charactersOnTop;
-  let view2d = store.db.viewMode === '2d', playerLayer = store.db.playerLayer ?? 10, gridMove = !!store.db.gridMove2D, cam3d: 'orbit' | 'follow' = store.db.camera3d ?? 'orbit';
+  let view2d = store.db.viewMode === '2d', playerLayer = store.db.playerLayer ?? 10, gridMove = !!store.db.gridMove2D, freeCam = !!store.db.freeCamera25D, cam3d: 'orbit' | 'follow' = store.db.camera3d ?? 'orbit';
   const saving = { anywhere: store.db.saving?.anywhere !== false, autosave: store.db.saving?.autosave !== false };
   const abilities = Object.fromEntries(ABILITIES.map((a) => [a, store.db.abilities?.[a] ?? true])) as Record<string, boolean>;
   const body = h('div', { class: 'db-editor' });
@@ -519,6 +519,9 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         : '3D: the HD-2D look, sprites standing in a real 3D world; layers only settle which prop is on top where they overlap. Picking a mode also sets the camera below.'),
       view2d ? field('Player layer (0 on top … 25 the ground)', numberInput(playerLayer, (v) => (playerLayer = Math.max(0, Math.min(25, Math.round(v)))), { step: 1, min: 0, max: 25 }), 'The layer the hero, party and other characters are on.') : null,
       view2d ? checkbox('Grid movement: the hero steps tile by tile, like RPG Maker (off, the default: walks freely)', gridMove, (v) => (gridMove = v)) : null,
+      // Update 164: the 3D camera on ordinary tile maps.
+      view2d ? null : checkbox('3D camera on 2.5D maps: the player turns the camera round the hero (right mouse button or the right stick) and zooms (wheel); sprites and props turn to face it', freeCam, (v) => (freeCam = v)),
+      view2d ? null : h('p', { class: 'note' }, 'Off: the fixed camera below, as set. On: it starts from that camera. Flat props and walls stay as they are, so a scene made to be seen from the south looks its best from there.'),
       // Update 154: the camera on 3D maps (Blender scenes).
       field('Camera on 3D maps', select([['orbit', 'Orbit: drag or the right stick turns it round the hero (like World of Warcraft)'], ['follow', 'Follow: settles behind the hero as they walk (drag to look round)']], cam3d, (v) => (cam3d = v as 'orbit' | 'follow')),
         'Either way it never looks up from under the ground or straight down; the wheel zooms.')),
@@ -529,9 +532,9 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         h('button', { type: 'button', class: 'btn ghost', onclick: () => preset(CLASSIC_OVERWORLD_CAMERA) }, 'Classic (low, upright sprites)'),
         h('button', { type: 'button', class: 'btn ghost', onclick: () => { preset(TOPDOWN_OVERWORLD_CAMERA); } }, 'Top-down 2D (straight down, flat sprites)')),
       h('div', { class: 'db-grid' },
-        field('Angle (°)', numberInput(val('pitch'), (v) => set('pitch', Math.max(20, Math.min(90, Math.round(v * 10) / 10))), { step: 1, min: 20, max: 90 }), 'How steeply it looks down: 56 handheld, 42 classic, 90 straight down.'),
-        field('Distance (tiles)', numberInput(val('distance'), (v) => set('distance', Math.max(6, Math.min(40, Math.round(v * 10) / 10))), { step: 0.5, min: 6, max: 40 }), 'Further back shows more of the map.'),
-        field('Field of view (°)', numberInput(val('fov'), (v) => set('fov', Math.max(15, Math.min(70, Math.round(v)))), { step: 1, min: 15, max: 70 }), 'Wider: more perspective.'),
+        field('Angle (°)', numberInput(val('pitch'), (v) => set('pitch', Math.max(0, Math.min(90, Math.round(v * 10) / 10))), { step: 1, min: 0, max: 90 }), 'How steeply it looks down: 0 level with the hero, 56 handheld, 42 classic, 90 straight down.'),
+        field('Distance (tiles)', numberInput(val('distance'), (v) => set('distance', Math.max(1, Math.min(150, Math.round(v * 10) / 10))), { step: 0.5, min: 1, max: 150 }), 'Further back shows more of the map (1 – 150).'),
+        field('Field of view (°)', numberInput(val('fov'), (v) => set('fov', Math.max(1, Math.min(150, Math.round(v)))), { step: 1, min: 1, max: 150 }), 'Wider: more perspective (1 – 150; very narrow looks almost flat).'),
         field('Sprite lean (%)', numberInput(val('lean'), (v) => set('lean', Math.max(0, Math.min(100, Math.round(v)))), { step: 5, min: 0, max: 100 }), 'Of the camera’s angle: 0 upright, 100 facing it fully (at 90° that lays them flat, like a 2D game).')),
       h('p', { class: 'note' }, 'Playtest to see it. Tall sprites right in front of walls may tuck into them when they lean a lot; lower the lean if so.'),
       view2d ? null : checkbox('Characters always on top: the hero and party are drawn over props they overlap and over ledges and cliff tops in front of them (nothing hides them)', onTop, (v) => (onTop = v)),
@@ -776,7 +779,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
         JSON.stringify(classesOut) === JSON.stringify(db.classes?.length ? db.classes : null) &&
         JSON.stringify(troopsOut) === JSON.stringify(db.troops?.length ? db.troops : null) && JSON.stringify(horsesOut) === JSON.stringify(db.horses?.length ? db.horses : null) && JSON.stringify(travelOut) === JSON.stringify(db.travel ?? null) &&
         JSON.stringify(achOut) === JSON.stringify(db.achievements?.length ? db.achievements : null) && dcOut === (db.devConsole ?? null) &&
-        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) && onTop === !!db.charactersOnTop && view2d === (db.viewMode === '2d') && playerLayer === (db.playerLayer ?? 10) && gridMove === !!db.gridMove2D && cam3d === (db.camera3d ?? 'orbit') &&
+        JSON.stringify(markersOut) === JSON.stringify(db.markers ?? null) && JSON.stringify(themesOut) === JSON.stringify(db.mapThemes ?? null) && JSON.stringify(textColorsOut) === JSON.stringify(db.textColors ?? null) && JSON.stringify(stylesOut) === JSON.stringify(db.messageStyles ?? null) && JSON.stringify(climateOut) === JSON.stringify(db.climate ?? null) && JSON.stringify(bodyOut) === JSON.stringify(db.body ?? null) && JSON.stringify(camOut) === JSON.stringify(db.overworldCamera ?? null) && onTop === !!db.charactersOnTop && view2d === (db.viewMode === '2d') && playerLayer === (db.playerLayer ?? 10) && gridMove === !!db.gridMove2D && freeCam === !!db.freeCamera25D && cam3d === (db.camera3d ?? 'orbit') &&
         (activeParty === 4) === (db.activeParty === 4) && aButton === (db.aButton ?? 'jump') && JSON.stringify(tutorials.filter((t) => t.id && t.title)) === JSON.stringify(db.tutorials ?? []) && JSON.stringify(cleanGroups(groupChatter)) === JSON.stringify(db.groupChatter ?? []) && JSON.stringify(relations) === JSON.stringify(db.relations ?? {}) && JSON.stringify(cleanRoleplay(roleplay)) === JSON.stringify(db.roleplay ?? []) && JSON.stringify(cleanGlobals(globals)) === JSON.stringify(db.globalEvents ?? []) && JSON.stringify(cleanGenders(genders) ?? null) === JSON.stringify(db.genders ?? null)) return 'same';
       store.checkpoint();
       // Copies: the window keeps editing its own, so later changes are compared (and saved) properly.
@@ -792,6 +795,7 @@ export function openDatabase(store: EditorStore, startTab: DbTab = 'player'): vo
       if (view2d) db.viewMode = '2d'; else delete db.viewMode;
       if (playerLayer !== 10) db.playerLayer = playerLayer; else delete db.playerLayer;
       if (gridMove) db.gridMove2D = true; else delete db.gridMove2D;
+      if (freeCam) db.freeCamera25D = true; else delete db.freeCamera25D;
       delete (db as { freeMove2D?: boolean }).freeMove2D;
       if (cam3d === 'follow') db.camera3d = 'follow'; else delete db.camera3d;
       if (statOut) db.statOrder = statOut; else delete db.statOrder;

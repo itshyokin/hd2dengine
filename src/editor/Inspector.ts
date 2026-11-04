@@ -217,11 +217,11 @@ export class Inspector {
     out.push(
       h('p', { class: 'hint' }, 'A stage for turn-based battles (a forest clearing, plains, a city street). Place where the party and the enemies stand in the Spawns layer (key 9). Field maps choose it under Battles → Battle map.'),
       h('div', { class: 'field-row' },
-        field('Camera back', numberInput(cam.distance ?? 6, (v) => setCam('distance', Math.max(2, Math.min(30, v)), 6), { min: 2, max: 30, step: 0.5 }), 'Tiles behind the party.'),
-        field('Camera up', numberInput(cam.height ?? 3.2, (v) => setCam('height', Math.max(0.5, Math.min(20, v)), 3.2), { min: 0.5, max: 20, step: 0.25 }), 'Tiles above the ground.')),
+        field('Camera back', numberInput(cam.distance ?? 6, (v) => setCam('distance', Math.max(0.5, Math.min(100, v)), 6), { min: 0.5, max: 100, step: 0.5 }), 'Tiles behind the party.'),
+        field('Camera up', numberInput(cam.height ?? 3.2, (v) => setCam('height', Math.max(0, Math.min(60, v)), 3.2), { min: 0, max: 60, step: 0.25 }), 'Tiles above the ground (0: at ground level).')),
       h('div', { class: 'field-row' },
-        field('Camera side', numberInput(cam.side ?? 0, (v) => setCam('side', Math.max(-10, Math.min(10, v)), 0), { min: -10, max: 10, step: 0.5 }), 'Tiles to the right (+) or left (−) of the party.'),
-        field('View angle', numberInput(cam.fov ?? 40, (v) => setCam('fov', Math.max(20, Math.min(75, Math.round(v))), 40), { min: 20, max: 75, step: 1 }), 'Degrees: wider shows more.')),
+        field('Camera side', numberInput(cam.side ?? 0, (v) => setCam('side', Math.max(-50, Math.min(50, v)), 0), { min: -50, max: 50, step: 0.5 }), 'Tiles to the right (+) or left (−) of the party.'),
+        field('View angle', numberInput(cam.fov ?? 40, (v) => setCam('fov', Math.max(1, Math.min(150, Math.round(v))), 40), { min: 1, max: 150, step: 1 }), 'Degrees: wider shows more (1 – 150).')),
       h('p', { class: 'hint' }, 'The camera backs off further if a crowd wouldn’t fit. Turning the view far from straight up the map makes trees and props look flat, so it stays within about 35°.'));
     return out;
   }

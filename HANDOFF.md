@@ -15,6 +15,12 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 164 (Nov 4):** Camera limits opened up (angle 0–90°, distance 1–150, field of view 1–150°; battle maps'
+  camera too); below 20° the camera rises to the hero's eye level. **3D camera on 2.5D maps** (`db.freeCamera25D`,
+  Database → View & camera): right / middle mouse drag or right stick turns it, wheel zooms; walking is camera-relative;
+  sprites and props turn to face it (lean.ts `uHdYaw`), characters show the side the camera sees
+  (CharacterSprite.setViewYaw, quarter turns). **Settings → Camera**: mouse / stick look speed, zoom speed, invert.
+  Checked in the browser.
 - **Update 163 (Nov 4):** **Animated tiles blend** again (only autotiles / walls / edge-trim tiles force blending off;
   an animated tile gives way to higher-priority neighbours, built-in or imported, but doesn't spread). **Edge shading**
   (Edge blending window → Darker at the edges / Shading width; `TileBlend.shade` / `shadeWidth`): a tile darkens in

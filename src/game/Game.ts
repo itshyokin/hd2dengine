@@ -109,7 +109,7 @@ import { SaveScreen } from '../ui/SaveScreen';
 import { type EquipChoice, type EquipHost, EquipScreen, type EquipSlotId } from '../ui/EquipScreen';
 import { InventoryScreen, type BagFilter, type InventoryActions } from '../ui/InventoryScreen';
 import { EvolveScreen } from '../ui/EvolveScreen';
-import { leanNow, patchLean, setLean, setView2D, setGroundYield } from '../render/lean';
+import { leanNow, patchLean, setLean, setView2D, setGroundYield, setViewYaw } from '../render/lean';
 import { DEFAULT_OVERWORLD_CAMERA } from './cameraDefaults';
 import { RecordsScreen, type RecordSection } from '../ui/RecordsScreen';
 import { BestiaryScreen, type BestiaryEntry } from '../ui/BestiaryScreen';
@@ -177,6 +177,8 @@ import { propKey } from './GameState';
 import { TouchControls } from '../ui/TouchControls';
 
 const CAMERA_OFFSET = new THREE.Vector3(0, 10.5, 11.5);
+/** Update 164: the furthest the map camera goes back (tiles). */
+const CAM_MAX_DISTANCE = 150;
 
 /** The Inventory's tabs: the bag (all items, then by kind), then Equipment. */
 const INVENTORY_TABS: { id: BagFilter; label: string }[] = [
@@ -203,6 +205,7 @@ const JOURNAL_ICONS: Record<JournalTabId, string> = {
 };
 /** Settings' pictures (Update 141): one per page, beside each setting. */
 const SET_ICONS = {
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   picture: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>',
   hud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M6 8h6M15 8h3M6 16h3"/></svg>',
   sound: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
@@ -1907,27 +1910,41 @@ export class Game {
     this.canvas.addEventListener('pointerleave', () => (this.cursor.visible = false));
     // Update 154: on a 3D map, dragging (either button) turns the camera round the hero and the wheel zooms.
     {
+      // Update 164: the free camera on 2.5D maps turns with the right (or middle) mouse button, so a left click still
+      // walks there and talks; mouse speed, inverting and zoom speed from Settings → Camera.
       let orbit: { x: number; y: number } | null = null;
-      this.canvas.addEventListener('contextmenu', (e) => { if (this.w3) e.preventDefault(); });
+      this.canvas.addEventListener('contextmenu', (e) => { if (this.w3 || this.freeCamOn) e.preventDefault(); });
       this.canvas.addEventListener('pointerdown', (e) => {
-        if (!this.w3 || this.message.isOpen) return;
+        if (this.message.isOpen) return;
+        if (!this.w3 && !(this.freeCamOn && e.pointerType === 'mouse' && (e.button === 1 || e.button === 2))) return;
+        if (this.freeCamOn && e.button === 1) e.preventDefault();
         orbit = { x: e.clientX, y: e.clientY };
         this.canvas.setPointerCapture(e.pointerId);
       });
       this.canvas.addEventListener('pointermove', (e) => {
-        if (!orbit || !this.w3) return;
-        this.w3.cam.turn(-(e.clientX - orbit.x) * 0.006, (e.clientY - orbit.y) * 0.005);
+        if (!orbit || (!this.w3 && !this.freeCamOn)) return;
+        const [sx, sy] = this.lookScale('mouse');
+        const dYaw = -(e.clientX - orbit.x) * 0.006 * sx, dPitch = (e.clientY - orbit.y) * 0.005 * sy;
+        if (this.w3) this.w3.cam.turn(dYaw, dPitch); else this.turnFreeCam(dYaw, dPitch);
         orbit = { x: e.clientX, y: e.clientY };
       });
       const end = () => (orbit = null);
       this.canvas.addEventListener('pointerup', end);
       this.canvas.addEventListener('pointercancel', end);
-      this.canvas.addEventListener('wheel', (e) => { if (!this.w3) return; e.preventDefault(); this.w3.cam.zoom(e.deltaY > 0 ? 1.12 : 1 / 1.12); }, { passive: false });
+      this.canvas.addEventListener('wheel', (e) => {
+        if (!this.w3 && !this.freeCamOn) return;
+        e.preventDefault();
+        const f = Math.pow(1.12, (this.settings.zoomSensitivity ?? 100) / 100);
+        const k = e.deltaY > 0 ? f : 1 / f;
+        if (this.w3) this.w3.cam.zoom(k); else this.zoomFreeCam(k);
+      }, { passive: false });
     }
     this.canvas.addEventListener('pointerdown', (e) => {
       // While a message is up, a tap anywhere advances it.
       if (this.message.isOpen) { if (!this.message.isChoosing) this.input.press('ok'); return; }
       if (this.w3) return;
+      // The right and middle buttons turn the free camera (Update 164).
+      if (this.freeCamOn && e.pointerType === 'mouse' && e.button !== 0) return;
       if (this.interpreter.running || !this.settings.tapToWalk) return;
       const p = this.pick(e);
       if (!p) return;
@@ -2320,6 +2337,11 @@ export class Game {
     // A controller's stick walks at any angle.
     if (i.stick.x || i.stick.y) { dx = i.stick.x; dz = i.stick.y; }
     if (this.fishing) dx = dz = 0;
+    // Update 164: with the free camera turned, up on the stick (or W) walks away from the camera.
+    if ((dx || dz) && this.freeCamOn && this.freeCam.yaw) {
+      const sn = Math.sin(this.freeCam.yaw), cs = Math.cos(this.freeCam.yaw);
+      [dx, dz] = [dx * cs + dz * sn, -dx * sn + dz * cs];
+    }
     if (dx || dz) { this.moveTarget = null; this.pendingEvent = null; }
     else if (this.moveTarget) {
       const p = this.player.position;
@@ -6301,7 +6323,8 @@ export class Game {
   private applyFov(): void {
     const narrow = this.camera.aspect < 1;
     const fov = this.overworldCam.fov;
-    this.camera.fov = this.stage ? this.stage.stage.fov * (narrow ? 1.4 : 1) : narrow ? fov * 1.45 : fov; // portrait phones need a wider view
+    // Portrait phones need a wider view; never past 170° (Update 164: the field of view goes up to 150°).
+    this.camera.fov = Math.min(170, this.stage ? this.stage.stage.fov * (narrow ? 1.4 : 1) : narrow ? fov * 1.45 : fov);
     this.camera.updateProjectionMatrix();
   }
 
@@ -6950,6 +6973,14 @@ export class Game {
       { label: 'Temperature', choice: { value: st.tempUnit ?? 'F', options: [['F', '°F'], ['C', '°C']], set: (v) => set('tempUnit')(v === 'C' ? 'C' : undefined) } },
       { label: 'Clock', choice: { value: st.clock12 ? '12' : '24', options: [['24', '24-hour'], ['12', '12-hour']], set: (v) => set('clock12')(v === '12') } },
     ], { note: 'Left / right change a setting.' });
+    // Update 164: how the camera turns (3D maps, and 2.5D maps with the 3D camera on).
+    const camera = () => this.menu.push('Camera', [
+      { label: 'Mouse look speed', detail: 'How fast dragging (the right mouse button, or any button on a 3D map) turns the camera.', slider: { value: st.lookSensitivity ?? 100, min: 10, max: 300, step: 10, format: pct, set: (v) => set('lookSensitivity')(v === 100 ? undefined : v) } },
+      { label: 'Stick look speed', detail: 'How fast the right stick turns the camera.', slider: { value: st.stickLookSensitivity ?? 100, min: 10, max: 300, step: 10, format: pct, set: (v) => set('stickLookSensitivity')(v === 100 ? undefined : v) } },
+      { label: 'Zoom speed', detail: 'How far each turn of the mouse wheel zooms.', slider: { value: st.zoomSensitivity ?? 100, min: 10, max: 300, step: 10, format: pct, set: (v) => set('zoomSensitivity')(v === 100 ? undefined : v) } },
+      { label: 'Invert up / down', detail: 'Pushing up (or dragging up) tilts the camera down instead.', toggle: { value: !!st.invertLookY, set: (v) => set('invertLookY')(v || undefined) } },
+      { label: 'Invert left / right', toggle: { value: !!st.invertLookX, set: (v) => set('invertLookX')(v || undefined) } },
+    ], { note: this.db.freeCamera25D || this.w3 ? 'Left / right change a setting.' : 'This game’s maps keep a fixed camera; these apply on 3D maps.' });
     const controls = () => this.controls.show(this.input.current, (b) => { st.bindings = b; st.bindingsVersion = BINDINGS_VERSION; this.applySettings(); this.settingsStore.save(st); }, () => {});
     const hudMenu = () => this.menu.push('HUD', [
       { label: 'Arrange and resize…', detail: 'Move the health bars, clock, weapons and EXP bar; make them bigger or smaller.', pick: () => {
@@ -6989,6 +7020,7 @@ export class Game {
       { label: 'HUD', icon: SET_ICONS.hud, detail: 'Arrange and resize', pick: page(SET_ICONS.hud, hudMenu) },
       { label: 'Sound', icon: SET_ICONS.sound, pick: page(SET_ICONS.sound, sound) },
       { label: 'Controls', icon: SET_ICONS.controls, detail: 'Keyboard and controller', pick: controls },
+      { label: 'Camera', icon: SET_ICONS.camera, detail: 'Look speed and inverting', pick: page(SET_ICONS.camera, camera) },
       { label: 'Gameplay', icon: SET_ICONS.gameplay, pick: page(SET_ICONS.gameplay, gameplay) },
       { label: 'Save settings to a file', icon: SET_ICONS.file, detail: 'HUD layout, controls and everything else, to bring to another copy of the game.', pick: () => {
         exportSettings(st, this.db.title || 'game');
@@ -7337,14 +7369,49 @@ export class Game {
   /** Database → Camera, with the defaults filled in. */
   private get overworldCam(): Required<OverworldCamera> {
     const c = this.db.overworldCamera ?? {}, d = DEFAULT_OVERWORLD_CAMERA;
-    return { pitch: clamp(c.pitch ?? d.pitch, 20, 90), distance: clamp(c.distance ?? d.distance, 6, 40), fov: clamp(c.fov ?? d.fov, 15, 70), lean: clamp(c.lean ?? d.lean, 0, 100) };
+    // Update 164: level with the hero (0°) up to straight down, from close in to far out, narrow to very wide.
+    return { pitch: clamp(c.pitch ?? d.pitch, 0, 90), distance: clamp(c.distance ?? d.distance, 1, CAM_MAX_DISTANCE), fov: clamp(c.fov ?? d.fov, 1, 150), lean: clamp(c.lean ?? d.lean, 0, 100) };
   }
+
+  /**
+   * Update 164: the free camera on 2.5D maps (Database → View & camera → 3D camera on 2.5D maps): turned round the
+   * hero (yaw, radians; 0 looks up the map like the fixed camera), up and down (pitch, degrees) and zoomed (dist),
+   * starting from the Database's camera. Kept from map to map.
+   */
+  private readonly freeCam = { yaw: 0, pitch: NaN, dist: NaN };
+  private get freeCamOn(): boolean {
+    return !!this.db?.freeCamera25D && !this.w3 && !this.stage && this.db.viewMode !== '2d' && !this.onTitle && !this.titleLeaving && !this.flight;
+  }
+  /** The map camera's angle (degrees) and distance now: the free camera's while it's on. */
+  private get camPitch(): number {
+    if (!this.freeCamOn) return this.overworldCam.pitch;
+    if (Number.isNaN(this.freeCam.pitch)) this.freeCam.pitch = Math.min(89.5, this.overworldCam.pitch);
+    return this.freeCam.pitch;
+  }
+  private get camDist(): number {
+    if (!this.freeCamOn) return this.overworldCam.distance;
+    if (Number.isNaN(this.freeCam.dist)) this.freeCam.dist = this.overworldCam.distance;
+    return this.freeCam.dist;
+  }
+  private turnFreeCam(dYaw: number, dPitch: number): void {
+    const p = this.camPitch;
+    this.freeCam.yaw = Math.atan2(Math.sin(this.freeCam.yaw + dYaw), Math.cos(this.freeCam.yaw + dYaw));
+    this.freeCam.pitch = clamp(p + THREE.MathUtils.radToDeg(dPitch), 0, 89.5);
+  }
+  private zoomFreeCam(f: number): void { this.freeCam.dist = clamp(this.camDist * f, 1, CAM_MAX_DISTANCE); }
+  /** Settings → Camera: how fast the mouse or the right stick turns the camera, and which ways (x, y multipliers). */
+  private lookScale(from: 'mouse' | 'stick'): [number, number] {
+    const st = this.settings, k = ((from === 'mouse' ? st.lookSensitivity : st.stickLookSensitivity) ?? 100) / 100;
+    return [k * (st.invertLookX ? -1 : 1), k * (st.invertLookY ? -1 : 1)];
+  }
+
   private readonly camOffset = new THREE.Vector3();
-  /** Where the map camera sits from what it looks at (its angle and distance). */
+  /** Where the map camera sits from what it looks at (its angle, distance and, with the free camera, turn). */
   private cameraOffset(): THREE.Vector3 {
     // Just short of straight down (Update 143): exactly 90° leaves the camera no way to tell which way is up.
-    const c = this.overworldCam, p = THREE.MathUtils.degToRad(Math.min(c.pitch, 89.5));
-    return this.camOffset.set(0, Math.sin(p) * c.distance, Math.cos(p) * c.distance);
+    const p = THREE.MathUtils.degToRad(Math.min(this.camPitch, 89.5)), d = this.camDist, yaw = this.freeCamOn ? this.freeCam.yaw : 0;
+    const across = Math.cos(p) * d;
+    return this.camOffset.set(Math.sin(yaw) * across, Math.sin(p) * d, Math.cos(yaw) * across);
   }
 
   /**
@@ -7388,7 +7455,17 @@ export class Game {
     // Update 154: a 3D map: upright sprites turned to the camera, the camera orbiting the hero.
     if (this.w3 && !this.stage) { this.updateCamera3D(dt); return; }
     // Sprites lean back to face the map camera (upright on battle maps, where the camera goes all round).
-    setLean(this.stage ? 0 : THREE.MathUtils.degToRad(this.overworldCam.pitch) * this.overworldCam.lean / 100);
+    setLean(this.stage ? 0 : THREE.MathUtils.degToRad(this.camPitch) * this.overworldCam.lean / 100);
+    // Update 164: the free camera: the right stick turns it, and every sprite turns to face it.
+    const free = this.freeCamOn;
+    if (free && (this.input.rstick.x || this.input.rstick.y)) {
+      const [sx, sy] = this.lookScale('stick');
+      this.turnFreeCam(-this.input.rstick.x * dt * 2.6 * sx, this.input.rstick.y * dt * 1.8 * sy);
+    }
+    const yaw = free ? this.freeCam.yaw : 0;
+    setViewYaw(yaw); CharacterSprite.setViewYaw(yaw);
+    const far = Math.max(200, this.camDist * 3 + 60);
+    if (this.camera.far !== far) { this.camera.far = far; this.camera.updateProjectionMatrix(); }
     const twoD = !this.stage && this.db.viewMode === '2d';
     setView2D(twoD, this.db.playerLayer ?? 10);
     setBody2D(twoD);
@@ -7422,8 +7499,11 @@ export class Game {
     const o = this.openSides;
     t.x = clamp(t.x, o.has('w') ? -1e4 : 7, o.has('e') ? 1e4 : this.map.w - 7);
     t.z = clamp(t.z, o.has('n') ? -1e4 : 5, o.has('s') ? 1e4 : this.map.h - 2);
+    // Update 164: below 20° the camera comes up to the hero's eye level (at 0° it looks straight across at them).
+    const low = clamp((20 - this.camPitch) / 20, 0, 1);
     this.camera.position.copy(t).add(this.cameraOffset());
-    this.camera.lookAt(t.x, t.y + 0.6, t.z);
+    this.camera.position.y += 0.9 * low;
+    this.camera.lookAt(t.x, t.y + 0.6 + 0.3 * low, t.z);
     // Sleeping: the camera lifts and tilts up to the sky (smoothly in, and back down after).
     const k = this.sleepLook;
     if (k > 0) {
@@ -7443,7 +7523,7 @@ export class Game {
     this.post.focus = clamp(this.projected.y * 0.5 + 0.5, 0.25, 0.75);
     this.post.focusBand = 1;
     // Looking (nearly) straight down, everything is the same distance away: no tilt-shift blur (Update 143).
-    this.post.tiltFade = Math.max(this.sleepLook, clamp((this.overworldCam.pitch - 70) / 15, 0, 1));
+    this.post.tiltFade = Math.max(this.sleepLook, clamp((this.camPitch - 70) / 15, 0, 1));
     // The sun's shadow camera follows the view so shadows stay sharp.
     this.sun.target.position.copy(t);
     this.sun.position.copy(t).addScaledVector(this.time.sunDir, 30);
@@ -7453,10 +7533,11 @@ export class Game {
   private updateCamera3D(dt: number): void {
     const w = this.w3!, i = this.input;
     setLean(0); setView2D(false, 10); setBody2D(false); this.motion.grid = false;
+    setViewYaw(0); CharacterSprite.setViewYaw(0);
+    if (i.rstick.x || i.rstick.y) { const [sx, sy] = this.lookScale('stick'); w.cam.turn(-i.rstick.x * dt * 2.6 * sx, i.rstick.y * dt * 1.8 * sy); }
     // Its own lens: a normal field of view and a near plane close in (the 2D camera's narrow view and far near plane
     // would hide everything near the hero).
     if (this.camera.fov !== 55 || this.camera.near !== 0.1 || this.camera.far !== 400) { this.camera.fov = 55; this.camera.near = 0.1; this.camera.far = 400; this.camera.updateProjectionMatrix(); }
-    if (i.rstick.x || i.rstick.y) w.cam.turn(-i.rstick.x * dt * 2.6, i.rstick.y * dt * 1.8);
     w.cam.update(dt, this.camera, this.player.position, w.moving ?? null);
     // A sprite hero shows the side the camera sees; a 3D model turns to the way they're heading.
     const yaw = w.cam.yaw, rel = w.heading - yaw;
@@ -7540,7 +7621,7 @@ export class Game {
     // Update 159: a 3D map is seen from the hero's shoulder, out to the horizon: the fog starts far further out.
     const reach = this.stage ? 1.8 : this.w3 ? 3.6 : 1;
     // A camera set further back than the default pushes the fog back with it (Update 143: the top-down camera).
-    const back = this.stage || this.w3 ? 0 : Math.max(0, this.overworldCam.distance - DEFAULT_OVERWORLD_CAMERA.distance);
+    const back = this.stage || this.w3 ? 0 : Math.max(0, this.camDist - DEFAULT_OVERWORLD_CAMERA.distance);
     this.fog.near = (22 - 16 * thick) * reach + back;
     this.fog.far = (50 - 30 * thick) * reach + back;
     // Mist (perhaps only around dawn or after dark) and sun rays (only while the sun is out).

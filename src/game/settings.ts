@@ -54,6 +54,16 @@ export interface Settings {
   sprint: 'hold' | 'toggle';
   /** On a controller, pushing the stick all the way runs. */
   stickRun: boolean;
+  /** Update 164: how fast the mouse (or a finger) turns the camera, % (unset: 100). */
+  lookSensitivity?: number;
+  /** Update 164: how fast the right stick turns the camera, % (unset: 100). */
+  stickLookSensitivity?: number;
+  /** Update 164: turning the camera up and down the other way round. */
+  invertLookY?: boolean;
+  /** Update 164: turning the camera left and right the other way round. */
+  invertLookX?: boolean;
+  /** Update 164: how fast the wheel zooms, % (unset: 100). */
+  zoomSensitivity?: number;
   /** Temperatures in °F (default) or °C. */
   tempUnit?: 'F' | 'C';
   /** Tap or click the ground to walk there (off by default; tablets still have the on-screen stick). */

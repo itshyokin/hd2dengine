@@ -1197,6 +1197,11 @@ export interface Database {
   viewMode?: '2d';
   /** 2D mode: the layer characters are on (0 on top … 25 the ground; default 10). */
   playerLayer?: number;
+  /**
+   * Update 164: a 3D camera on ordinary (2.5D, tile) maps in 3D mode: the player turns it round the hero (right mouse
+   * button drag or the right stick) and zooms (wheel); sprites and props turn to face it. Unset: the fixed camera.
+   */
+  freeCamera25D?: boolean;
   /** 2D mode (Update 162): step tile by tile like RPG Maker (unset: walk freely, the default). */
   gridMove2D?: boolean;
   /** 3D maps (Update 154): the camera orbits the hero (default) or settles behind them as they walk. */

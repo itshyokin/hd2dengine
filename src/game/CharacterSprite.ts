@@ -75,6 +75,29 @@ export class CharacterSprite {
   /** Exact facing for 3D characters (radians), with the way it was set for. */
   private yaw: { dir: Dir; angle: number } | null = null;
 
+  /**
+   * Update 164: the free camera on 2.5D maps, turned in quarter turns round the map (0: looking up it). A sprite shows
+   * the side the camera sees (`dir` stays the way it really faces, for talking, attacks and the rest).
+   */
+  private static viewTurn = 0;
+  private static readonly live = new Set<CharacterSprite>();
+  /** Set the free camera's turn (radians); sprites redraw when it passes a quarter turn. */
+  static setViewYaw(radians: number): void {
+    const q = ((Math.round(radians / (Math.PI / 2)) % 4) + 4) % 4;
+    if (q === CharacterSprite.viewTurn) return;
+    CharacterSprite.viewTurn = q;
+    for (const c of [...CharacterSprite.live]) {
+      // Sprites no longer in a scene drop out (refreshing adds them back).
+      if (!c.mesh.parent) { CharacterSprite.live.delete(c); continue; }
+      c.refresh();
+    }
+  }
+  /** The side shown: `dir` turned by the camera's quarter turns. */
+  private get shown(): Dir {
+    const q = CharacterSprite.viewTurn;
+    return q ? TURN_ORDER[(TURN_ORDER.indexOf(this.dir) - q + 4) % 4] : this.dir;
+  }
+
   constructor(sprites: SpriteLibrary, palette: CharacterPalette | SpriteAsset, dir: Dir = 'down') {
     const asset = 'map' in palette ? (palette as SpriteAsset) : sprites.character(palette as CharacterPalette);
     this.map = asset.map;
@@ -208,6 +231,7 @@ export class CharacterSprite {
   }
 
   private refresh(): void {
+    CharacterSprite.live.add(this);
     if (this.rig) { this.rig.face(this.dir, this.yaw && this.yaw.dir === this.dir ? this.yaw.angle : undefined); return; }
     if (!this.anim) { this.setFrame(1); return; }
     const anims = this.anim.layout.anims;
@@ -380,7 +404,7 @@ export class CharacterSprite {
   private setOverlayCell(o: Overlay, side: Side, mesh: THREE.Mesh, cell: WeaponSheetAnim, col: number): void {
     const F = cell.frame, W = o.def.width, H = o.def.height;
     const g = mesh.geometry as THREE.BufferGeometry;
-    const r = cell.dirs === 4 ? Math.max(0, WEAPON_DIRS.indexOf(this.dir)) : 0;
+    const r = cell.dirs === 4 ? Math.max(0, WEAPON_DIRS.indexOf(this.shown)) : 0;
     // A new frame: the one it replaces joins the trail (weapons with one).
     const key = `${cell.y}:${col}:${r}`;
     if (o.trail && key !== o.last[side]) {
@@ -411,7 +435,7 @@ export class CharacterSprite {
   private setCell(a: SheetAnim, col: number): void {
     const { layout, width, height } = this.anim!;
     const f = layout.frame;
-    const dirIndex = a.dirs === 4 ? Math.max(0, layout.dirs.indexOf(this.dir)) : 0;
+    const dirIndex = a.dirs === 4 ? Math.max(0, layout.dirs.indexOf(this.shown)) : 0;
     const row = a.row + dirIndex;
     const u0 = (col * f) / width, u1 = ((col + 1) * f) / width;
     const v1 = 1 - (row * f) / height, v0 = 1 - ((row + 1) * f) / height;
@@ -422,9 +446,12 @@ export class CharacterSprite {
   }
 
   private setFrame(frame: number): void {
-    this.map.offset.set(frame / 3, 1 - (DIR_ROW[this.dir] + 1) / 4);
+    this.map.offset.set(frame / 3, 1 - (DIR_ROW[this.shown] + 1) / 4);
   }
 }
+
+/** The four ways in order going round (down = toward the camera, then right, up, left). */
+const TURN_ORDER: Dir[] = ['down', 'right', 'up', 'left'];
 
 export const DIR_VECTOR: Record<Dir, [number, number]> = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
 

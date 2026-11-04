@@ -401,6 +401,12 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 164: Game.overworldCam clamps 0–90 / 1–CAM_MAX_DISTANCE (150) / 1–150 (applyFov caps 170); camera.far
+        follows the distance. freeCam { yaw, pitch, dist } (NaN until first used: the Database camera), freeCamOn (3D
+        view, not w3 / stage / title / flight), camPitch / camDist, turnFreeCam / zoomFreeCam, lookScale (Settings
+        lookSensitivity / stickLookSensitivity / zoomSensitivity / invertLookX / invertLookY, also on 3D maps).
+        Input dx/dz rotated by yaw. lean.ts uHdYaw / setViewYaw rotates leaning sprites (and normals) about their
+        base after the lean; CharacterSprite.viewTurn (quarter turns) picks the row shown (`shown`), `dir` unchanged.
   - [x] Update 163: resolveBlend forces blend off for kind autotile / wall / edges only (animated blends). Pixel tiles on
         the lower layer get patchTileBlend (blendMask(map, key, custom = true): imported higher neighbours count too;
         ppt = frame width). Edge shading: world/blend.ts edgeShade (CPU: groundCanvas built-ins, editor preview) =

@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 /** How far the ground gives way with Characters always on top off (Update 142): low ledges only. */
 const GROUND_YIELD_OFF = 1.0;
-const uniforms = { uHdLean: { value: 0 }, uHdYield: { value: GROUND_YIELD_OFF }, uHdBack: { value: 0 }, uHd2D: { value: 0 }, uHdPlayer: { value: 10 } };
+const uniforms = { uHdYaw: { value: 0 }, uHdLean: { value: 0 }, uHdYield: { value: GROUND_YIELD_OFF }, uHdBack: { value: 0 }, uHd2D: { value: 0 }, uHdPlayer: { value: 10 } };
 
 /**
  * Characters always on top (Update 142): how far the ground (and props not drawn in front of tiles) are pushed back
@@ -21,6 +21,13 @@ export function setGroundYield(on: boolean): void {
   uniforms.uHdBack.value = on ? GROUND_YIELD : 0;
 }
 
+
+/**
+ * Update 164: the free camera on 2.5D maps turned round the hero (radians, 0: looking up the map): every leaning sprite
+ * (props, characters) turns about its base to face it.
+ */
+export function setViewYaw(radians: number): void { uniforms.uHdYaw.value = radians; }
+export const viewYawNow = (): number => uniforms.uHdYaw.value;
 
 /** The lean now, in radians (0: upright). */
 export function setLean(radians: number): void { uniforms.uHdLean.value = radians; }
@@ -66,9 +73,16 @@ export function patchLean<T extends THREE.Material>(mat: T): T {
     // never cuts through its leaned-back top, while anything really in front of it still hides it.
     // Update 144: props' layers, per copy (hdNudge, world units pulled toward the camera in depth only).
     // Update 145: hdLayer, the copy's layer; hdNudge, a tiny difference between overlapping neighbours.
-    shader.vertexShader = 'uniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\nuniform float uHd2D;\nuniform float uHdPlayer;\n#ifdef USE_INSTANCING\nattribute float hdNudge;\nattribute float hdLayer;\n#endif\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    // Update 164: turned to the free camera (uHdYaw) about the sprite's base, after leaning; normals turn with it.
+    shader.vertexShader = 'uniform float uHdYaw;\nuniform float uHdLean;\nuniform float uHdYield;\nuniform float uHdBack;\nuniform float uHd2D;\nuniform float uHdPlayer;\n#ifdef USE_INSTANCING\nattribute float hdNudge;\nattribute float hdLayer;\n#endif\n' + shader.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+  if (uHdYaw != 0.0) { float hdC = cos(uHdYaw), hdS = sin(uHdYaw); objectNormal.xz = vec2(objectNormal.x * hdC + objectNormal.z * hdS, -objectNormal.x * hdS + objectNormal.z * hdC); }`).replace('#include <begin_vertex>', `#include <begin_vertex>
   vec3 hdUpright = transformed;
-  { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }`).replace('#include <project_vertex>', `#include <project_vertex>
+  { float hdLy = transformed.y; transformed.y = hdLy * cos(uHdLean); transformed.z -= hdLy * sin(uHdLean); }
+  if (uHdYaw != 0.0) {
+    float hdC = cos(uHdYaw), hdS = sin(uHdYaw);
+    transformed.xz = vec2(transformed.x * hdC + transformed.z * hdS, -transformed.x * hdS + transformed.z * hdC);
+    hdUpright.xz = vec2(hdUpright.x * hdC + hdUpright.z * hdS, -hdUpright.x * hdS + hdUpright.z * hdC);
+  }`).replace('#include <project_vertex>', `#include <project_vertex>
   // Update 151: 2D, feet on the bottom edge of their cell like RPG Maker (drawn half a tile further south).
   if (uHd2D > 0.5) { mvPosition.xyz += (viewMatrix * vec4(0.0, 0.0, 0.5, 0.0)).xyz; gl_Position = projectionMatrix * mvPosition; }
   // Pulled toward the camera in depth only: 3D, props by layer (characters not); 2D (Update 145), everything by
