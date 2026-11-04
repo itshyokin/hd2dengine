@@ -7,7 +7,7 @@ import { deckIcon } from '../world/decks';
 import { bayer, clamp, hash2, rng, vnoise } from '../core/math';
 import { Pix, blob, canvasFromRGBA, ell, segD } from '../core/pixel';
 import type { TileMap } from '../world/TileMap';
-import { NEIGHBOURS8, cellDistance, reach } from '../world/blend';
+import { NEIGHBOURS8, cellDistance, reach, edgeShade } from '../world/blend';
 import type { CharacterPalette } from '../world/types';
 
 const OUTLINE = '#17131d';
@@ -717,6 +717,19 @@ export function groundCanvas(map: TileMap): HTMLCanvasElement {
       };
       p.set(px, py, at.other ? mixHex(colour(at.k), colour(at.other), at.f) : colour(at.k));
     }
+  // Update 163: edge shading: a built-in tile darker along its edges with other tiles (the lake bed by its banks).
+  const shaded = [...BUILT_IN].filter((k) => isB(k) && (cat.blendFor(k).shade ?? 0) > 0);
+  if (shaded.length) for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) {
+    const k = map.terrain(x, z);
+    if (!shaded.includes(k)) continue;
+    const b = cat.blendFor(k), other = (cx: number, cz: number) => map.inMap(cx, cz) && map.terrain(cx, cz) !== k;
+    for (let py = z * TS; py < (z + 1) * TS; py++) for (let px = x * TS; px < (x + 1) * TS; px++) {
+      const dark = edgeShade(b, other, (px + 0.5) / TS, (py + 0.5) / TS, x, z, vnoise(px / 6.5, py / 6.5, 13));
+      if (dark <= 0) continue;
+      const i = (py * w + px) * 4;
+      for (let c = 0; c < 3; c++) p.d[i + c] = Math.round(p.d[i + c] * (1 - dark));
+    }
+  }
   return p.canvas();
 }
 

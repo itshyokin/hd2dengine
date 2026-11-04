@@ -15,6 +15,10 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 163 (Nov 4):** **Animated tiles blend** again (only autotiles / walls / edge-trim tiles force blending off;
+  an animated tile gives way to higher-priority neighbours, built-in or imported, but doesn't spread). **Edge shading**
+  (Edge blending window → Darker at the edges / Shading width; `TileBlend.shade` / `shadeWidth`): a tile darkens in
+  three steps (smooth fade for Smooth edges) where it meets another tile, for water depth. Checked in the browser.
 - **Update 162 (Nov 4):** **Maps window** (toolbar → Maps): folders (new, rename, reorder, delete; empty ones kept in
   `db.mapFolderList`), move maps by drag or Move menu, Edit (file rename updates Transfers / start map / battle maps /
   quests / chatter / World layout), Duplicate, Delete (to `.trash/maps/`; tablet: deleted on GitHub at next Push).

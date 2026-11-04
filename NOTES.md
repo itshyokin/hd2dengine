@@ -401,6 +401,10 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 163: resolveBlend forces blend off for kind autotile / wall / edges only (animated blends). Pixel tiles on
+        the lower layer get patchTileBlend (blendMask(map, key, custom = true): imported higher neighbours count too;
+        ppt = frame width). Edge shading: world/blend.ts edgeShade (CPU: groundCanvas built-ins, editor preview) =
+        GLSL tbShade (uTbShade / uTbShadeW, uTbBlend = 0 keeps just own cells), 3 steps unless smooth; SHADE_WIDTH 0.6.
   - [x] Update 162: editor/MapManager.ts (openMapManager; folderNames / moveToFolder also used by main.ts's map select
         and Inspector). Project.removeMap (dev + editor-server: POST /__editor/delete → .trash/maps/<name>-<stamp>.json;
         folder: copy to .trash then removeEntry; browser: .sync/deleted.json tombstones, listMaps hides them, githubSync

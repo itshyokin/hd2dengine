@@ -11,9 +11,14 @@
  */
 import * as THREE from 'three';
 import type { TileMap } from '../world/TileMap';
+import { SHADE_WIDTH } from '../world/blend';
 import type { TileBlend } from '../world/types';
 
-export function blendMask(map: TileMap, key: string): THREE.DataTexture {
+/**
+ * `custom` (Update 163, animated tiles): imported neighbours with a higher priority count too, since an animated
+ * tile is drawn over their spreading edge and has to give way to it itself.
+ */
+export function blendMask(map: TileMap, key: string, custom = false): THREE.DataTexture {
   const W = map.w + 2, H = map.h + 2, cat = map.tiles, me = cat.blendFor(key);
   const data = new Uint8Array(W * H * 4);
   for (let z = 0; z < H; z++)
@@ -22,7 +27,7 @@ export function blendMask(map: TileMap, key: string): THREE.DataTexture {
       if (!map.inMap(cx, cz)) continue;
       const k = map.terrain(cx, cz), b = cat.blendFor(k);
       data[i] = k === key ? 255 : 0;
-      if (k !== key && !cat.isCustom(k) && b.blend && b.priority > me.priority) {
+      if (k !== key && (custom || !cat.isCustom(k)) && b.blend && b.priority > me.priority) {
         data[i + 1] = Math.round(Math.min(1, b.width / 0.5) * 255);
         data[i + 2] = Math.round(b.roughness * 255);
       }
@@ -42,7 +47,7 @@ const EDGE = { ragged: 0, dither: 1, smooth: 2 } as const;
 export const BLEND_GLSL = `
 uniform sampler2D uTbMask;
 uniform vec2 uTbSize;
-uniform float uTbWidth, uTbRough, uTbEdge, uTbPpt, uTbDetail;
+uniform float uTbWidth, uTbRough, uTbEdge, uTbPpt, uTbDetail, uTbBlend, uTbShade, uTbShadeW;
 vec4 tbCell(vec2 c) { return texture2D(uTbMask, (c + 1.5) / uTbSize); }
 float tbHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float tbNoise(vec2 p) {
@@ -62,6 +67,8 @@ float tbKeep(vec2 w, float lum) {
   float dith = uTbEdge > 0.5 && uTbEdge < 1.5 ? (tbBayer4(p * uTbPpt) - 0.5) * 0.18 : 0.0;
   float det = uTbDetail * (lum - 0.5) * 0.35;
   vec4 own = tbCell(cell);
+  // Blending off (only edge shading on): just this tile's own cells.
+  if (uTbBlend < 0.5) return own.r > 0.5 ? 1.0 : 0.0;
   float keep;
   if (own.r > 0.5) {
     // Our own cell: give way where a higher-priority built-in tile reaches in.
@@ -90,10 +97,31 @@ float tbKeep(vec2 w, float lum) {
   }
   return keep;
 }
+bool tbInMap(vec2 c) { return c.x >= 0.0 && c.y >= 0.0 && c.x < uTbSize.x - 2.0 && c.y < uTbSize.y - 2.0; }
+/** Update 163: how much darker this tile is at w from its edge shading (same rules as world/blend.ts edgeShade). */
+float tbShade(vec2 w) {
+  if (uTbShade <= 0.0) return 0.0;
+  vec2 cell = floor(w);
+  if (tbCell(cell).r < 0.5) return 0.0;
+  vec2 p = uTbEdge < 1.5 ? (floor(w * uTbPpt) + 0.5) / uTbPpt : w;
+  float d = 9.0;
+  for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) {
+    if (dx == 0 && dz == 0) continue;
+    vec2 c = cell + vec2(float(dx), float(dz));
+    if (!tbInMap(c) || tbCell(c).r > 0.5) continue;
+    d = min(d, tbDist(p, c));
+  }
+  if (d >= 9.0) return 0.0;
+  d += (tbNoise(p * 2.3) - 0.5) * 0.12 * uTbRough;
+  float t = clamp(1.0 - d / max(0.05, uTbShadeW), 0.0, 1.0);
+  if (uTbEdge < 1.5) t = ceil(t * 3.0) / 3.0;
+  return uTbShade * t;
+}
 `;
 
 /**
- * Trim an imported tile's overlay material to its blended edges. `ppt` is the texture's pixels per tile.
+ * Trim an imported tile's overlay material to its blended edges (and darken its edge shading, Update 163). `ppt` is
+ * the texture's pixels per tile.
  * Call after patchAreaTint (it reuses its world-position varying).
  */
 export function patchTileBlend<T extends THREE.MeshStandardMaterial>(mat: T, mask: THREE.DataTexture, b: TileBlend, ppt: number): T {
@@ -106,12 +134,14 @@ export function patchTileBlend<T extends THREE.MeshStandardMaterial>(mat: T, mas
       uTbSize: { value: new THREE.Vector2(mask.image.width, mask.image.height) },
       uTbWidth: { value: b.width }, uTbRough: { value: b.roughness }, uTbEdge: { value: EDGE[b.edge] },
       uTbPpt: { value: Math.max(1, ppt) }, uTbDetail: { value: b.detail ? 1 : 0 },
+      uTbBlend: { value: b.blend ? 1 : 0 }, uTbShade: { value: Math.min(1, Math.max(0, b.shade ?? 0)) }, uTbShadeW: { value: b.shadeWidth ?? SHADE_WIDTH },
     });
     shader.fragmentShader = BLEND_GLSL + shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
   {
     float tbK = tbKeep(vHdWorld, dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)));
     if (tbK < 0.01) discard;
     diffuseColor.a *= tbK;
+    diffuseColor.rgb *= 1.0 - tbShade(vHdWorld);
   }`);
   };
   const prevKey = mat.customProgramCacheKey?.bind(mat);

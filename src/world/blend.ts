@@ -38,8 +38,9 @@ export function guessBlend(name: string): Omit<TileBlend, 'detail'> {
 
 export function resolveBlend(def: TileDef | undefined, override?: Partial<TileBlend>): TileBlend {
   const b = { ...defaultBlend(def), ...override };
-  // RPG Maker-style tiles draw their own edges (Update 146).
-  if (def?.kind || def?.edges) b.blend = false;
+  // RPG Maker autotiles and walls draw their own edges (Update 146). Animated tiles (water strips) blend like any
+  // other tile (Update 163: they give way where a higher-priority neighbour spreads over them).
+  if (def?.kind === 'autotile' || def?.kind === 'wall' || def?.edges) b.blend = false;
   b.width = Math.min(0.5, Math.max(0.05, b.width));
   b.roughness = Math.min(1, Math.max(0, b.roughness));
   return b;
@@ -54,6 +55,27 @@ export function cellDistance(u: number, v: number, cx: number, cz: number): numb
 /** How far a tile reaches at a point: its width, varied by roughness × noise (0..1). */
 export function reach(b: TileBlend, noise: number): number {
   return b.width * (1 + b.roughness * (noise * 2 - 1));
+}
+
+/** Update 163: edge shading's default width, in tiles. */
+export const SHADE_WIDTH = 0.6;
+
+/**
+ * Update 163: how much darker a tile is at point (u, v) of its cell (cx, cz) from its edge shading (0 = none):
+ * strongest at the edge with a different tile (`other(x, z)`), fading over the shade width; in three steps for pixel
+ * edges (ragged, dithered), smooth for smooth ones. `n` is 0..1 noise, wandering the line by the roughness.
+ * The same rules as the shader (render/tileBlend.ts).
+ */
+export function edgeShade(b: TileBlend, other: (x: number, z: number) => boolean, u: number, v: number, cx: number, cz: number, n: number): number {
+  const amount = b.shade ?? 0;
+  if (amount <= 0) return 0;
+  let d = 9;
+  for (const [dx, dz] of NEIGHBOURS8) if (other(cx + dx, cz + dz)) d = Math.min(d, cellDistance(u, v, cx + dx, cz + dz));
+  if (d >= 9) return 0;
+  d += (n - 0.5) * 0.12 * b.roughness;
+  let t = Math.min(1, Math.max(0, 1 - d / Math.max(0.05, b.shadeWidth ?? SHADE_WIDTH)));
+  if (b.edge !== 'smooth') t = Math.ceil(t * 3) / 3;
+  return amount * t;
 }
 
 /** The 8 neighbour offsets. */

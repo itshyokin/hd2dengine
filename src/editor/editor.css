@@ -1039,3 +1039,7 @@ body.resizing-side { user-select: none; cursor: col-resize; }
 .btn.danger-text { color: var(--danger); }
 .modal-text.warn { color: var(--ember); }
 @media (max-width: 700px) { .mapman-row { flex-wrap: wrap; } .mapman-row .mapman-actions { width: 100%; } }
+
+/* Update 163: edge shading in the Edge blending window. */
+.blend-shade { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+.blend-shade h4 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }

@@ -67,8 +67,9 @@ function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<
     tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
     return tex;
   };
-  const addMesh = (q: QuadList, tex: THREE.Texture, def: TileDef, upper: boolean, see: boolean, order: number) => {
+  const addMesh = (q: QuadList, tex: THREE.Texture, def: TileDef, upper: boolean, see: boolean, order: number, patch?: (m: THREE.MeshStandardMaterial) => void) => {
     const mat = patchAreaTint(new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0, alphaTest: see ? 0.5 : 0, polygonOffset: true, polygonOffsetFactor: -2 - order, polygonOffsetUnits: -4 - 2 * order }));
+    patch?.(mat);
     const m = mesh(q, mat);
     m.renderOrder = order;
     // ☆: drawn over the characters (and everything else), like RPG Maker's star tiles.
@@ -128,7 +129,13 @@ function buildPixelTiles(scene: THREE.Object3D, map: TileMap, tileTextures: Map<
         });
       }
       const tex = flatTex(tt.map.image as TexImageSource);
-      const m = addMesh(q, tex, def, upper, upper, upper ? 2 : 1);
+      // Update 163: on the ground layer, an animated tile gives way where a higher-priority neighbour spreads over
+      // it (blending), and darkens along its edges (edge shading), the same as other tiles.
+      const b = map.tiles.blendFor(key);
+      const patch = !upper && (b.blend || (b.shade ?? 0) > 0)
+        ? (mat: THREE.MeshStandardMaterial) => void patchTileBlend(mat, blendMask(map, key, true), b, img.width / (l.horiz ? l.frames : 1) / (auto ? 2 : 1))
+        : undefined;
+      const m = addMesh(q, tex, def, upper, upper, upper ? 2 : 1, patch);
       if (l.frames > 1) m.onBeforeRender = () => {
         const f = frameAt(def, l.frames, pixelClock);
         if (l.horiz) tex.offset.x = f / l.frames; else tex.offset.y = -f / l.frames;
@@ -239,7 +246,7 @@ function buildWorldAt(scene: THREE.Object3D, map: TileMap, data: MapData, sprite
     const mat = patchSeason(patchAreaTint(new THREE.MeshStandardMaterial({ map: t.map, roughness: 1, metalness: 0 })), 'ground');
     registerNormalMap(mat, t.normal);
     mat.normalScale.set(0.8, 0.8);
-    if (blended && b.blend) {
+    if (blended && (b.blend || (b.shade ?? 0) > 0)) {
       const img = t.map.image as { width?: number } | undefined;
       patchTileBlend(mat, blendMask(map, key), b, (img?.width ?? 16) / Math.max(0.25, t.def.span || 1));
     }

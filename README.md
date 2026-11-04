@@ -1375,6 +1375,10 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Edge shading** (Update 163, a tile's ✎ → *Edge blending…* → *Edge shading*): a tile gets darker where it meets a
+  different tile, for depth (water in the shadow of its banks): how much darker and how far in. Pixel edge styles
+  shade in three steps, Smooth fades. **Animated tiles** (like a water strip) now blend too: they give way where a
+  higher-priority neighbour such as grass spreads over them.
 - **Maps window** (Update 162, toolbar → *Maps*): every map in folders. Make, rename, reorder and delete folders;
   drag a map onto a folder (or use its *Move* menu on a tablet); *Edit* a map's file name, display name and folder
   (renaming the file also fixes the Transfer events, start map, battle maps, quests and World layout pointing at it);

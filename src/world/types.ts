@@ -295,6 +295,12 @@ export interface TileBlend {
   edge: 'ragged' | 'dither' | 'smooth';
   /** Imported tiles: the edge follows the texture (bright parts like stones reach further). */
   detail: boolean;
+  /**
+   * Update 163: edge shading, for depth (water darker along its banks): how much darker the tile gets where it meets a
+   * different tile (0 – 1; unset or 0: none), over `shadeWidth` tiles (default 0.6). Works with blending on or off.
+   */
+  shade?: number;
+  shadeWidth?: number;
 }
 
 /** When a page applies. With several matching pages, the last one wins (as in RPG Maker). */

@@ -4,7 +4,7 @@
  */
 import { groundCanvas } from '../art/placeholderArt';
 import { bayer, hash2, vnoise } from '../core/math';
-import { NEIGHBOURS8, cellDistance, reach } from '../world/blend';
+import { NEIGHBOURS8, SHADE_WIDTH, cellDistance, edgeShade, reach } from '../world/blend';
 import { TileMap } from '../world/TileMap';
 import { TileCatalog } from '../world/tiles';
 import type { TileBlend } from '../world/types';
@@ -51,10 +51,18 @@ export function openBlendSettings(store: EditorStore, key: string): void {
         'Where two tiles meet, the higher priority spreads over the lower (equal: the tile imported later). Built-in: grass 30, path 20, sand 10, lake bed 0; imported tiles start from their name (grass 32, dirt 22, sand 14, water 5; floors and walls don’t blend).'),
       field('Blend width', slider(b.width, 0.05, 0.5, 0.01, (v) => (b.width = v), 'Blend width', (v) => `${v.toFixed(2)} tiles`), 'How far this tile reaches into a lower-priority neighbour.'),
       field('Edge roughness', slider(b.roughness, 0, 1, 0.05, (v) => (b.roughness = v), 'Edge roughness', (v) => `${Math.round(v * 100)}%`), '0% is an even line, 100% wanders a lot.'),
-      field('Edge style', select(EDGES, b.edge, (v) => { b.edge = v as TileBlend['edge']; redraw(); })),
+      field('Edge style', select(EDGES, b.edge, (v) => { b.edge = v as TileBlend['edge']; redraw(); }, { 'aria-label': 'Edge style' })),
       def.builtin ? h('span', {}) : checkbox('Follow texture detail (bright parts such as stones reach further)', b.detail, (v) => { b.detail = v; redraw(); }),
+      def.kind === 'animated' ? h('p', { class: 'note' }, 'Animated tile: it gives way where a higher-priority neighbour spreads over it, but doesn’t spread into its neighbours itself (keep its priority low, like water).') : h('span', {}),
+      // Update 163: edge shading, on whether blending is or not.
+      h('div', { class: 'blend-shade' },
+        h('h4', {}, 'Edge shading'),
+        field('Darker at the edges', slider(Math.round((b.shade ?? 0) * 100), 0, 80, 5, (v) => { if (v > 0) b.shade = v / 100; else delete b.shade; }, 'Edge shading', (v) => (v ? `${v}%` : 'Off')),
+          'For depth: the tile gets darker where it meets a different tile, like water in the shadow of its banks. Off at 0.'),
+        field('Shading width', slider(b.shadeWidth ?? SHADE_WIDTH, 0.1, 1, 0.05, (v) => { if (Math.abs(v - SHADE_WIDTH) > 1e-6) b.shadeWidth = v; else delete b.shadeWidth; }, 'Shading width', (v) => `${v.toFixed(2)} tiles`),
+          'How far in from the edge the darkening reaches. Pixel edge styles shade in three steps; Smooth fades.')),
     );
-    for (const el of settings.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input:not([type=checkbox]), select')) el.disabled = !b.blend;
+    for (const el of settings.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input:not([type=checkbox]), select')) el.disabled = !b.blend && !el.closest('.blend-shade') && el.getAttribute('aria-label') !== 'Edge style';
   };
   renderFields();
 
@@ -64,7 +72,7 @@ export function openBlendSettings(store: EditorStore, key: string): void {
       preview,
       h('div', { class: 'blend-nb' }, h('span', { class: 'swatch-note' }, 'Next to'), nbSelect),
       relation,
-      h('p', { class: 'note' }, 'Blending happens in the game and the playtest; the editor map keeps square tiles so they’re easy to paint. Edges never blend across a cliff or a shoreline.')),
+      h('p', { class: 'note' }, 'Blending and shading happen in the game and the playtest; the editor map keeps square tiles so they’re easy to paint. Edges never blend across a cliff or a shoreline.')),
     settings);
   redraw();
 
@@ -115,7 +123,9 @@ function drawPreview(canvas: HTMLCanvasElement, store: EditorStore, key: string,
         const lum = (0.299 * src.data[i] + 0.587 * src.data[i + 1] + 0.114 * src.data[i + 2]) / 255;
         const keep = overlayKeep(map, cat, k, bk, px, py, lum);
         if (keep <= 0) continue;
-        for (let c = 0; c < 3; c++) dst.data[i + c] = Math.round(dst.data[i + c] * (1 - keep) + src.data[i + c] * keep);
+        const cx = Math.floor(px / TS), cz = Math.floor(py / TS);
+        const dark = map.terrain(cx, cz) === k ? edgeShade(bk, (x, z) => map.inMap(x, z) && map.terrain(x, z) !== k, (px + 0.5) / TS, (py + 0.5) / TS, cx, cz, hash2(px, py, 5)) : 0;
+        for (let c = 0; c < 3; c++) dst.data[i + c] = Math.round(dst.data[i + c] * (1 - keep) + src.data[i + c] * (1 - dark) * keep);
       }
     ctx.putImageData(dst, 0, 0);
   }
