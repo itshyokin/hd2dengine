@@ -1214,49 +1214,6 @@
       "skin": true,
       "blocks": true,
       "image": "assets/tiles/water.png"
-    },
-    {
-      "key": "b",
-      "id": "water_edged",
-      "name": "Water Edged",
-      "span": 1,
-      "filter": "point",
-      "kind": "wall",
-      "flat": true,
-      "frames": 1,
-      "blocks": true,
-      "image": "assets/tiles/water_edged.png"
-    },
-    {
-      "key": "a",
-      "id": "grass_cliff",
-      "name": "Grass Cliff",
-      "span": 1,
-      "filter": "point",
-      "kind": "wall",
-      "flat": true,
-      "blocks": true,
-      "image": "assets/tiles/grass_cliff.png"
-    },
-    {
-      "key": "d",
-      "id": "steps_brown",
-      "name": "Steps Brown",
-      "span": 1,
-      "filter": "point",
-      "image": "assets/tiles/steps_brown.png"
-    },
-    {
-      "key": "c",
-      "id": "grass_cliff_upper",
-      "name": "Grass Cliff - Upper",
-      "span": 1,
-      "filter": "point",
-      "kind": "wall",
-      "flat": true,
-      "blocks": true,
-      "image": "assets/tiles/grass_cliff_upper.png",
-      "edges": "assets/tiles/grass_cliff_upper_edges.png"
     }
   ],
   "tileCliffs": {
@@ -1265,9 +1222,8 @@
   },
   "tileBlend": {
     ".": {
-      "width": 0.22,
-      "roughness": 0.95,
-      "edge": "dither"
+      "width": 0.15,
+      "roughness": 0.55
     },
     ":": {
       "width": 0.35,

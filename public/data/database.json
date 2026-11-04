@@ -1,9 +1,9 @@
 {
   "title": "Titamas",
-  "startMap": "map010",
+  "startMap": "MonolithWoods",
   "start": {
-    "x": 7.71,
-    "z": 2.94,
+    "x": 31.5,
+    "z": 52.5,
     "dir": "up",
     "y": 0.34
   },
@@ -6721,26 +6721,7 @@
     }
   ],
   "world": {
-    "maps": {
-      "01_monolith": {
-        "x": 0,
-        "z": 0,
-        "w": 50,
-        "h": 50
-      },
-      "02_monolith_woods": {
-        "x": 7,
-        "z": 50,
-        "w": 50,
-        "h": 50
-      },
-      "singed_01": {
-        "x": 7,
-        "z": 100,
-        "w": 24,
-        "h": 24
-      }
-    },
+    "maps": {},
     "labels": [
       {
         "id": "monolith",
@@ -7182,11 +7163,16 @@
       }
     ]
   },
-  "overworldCamera": {
-    "pitch": 90,
-    "lean": 100,
-    "distance": 38,
-    "fov": 15
+  "viewMode": "2d",
+  "mapFolderList": [
+    "Zone 01 Monolith Woods"
+  ],
+  "mapFolders": {
+    "MonolithWoods": "Zone 01 Monolith Woods"
   },
-  "viewMode": "2d"
+  "overworldCamera": {
+    "pitch": 42.4,
+    "distance": 15.6,
+    "lean": 0
+  }
 }
