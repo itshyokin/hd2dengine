@@ -1222,12 +1222,19 @@
   },
   "tileBlend": {
     ".": {
-      "width": 0.15,
-      "roughness": 0.55
+      "width": 0.28,
+      "roughness": 0.75
     },
     ":": {
       "width": 0.35,
       "roughness": 0.95
+    },
+    "~": {
+      "width": 0.22,
+      "roughness": 0.4,
+      "edge": "dither",
+      "shade": 0.45,
+      "shadeWidth": 0.7
     }
   },
   "tileRoads": {

@@ -7163,7 +7163,6 @@
       }
     ]
   },
-  "viewMode": "2d",
   "mapFolderList": [
     "Zone 01 Monolith Woods"
   ],
@@ -7171,8 +7170,8 @@
     "MonolithWoods": "Zone 01 Monolith Woods"
   },
   "overworldCamera": {
-    "pitch": 42.4,
-    "distance": 15.6,
+    "pitch": 20,
+    "distance": 25,
     "lean": 0
   }
 }
