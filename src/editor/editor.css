@@ -1008,3 +1008,34 @@ body.resizing-side { user-select: none; cursor: col-resize; }
 .view3d-tools { position: absolute; top: 10px; right: 10px; z-index: 4; display: grid; gap: 6px; justify-items: end; }
 .view3d-tools .toolrow { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; padding: 3px; }
 .view3d-help { font-size: 11.5px; color: #1c2230; background: rgba(255,255,255,0.72); padding: 4px 8px; border-radius: 6px; max-width: 520px; text-align: right; }
+
+/* Update 162: the Maps window (folders; move, edit, duplicate and delete maps). */
+.mapman { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.mapman-tools { display: flex; gap: 8px; align-items: center; }
+.mapman-tools input[type="search"] { flex: 1; min-width: 0; min-height: 32px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); }
+.mapman-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow: auto; padding-right: 2px; }
+.mapman-group { flex: none; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
+.mapman-folder { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--raised); }
+.mapman-folder.drop { outline: 2px dashed var(--ember); outline-offset: -2px; background: var(--ember-soft); }
+.mapman-twisty { width: 24px; height: 24px; border: 0; background: none; color: var(--muted); padding: 0; }
+.mapman-folder-name { font-weight: 600; }
+.mapman-count { font-size: 12px; color: var(--faint); background: var(--bg); border-radius: 999px; padding: 0 8px; }
+.mapman-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; flex: none; }
+.mapman-actions .btn.small { padding: 3px 8px; }
+.mapman-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px 5px 14px; border-top: 1px solid var(--line); }
+.mapman-row:hover { background: rgba(255, 255, 255, 0.03); }
+.mapman-row.current { background: var(--ember-soft); }
+.mapman-row.dragging { opacity: 0.4; }
+.mapman-grip { color: var(--faint); cursor: grab; user-select: none; }
+.mapman-name { display: flex; align-items: baseline; gap: 8px; border: 0; background: none; padding: 2px 0; text-align: left; min-width: 0; flex: 1; flex-wrap: wrap; }
+.mapman-name code { font-family: var(--f-mono); font-size: 13px; }
+.mapman-name:hover code { color: var(--ember); }
+.mapman-display { color: var(--muted); font-size: 13px; }
+.mapman-tag { font-size: 11px; color: var(--sky); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; }
+.mapman-tag.start { color: var(--c-state); }
+.mapman-tag.here { color: var(--ember); }
+.mapman-move { max-width: 150px; min-height: 28px; font-size: 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--bg); }
+.mapman-empty { padding: 8px 14px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+.btn.danger-text { color: var(--danger); }
+.modal-text.warn { color: var(--ember); }
+@media (max-width: 700px) { .mapman-row { flex-wrap: wrap; } .mapman-row .mapman-actions { width: 100%; } }

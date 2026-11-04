@@ -88,6 +88,24 @@ async function noteEdit(path: string): Promise<void> {
   await writeBased(based);
 }
 
+/**
+ * Update 162: files deleted on this device (paths relative to public/, e.g. data/maps/x.json). The hosted site still
+ * serves them, so the map list leaves them out; Push to GitHub deletes them there, and Pull forgets the ones gone.
+ */
+const DELETED_FILE = '.sync/deleted.json';
+export async function readDeleted(): Promise<string[]> {
+  const f = await readLocal(DELETED_FILE);
+  try { const v = f ? (JSON.parse(await f.text()) as unknown) : []; return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
+}
+export async function writeDeleted(list: string[]): Promise<void> { await writeLocal(DELETED_FILE, JSON.stringify([...new Set(list)].sort())); }
+
+async function removeLocal(path: string): Promise<void> {
+  try {
+    const { dir, name } = await dirOf(path, false);
+    await (dir as DirHandle & { removeEntry(n: string): Promise<void> }).removeEntry(name);
+  } catch { /* not kept here */ }
+}
+
 /** Every file changed in the browser, as paths relative to public/. */
 export async function changedFiles(): Promise<string[]> {
   const out: string[] = [];
@@ -175,10 +193,24 @@ export function browserProject(): Project {
     },
     readFile: async (path) => (await readLocal(path)) ?? fetchBlob(path),
     writeFile: async (path, blob) => { await noteEdit(path); await writeLocal(path, blob); },
-    write: async (file, text) => { await noteEdit(`data/${file}`); await writeLocal(`data/${file}`, text); },
+    write: async (file, text) => {
+      await noteEdit(`data/${file}`); await writeLocal(`data/${file}`, text);
+      // Written again after being deleted (a map made with the same name): no longer deleted.
+      const gone = await readDeleted();
+      if (gone.includes(`data/${file}`)) await writeDeleted(gone.filter((p) => p !== `data/${file}`));
+    },
+    removeMap: async (name) => {
+      const path = `data/maps/${name}.json`;
+      await removeLocal(path);
+      // Only the hosted project's own maps need remembering (one made on this device is simply gone).
+      if ((await hostedMaps()).includes(name)) await writeDeleted([...(await readDeleted()), path]);
+      const based = await readBased();
+      if (path in based) { delete based[path]; await writeBased(based); }
+    },
     listMaps: async () => {
       const local = (await changedFiles()).filter((p) => /^data\/maps\/[^/]+\.json$/.test(p)).map((p) => p.slice('data/maps/'.length, -5));
-      return [...new Set([...(await hostedMaps()), ...local])].sort();
+      const gone = new Set((await readDeleted()).map((p) => p.slice('data/maps/'.length, -5)));
+      return [...new Set([...(await hostedMaps()).filter((n) => !gone.has(n)), ...local])].sort();
     },
   };
 }

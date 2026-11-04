@@ -1375,6 +1375,12 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   *Top-down 2D* (Update 143) looks straight down (angle 90°, lean 100%, a narrow 15° view from 38 tiles back) like a
   Game Boy or RPG Maker game: sprites lie flat, the fog moves back with the camera and the tilt-shift blur fades out
   above 70°.
+- **Maps window** (Update 162, toolbar → *Maps*): every map in folders. Make, rename, reorder and delete folders;
+  drag a map onto a folder (or use its *Move* menu on a tablet); *Edit* a map's file name, display name and folder
+  (renaming the file also fixes the Transfer events, start map, battle maps, quests and World layout pointing at it);
+  *Duplicate* and *Delete* maps (a deleted map's file is kept in the project's `.trash/maps/` folder; on the tablet
+  it's deleted on GitHub with the next Push). In 2D mode the hero **walks freely again** by default; tile-by-tile
+  steps are a choice in Database → View & camera (*Grid movement*).
 - **Seasons on 3D maps** (Update 160): name a Blender material `ter_grass` (or any tile's id or name, `ter_dirt`,
   `ter_sand`…) and it uses the game's tile picture, laid from above, changing with the seasons and weather like the
   2D ground; `…_season` keeps your texture but tints it with the seasons, and `_foliage` leaves turn too.
@@ -1399,8 +1405,8 @@ shards, items, enemies, EXP, gold and drops are the same in both, so a game can 
   ground and scenery instead of painted tiles. It's fitted over the map (or scaled, turned and raised as you set), and
   the game walks on it as it's shaped: slopes, floors and stairs; steep places, walls and holes block. Events, props,
   lights and passage go on the map's tiles over it as on any map; the editor shows the model from above.
-- **Update 152**: **Grid movement** in 2D mode (the hero steps tile by tile like RPG Maker; Database → View &
-  camera to walk freely instead). **Map folders** (Map Properties → Folder; the map list groups them). **RPG Maker MV
+- **Update 152**: **Grid movement** in 2D mode (the hero steps tile by tile like RPG Maker; since Update 162 it's
+  off unless ticked in Database → View & camera). **Map folders** (Map Properties → Folder; the map list groups them). **RPG Maker MV
   sheets** (Terrain → *+ RPG Maker MV sheet…*: A1 water, A2 ground, A3 / A4 walls, A5 and B–E tiles, cut and ticked
   for you). Flat props sway in the wind and rustle when walked through. The tile editor shows Edge trim, Inside
   corners and Frame size together.

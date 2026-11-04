@@ -9,6 +9,7 @@ import { loadEnemyImages } from './CombatEditor';
 import { openDatabase } from './DatabaseEditor';
 import { setCombatPreview } from './combatPreview';
 import { openWorldLayout } from './WorldEditor';
+import { folderNames, moveToFolder, openMapManager } from './MapManager';
 import type { MapData } from '../world/types';
 import { backspaceAsEscape, confirmModal, field, h, numberInput, openModal, select, textInput, toast } from './dom';
 import { installErrorBar } from '../shared/errorBar';
@@ -176,7 +177,8 @@ function buildUI(): void {
       store.project.kind === 'folder' ? h('span', { class: 'project-chip', title: 'Project folder' }, store.project.label) : null,
       store.project.kind === 'browser' ? h('button', { type: 'button', class: 'btn ghost', title: 'Your changes are kept in this browser. Push them to GitHub (or Pull the latest), or save them as a zip.', onclick: () => void projectMenu(store) }, 'Project') : null,
       store.project.kind === 'browser' ? h('a', { class: 'btn ghost', href: 'character-builder.html', target: '_blank', rel: 'noopener', title: 'Make character sprite sheets, then import them in Database → Characters' }, 'Character Builder') : null,
-      mapSelect, h('button', { type: 'button', class: 'btn ghost', onclick: newMapDialog }, 'New map'),
+      mapSelect, h('button', { type: 'button', class: 'btn ghost', onclick: () => newMapDialog() }, 'New map'),
+      h('button', { type: 'button', class: 'btn ghost', title: 'Every map in folders: move, rename, duplicate and delete maps', onclick: () => openMapManager(store, { open: switchMap, newMap: newMapDialog, properties: () => inspector.openMapWindow() }) }, 'Maps'),
       h('button', { type: 'button', class: 'btn ghost', title: 'Player stats, speeds and stamina costs', onclick: () => openDatabase(store) }, 'Database'),
       h('button', { type: 'button', class: 'btn ghost', title: 'Lay the maps out as one world: the world map in the pause menu, and seamless edges', onclick: () => void openWorldLayout(store) }, 'World')),
     h('div', { class: 'tb-group' }, undoBtn, redoBtn),
@@ -220,7 +222,8 @@ function buildUI(): void {
     // Update 152: maps in folders (Map Properties → Folder), each folder a group of the list.
     const folders = store.db.mapFolders ?? {};
     const fieldMaps = names.filter((n) => !store.isBattleMap(n) && !folders[n]), battleMaps = names.filter((n) => store.isBattleMap(n) && !folders[n]);
-    const named = [...new Set(names.map((n) => folders[n]).filter((f): f is string => !!f))].sort((a, b) => a.localeCompare(b));
+    // Update 162: in the Maps window's order (empty folders have nothing to list).
+    const named = folderNames(store.db).filter((f) => names.some((n) => folders[n] === f));
     const groups = [...named.map((f) => h('optgroup', { label: `📁 ${f}` }, ...names.filter((n) => folders[n] === f).map(opt))),
       ...(fieldMaps.length ? [h('optgroup', { label: 'Maps' }, ...fieldMaps.map(opt))] : []),
       ...(battleMaps.length ? [h('optgroup', { label: 'Battle maps' }, ...battleMaps.map(opt))] : [])];
@@ -382,10 +385,10 @@ async function switchMap(name: string): Promise<void> {
   store.emit('meta');
 }
 
-function newMapDialog(): void {
+function newMapDialog(inFolder?: string): void {
   let n = store.maps.length + 1;
   while (store.maps.includes(`map${String(n).padStart(3, '0')}`)) n++;
-  const data = { file: `map${String(n).padStart(3, '0')}`, name: 'New Map', width: 24, height: 18, base: '.', kind: 'field' as 'field' | 'battle' };
+  const data = { file: `map${String(n).padStart(3, '0')}`, name: 'New Map', width: 24, height: 18, base: '.', kind: 'field' as 'field' | 'battle', folder: inFolder ?? '' };
   const err = h('p', { class: 'form-error', role: 'alert' });
   const body = h('div', { class: 'form' },
     field('File name', textInput(data.file, (v) => (data.file = v.trim())), 'Letters, numbers, - and _ only. Saved as public/data/maps/<name>.json'),
@@ -396,6 +399,7 @@ function newMapDialog(): void {
       field('Width', numberInput(data.width, (v) => (data.width = Math.round(Math.min(128, Math.max(8, v)))), { min: 8, max: 128 })),
       field('Height', numberInput(data.height, (v) => (data.height = Math.round(Math.min(128, Math.max(8, v)))), { min: 8, max: 128 }))),
     field('Fill with', select(store.tiles.all().map((t) => [t.key, t.name] as [string, string]), data.base, (v) => (data.base = v))),
+    field('Folder', select([['', '— No folder —'], ...folderNames(store.db).map((f) => [f, f] as [string, string])], data.folder, (v) => (data.folder = v)), 'Where it shows in the map list (toolbar → Maps to make folders).'),
     err);
   openModal('New map', body, [
     { label: 'Cancel' },
@@ -419,6 +423,7 @@ function newMapDialog(): void {
         }
         store.mapKinds.set(data.file, data.kind);
         store.open(data.file, map, true);
+        if (data.folder) { moveToFolder(store.db, data.file, data.folder); store.changedDb(); }
         view.fit();
         toast(`Created ${data.file}. Save to write it to your project.`);
       };

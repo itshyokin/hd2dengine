@@ -88,7 +88,7 @@ export async function doPush(store: EditorStore): Promise<void> {
   if (store.dirty || store.dbDirty) await save(store);
   let files: string[] = [];
   const check = busy('Push to GitHub');
-  try { files = (await pendingChanges(l)).map((p) => p.path); } catch (e) { check.done(); toast(why(e), 'error'); return; }
+  try { files = (await pendingChanges(l)).map((p) => (p.deleted ? `${p.path} (deleted)` : p.path)); } catch (e) { check.done(); toast(why(e), 'error'); return; }
   check.done();
   if (!files.length) { toast('Nothing to push: GitHub already has everything from this device'); return; }
   const d = new Date();

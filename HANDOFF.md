@@ -15,6 +15,11 @@ bumping into (or striking) a foe starts a battle. It builds to standalone HTML f
 - `HANDOFF.md`: this file.
 
 ## Pick up here (state as of Oct 25 evening: Updates 115–136 done (Oct 25 list finished; 135: prop collision grid Width × Height; 136: Sign text boxes with a window colour); next: the older Future list, planned with the owner)
+- **Update 162 (Nov 4):** **Maps window** (toolbar → Maps): folders (new, rename, reorder, delete; empty ones kept in
+  `db.mapFolderList`), move maps by drag or Move menu, Edit (file rename updates Transfers / start map / battle maps /
+  quests / chatter / World layout), Duplicate, Delete (to `.trash/maps/`; tablet: deleted on GitHub at next Push).
+  2D movement is **free again** by default; grid steps are opt-in (`db.gridMove2D`, Database → View & camera).
+  Checked in the browser.
 - **Update 161 (Nov 1):** renamed to the **Saturn Game Engine** (README, page titles, editor brand, playtest panel,
   package name; save/settings file formats unchanged). GBA fork started as **Mimas** (`itshyokin/mimas`: exporter +
   Butano runtime).

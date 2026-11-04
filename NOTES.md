@@ -401,6 +401,12 @@ decide things; the tablet editor keeps working.
         pauseTabs only status + journal; PauseShell `extras` corner buttons; touch Menu presses 'party'. Journal tab
         'achievements' (achScreen with the Journal's tabs). WorldMapScreen: LB / RB markers, A places / moves /
         removes the player's pin (GameState `pin`, saved), `dismiss()`. HUD spell box and touch Spell button hidden.
+  - [x] Update 162: editor/MapManager.ts (openMapManager; folderNames / moveToFolder also used by main.ts's map select
+        and Inspector). Project.removeMap (dev + editor-server: POST /__editor/delete → .trash/maps/<name>-<stamp>.json;
+        folder: copy to .trash then removeEntry; browser: .sync/deleted.json tombstones, listMaps hides them, githubSync
+        Pending.deleted → tree entry sha null, pull skips / prunes them). Rename: refs() rewrites `map` / `battleMap` /
+        `startMap` values everywhere + world.maps / mapFolders keys; needs everything saved first. vite dev serves
+        data/*.json from disk (the data folder is unwatched, so new maps 404'd). db.freeMove2D → db.gridMove2D (opt-in).
   - [x] Update 161: renamed to the Saturn Game Engine (titles, editor brand, playtest panel, README, package name).
         The GBA fork is Mimas (github.com/itshyokin/mimas). Internal file kinds like "hd2d-settings" stay as they are
         so existing saves and settings keep loading.
